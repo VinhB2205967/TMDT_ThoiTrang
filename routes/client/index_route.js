@@ -1,6 +1,6 @@
-const productsRoute = require('./products_route');
-const homeRoute = require('./home_route');
+const productsRoutes = require('./products_route');
+const homeRoutes = require('./home_route');
 module.exports =(app)=>{
-    app.use('/', homeRoute);
-    app.use('/products', productsRoute);
+    app.use('/', homeRoutes);
+    app.use('/products', productsRoutes);
 }
