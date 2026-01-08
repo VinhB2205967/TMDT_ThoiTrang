@@ -1,6 +1,32 @@
-doctype html
-html
-  head
-    title danh sach san pham
-  body
-    h1 đay là danh sách sản phẩm
+extends ../../layouts/default.pug
+include ../../mixins/box_head.pug
+block main
+    .products-section
+        .container
+            +box-head('Danh Sách Sản Phẩm Áo')
+            .row.products-grid
+                each item in products
+                    .col-md-3.product-item
+                        .product-card
+                            .product-image
+                                img(src=item.hinhanh alt=item.tensanpham)
+                                if item.phantramgiamgia
+                                    .discount-badge -#{item.phantramgiamgia}%
+                            .product-info
+                                h3.product-name #{item.tensanpham}
+                                if item.mota
+                                    p.product-desc #{item.mota}
+                                .product-price
+                                    if item.phantramgiamgia && item.phantramgiamgia > 0
+                                        span.original-price #{item.giaText} đ
+                                    span.sale-price #{item.giamoiText} đ
+                                .product-rating
+                                    .stars
+                                        i.fas.fa-star
+                                        i.fas.fa-star
+                                        i.fas.fa-star
+                                        i.fas.fa-star
+                                        i.fas.fa-star-half-alt
+                                    span.review-count (đã xem)
+                                button.btn-add-cart Thêm Vào Giỏ
+                                                
