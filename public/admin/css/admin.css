@@ -1,0 +1,87 @@
+body {
+  margin: 0;
+  padding: 0;
+  background: #f5f7fb;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: #0f172a;
+}
+
+.body {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sider {
+  width: 240px;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 24px 16px;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.08);
+}
+
+.sider .inner-menu ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sider .inner-menu a {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: #e2e8f0;
+  text-decoration: none;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.sider .inner-menu a:hover {
+  background: #1e293b;
+  color: #ffffff;
+  transform: translateX(2px);
+}
+
+.main {
+  flex: 1;
+  padding: 32px;
+  background: linear-gradient(145deg, #f9fafb 0%, #eef2ff 100%);
+}
+
+.dashboard-container {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dashboard-container h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.dashboard-container p {
+  margin: 0;
+  color: #475569;
+  font-size: 16px;
+}
+
+@media (max-width: 992px) {
+  .body {
+    flex-direction: column;
+  }
+
+  .sider {
+    width: 100%;
+    border-radius: 0 0 16px 16px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  }
+}

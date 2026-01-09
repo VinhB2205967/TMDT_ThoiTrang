@@ -16,7 +16,7 @@ module.exports.index = async (req, res) => {
                 updated.hinhanh = '/images/shopping.png';
             }
 
-            // Giá và giảm giá
+            // uodate giá và giảm giá
             if (updated.gia) {
                 if (updated.phantramgiamgia && updated.phantramgiamgia > 0) {
                     updated.giamoi = Math.round(updated.gia - (updated.gia * updated.phantramgiamgia / 100));

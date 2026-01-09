@@ -1,0 +1,40 @@
+extends ../../layouts/default.pug
+block main
+    .dashboard-container
+        h1 Trang quản lý sản phẩm
+        .table-responsive.mt-3
+            if products && products.length
+                table.table.table-hover.align-middle
+                    thead
+                        tr
+                            th(scope="col") STT
+                            th(scope="col") Hình ảnh
+                            th(scope="col") Tiêu đề
+                            th(scope="col") Giá
+                            th(scope="col") Trạng thái
+                            th(scope="col" class="text-end") Hành động
+                    tbody
+                        each product, idx in products
+                            - const price = product.giamoiText || product.giaText || (product.gia ? product.gia.toLocaleString('vi-VN') + '₫' : '—');
+                            - const isActive = (product.trangthai || '').toLowerCase().includes('dangban') || (product.trangthai || '').toLowerCase().includes('active');
+                            - const imgSrc = product.displayImage || product.hinhanh || '';
+                            tr
+                                td #{idx + 1}
+                                td
+                                    if imgSrc
+                                        img(src=imgSrc, alt=product.tensanpham || 'Hình sản phẩm', style="width: 80px; height: 60px; object-fit: cover; border-radius: 6px;")
+                                    else
+                                        span.text-muted Không có ảnh
+                                td #{product.tensanpham || '—'}
+                                td #{price}
+                                td
+                                    if isActive
+                                        span.badge.bg-success Hoạt động
+                                    else
+                                        span.badge.bg-danger Ngừng hoạt động
+                                td.text-end
+                                    a.btn.btn-sm.btn-warning.me-2(href=`${admin}/products/${product._id}/edit`) Sửa
+                                    a.btn.btn-sm.btn-danger(href=`${admin}/products/${product._id}/delete`) Xóa
+            else
+                p.text-muted.mb-0 Chưa có sản phẩm nào.
+
