@@ -1,40 +1,194 @@
 extends ../../layouts/default.pug
 block main
+    - const currentFilter = filterStatus;
+    
+    .page-header-section
+        .d-flex.justify-content-between.align-items-center.flex-wrap.gap-2
+            h1.page-title.mb-0
+                i.bi.bi-box-seam.me-2
+                | Quản lý sản phẩm
+            .admin-user-menu
+                .dropdown
+                    button.btn.btn-light.dropdown-toggle#adminDropdown(type="button" data-bs-toggle="dropdown" aria-expanded="false")
+                        i.bi.bi-person-circle.me-2
+                        span Admin
+                    ul.dropdown-menu.dropdown-menu-end(aria-labelledby="adminDropdown")
+                        li
+                            a.dropdown-item(href="#")
+                                i.bi.bi-person.me-2
+                                | Thông tin tài khoản
+                        li
+                            a.dropdown-item(href="#")
+                                i.bi.bi-gear.me-2
+                                | Cài đặt
+                        li
+                            a.dropdown-item(href="#")
+                                i.bi.bi-bell.me-2
+                                | Thông báo
+                        li: hr.dropdown-divider
+                        li
+                            a.dropdown-item.text-danger(href="#")
+                                i.bi.bi-box-arrow-right.me-2
+                                | Đăng xuất
+    
+    .filter-search-sticky
+        .filter-search-card
+            .card-body.p-3
+                .row.align-items-end.g-3
+                    .col-lg-4
+                        label.filter-label.mb-2
+                            i.bi.bi-funnel.me-1
+                            | Trạng thái
+                        .btn-group.w-100(role="group")
+                            button.btn.btn-sm(button-status="" class=currentFilter === 'all' ? 'btn-primary' : 'btn-outline-primary')
+                                | Tất cả
+                            button.btn.btn-sm(button-status="dangban" class=currentFilter === 'dangban' ? 'btn-success' : 'btn-outline-success')
+                                | Đang bán
+                            button.btn.btn-sm(button-status="ngungban" class=currentFilter === 'ngungban' ? 'btn-danger' : 'btn-outline-danger')
+                                | Ngừng bán
+                    .col-lg-8
+                        label.filter-label.mb-2
+                            i.bi.bi-search.me-1
+                            | Tìm kiếm
+                        form(method="GET")
+                            .input-group
+                                input.form-control.form-control-sm(type="text" name="keyword" placeholder="Tìm kiếm sản phẩm..." value=keyword)
+                                if keyword
+                                    a.btn.btn-outline-secondary.btn-sm(href=`${admin}/products`)
+                                        i.bi.bi-x-lg
+                                button.btn.btn-primary.btn-sm(type="submit")
+                                    i.bi.bi-search
+                                a.btn.btn-success.btn-sm(href=`${admin}/products/create`)
+                                    i.bi.bi-plus-lg
+                            if filterStatus && filterStatus !== 'all'
+                                input(type="hidden" name="trangthai" value=filterStatus)
+    
     .dashboard-container
-        h1 Trang quản lý sản phẩm
-        .table-responsive.mt-3
-            if products && products.length
-                table.table.table-hover.align-middle
-                    thead
+        if products && products.length
+            //- Desktop: Table view
+            .table-responsive.d-none.d-lg-block
+                table.table.table-hover.align-middle.product-table
+                    thead.table-light
                         tr
-                            th(scope="col") STT
-                            th(scope="col") Hình ảnh
+                            th(scope="col" style="width: 60px") STT
+                            th(scope="col" style="width: 100px") Hình ảnh
                             th(scope="col") Tiêu đề
-                            th(scope="col") Giá
-                            th(scope="col") Trạng thái
-                            th(scope="col" class="text-end") Hành động
+                            th(scope="col" style="width: 140px") Giá
+                            th(scope="col" style="width: 110px") Tồn kho
+                            th(scope="col" style="width: 120px") Ngày tạo
+                            th(scope="col" style="width: 120px") Trạng thái
+                            th(scope="col" style="width: 150px" class="text-end") Hành động
                     tbody
                         each product, idx in products
                             - const price = product.giamoiText || product.giaText || (product.gia ? product.gia.toLocaleString('vi-VN') + '₫' : '—');
-                            - const isActive = (product.trangthai || '').toLowerCase().includes('dangban') || (product.trangthai || '').toLowerCase().includes('active');
-                            - const imgSrc = product.displayImage || product.hinhanh || '';
+                            - const status = (product.trangthai || '').toLowerCase();
+                            - const isActive = status === 'dangban' || status === 'active' || status === 'đang bán';
+                            - const imgSrc = product.displayImage || product.hinhanh || '/images/shopping.png';
+                            - const ngayTao = product.ngaytao ? new Date(product.ngaytao).toLocaleDateString('vi-VN') : '—';
+                            - const tonKho = (product.tonkho !== undefined && product.tonkho !== null) ? product.tonkho : (product.soluongton || 0);
                             tr
-                                td #{idx + 1}
+                                td.text-muted #{idx + 1}
                                 td
-                                    if imgSrc
-                                        img(src=imgSrc, alt=product.tensanpham || 'Hình sản phẩm', style="width: 80px; height: 60px; object-fit: cover; border-radius: 6px;")
+                                    img.product-img(src=imgSrc, alt=product.tensanpham || 'Hình sản phẩm')
+                                td
+                                    .fw-semibold #{product.tensanpham || '—'}
+                                    if product.bienthe && product.bienthe.length
+                                        small.text-muted #{product.bienthe.length} biến thể
+                                td.fw-semibold.text-primary #{price}
+                                td
+                                    if tonKho > 0
+                                        span.fw-semibold #{tonKho}
                                     else
-                                        span.text-muted Không có ảnh
-                                td #{product.tensanpham || '—'}
-                                td #{price}
+                                        span.badge.bg-secondary.rounded-pill Hết
+                                td
+                                    small.text-muted
+                                        i.bi.bi-calendar.me-1
+                                        | #{ngayTao}
                                 td
                                     if isActive
-                                        span.badge.bg-success Hoạt động
+                                        span.badge.bg-success.rounded-pill Đang bán
                                     else
-                                        span.badge.bg-danger Ngừng hoạt động
+                                        span.badge.bg-danger.rounded-pill Ngừng bán
                                 td.text-end
-                                    a.btn.btn-sm.btn-warning.me-2(href=`${admin}/products/${product._id}/edit`) Sửa
-                                    a.btn.btn-sm.btn-danger(href=`${admin}/products/${product._id}/delete`) Xóa
-            else
-                p.text-muted.mb-0 Chưa có sản phẩm nào.
+                                    .btn-group.btn-group-sm
+                                        a.btn.btn-outline-warning(href=`${admin}/products/${product._id}/edit`, title="Sửa")
+                                            i.bi.bi-pencil
+                                        a.btn.btn-outline-danger(href=`${admin}/products/${product._id}/delete`, title="Xóa")
+                                            i.bi.bi-trash
+            
+            
+            .row.g-3.d-lg-none
+                each product, idx in products
+                    - const price = product.giamoiText || product.giaText || (product.gia ? product.gia.toLocaleString('vi-VN') + '₫' : '—');
+                    - const status = (product.trangthai || '').toLowerCase();
+                    - const isActive = status === 'dangban' || status === 'active' || status === 'đang bán';
+                    - const imgSrc = product.displayImage || product.hinhanh || '/images/shopping.png';
+                    .col-12.col-sm-6.col-md-4
+                        .card.product-card.h-100
+                            img.card-img-top.product-card-img(src=imgSrc, alt=product.tensanpham || 'Hình sản phẩm')
+                            .card-body
+                                h6.card-title.mb-1 #{product.tensanpham || '—'}
+                                if product.bienthe && product.bienthe.length
+                                    small.text-muted.d-block.mb-2 #{product.bienthe.length} biến thể
+                                .d-flex.justify-content-between.align-items-center.mb-2
+                                    span.fw-bold.text-primary #{price}
+                                    if isActive
+                                        span.badge.bg-success.rounded-pill Đang bán
+                                    else
+                                        span.badge.bg-danger.rounded-pill Ngừng
+                                - const tonKhoMobile = (product.tonkho !== undefined && product.tonkho !== null) ? product.tonkho : (product.soluongton || 0);
+                                small.text-muted.d-block Tồn kho: #{tonKhoMobile}
+                            .card-footer.bg-transparent.border-0.pt-0
+                                .d-flex.gap-2
+                                    a.btn.btn-sm.btn-warning.flex-fill(href=`${admin}/products/${product._id}/edit`)
+                                        i.bi.bi-pencil.me-1
+                                        | Sửa
+                                    a.btn.btn-sm.btn-danger.flex-fill(href=`${admin}/products/${product._id}/delete`)
+                                        i.bi.bi-trash.me-1
+                                        | Xóa
+            
+            //- phân trang
+            if pagination && pagination.totalPages > 1
+                nav.mt-4(aria-label="Phân trang sản phẩm")
+                    ul.pagination.justify-content-center
+                        //- Previous button
+                        li.page-item(class=pagination.currentPage === 1 ? 'disabled' : '')
+                            a.page-link(href=`${admin}/products?page=${pagination.currentPage - 1}${filterStatus && filterStatus !== 'all' ? '&trangthai=' + filterStatus : ''}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}` aria-label="Trang trước")
+                                span(aria-hidden="true") «
+                        
+                        //- Số trang
+                        - const startPage = Math.max(1, pagination.currentPage - 2);
+                        - const endPage = Math.min(pagination.totalPages, pagination.currentPage + 2);
+                        
+                        if startPage > 1
+                            li.page-item
+                                a.page-link(href=`${admin}/products?page=1${filterStatus && filterStatus !== 'all' ? '&trangthai=' + filterStatus : ''}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}`) 1
+                            if startPage > 2
+                                li.page-item.disabled
+                                    span.page-link ...
+                        
+                        - for (let i = startPage; i <= endPage; i++)
+                            li.page-item(class=i === pagination.currentPage ? 'active' : '')
+                                a.page-link(href=`${admin}/products?page=${i}${filterStatus && filterStatus !== 'all' ? '&trangthai=' + filterStatus : ''}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}`) #{i}
+                        
+                        if endPage < pagination.totalPages
+                            if endPage < pagination.totalPages - 1
+                                li.page-item.disabled
+                                    span.page-link ...
+                            li.page-item
+                                a.page-link(href=`${admin}/products?page=${pagination.totalPages}${filterStatus && filterStatus !== 'all' ? '&trangthai=' + filterStatus : ''}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}`) #{pagination.totalPages}
+                        
+                        //- Next button
+                        li.page-item(class=pagination.currentPage === pagination.totalPages ? 'disabled' : '')
+                            a.page-link(href=`${admin}/products?page=${pagination.currentPage + 1}${filterStatus && filterStatus !== 'all' ? '&trangthai=' + filterStatus : ''}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}` aria-label="Trang sau")
+                                span(aria-hidden="true") »
+                    
+                    .text-center.text-muted.mt-2
+                        small Hiển thị #{products.length} trên #{pagination.totalProducts} sản phẩm
+        
+        if !products || !products.length
+            .text-center.py-5
+                i.bi.bi-box-seam.display-1.text-muted
+                p.text-muted.mt-3 Chưa có sản phẩm nào.
+                a.btn.btn-primary(href=`${admin}/products/create`) Thêm sản phẩm đầu tiên
 

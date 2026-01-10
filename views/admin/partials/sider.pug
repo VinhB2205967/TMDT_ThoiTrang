@@ -1,13 +1,27 @@
 .sider
+    .sider-header
+        a.sider-brand(href=`${admin}/dashboard`)
+            i.bi.bi-shop-window
+            span Fashion Admin
     .inner-menu
         ul
             li
-                a(href=`${admin}/dashboard`) tổng quan
+                a(href=`${admin}/dashboard`)
+                    i.bi.bi-speedometer2
+                    span Tổng quan
             li
-                a(href=`${admin}/users`) Người dùng
+                a(href=`${admin}/users`)
+                    i.bi.bi-people
+                    span Người dùng
             li
-                a(href=`${admin}/products`) Sản phẩm
+                a(href=`${admin}/products`)
+                    i.bi.bi-box-seam
+                    span Sản phẩm
             li
-                a(href=`${admin}/ordersettings`) Cài đặt đơn hàng
+                a(href=`${admin}/ordersettings`)
+                    i.bi.bi-gear
+                    span Cài đặt đơn hàng
             li
-                a(href=`${admin}/reports`) Báo cáo
+                a(href=`${admin}/reports`)
+                    i.bi.bi-bar-chart-line
+                    span Báo cáo

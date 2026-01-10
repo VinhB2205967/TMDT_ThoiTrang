@@ -4,29 +4,59 @@ block main
     .products-section
         .container
             +box-head('Danh Sách Sản Phẩm Áo')
-            .row.products-grid
-                each item in products
-                    .col-md-3.product-item
-                        .product-card
-                            .product-image
-                                img(src=item.hinhanh alt=item.tensanpham)
-                                if item.phantramgiamgia
-                                    .discount-badge -#{item.phantramgiamgia}%
-                            .product-info
-                                h3.product-name #{item.tensanpham}
-                                if item.mota
-                                    p.product-desc #{item.mota}
-                                .product-price
+            
+            //- Filter & Sort bar (responsive)
+            .filter-bar.d-flex.flex-wrap.justify-content-between.align-items-center.mb-4.gap-3
+                .filter-info
+                    span.text-muted Hiển thị 
+                    strong #{products ? products.length : 0}
+                    span.text-muted  sản phẩm
+                .d-flex.gap-2
+                    select.form-select.form-select-sm(style="width: auto;")
+                        option(selected) Sắp xếp: Mặc định
+                        option Giá: Thấp đến cao
+                        option Giá: Cao đến thấp
+                        option Mới nhất
+            
+            if products && products.length
+                .row.g-3.g-md-4
+                    each item in products
+                        .col-6.col-sm-6.col-md-4.col-lg-3
+                            .product-card.h-100
+                                .product-image
+                                    img(src=item.hinhanh alt=item.tensanpham loading="lazy")
                                     if item.phantramgiamgia && item.phantramgiamgia > 0
-                                        span.original-price #{item.giaText} đ
-                                    span.sale-price #{item.giamoiText} đ
-                                .product-rating
-                                    .stars
-                                        i.fas.fa-star
-                                        i.fas.fa-star
-                                        i.fas.fa-star
-                                        i.fas.fa-star
-                                        i.fas.fa-star-half-alt
-                                    span.review-count (đã xem)
-                                button.btn-add-cart Thêm Vào Giỏ
+                                        .discount-badge
+                                            | -#{item.phantramgiamgia}%
+                                .product-info
+                                    h3.product-name #{item.tensanpham}
+                                    if item.bienthe && item.bienthe.length
+                                        .product-variants
+                                            each variant, idx in item.bienthe
+                                                if idx < 5
+                                                    if variant.hinhanh && variant.hinhanh !== '/images/shopping.png'
+                                                        img.variant-img(src=variant.hinhanh alt=variant.mausac title=variant.mausac)
+                                                    else
+                                                        span.variant-dot(style=`background-color: ${variant.colorCode || '#ccc'}` title=variant.mausac)
+                                            if item.bienthe.length > 5
+                                                span.variant-more +#{item.bienthe.length - 5}
+                                    .product-price
+                                        if item.phantramgiamgia && item.phantramgiamgia > 0
+                                            span.original-price #{item.giaText}đ
+                                        span.sale-price #{item.giamoiText}đ
+                                    .product-rating
+                                        .stars
+                                            i.fas.fa-star
+                                            i.fas.fa-star
+                                            i.fas.fa-star
+                                            i.fas.fa-star
+                                            i.fas.fa-star-half-alt
+                                        span.review-count (đã xem)
+                                    button.btn-add-cart
+                                        i.bi.bi-cart-plus.me-2
+                                        | Thêm Giỏ
+            else
+                .text-center.py-5
+                    i.bi.bi-bag-x.display-1.text-muted
+                    p.text-muted.mt-3 Không tìm thấy sản phẩm nào.
                                                 
