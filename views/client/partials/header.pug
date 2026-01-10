@@ -1,14 +1,38 @@
 header.header 
     .container
-        .row.align-items-center
-            .col-md-4
-                .inner-logo 
-                    a(href="/")
-                        img(src="/images/logo.png" alt="Logo" class="logo-img")
-            .col-md-8
-                nav.menu
+        .header-inner
+            //- Logo
+            .header-logo
+                a(href="/")
+                    i.bi.bi-bag-heart-fill.logo-icon
+                    span.logo-text Fashion Store
+
+            //- Search bar
+            .header-search
+                form.search-form(method="GET" action="/products")
+                    .input-group
+                        input.form-control(type="text" name="keyword" placeholder="Tìm kiếm sản phẩm..." value=keyword || '')
+                        button.btn.btn-search(type="submit")
+                            i.bi.bi-search
+
+            //- Navigation & Actions
+            .header-actions
+                nav.header-nav
                     ul.nav-list
-                        li: a(href="/") Home
-                        li: a(href="/products") Products
-                        li: a(href="/about") About
-                        li: a(href="/contact") Contact
+                        li: a(href="/") 
+                            i.bi.bi-house-door
+                            span Trang chủ
+                        li: a(href="/products")
+                            i.bi.bi-grid
+                            span Sản phẩm
+                        li: a(href="/cart")
+                            i.bi.bi-cart3
+                            span Giỏ hàng
+                            span.cart-badge 0
+                .auth-buttons
+                    a.btn.btn-login(href="/login")
+                        i.bi.bi-box-arrow-in-right.me-1
+                        span Đăng nhập
+                    a.btn.btn-register(href="/register")
+                        i.bi.bi-person-plus.me-1
+                        span Đăng ký

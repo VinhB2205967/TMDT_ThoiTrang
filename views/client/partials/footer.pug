@@ -1,5 +1,63 @@
-footer.footer 
-    .container
-        .row
-            .col-md-12.text-center
-                p &copy; 2024 My E-commerce Site. All rights reserved.
+footer.footer
+    .footer-main
+        .container
+            .row.g-4
+                //- About column
+                .col-lg-4.col-md-6
+                    .footer-widget
+                        .footer-logo
+                            i.bi.bi-bag-heart-fill
+                            span Fashion Store
+                        p.footer-desc Chuyên cung cấp các sản phẩm thời trang chất lượng cao với giá cả hợp lý. Cam kết mang đến trải nghiệm mua sắm tốt nhất cho khách hàng.
+                        .footer-social
+                            a(href="#" title="Facebook"): i.bi.bi-facebook
+                            a(href="#" title="Instagram"): i.bi.bi-instagram
+                            a(href="#" title="TikTok"): i.bi.bi-tiktok
+                            a(href="#" title="Youtube"): i.bi.bi-youtube
+
+                //- Quick links
+                .col-lg-2.col-md-6
+                    .footer-widget
+                        h5.widget-title Liên kết
+                        ul.footer-links
+                            li: a(href="/") Trang chủ
+                            li: a(href="/products") Sản phẩm
+                            li: a(href="/about") Giới thiệu
+                            li: a(href="/contact") Liên hệ
+
+                //- Customer service
+                .col-lg-3.col-md-6
+                    .footer-widget
+                        h5.widget-title Hỗ trợ
+                        ul.footer-links
+                            li: a(href="#") Hướng dẫn mua hàng
+                            li: a(href="#") Chính sách đổi trả
+                            li: a(href="#") Chính sách bảo mật
+                            li: a(href="#") Câu hỏi thường gặp
+
+                //- Contact info
+                .col-lg-3.col-md-6
+                    .footer-widget
+                        h5.widget-title Liên hệ
+                        ul.footer-contact
+                            li
+                                i.bi.bi-geo-alt
+                                span 123 Đường ABC, Quận 1, TP.HCM
+                            li
+                                i.bi.bi-telephone
+                                span 0123 456 789
+                            li
+                                i.bi.bi-envelope
+                                span contact@fashionstore.vn
+                            li
+                                i.bi.bi-clock
+                                span 8:00 - 22:00 (T2 - CN)
+
+    .footer-bottom
+        .container
+            .footer-bottom-inner
+                p © 2024 Fashion Store. All rights reserved.
+                .payment-methods
+                    i.bi.bi-credit-card(title="Visa/Master")
+                    i.bi.bi-wallet2(title="Momo")
+                    i.bi.bi-cash(title="COD")

@@ -60,7 +60,15 @@ function normalizeImage(img) {
 
 module.exports.index = async (req, res) => {
     try {
-        const products = await Products.find({ daxoa: false }).lean();
+        const keyword = req.query.keyword || '';
+        const query = {
+            daxoa: { $ne: true },
+            trangthai: 'dangban'  // Chỉ hiển thị sản phẩm đang bán
+        };
+        if (keyword.trim()) {
+            query.tensanpham = { $regex: keyword, $options: 'i' };
+        }
+        const products = await Products.find(query).lean();
 
         // Xử lý giảm giá, format giá, chuẩn hóa ảnh
         const newProduct = products.map((item) => {
@@ -106,7 +114,8 @@ module.exports.index = async (req, res) => {
 
         res.render("client/pages/products/index.pug", {
             titlePage: "Products Page",
-            products: newProduct
+            products: newProduct,
+            keyword: keyword
         });
     } catch (error) {
         console.error("Lỗi lấy sản phẩm:", error);
