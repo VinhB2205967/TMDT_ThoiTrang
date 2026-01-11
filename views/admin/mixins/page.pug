@@ -1,0 +1,54 @@
+mixin page()
+    if pagination && pagination.totalPages > 1
+        - const activeStatus = filterStatus.find(item => item.class === 'active')
+        - const statusParam = activeStatus && activeStatus.status ? '&trangthai=' + activeStatus.status : ''
+
+        nav.mt-4(aria-label="Phân trang sản phẩm")
+            ul.pagination.justify-content-center
+                li.page-item(class=pagination.currentPage === 1 ? 'disabled' : '')
+                    a.page-link(
+                        href=`${admin}/products?page=${pagination.currentPage - 1}${statusParam}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}`
+                        aria-label="Trang trước"
+                    )
+                        span(aria-hidden="true") «
+
+                //- Tính khoảng hiển thị
+                - const startPage = Math.max(1, pagination.currentPage - 2)
+                - const endPage = Math.min(pagination.totalPages, pagination.currentPage + 2)
+
+                //- Nếu không bắt đầu từ trang 1
+                if startPage > 1
+                    li.page-item
+                        a.page-link(href=`${admin}/products?page=1${statusParam}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}`) 1
+                    if startPage > 2
+                        li.page-item.disabled
+                            span.page-link ...
+
+                //- Các trang chính
+                - for (let i = startPage; i <= endPage; i++)
+                    li.page-item(class=i === pagination.currentPage ? 'active' : '')
+                        a.page-link(href=`${admin}/products?page=${i}${statusParam}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}`) #{i}
+
+                //- Nếu chưa tới trang cuối
+                if endPage < pagination.totalPages
+                    if endPage < pagination.totalPages - 1
+                        li.page-item.disabled
+                            span.page-link ...
+                    li.page-item
+                        a.page-link(href=`${admin}/products?page=${pagination.totalPages}${statusParam}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}`) #{pagination.totalPages}
+
+                //- Next
+                li.page-item(class=pagination.currentPage === pagination.totalPages ? 'disabled' : '')
+                    a.page-link(
+                        href=`${admin}/products?page=${pagination.currentPage + 1}${statusParam}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}`
+                        aria-label="Trang sau"
+                    )
+                        span(aria-hidden="true") »
+
+        .text-center.text-muted.mt-2
+            small Hiển thị #{products.length} trên #{pagination.totalProducts} sản phẩm
+
+    if !products || !products.length
+        .text-center.py-5
+            i.bi.bi-box-seam.display-1.text-muted
+            p.text-muted.mt-3 Chưa có sản phẩm nào

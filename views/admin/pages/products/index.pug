@@ -1,4 +1,7 @@
 extends ../../layouts/default.pug
+include ../../mixins/filter_status.pug
+include ../../mixins/search.pug
+include ../../mixins/page.pug
 block main
     - const currentFilter = filterStatus;
     
@@ -40,28 +43,9 @@ block main
                             i.bi.bi-funnel.me-1
                             | Trạng thái
                         .btn-group.w-100(role="group")
-                            button.btn.btn-sm(button-status="" class=currentFilter === 'all' ? 'btn-primary' : 'btn-outline-primary')
-                                | Tất cả
-                            button.btn.btn-sm(button-status="dangban" class=currentFilter === 'dangban' ? 'btn-success' : 'btn-outline-success')
-                                | Đang bán
-                            button.btn.btn-sm(button-status="ngungban" class=currentFilter === 'ngungban' ? 'btn-danger' : 'btn-outline-danger')
-                                | Ngừng bán
+                            +filter_status(filterStatus)
                     .col-lg-4
-                        label.filter-label.mb-2
-                            i.bi.bi-search.me-1
-                            | Tìm kiếm
-                        form(method="GET")
-                            .input-group
-                                input.form-control.form-control-sm(type="text" name="keyword" placeholder="Tìm kiếm sản phẩm..." value=keyword)
-                                if keyword
-                                    a.btn.btn-outline-secondary.btn-sm(href=`${admin}/products`)
-                                        i.bi.bi-x-lg
-                                button.btn.btn-primary.btn-sm(type="submit")
-                                    i.bi.bi-search
-                                a.btn.btn-success.btn-sm(href=`${admin}/products/create`)
-                                    i.bi.bi-plus-lg
-                            if filterStatus && filterStatus !== 'all'
-                                input(type="hidden" name="trangthai" value=filterStatus)
+                        +search(keyword)
     
     .dashboard-container
         if products && products.length
@@ -148,47 +132,6 @@ block main
                                         | Xóa
             
             //- phân trang
-            if pagination && pagination.totalPages > 1
-                nav.mt-4(aria-label="Phân trang sản phẩm")
-                    ul.pagination.justify-content-center
-                        //- Previous button
-                        li.page-item(class=pagination.currentPage === 1 ? 'disabled' : '')
-                            a.page-link(href=`${admin}/products?page=${pagination.currentPage - 1}${filterStatus && filterStatus !== 'all' ? '&trangthai=' + filterStatus : ''}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}` aria-label="Trang trước")
-                                span(aria-hidden="true") «
-                        
-                        //- Số trang
-                        - const startPage = Math.max(1, pagination.currentPage - 2);
-                        - const endPage = Math.min(pagination.totalPages, pagination.currentPage + 2);
-                        
-                        if startPage > 1
-                            li.page-item
-                                a.page-link(href=`${admin}/products?page=1${filterStatus && filterStatus !== 'all' ? '&trangthai=' + filterStatus : ''}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}`) 1
-                            if startPage > 2
-                                li.page-item.disabled
-                                    span.page-link ...
-                        
-                        - for (let i = startPage; i <= endPage; i++)
-                            li.page-item(class=i === pagination.currentPage ? 'active' : '')
-                                a.page-link(href=`${admin}/products?page=${i}${filterStatus && filterStatus !== 'all' ? '&trangthai=' + filterStatus : ''}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}`) #{i}
-                        
-                        if endPage < pagination.totalPages
-                            if endPage < pagination.totalPages - 1
-                                li.page-item.disabled
-                                    span.page-link ...
-                            li.page-item
-                                a.page-link(href=`${admin}/products?page=${pagination.totalPages}${filterStatus && filterStatus !== 'all' ? '&trangthai=' + filterStatus : ''}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}`) #{pagination.totalPages}
-                        
-                        //- Next button
-                        li.page-item(class=pagination.currentPage === pagination.totalPages ? 'disabled' : '')
-                            a.page-link(href=`${admin}/products?page=${pagination.currentPage + 1}${filterStatus && filterStatus !== 'all' ? '&trangthai=' + filterStatus : ''}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}` aria-label="Trang sau")
-                                span(aria-hidden="true") »
-                    
-                    .text-center.text-muted.mt-2
-                        small Hiển thị #{products.length} trên #{pagination.totalProducts} sản phẩm
-        
-        if !products || !products.length
-            .text-center.py-5
-                i.bi.bi-box-seam.display-1.text-muted
-                p.text-muted.mt-3 Chưa có sản phẩm nào.
+            +page()
                 a.btn.btn-primary(href=`${admin}/products/create`) Thêm sản phẩm đầu tiên
 

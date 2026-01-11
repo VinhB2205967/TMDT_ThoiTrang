@@ -544,33 +544,86 @@
     transform: scale(1.1);
 }
 
+/* Product Overlay (hover actions) */
+.product-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.product-card:hover .product-overlay {
+    opacity: 1;
+}
+
+.btn-quick-view,
+.btn-add-wishlist {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #fff;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    color: #333;
+}
+
+.btn-quick-view:hover {
+    background: #667eea;
+    color: #fff;
+    transform: scale(1.1);
+}
+
+.btn-add-wishlist:hover {
+    background: #e74c3c;
+    color: #fff;
+    transform: scale(1.1);
+}
+
+.btn-quick-view i,
+.btn-add-wishlist i {
+    font-size: 18px;
+}
+
 /* Discount Badge */
 .discount-badge {
     position: absolute;
     top: 15px;
-    right: 15px;
+    left: 15px;
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
     color: white;
-    padding: 8px 12px;
+    padding: 6px 12px;
     border-radius: 20px;
     font-weight: bold;
-    font-size: 14px;
+    font-size: 13px;
     box-shadow: 0 4px 10px rgba(245, 87, 108, 0.3);
     z-index: 10;
 }
 
 /* Product Info */
 .product-info {
-    padding: 20px;
+    padding: 16px;
     flex: 1;
     display: flex;
     flex-direction: column;
 }
 
 .product-name {
-    font-size: 16px;
+    font-size: 15px;
     color: #2c3e50;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     font-weight: 600;
     line-height: 1.4;
     min-height: auto;
@@ -578,24 +631,29 @@
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
+    transition: color 0.3s ease;
+}
+
+.product-card:hover .product-name {
+    color: #667eea;
 }
 
 /* Product Price */
 .product-price {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 15px;
+    gap: 10px;
+    margin-bottom: 12px;
 }
 
 .original-price {
-    font-size: 14px;
+    font-size: 13px;
     color: #95a5a6;
     text-decoration: line-through;
 }
 
 .sale-price {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: bold;
     color: #e74c3c;
 }
@@ -605,7 +663,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 15px;
+    margin-bottom: 12px;
     font-size: 12px;
     color: #7f8c8d;
 }
@@ -617,37 +675,71 @@
 
 .stars i {
     color: #f39c12;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .review-count {
     color: #95a5a6;
 }
 
-/* Add to Cart Button */
-.btn-add-cart {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+/* Product Actions */
+.product-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: auto;
+}
+
+/* Buy Now Button */
+.btn-buy-now {
+    flex: 1;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
     color: white;
     border: none;
-    padding: 12px 20px;
+    padding: 10px 16px;
     border-radius: 8px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
-    font-size: 14px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    width: 100%;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-buy-now:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
+}
+
+/* Add to Cart Button */
+.btn-add-cart {
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.btn-add-cart i {
+    font-size: 18px;
 }
 
 .btn-add-cart:hover {
-    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-    transform: scale(1.05);
-    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
 }
 
-.btn-add-cart:active {
-    transform: scale(0.98);
+.btn-add-cart:active,
+.btn-buy-now:active {
+    transform: scale(0.95);
 }
 
 /* ==================== RESPONSIVE PRODUCTS ==================== */
@@ -676,12 +768,17 @@
     }
 
     .sale-price {
-        font-size: 17px;
+        font-size: 16px;
     }
 
+    .btn-buy-now {
+        padding: 9px 12px;
+        font-size: 12px;
+    }
+    
     .btn-add-cart {
-        padding: 10px 14px;
-        font-size: 13px;
+        width: 40px;
+        height: 40px;
     }
 }
 
@@ -708,6 +805,19 @@
         height: 160px;
     }
 
+    .product-overlay {
+        opacity: 1;
+        background: linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 50%);
+        align-items: flex-end;
+        padding-bottom: 10px;
+    }
+    
+    .btn-quick-view,
+    .btn-add-wishlist {
+        width: 36px;
+        height: 36px;
+    }
+
     .product-info {
         padding: 12px;
     }
@@ -726,11 +836,11 @@
     }
 
     .original-price {
-        font-size: 12px;
+        font-size: 11px;
     }
 
     .sale-price {
-        font-size: 16px;
+        font-size: 15px;
     }
 
     .product-rating {
@@ -739,19 +849,29 @@
     }
 
     .stars i {
-        font-size: 12px;
+        font-size: 11px;
     }
 
-    .btn-add-cart {
-        padding: 10px 12px;
+    .product-actions {
+        flex-direction: column;
+        gap: 6px;
+    }
+    
+    .btn-buy-now {
+        padding: 10px;
         font-size: 12px;
+    }
+    
+    .btn-add-cart {
+        width: 100%;
+        height: 38px;
     }
 
     .discount-badge {
-        padding: 5px 8px;
+        padding: 4px 8px;
         font-size: 11px;
-        top: 10px;
-        right: 10px;
+        top: 8px;
+        left: 8px;
     }
 }
 
@@ -777,9 +897,13 @@
         font-size: 14px;
     }
 
-    .btn-add-cart {
-        padding: 8px 10px;
+    .btn-buy-now {
+        padding: 8px;
         font-size: 11px;
+    }
+    
+    .btn-add-cart {
+        height: 34px;
     }
 }
 

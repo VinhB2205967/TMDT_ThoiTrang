@@ -1,0 +1,10 @@
+mixin filter_status(filterStatus)
+    each item in filterStatus
+        - let btnClass = 'btn-outline-secondary';
+        - if (item.status === '') btnClass = item.class === 'active' ? 'btn-primary' : 'btn-outline-primary';
+        - if (item.status === 'dangban') btnClass = item.class === 'active' ? 'btn-success' : 'btn-outline-success';
+        - if (item.status === 'ngungban') btnClass = item.class === 'active' ? 'btn-danger' : 'btn-outline-danger';
+        button.btn.btn-sm(
+            button-status=item.status 
+            class=btnClass
+        ) #{item.name}

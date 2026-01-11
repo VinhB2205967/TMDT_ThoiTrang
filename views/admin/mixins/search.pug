@@ -1,0 +1,14 @@
+mixin search(keyword)
+    label.filter-label.mb-2
+        i.bi.bi-search.me-1
+        | Tìm kiếm
+    form#form-search
+        .input-group
+            input.form-control.form-control-sm(type="text" name="keyword" placeholder="Tìm kiếm sản phẩm..." value=keyword)
+            if keyword
+                a.btn.btn-outline-secondary.btn-sm(href=`${admin}/products`)
+                    i.bi.bi-x-lg
+            button.btn.btn-primary.btn-sm(type="submit")
+                i.bi.bi-search
+            a.btn.btn-success.btn-sm(href=`${admin}/products/create`)
+                i.bi.bi-plus-lg

@@ -28,6 +28,11 @@ block main
                                     if item.phantramgiamgia && item.phantramgiamgia > 0
                                         .discount-badge
                                             | -#{item.phantramgiamgia}%
+                                    .product-overlay
+                                        a.btn-quick-view(href=`/products/${item._id}` title="Xem chi tiết")
+                                            i.bi.bi-eye
+                                        button.btn-add-wishlist(title="Yêu thích")
+                                            i.bi.bi-heart
                                 .product-info
                                     h3.product-name #{item.tensanpham}
                                     if item.bienthe && item.bienthe.length
@@ -51,10 +56,13 @@ block main
                                             i.fas.fa-star
                                             i.fas.fa-star
                                             i.fas.fa-star-half-alt
-                                        span.review-count (đã xem)
-                                    button.btn-add-cart
-                                        i.bi.bi-cart-plus.me-2
-                                        | Thêm Giỏ
+                                        span.review-count (đã bán)
+                                    .product-actions
+                                        button.btn-buy-now
+                                            i.bi.bi-lightning-fill.me-1
+                                            | Mua ngay
+                                        button.btn-add-cart(title="Thêm vào giỏ")
+                                            i.bi.bi-cart-plus
             else
                 .text-center.py-5
                     i.bi.bi-bag-x.display-1.text-muted
