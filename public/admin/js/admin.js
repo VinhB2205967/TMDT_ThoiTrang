@@ -1,10 +1,9 @@
 // Button Status Filter
 const buttonsStatus = document.querySelectorAll("[button-status]");
 if(buttonsStatus.length > 0) {
-    let url = new URL(window.location.href);
-    
     buttonsStatus.forEach(button => {
         button.addEventListener("click", () => {
+            let url = new URL(window.location.href);
             const status = button.getAttribute("button-status");
             
             url.searchParams.delete("page");
@@ -24,10 +23,9 @@ if(buttonsStatus.length > 0) {
 // Form Search
 const formSearch = document.querySelector("#form-search");
 if(formSearch) {
-    let url = new URL(window.location.href);
-
     formSearch.addEventListener("submit", (e) => {
         e.preventDefault();
+        let url = new URL(window.location.href);
         const keyword = e.target.elements.keyword.value.trim();
 
         if(keyword) {

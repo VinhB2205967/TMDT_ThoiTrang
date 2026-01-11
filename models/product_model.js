@@ -25,5 +25,5 @@ const productSchema = new mongoose.Schema({
   ngaytao: Date
 });
 
-const Sanpham = mongoose.model("Sanpham", productSchema, "sanphams");
+const Sanpham = mongoose.model("Sanpham", productSchema, "products");
 module.exports = Sanpham;

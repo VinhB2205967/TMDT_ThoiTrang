@@ -46,6 +46,41 @@ block main
                             +filter_status(filterStatus)
                     .col-lg-4
                         +search(keyword)
+                
+                //- Bộ lọc nâng cao
+                hr.mt-3.mb-3
+                form(action=`${admin}/products` method="GET")
+                    //- Giữ lại keyword và trạng thái nếu có
+                    if keyword
+                        input(type="hidden" name="keyword" value=keyword)
+                    - const activeStatus = filterStatus.find(item => item.class === 'active')
+                    if activeStatus && activeStatus.status
+                        input(type="hidden" name="trangthai" value=activeStatus.status)
+
+                    .row.g-3
+                        .col-md-3
+                            label.form-label.small.fw-bold Sắp xếp
+                            select.form-select.form-select-sm(name="sort" onchange="this.form.submit()")
+                                option(value="ngaytao-desc" selected=(currentSort=='ngaytao-desc')) Mới nhất
+                                option(value="ngaytao-asc" selected=(currentSort=='ngaytao-asc')) Cũ nhất
+                                option(value="gia-desc" selected=(currentSort=='gia-desc')) Giá giảm dần
+                                option(value="gia-asc" selected=(currentSort=='gia-asc')) Giá tăng dần
+                                option(value="tensanpham-asc" selected=(currentSort=='tensanpham-asc')) Tên A-Z
+                        .col-md-4
+                            label.form-label.small.fw-bold Khoảng giá
+                            .input-group.input-group-sm
+                                input.form-control(type="number" name="priceMin" placeholder="Min" value=priceMin min="0")
+                                span.input-group-text -
+                                input.form-control(type="number" name="priceMax" placeholder="Max" value=priceMax min="0")
+                        .col-md-4
+                            label.form-label.small.fw-bold Ngày tạo
+                            .input-group.input-group-sm
+                                input.form-control(type="date" name="dateFrom" value=dateFrom)
+                                span.input-group-text -
+                                input.form-control(type="date" name="dateTo" value=dateTo)
+                        .col-md-1.d-flex.align-items-end
+                            button.btn.btn-primary.btn-sm.w-100(type="submit")
+                                i.bi.bi-funnel
     
     .dashboard-container
         if products && products.length
@@ -133,5 +168,18 @@ block main
             
             //- phân trang
             +page()
-                a.btn.btn-primary(href=`${admin}/products/create`) Thêm sản phẩm đầu tiên
+        else
+            .empty-state.text-center.py-5
+                .empty-state-icon.mb-4
+                    i.bi.bi-inbox.display-1.text-muted
+                .empty-state-content
+                    h4.text-muted Không tìm thấy sản phẩm
+                    p.text-muted.mb-4 Không có sản phẩm nào phù hợp với tiêu chí tìm kiếm của bạn.
+                    .d-flex.justify-content-center.gap-2
+                        a.btn.btn-outline-secondary(href=`${admin}/products`)
+                            i.bi.bi-arrow-counterclockwise.me-1
+                            | Xóa bộ lọc
+                        a.btn.btn-primary(href=`${admin}/products/create`)
+                            i.bi.bi-plus-lg.me-1
+                            | Thêm sản phẩm mới
 

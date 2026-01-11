@@ -1,0 +1,83 @@
+extends ../../layouts/default.pug
+
+block main
+    .favorites-page
+        .container.py-4
+            .favorites-header.mb-4
+                h1.favorites-title
+                    i.bi.bi-heart-fill.text-danger.me-2
+                    | Sản phẩm yêu thích
+                if products && products.length
+                    p.text-muted Bạn có #{products.length} sản phẩm yêu thích
+
+            if products && products.length
+                .row.g-4
+                    each product in products
+                        .col-6.col-md-4.col-lg-3
+                            .product-card
+                                .product-image
+                                    img(src=product.displayImage || '/images/shopping.png' alt=product.tensanpham)
+                                    .product-overlay
+                                        button.btn-remove-favorite(
+                                            type="button" 
+                                            title="Xóa khỏi yêu thích"
+                                            data-id=product._id
+                                        )
+                                            i.bi.bi-heart-fill
+                                        a.btn-quick-view(href=`/products/${product._id}` title="Xem chi tiết")
+                                            i.bi.bi-eye
+                                .product-info
+                                    h3.product-name
+                                        a(href=`/products/${product._id}`) #{product.tensanpham}
+                                    .product-price
+                                        if product.giamoiText
+                                            span.price-new #{product.giamoiText}
+                                            span.price-old #{product.giaText}
+                                        else
+                                            span.price-current #{product.giaText}
+                                    .product-actions
+                                        button.btn.btn-buy-now(type="button")
+                                            i.bi.bi-bag-plus.me-1
+                                            | Mua ngay
+                                        button.btn.btn-add-cart(type="button" title="Thêm vào giỏ")
+                                            i.bi.bi-cart-plus
+            else
+                .empty-favorites.text-center.py-5
+                    .empty-icon.mb-4
+                        i.bi.bi-heart.display-1.text-muted
+                    h4.text-muted Chưa có sản phẩm yêu thích
+                    p.text-muted.mb-4 Hãy khám phá và thêm sản phẩm bạn yêu thích vào đây!
+                    a.btn.btn-primary(href="/products")
+                        i.bi.bi-grid.me-2
+                        | Khám phá sản phẩm
+
+    script.
+        // Xử lý xóa khỏi yêu thích
+        document.querySelectorAll('.btn-remove-favorite').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const productId = this.dataset.id;
+                const card = this.closest('.col-6');
+                
+                try {
+                    const res = await fetch(`/favorites/remove/${productId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    const data = await res.json();
+                    
+                    if (data.success) {
+                        card.style.transition = 'all 0.3s ease';
+                        card.style.opacity = '0';
+                        card.style.transform = 'scale(0.8)';
+                        setTimeout(() => {
+                            card.remove();
+                            if (document.querySelectorAll('.product-card').length === 0) {
+                                location.reload();
+                            }
+                        }, 300);
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            });
+        });
