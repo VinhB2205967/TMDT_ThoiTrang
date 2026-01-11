@@ -1,9 +1,9 @@
 const express = require('express')
 const router = express.Router();
 const controller = require('../../controllers/client/product_controller');
+
+// Specific routes MUST come before :id
 router.get('/', controller.index);
-router.get('/create', async (req, res) => {
-    res.render("client/pages/products/index.pug")
-});
-router.get('/edit', controller.edit);
+router.get('/:id', controller.show);
+
 module.exports = router;

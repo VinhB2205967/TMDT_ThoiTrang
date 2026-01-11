@@ -161,6 +161,7 @@ const createPost = async (req, res) => {
             mota: req.body.mota,
             gia: parseInt(req.body.gia) || 0,
             phantramgiamgia: parseInt(req.body.phantramgiamgia) || 0,
+            mausac_chinh: req.body.mausac_chinh || '',
             sizes: baseSizes,
             soluongton: tongSizeGoc,
             gioitinh: req.body.gioitinh,
@@ -265,6 +266,7 @@ const editPost = async (req, res) => {
             mota: req.body.mota,
             gia: parseInt(req.body.gia) || 0,
             phantramgiamgia: parseInt(req.body.phantramgiamgia) || 0,
+            mausac_chinh: req.body.mausac_chinh || '',
             sizes: baseSizes,
             soluongton: tongSizeGoc,
             gioitinh: req.body.gioitinh,
@@ -278,6 +280,7 @@ const editPost = async (req, res) => {
             const giaArr = Array.isArray(req.body.bienthe_gia) ? req.body.bienthe_gia : [req.body.bienthe_gia];
             const giamgiaArr = Array.isArray(req.body.bienthe_giamgia) ? req.body.bienthe_giamgia : [req.body.bienthe_giamgia];
             const oldImageArr = Array.isArray(req.body.bienthe_hinhanh_cu) ? req.body.bienthe_hinhanh_cu : [req.body.bienthe_hinhanh_cu];
+            const hasNewImageArr = Array.isArray(req.body.bienthe_has_new_image) ? req.body.bienthe_has_new_image : [req.body.bienthe_has_new_image];
             
             // Lấy ảnh biến thể mới upload
             const bientheImages = req.files && req.files['bienthe_hinhanh'] ? req.files['bienthe_hinhanh'] : [];
@@ -287,8 +290,8 @@ const editPost = async (req, res) => {
             productData.bienthe = mausacArr.map((mausac, i) => {
                 let hinhanh = oldImageArr[i] || null; // Giữ ảnh cũ
                 
-                // Nếu có ảnh mới được upload cho biến thể này
-                if (bientheImages[imageIndex]) {
+                // Kiểm tra xem biến thể này có upload ảnh mới không
+                if (hasNewImageArr[i] === '1' && bientheImages[imageIndex]) {
                     hinhanh = '/uploads/products/' + bientheImages[imageIndex].filename;
                     imageIndex++;
                 }

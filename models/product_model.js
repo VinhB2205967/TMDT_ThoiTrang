@@ -20,6 +20,7 @@ const productSchema = new mongoose.Schema({
   mota: String,
   gia: Number,              // Giá gốc (mặc định nếu biến thể không có giá riêng)
   phantramgiamgia: Number,  // Giảm giá gốc
+  mausac_chinh: String,     // Màu sắc của sản phẩm chính (ảnh đại diện)
   sizes: [sizeSchema],      // Danh sách size với số lượng (sản phẩm gốc)
   soluongton: Number,       // Tổng số lượng = tổng sizes gốc + tổng sizes biến thể
   gioitinh: String,

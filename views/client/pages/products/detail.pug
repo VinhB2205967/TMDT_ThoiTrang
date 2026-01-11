@@ -1,0 +1,261 @@
+extends ../../layouts/default.pug
+include ../../mixins/box_head.pug
+
+block main
+    .product-detail-page
+        .container
+            if product
+                //- Breadcrumb
+                nav.breadcrumb-nav(aria-label="breadcrumb")
+                    ol.breadcrumb
+                        li.breadcrumb-item: a(href="/") Trang chủ
+                        li.breadcrumb-item: a(href="/products") Sản phẩm
+                        li.breadcrumb-item.active(aria-current="page")= product.tensanpham
+
+                .product-detail-wrapper
+                    .row.g-5
+                        //- Product Images
+                        .col-lg-6
+                            .product-gallery-wrapper
+                                .main-image-container
+                                    if product.phantramgiamgia && product.phantramgiamgia > 0
+                                        .sale-badge
+                                            span -#{product.phantramgiamgia}%
+                                    button.wishlist-btn(type="button" title="Yêu thích")
+                                        i.bi.bi-heart
+                                    if product.hinhanh
+                                        img#mainImage.main-product-image(src=product.hinhanh alt=product.tensanpham)
+                                    else
+                                        img#mainImage.main-product-image(src='/images/shopping.png' alt=product.tensanpham)
+                                
+                                //- Thumbnail gallery - hiển thị tất cả ảnh từ biến thể
+                                if product.bienthe && product.bienthe.length
+                                    .thumbnail-gallery
+                                        - var shownImages = []
+                                        each v, idx in product.bienthe
+                                            if v.hinhanh && v.hinhanh !== '/images/shopping.png' && shownImages.indexOf(v.hinhanh) === -1
+                                                - shownImages.push(v.hinhanh)
+                                                - var thumbTitle = v.mausac || ('Biến thể ' + (idx + 1))
+                                                .thumb-item(class=(idx === 0 ? 'active' : '') onclick=`document.getElementById('mainImage').src='${v.hinhanh}'; document.querySelectorAll('.thumb-item').forEach(t => t.classList.remove('active')); this.classList.add('active')`)
+                                                    img(src=v.hinhanh alt=thumbTitle title=thumbTitle)
+
+                        //- Product Info
+                        .col-lg-6
+                            .product-info-wrapper
+                                //- Title
+                                h1.product-detail-title #{product.tensanpham}
+                                
+                                //- Rating
+                                if avgRating
+                                    .product-rating-section
+                                        .stars
+                                            - for (let i = 1; i <= 5; i++)
+                                                if i <= Math.floor(avgRating)
+                                                    i.fas.fa-star.filled
+                                                else if i === Math.ceil(avgRating) && avgRating % 1 !== 0
+                                                    i.fas.fa-star-half-alt.filled
+                                                else
+                                                    i.far.fa-star
+                                        span.rating-text #{avgRating}/5
+                                        span.review-count (#{reviews.length} đánh giá)
+                                
+                                //- Price Box
+                                .price-box
+                                    if product.phantramgiamgia && product.phantramgiamgia > 0
+                                        .price-old #{product.giaText}đ
+                                        .price-discount -#{product.phantramgiamgia}%
+                                    .price-current #{product.giamoiText}đ
+                                
+                                //- Product Meta
+                                .product-meta-info
+                                    .meta-row
+                                        span.meta-label Loại sản phẩm:
+                                        span.meta-value.badge-custom= product.loaisanpham || 'Chưa phân loại'
+                                    .meta-row
+                                        span.meta-label Giới tính:
+                                        span.meta-value.badge-custom= product.gioitinh || 'Unisex'
+                                    .meta-row
+                                        span.meta-label Tình trạng:
+                                        if product.soluongton > 0
+                                            span.meta-value.in-stock
+                                                i.bi.bi-check-circle-fill.me-1
+                                                | Còn #{product.soluongton} sản phẩm
+                                        else
+                                            span.meta-value.out-stock
+                                                i.bi.bi-x-circle-fill.me-1
+                                                | Hết hàng
+                                
+                                //- Divider
+                                hr.section-divider
+                                
+                                //- Add to Cart Form
+                                form#addToCartForm(action='/cart/add' method='POST')
+                                    input(type='hidden' name='sanpham_id' value=product._id)
+                                    
+                                    //- Color selection - hiển thị tất cả biến thể
+                                    if product.bienthe && product.bienthe.length
+                                        .option-section
+                                            .option-label
+                                                span Màu sắc: 
+                                                strong#selectedColor= product.bienthe[0] && product.bienthe[0].mausac ? product.bienthe[0].mausac : 'Mặc định'
+                                            .color-selector
+                                                each v, idx in product.bienthe
+                                                    - var colorName = v.mausac || ('Màu ' + (idx + 1))
+                                                    input.color-input(
+                                                        type='radio' 
+                                                        name='bienthe_id' 
+                                                        id=`color${idx}` 
+                                                        value=v._id || idx
+                                                        required
+                                                        checked=(idx === 0)
+                                                        data-variant-idx=idx
+                                                    )
+                                                    - var variantImage = v.hinhanh && v.hinhanh !== '/images/shopping.png' ? v.hinhanh : null
+                                                    label.color-option(for=`color${idx}` title=colorName onclick=`selectVariant(${idx}, '${colorName}', '${variantImage || product.hinhanh}')`)
+                                                        if variantImage
+                                                            img(src=variantImage alt=colorName)
+                                                        else if product.hinhanh
+                                                            img(src=product.hinhanh alt=colorName)
+                                                        else
+                                                            span.color-dot(style=`background-color: ${v.colorCode || '#ccc'}`)
+                                                        .color-name= colorName
+
+                                    //- Size selection - hiển thị size theo từng biến thể
+                                    .option-section
+                                        .option-label
+                                            span Kích cỡ: 
+                                            strong#selectedSize
+                                        
+                                        //- Tạo panel size cho từng biến thể
+                                        if product.bienthe && product.bienthe.length
+                                            each v, vidx in product.bienthe
+                                                - var variantSizes = v.sizes || []
+                                                - var sizeOrder = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+                                                .size-selector.variant-size-panel(id=`sizePanel_${vidx}` style=(vidx === 0 ? '' : 'display:none'))
+                                                    if variantSizes.length
+                                                        each sz in sizeOrder
+                                                            - var sizeData = variantSizes.find(s => s.size === sz)
+                                                            if sizeData
+                                                                - var qty = sizeData.soluong || 0
+                                                                input.size-input(
+                                                                    type='radio' 
+                                                                    name='kichco' 
+                                                                    id=`size_${vidx}_${sz}` 
+                                                                    value=sz
+                                                                    disabled=(qty === 0)
+                                                                )
+                                                                label.size-option(for=`size_${vidx}_${sz}` class=(qty === 0 ? 'disabled' : '') onclick=`document.getElementById('selectedSize').textContent='${sz}'`)
+                                                                    span.size-name= sz
+                                                                    if qty > 0
+                                                                        span.size-qty (#{qty})
+                                                                    else
+                                                                        span.size-qty.out Hết
+                                                    else
+                                                        .text-muted.small Không có size cho màu này
+
+                                    //- Quantity
+                                    .option-section
+                                        .option-label Số lượng:
+                                        .quantity-selector
+                                            button.qty-btn.minus(type="button" onclick="let input = document.getElementById('qtyInput'); if(input.value > 1) input.value = parseInt(input.value) - 1;")
+                                                i.bi.bi-dash
+                                            input#qtyInput.qty-input(type='number' name='soluong' value='1' min='1' max='99')
+                                            button.qty-btn.plus(type="button" onclick="let input = document.getElementById('qtyInput'); if(input.value < 99) input.value = parseInt(input.value) + 1;")
+                                                i.bi.bi-plus
+
+                                    //- Action Buttons
+                                    .action-buttons
+                                        button.btn-add-to-cart(type='submit')
+                                            i.bi.bi-cart-plus
+                                            span Thêm vào giỏ hàng
+                                        button.btn-buy-now-detail(type='button' onclick='this.form.action="/checkout"; this.form.submit();')
+                                            i.bi.bi-lightning-fill
+                                            span Mua ngay
+                                
+                                //- Extra Info
+                                .extra-info
+                                    .info-item
+                                        i.bi.bi-truck
+                                        span Miễn phí vận chuyển đơn từ 500K
+                                    .info-item
+                                        i.bi.bi-arrow-repeat
+                                        span Đổi trả trong 7 ngày
+                                    .info-item
+                                        i.bi.bi-shield-check
+                                        span Cam kết hàng chính hãng
+
+                //- Description Section
+                if product.mota
+                    .section-block
+                        .section-header
+                            i.bi.bi-file-text
+                            h3 Mô tả sản phẩm
+                        .section-content
+                            .description-content!= product.mota
+
+                //- Reviews Section
+                .section-block
+                    .section-header
+                        i.bi.bi-star
+                        h3 Đánh giá sản phẩm 
+                        span.review-badge #{reviews.length}
+                    .section-content
+                        if reviews && reviews.length
+                            .reviews-list
+                                each r in reviews
+                                    .review-card
+                                        .review-header
+                                            .reviewer-info
+                                                .avatar
+                                                    i.bi.bi-person-fill
+                                                .reviewer-name Khách hàng
+                                            .review-stars
+                                                - for (let i = 0; i < (r.diem || 0); i++)
+                                                    i.fas.fa-star
+                                        .review-title= r.tieude || 'Đánh giá sản phẩm'
+                                        if r.noidung
+                                            .review-content= r.noidung
+                                        if r.mausac || r.kichco
+                                            .review-meta
+                                                if r.mausac
+                                                    span.meta-tag Màu: #{r.mausac}
+                                                if r.kichco
+                                                    span.meta-tag Size: #{r.kichco}
+                        else
+                            .no-reviews
+                                i.bi.bi-chat-left-text
+                                p Chưa có đánh giá nào cho sản phẩm này.
+                                p.sub Hãy là người đầu tiên đánh giá!
+
+                //- Related Products
+                if related && related.length
+                    .section-block
+                        .section-header
+                            i.bi.bi-grid
+                            h3 Sản phẩm tương tự
+                        .section-content
+                            .related-products-grid
+                                each item in related
+                                    a.related-product-card(href=`/products/${item._id}`)
+                                        .related-image
+                                            if item.hinhanh
+                                                img(src=item.hinhanh alt=item.tensanpham)
+                                            if item.phantramgiamgia && item.phantramgiamgia > 0
+                                                .mini-badge -#{item.phantramgiamgia}%
+                                        .related-info
+                                            .related-name= item.tensanpham
+                                            .related-price
+                                                if item.phantramgiamgia && item.phantramgiamgia > 0
+                                                    span.old #{item.giaText}đ
+                                                span.current #{item.giamoiText}đ
+            else
+                .empty-state
+                    i.bi.bi-bag-x
+                    h4 Sản phẩm không tồn tại
+                    p Sản phẩm bạn đang tìm kiếm không tồn tại hoặc đã bị xóa.
+                    a.btn-back(href="/products") 
+                        i.bi.bi-arrow-left
+                        | Quay lại danh sách
+
+block scripts
+    script(src="/js/product-detail.js")

@@ -27,6 +27,24 @@ const previewVariantImage = (input) => {
     }
 };
 
+// Mark when a new image is selected for a variant
+const markNewImage = (input) => {
+    const file = input.files[0];
+    if (file) {
+        // Preview the image
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = input.closest('.d-flex').querySelector('.variant-preview');
+            if (img) img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+        
+        // Mark that this variant has a new image
+        const hiddenField = input.closest('.d-flex').querySelector('.variant-has-new-image');
+        if (hiddenField) hiddenField.value = '1';
+    }
+};
+
 // ===== QUẢN LÝ BIẾN THỂ =====
 let variantIndex = 0;
 
@@ -65,7 +83,8 @@ const addVariant = () => {
                     <div class="d-flex align-items-center gap-2">
                         <img class="variant-preview rounded" src="/images/shopping.png" alt="Preview" style="width: 50px; height: 50px; object-fit: cover;">
                         <input type="hidden" name="bienthe_hinhanh_cu" value="">
-                        <input type="file" class="form-control form-control-sm" name="bienthe_hinhanh" accept="image/*" onchange="previewVariantImage(this)">
+                        <input class="variant-has-new-image" type="hidden" name="bienthe_has_new_image" value="0">
+                        <input type="file" class="form-control form-control-sm" name="bienthe_hinhanh" accept="image/*" onchange="markNewImage(this)">
                     </div>
                 </div>
                 <div class="col-12">

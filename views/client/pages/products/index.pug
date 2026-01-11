@@ -3,68 +3,107 @@ include ../../mixins/box_head.pug
 block main
     .products-section
         .container
-            +box-head('Danh Sách Sản Phẩm Áo')
+            +box-head('Danh Sách Sản Phẩm')
             
             //- Filter & Sort bar (responsive)
-            .filter-bar.d-flex.flex-wrap.justify-content-between.align-items-center.mb-4.gap-3
-                .filter-info
+            .filter-bar.mb-4
+                form#filterForm(method="GET" action="/products")
+                    .row.g-3
+                        //- Search
+                        .col-md-3
+                            input.form-control(type="text" name="keyword" placeholder="Tìm kiếm sản phẩm..." value=keyword)
+                        
+                        //- Category filter
+                        .col-md-2
+                            select.form-select(name="loaisanpham")
+                                option(value="" selected=!currentLoai) Tất cả loại
+                                option(value="ao" selected=(currentLoai === 'ao')) Áo
+                                option(value="quan" selected=(currentLoai === 'quan')) Quần
+                                option(value="vay" selected=(currentLoai === 'vay')) Váy
+                                option(value="phukien" selected=(currentLoai === 'phukien')) Phụ kiện
+                                option(value="giay" selected=(currentLoai === 'giay')) Giày
+                                option(value="tui" selected=(currentLoai === 'tui')) Túi
+                        
+                        //- Gender filter
+                        .col-md-2
+                            select.form-select(name="gioitinh")
+                                option(value="" selected=!currentGioiTinh) Tất cả giới tính
+                                option(value="nam" selected=(currentGioiTinh === 'nam')) Nam
+                                option(value="nu" selected=(currentGioiTinh === 'nu')) Nữ
+                                option(value="unisex" selected=(currentGioiTinh === 'unisex')) Unisex
+                        
+                        //- Price range
+                        .col-md-2
+                            input.form-control(type="number" name="priceMin" placeholder="Giá từ" value=priceMin)
+                        .col-md-2
+                            input.form-control(type="number" name="priceMax" placeholder="Giá đến" value=priceMax)
+                        
+                        //- Sort
+                        .col-md-2
+                            select.form-select(name="sort")
+                                option(value="" selected=!currentSort) Mặc định
+                                option(value="gia-asc" selected=(currentSort === 'gia-asc')) Giá: Thấp → Cao
+                                option(value="gia-desc" selected=(currentSort === 'gia-desc')) Giá: Cao → Thấp
+                                option(value="ngaytao-desc" selected=(currentSort === 'ngaytao-desc')) Mới nhất
+                                option(value="tensanpham-asc" selected=(currentSort === 'tensanpham-asc')) Tên A-Z
+                        
+                        .col-md-3
+                            .d-flex.gap-2
+                                button.btn.btn-primary(type="submit") Lọc
+                                a.btn.btn-secondary(href="/products") Xóa bộ lọc
+                
+                .filter-info.mt-3
                     span.text-muted Hiển thị 
                     strong #{products ? products.length : 0}
                     span.text-muted  sản phẩm
-                .d-flex.gap-2
-                    select.form-select.form-select-sm(style="width: auto;")
-                        option(selected) Sắp xếp: Mặc định
-                        option Giá: Thấp đến cao
-                        option Giá: Cao đến thấp
-                        option Mới nhất
             
             if products && products.length
                 .row.g-3.g-md-4
                     each item in products
                         .col-6.col-sm-6.col-md-4.col-lg-3
                             .product-card.h-100
-                                .product-image
-                                    img(src=item.hinhanh alt=item.tensanpham loading="lazy")
-                                    if item.phantramgiamgia && item.phantramgiamgia > 0
-                                        .discount-badge
-                                            | -#{item.phantramgiamgia}%
-                                    .product-overlay
-                                        a.btn-quick-view(href=`/products/${item._id}` title="Xem chi tiết")
-                                            i.bi.bi-eye
-                                        button.btn-add-wishlist(title="Yêu thích")
-                                            i.bi.bi-heart
-                                .product-info
-                                    h3.product-name #{item.tensanpham}
-                                    if item.bienthe && item.bienthe.length
-                                        .product-variants
-                                            each variant, idx in item.bienthe
-                                                if idx < 5
-                                                    if variant.hinhanh && variant.hinhanh !== '/images/shopping.png'
-                                                        img.variant-img(src=variant.hinhanh alt=variant.mausac title=variant.mausac)
-                                                    else
-                                                        span.variant-dot(style=`background-color: ${variant.colorCode || '#ccc'}` title=variant.mausac)
-                                            if item.bienthe.length > 5
-                                                span.variant-more +#{item.bienthe.length - 5}
-                                    .product-price
+                                a.product-card-link(href=`/products/${item._id}`)
+                                    .product-image
+                                        img(src=item.hinhanh alt=item.tensanpham loading="lazy")
                                         if item.phantramgiamgia && item.phantramgiamgia > 0
-                                            span.original-price #{item.giaText}đ
-                                        span.sale-price #{item.giamoiText}đ
-                                    .product-rating
-                                        .stars
-                                            i.fas.fa-star
-                                            i.fas.fa-star
-                                            i.fas.fa-star
-                                            i.fas.fa-star
-                                            i.fas.fa-star-half-alt
-                                        span.review-count (đã bán)
-                                    .product-actions
-                                        button.btn-buy-now
-                                            i.bi.bi-lightning-fill.me-1
-                                            | Mua ngay
-                                        button.btn-add-cart(title="Thêm vào giỏ")
-                                            i.bi.bi-cart-plus
+                                            .discount-badge
+                                                | -#{item.phantramgiamgia}%
+                                    .product-info
+                                        h3.product-name #{item.tensanpham}
+                                        if item.bienthe && item.bienthe.length
+                                            .product-variants
+                                                each variant, idx in item.bienthe
+                                                    if idx < 5
+                                                        if variant.hinhanh && variant.hinhanh !== '/images/shopping.png'
+                                                            img.variant-img(src=variant.hinhanh alt=variant.mausac title=variant.mausac)
+                                                        else
+                                                            span.variant-dot(style=`background-color: ${variant.colorCode || '#ccc'}` title=variant.mausac)
+                                                if item.bienthe.length > 5
+                                                    span.variant-more +#{item.bienthe.length - 5}
+                                        .product-price
+                                            if item.phantramgiamgia && item.phantramgiamgia > 0
+                                                span.original-price #{item.giaText}đ
+                                            span.sale-price #{item.giamoiText}đ
+                                        .product-rating
+                                            .stars
+                                                i.fas.fa-star
+                                                i.fas.fa-star
+                                                i.fas.fa-star
+                                                i.fas.fa-star
+                                                i.fas.fa-star-half-alt
+                                            span.review-count (đã bán)
+                                .product-actions
+                                    a.btn-buy-now(href=`/products/${item._id}`)
+                                        i.bi.bi-lightning-fill.me-1
+                                        | Mua ngay
+                                    button.btn-add-cart(type="button" onclick="event.preventDefault(); event.stopPropagation();" title="Thêm vào giỏ")
+                                        i.bi.bi-cart-plus
+                                button.btn-wishlist-float(onclick="event.preventDefault(); event.stopPropagation();" title="Yêu thích")
+                                    i.bi.bi-heart
             else
                 .text-center.py-5
                     i.bi.bi-bag-x.display-1.text-muted
                     p.text-muted.mt-3 Không tìm thấy sản phẩm nào.
-                                                
+
+block scripts
+    script(src="/js/products.js")

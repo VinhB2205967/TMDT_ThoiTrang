@@ -76,6 +76,11 @@ block main
                                         option(value="dangban" selected=(product.trangthai === 'dangban')) Đang bán
                                         option(value="ngungban" selected=(product.trangthai === 'ngungban')) Ngừng bán
                             
+                            .mt-3
+                                label.form-label.fw-bold Màu sắc sản phẩm chính
+                                input.form-control(type="text" name="mausac_chinh" value=product.mausac_chinh placeholder="VD: Đen, Trắng, Xanh...")
+                                small.text-muted Màu sắc đại diện cho ảnh sản phẩm chính
+                            
                             - const productSizes = product.sizes || [];
                             - const getSizeQty = (sizeCode) => { const found = productSizes.find(s => s.size === sizeCode); return found ? found.soluong : 0; }
                             .mt-3
@@ -138,7 +143,8 @@ block main
                                                     - const btImage = bt.hinhanh || '/images/shopping.png'
                                                     img.variant-preview.rounded(src=btImage alt="Preview" style="width: 50px; height: 50px; object-fit: cover;")
                                                     input(type="hidden" name="bienthe_hinhanh_cu" value=bt.hinhanh || '')
-                                                    input.form-control.form-control-sm(type="file" name="bienthe_hinhanh" accept="image/*" onchange="previewVariantImage(this)")
+                                                    input.variant-has-new-image(type="hidden" name="bienthe_has_new_image" value="0")
+                                                    input.form-control.form-control-sm(type="file" name="bienthe_hinhanh" accept="image/*" onchange="markNewImage(this)")
                                                 small.text-muted Để trống nếu không đổi ảnh
                                             .col-12
                                                 label.form-label.small Số lượng theo Size
