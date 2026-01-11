@@ -10,7 +10,11 @@ block main
             h1.page-title.mb-0
                 i.bi.bi-box-seam.me-2
                 | Quản lý sản phẩm
-            .admin-user-menu
+            .d-flex.align-items-center.gap-3
+                a.btn.btn-success(href=`${admin}/products/create`)
+                    i.bi.bi-plus-lg.me-1
+                    | Thêm sản phẩm
+                .admin-user-menu
                 .dropdown
                     button.btn.btn-light.dropdown-toggle#adminDropdown(type="button" data-bs-toggle="dropdown" aria-expanded="false")
                         i.bi.bi-person-circle.me-2
@@ -89,17 +93,19 @@ block main
                 table.table.table-hover.align-middle.product-table
                     thead.table-light
                         tr
-                            th(scope="col" style="width: 60px") STT
-                            th(scope="col" style="width: 100px") Hình ảnh
+                            th(scope="col" style="width: 50px") STT
+                            th(scope="col" style="width: 90px") Hình ảnh
                             th(scope="col") Tiêu đề
-                            th(scope="col" style="width: 140px") Giá
-                            th(scope="col" style="width: 110px") Tồn kho
-                            th(scope="col" style="width: 120px") Ngày tạo
-                            th(scope="col" style="width: 120px") Trạng thái
-                            th(scope="col" style="width: 150px" class="text-end") Hành động
+                            th(scope="col" style="width: 180px") Giá
+                            th(scope="col" style="width: 90px") Tồn kho
+                            th(scope="col" style="width: 110px") Ngày tạo
+                            th(scope="col" style="width: 100px") Trạng thái
+                            th(scope="col" style="width: 120px" class="text-end") Hành động
                     tbody
                         each product, idx in products
-                            - const price = product.giamoiText || product.giaText || (product.gia ? product.gia.toLocaleString('vi-VN') + '₫' : '—');
+                            - const giaGoc = product.gia ? product.gia.toLocaleString('vi-VN') + '₫' : '—';
+                            - const giamGia = product.phantramgiamgia || 0;
+                            - const giaKhuyenMai = giamGia > 0 ? Math.round(product.gia * (100 - giamGia) / 100).toLocaleString('vi-VN') + '₫' : null;
                             - const status = (product.trangthai || '').toLowerCase();
                             - const isActive = status === 'dangban' || status === 'active' || status === 'đang bán';
                             - const imgSrc = product.displayImage || product.hinhanh || '/images/shopping.png';
@@ -113,7 +119,14 @@ block main
                                     .fw-semibold #{product.tensanpham || '—'}
                                     if product.bienthe && product.bienthe.length
                                         small.text-muted #{product.bienthe.length} biến thể
-                                td.fw-semibold.text-primary #{price}
+                                td
+                                    if giamGia > 0
+                                        .d-flex.flex-column
+                                            span.text-decoration-line-through.text-muted.small #{giaGoc}
+                                            span.fw-bold.text-danger #{giaKhuyenMai}
+                                            span.badge.bg-warning.text-dark.mt-1(style="width: fit-content") -#{giamGia}%
+                                    else
+                                        span.fw-semibold.text-primary #{giaGoc}
                                 td
                                     if tonKho > 0
                                         span.fw-semibold #{tonKho}
@@ -132,7 +145,7 @@ block main
                                     .btn-group.btn-group-sm
                                         a.btn.btn-outline-warning(href=`${admin}/products/${product._id}/edit`, title="Sửa")
                                             i.bi.bi-pencil
-                                        a.btn.btn-outline-danger(href=`${admin}/products/${product._id}/delete`, title="Xóa")
+                                        a.btn.btn-outline-danger(href=`${admin}/products/${product._id}/delete`, title="Xóa" onclick="return confirm('Bạn có chắc muốn xóa sản phẩm này?')")
                                             i.bi.bi-trash
             
             
@@ -162,7 +175,7 @@ block main
                                     a.btn.btn-sm.btn-warning.flex-fill(href=`${admin}/products/${product._id}/edit`)
                                         i.bi.bi-pencil.me-1
                                         | Sửa
-                                    a.btn.btn-sm.btn-danger.flex-fill(href=`${admin}/products/${product._id}/delete`)
+                                    a.btn.btn-sm.btn-danger.flex-fill(href=`${admin}/products/${product._id}/delete` onclick="return confirm('Bạn có chắc muốn xóa sản phẩm này?')")
                                         i.bi.bi-trash.me-1
                                         | Xóa
             
@@ -182,4 +195,3 @@ block main
                         a.btn.btn-primary(href=`${admin}/products/create`)
                             i.bi.bi-plus-lg.me-1
                             | Thêm sản phẩm mới
-

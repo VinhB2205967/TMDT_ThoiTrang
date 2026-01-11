@@ -1,0 +1,215 @@
+extends ../../layouts/default.pug
+
+block main
+    .page-header-section
+        .d-flex.justify-content-between.align-items-center.flex-wrap.gap-2
+            h1.page-title.mb-0
+                i.bi.bi-pencil-square.me-2
+                | Chỉnh sửa sản phẩm
+            a.btn.btn-outline-light(href=`${admin}/products`)
+                i.bi.bi-arrow-left.me-1
+                | Quay lại
+
+    .dashboard-container.mt-4
+        form(action=`${admin}/products/${product._id}/edit` method="POST" enctype="multipart/form-data")
+            .row.g-4
+                //- Cột trái - Thông tin cơ bản
+                .col-lg-8
+                    .card.mb-4
+                        .card-header.bg-primary.text-white
+                            i.bi.bi-info-circle.me-2
+                            | Thông tin cơ bản
+                        .card-body
+                            .mb-3
+                                label.form-label.fw-bold Tên sản phẩm *
+                                input.form-control(type="text" name="tensanpham" required value=product.tensanpham placeholder="Nhập tên sản phẩm...")
+                            
+                            .mb-3
+                                label.form-label.fw-bold Mô tả
+                                textarea.form-control(name="mota" rows="4" placeholder="Mô tả chi tiết sản phẩm...")= product.mota
+                            
+                            .row.g-3
+                                .col-md-6
+                                    label.form-label.fw-bold Giá gốc (₫) *
+                                    input.form-control(type="number" name="gia" required min="0" value=product.gia placeholder="0")
+                                
+                                .col-md-6
+                                    label.form-label.fw-bold Giảm giá (%)
+                                    input.form-control(type="number" name="phantramgiamgia" min="0" max="100" value=product.phantramgiamgia || 0 placeholder="0")
+                            
+                            .row.g-3.mt-2
+                                .col-12
+                                    .alert.alert-info.mb-0.py-2
+                                        .d-flex.justify-content-between.align-items-center
+                                            span
+                                                i.bi.bi-box-seam.me-2
+                                                strong Tổng số lượng tồn kho:
+                                            span.fs-5.fw-bold#tongsoluong #{product.soluongton || 0}
+                                        input(type="hidden" name="soluongton" id="soluongton" value=product.soluongton || 0)
+                    
+                    .card
+                        .card-header.bg-info.text-white
+                            i.bi.bi-tags.me-2
+                            | Phân loại
+                        .card-body
+                            .row.g-3
+                                .col-md-4
+                                    label.form-label.fw-bold Giới tính
+                                    select.form-select(name="gioitinh")
+                                        option(value="unisex" selected=(product.gioitinh === 'unisex')) Unisex
+                                        option(value="nam" selected=(product.gioitinh === 'nam')) Nam
+                                        option(value="nu" selected=(product.gioitinh === 'nu')) Nữ
+                                
+                                .col-md-4
+                                    label.form-label.fw-bold Loại sản phẩm
+                                    select.form-select(name="loaisanpham")
+                                        option(value="ao" selected=(product.loaisanpham === 'ao')) Áo
+                                        option(value="quan" selected=(product.loaisanpham === 'quan')) Quần
+                                        option(value="vay" selected=(product.loaisanpham === 'vay')) Váy
+                                        option(value="phukien" selected=(product.loaisanpham === 'phukien')) Phụ kiện
+                                        option(value="giay" selected=(product.loaisanpham === 'giay')) Giày
+                                        option(value="tui" selected=(product.loaisanpham === 'tui')) Túi
+                                
+                                .col-md-4
+                                    label.form-label.fw-bold Trạng thái
+                                    select.form-select(name="trangthai")
+                                        option(value="dangban" selected=(product.trangthai === 'dangban')) Đang bán
+                                        option(value="ngungban" selected=(product.trangthai === 'ngungban')) Ngừng bán
+                            
+                            - const productSizes = product.sizes || [];
+                            - const getSizeQty = (sizeCode) => { const found = productSizes.find(s => s.size === sizeCode); return found ? found.soluong : 0; }
+                            .mt-3
+                                label.form-label.fw-bold Size chung (không theo biến thể)
+                                .row.g-2
+                                    .col-4.col-md-2
+                                        label.form-label.small XS
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XS" min="0" value=getSizeQty('XS') oninput="updateTotalStock()")
+                                    .col-4.col-md-2
+                                        label.form-label.small S
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_S" min="0" value=getSizeQty('S') oninput="updateTotalStock()")
+                                    .col-4.col-md-2
+                                        label.form-label.small M
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_M" min="0" value=getSizeQty('M') oninput="updateTotalStock()")
+                                    .col-4.col-md-2
+                                        label.form-label.small L
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_L" min="0" value=getSizeQty('L') oninput="updateTotalStock()")
+                                    .col-4.col-md-2
+                                        label.form-label.small XL
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XL" min="0" value=getSizeQty('XL') oninput="updateTotalStock()")
+                                    .col-4.col-md-2
+                                        label.form-label.small XXL
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XXL" min="0" value=getSizeQty('XXL') oninput="updateTotalStock()")
+                    
+                    //- Card biến thể
+                    - const bientheList = product.bienthe || [];
+                    .card.mt-4
+                        .card-header.bg-secondary.text-white.d-flex.justify-content-between.align-items-center
+                            span
+                                i.bi.bi-palette.me-2
+                                | Biến thể màu sắc
+                                if bientheList.length
+                                    span.badge.bg-light.text-dark.ms-2 #{bientheList.length}
+                            button.btn.btn-sm.btn-light(type="button" onclick="addVariant()")
+                                i.bi.bi-plus.me-1
+                                | Thêm
+                        .card-body
+                            #variants-container
+                                each bt, idx in bientheList
+                                    - const btSizes = bt.sizes || [];
+                                    - const getBtSizeQty = (sizeCode) => { const found = btSizes.find(s => s.size === sizeCode); return found ? found.soluong : 0; }
+                                    .variant-item.border.rounded.p-3.mb-3(id=`variant-${idx}`)
+                                        .d-flex.justify-content-between.align-items-center.mb-2
+                                            span.fw-bold.text-secondary Biến thể ##{idx + 1}
+                                            button.btn.btn-sm.btn-outline-danger(type="button" onclick=`removeVariant(${idx})`)
+                                                i.bi.bi-trash
+                                        .row.g-2
+                                            .col-md-4
+                                                label.form-label.small Màu sắc *
+                                                input.form-control.form-control-sm(type="text" name="bienthe_mausac" value=bt.mausac placeholder="VD: Đỏ, Xanh..." required)
+                                            .col-md-4
+                                                label.form-label.small Giá riêng (₫)
+                                                input.form-control.form-control-sm(type="number" name="bienthe_gia" min="0" value=bt.gia placeholder="Để trống = giá gốc")
+                                            .col-md-4
+                                                label.form-label.small Giảm giá (%)
+                                                input.form-control.form-control-sm(type="number" name="bienthe_giamgia" min="0" max="100" value=bt.phantramgiamgia || 0)
+                                            .col-12
+                                                label.form-label.small Ảnh biến thể
+                                                .d-flex.align-items-center.gap-2
+                                                    - const btImage = bt.hinhanh || '/images/shopping.png'
+                                                    img.variant-preview.rounded(src=btImage alt="Preview" style="width: 50px; height: 50px; object-fit: cover;")
+                                                    input(type="hidden" name="bienthe_hinhanh_cu" value=bt.hinhanh || '')
+                                                    input.form-control.form-control-sm(type="file" name="bienthe_hinhanh" accept="image/*" onchange="previewVariantImage(this)")
+                                                small.text-muted Để trống nếu không đổi ảnh
+                                            .col-12
+                                                label.form-label.small Số lượng theo Size
+                                                .row.g-2
+                                                    .col-4.col-md-2
+                                                        label.form-label.small.text-muted XS
+                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_XS` min="0" value=getBtSizeQty('XS') oninput="updateTotalStock()")
+                                                    .col-4.col-md-2
+                                                        label.form-label.small.text-muted S
+                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_S` min="0" value=getBtSizeQty('S') oninput="updateTotalStock()")
+                                                    .col-4.col-md-2
+                                                        label.form-label.small.text-muted M
+                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_M` min="0" value=getBtSizeQty('M') oninput="updateTotalStock()")
+                                                    .col-4.col-md-2
+                                                        label.form-label.small.text-muted L
+                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_L` min="0" value=getBtSizeQty('L') oninput="updateTotalStock()")
+                                                    .col-4.col-md-2
+                                                        label.form-label.small.text-muted XL
+                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_XL` min="0" value=getBtSizeQty('XL') oninput="updateTotalStock()")
+                                                    .col-4.col-md-2
+                                                        label.form-label.small.text-muted XXL
+                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_XXL` min="0" value=getBtSizeQty('XXL') oninput="updateTotalStock()")
+                            if !bientheList.length
+                                .text-muted.small.text-center#no-variant-msg
+                                    i.bi.bi-info-circle.me-1
+                                    | Nhấn "Thêm" để thêm biến thể màu sắc
+                
+                //- Cột phải - Hình ảnh
+                .col-lg-4
+                    .card
+                        .card-header.bg-success.text-white
+                            i.bi.bi-image.me-2
+                            | Hình ảnh sản phẩm
+                        .card-body.text-center
+                            .mb-3
+                                - const currentImage = product.displayImage || product.hinhanh || '/images/shopping.png';
+                                img#preview-image.img-fluid.rounded.mb-3(src=currentImage alt="Preview" style="max-height: 250px; object-fit: cover;")
+                            
+                            input.form-control(type="file" name="hinhanh" accept="image/*" onchange="previewFile(this)")
+                            small.text-muted.d-block.mt-2 Để trống nếu không thay đổi ảnh
+                    
+                    .card.mt-4
+                        .card-header.bg-warning
+                            i.bi.bi-clock-history.me-2
+                            | Thông tin khác
+                        .card-body
+                            p.mb-2
+                                strong Ngày tạo: 
+                                if product.ngaytao
+                                    | #{new Date(product.ngaytao).toLocaleDateString('vi-VN')}
+                                else
+                                    | —
+                            p.mb-0
+                                strong ID: 
+                                code #{product._id}
+                    
+                    .card.mt-4
+                        .card-body
+                            .d-grid.gap-2
+                                button.btn.btn-primary.btn-lg(type="submit")
+                                    i.bi.bi-check-lg.me-1
+                                    | Lưu thay đổi
+                                a.btn.btn-outline-secondary(href=`${admin}/products`)
+                                    i.bi.bi-x-lg.me-1
+                                    | Hủy bỏ
+                                a.btn.btn-outline-danger(href=`${admin}/products/${product._id}/delete` onclick="return confirm('Bạn có chắc muốn xóa sản phẩm này?')")
+                                    i.bi.bi-trash.me-1
+                                    | Xóa sản phẩm
+
+block scripts
+    script(src="/admin/js/products.js")
+    script.
+        // Khởi tạo variantIndex cho trang edit (số biến thể hiện có)
+        initVariantIndex(#{(product.bienthe || []).length});

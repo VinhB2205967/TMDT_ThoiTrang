@@ -14,6 +14,11 @@ module.exports = (query) => {
             name: "Ngừng bán",
             status: "ngungban",
             class: ""
+        },
+        {
+            name: "Đã hết",
+            status: "dahet",
+            class: ""
         }
     ];
 

@@ -7,7 +7,6 @@ mixin page()
             ul.pagination.justify-content-center
                 li.page-item(class=pagination.currentPage === 1 ? 'disabled' : '')
                     a.page-link(
-                        href=`${admin}/products?page=${pagination.currentPage - 1}${statusParam}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}`
                         href=`${admin}/products?page=${pagination.currentPage - 1}${statusParam}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}${filterString || ''}`
                         aria-label="Trang trước"
                     )
@@ -20,7 +19,6 @@ mixin page()
                 //- Nếu không bắt đầu từ trang 1
                 if startPage > 1
                     li.page-item
-                        a.page-link(href=`${admin}/products?page=1${statusParam}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}`) 1
                         a.page-link(href=`${admin}/products?page=1${statusParam}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}${filterString || ''}`) 1
                     if startPage > 2
                         li.page-item.disabled
@@ -29,7 +27,6 @@ mixin page()
                 //- Các trang chính
                 - for (let i = startPage; i <= endPage; i++)
                     li.page-item(class=i === pagination.currentPage ? 'active' : '')
-                        a.page-link(href=`${admin}/products?page=${i}${statusParam}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}`) #{i}
                         a.page-link(href=`${admin}/products?page=${i}${statusParam}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}${filterString || ''}`) #{i}
 
                 //- Nếu chưa tới trang cuối
@@ -38,13 +35,11 @@ mixin page()
                         li.page-item.disabled
                             span.page-link ...
                     li.page-item
-                        a.page-link(href=`${admin}/products?page=${pagination.totalPages}${statusParam}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}`) #{pagination.totalPages}
                         a.page-link(href=`${admin}/products?page=${pagination.totalPages}${statusParam}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}${filterString || ''}`) #{pagination.totalPages}
 
                 //- Next
                 li.page-item(class=pagination.currentPage === pagination.totalPages ? 'disabled' : '')
                     a.page-link(
-                        href=`${admin}/products?page=${pagination.currentPage + 1}${statusParam}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}`
                         href=`${admin}/products?page=${pagination.currentPage + 1}${statusParam}${keyword ? '&keyword=' + encodeURIComponent(keyword) : ''}${filterString || ''}`
                         aria-label="Trang sau"
                     )

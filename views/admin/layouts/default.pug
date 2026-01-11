@@ -9,6 +9,19 @@ html
     link(rel="stylesheet", href="/admin/css/admin.css")
   body
     
+    //- Flash Messages
+    .flash-messages
+      if messages.success
+        .alert.alert-success.alert-dismissible.fade.show.flash-alert(role="alert")
+          i.bi.bi-check-circle-fill.me-2
+          | #{messages.success}
+          button.btn-close(type="button" data-bs-dismiss="alert" aria-label="Close")
+      if messages.error
+        .alert.alert-danger.alert-dismissible.fade.show.flash-alert(role="alert")
+          i.bi.bi-exclamation-triangle-fill.me-2
+          | #{messages.error}
+          button.btn-close(type="button" data-bs-dismiss="alert" aria-label="Close")
+    
     .body
         include ../partials/sider.pug 
         .main
@@ -18,3 +31,15 @@ html
     script(src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js")
     script(src="/admin/js/admin.js")
     script(src="/js/script.js")
+    
+    //- Block cho scripts bổ sung từ các trang con
+    block scripts
+    
+    //- Auto hide flash messages
+    script.
+      setTimeout(function() {
+        document.querySelectorAll('.flash-alert').forEach(function(alert) {
+          alert.classList.remove('show');
+          setTimeout(() => alert.remove(), 150);
+        });
+      }, 4000);

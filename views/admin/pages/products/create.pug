@@ -1,0 +1,144 @@
+extends ../../layouts/default.pug
+
+block main
+    .page-header-section
+        .d-flex.justify-content-between.align-items-center.flex-wrap.gap-2
+            h1.page-title.mb-0
+                i.bi.bi-plus-circle.me-2
+                | Thêm sản phẩm mới
+            a.btn.btn-outline-light(href=`${admin}/products`)
+                i.bi.bi-arrow-left.me-1
+                | Quay lại
+
+    .dashboard-container.mt-4
+        form(action=`${admin}/products/create` method="POST" enctype="multipart/form-data")
+            .row.g-4
+                //- Cột trái - Thông tin cơ bản
+                .col-lg-8
+                    .card.mb-4
+                        .card-header.bg-primary.text-white
+                            i.bi.bi-info-circle.me-2
+                            | Thông tin cơ bản
+                        .card-body
+                            .mb-3
+                                label.form-label.fw-bold Tên sản phẩm *
+                                input.form-control(type="text" name="tensanpham" required placeholder="Nhập tên sản phẩm...")
+                            
+                            .mb-3
+                                label.form-label.fw-bold Mô tả
+                                textarea.form-control(name="mota" rows="4" placeholder="Mô tả chi tiết sản phẩm...")
+                            
+                            .row.g-3
+                                .col-md-6
+                                    label.form-label.fw-bold Giá gốc (₫) *
+                                    input.form-control(type="number" name="gia" required min="0" placeholder="0")
+                                
+                                .col-md-6
+                                    label.form-label.fw-bold Giảm giá (%)
+                                    input.form-control(type="number" name="phantramgiamgia" min="0" max="100" value="0" placeholder="0")
+                            
+                            .row.g-3.mt-2
+                                .col-12
+                                    .alert.alert-info.mb-0.py-2
+                                        .d-flex.justify-content-between.align-items-center
+                                            span
+                                                i.bi.bi-box-seam.me-2
+                                                strong Tổng số lượng tồn kho:
+                                            span.fs-5.fw-bold#tongsoluong 0
+                                        input(type="hidden" name="soluongton" id="soluongton" value="0")
+                    
+                    .card
+                        .card-header.bg-info.text-white
+                            i.bi.bi-tags.me-2
+                            | Phân loại
+                        .card-body
+                            .row.g-3
+                                .col-md-4
+                                    label.form-label.fw-bold Giới tính
+                                    select.form-select(name="gioitinh")
+                                        option(value="unisex") Unisex
+                                        option(value="nam") Nam
+                                        option(value="nu") Nữ
+                                
+                                .col-md-4
+                                    label.form-label.fw-bold Loại sản phẩm
+                                    select.form-select(name="loaisanpham")
+                                        option(value="ao") Áo
+                                        option(value="quan") Quần
+                                        option(value="vay") Váy
+                                        option(value="phukien") Phụ kiện
+                                        option(value="giay") Giày
+                                        option(value="tui") Túi
+                                
+                                .col-md-4
+                                    label.form-label.fw-bold Trạng thái
+                                    select.form-select(name="trangthai")
+                                        option(value="dangban") Đang bán
+                                        option(value="ngungban") Ngừng bán
+                            
+                            .mt-3
+                                label.form-label.fw-bold Size chung (không theo biến thể)
+                                .row.g-2
+                                    .col-4.col-md-2
+                                        label.form-label.small XS
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XS" min="0" value="0" oninput="updateTotalStock()")
+                                    .col-4.col-md-2
+                                        label.form-label.small S
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_S" min="0" value="0" oninput="updateTotalStock()")
+                                    .col-4.col-md-2
+                                        label.form-label.small M
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_M" min="0" value="0" oninput="updateTotalStock()")
+                                    .col-4.col-md-2
+                                        label.form-label.small L
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_L" min="0" value="0" oninput="updateTotalStock()")
+                                    .col-4.col-md-2
+                                        label.form-label.small XL
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XL" min="0" value="0" oninput="updateTotalStock()")
+                                    .col-4.col-md-2
+                                        label.form-label.small XXL
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XXL" min="0" value="0" oninput="updateTotalStock()")
+                    
+                    //- Card biến thể
+                    .card.mt-4
+                        .card-header.bg-secondary.text-white.d-flex.justify-content-between.align-items-center
+                            span
+                                i.bi.bi-palette.me-2
+                                | Biến thể màu sắc
+                            button.btn.btn-sm.btn-light(type="button" onclick="addVariant()")
+                                i.bi.bi-plus.me-1
+                                | Thêm
+                        .card-body
+                            #variants-container
+                                //- Biến thể sẽ được thêm bằng JavaScript
+                            .text-muted.small.text-center#no-variant-msg
+                                i.bi.bi-info-circle.me-1
+                                | Nhấn "Thêm" để thêm biến thể màu sắc
+                
+                //- Cột phải - Hình ảnh
+                .col-lg-4
+                    .card
+                        .card-header.bg-success.text-white
+                            i.bi.bi-image.me-2
+                            | Hình ảnh sản phẩm
+                        .card-body.text-center
+                            .mb-3
+                                img#preview-image.img-fluid.rounded.mb-3(src="/images/shopping.png" alt="Preview" style="max-height: 250px; object-fit: cover;")
+                            
+                            input.form-control(type="file" name="hinhanh" accept="image/*" onchange="previewFile(this)")
+                            small.text-muted.d-block.mt-2 Chấp nhận: JPG, PNG, GIF, WEBP
+                    
+                    .card.mt-4
+                        .card-body
+                            .d-grid.gap-2
+                                button.btn.btn-primary.btn-lg(type="submit")
+                                    i.bi.bi-check-lg.me-1
+                                    | Thêm sản phẩm
+                                a.btn.btn-outline-secondary(href=`${admin}/products`)
+                                    i.bi.bi-x-lg.me-1
+                                    | Hủy bỏ
+
+block scripts
+    script(src="/admin/js/products.js")
+    script.
+        // Khởi tạo variantIndex cho trang create
+        initVariantIndex(0);
