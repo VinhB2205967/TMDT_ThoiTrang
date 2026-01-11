@@ -1,4 +1,230 @@
 extends ../../layouts/default.pug
+
 block main
-    h1 Đây là trang chủ
-    p This is the main landing page of the website.
+    //- Banner Slider
+    section.banner-section
+        #bannerCarousel.carousel.slide(data-bs-ride="carousel")
+            .carousel-indicators
+                button.active(type="button" data-bs-target="#bannerCarousel" data-bs-slide-to="0" aria-current="true")
+                button(type="button" data-bs-target="#bannerCarousel" data-bs-slide-to="1")
+                button(type="button" data-bs-target="#bannerCarousel" data-bs-slide-to="2")
+            .carousel-inner
+                .carousel-item.active
+                    .banner-slide.banner-1
+                        .container
+                            .banner-content
+                                h2.banner-title SALE MÙA ĐÔNG
+                                p.banner-subtitle Giảm đến 50% các sản phẩm áo khoác, hoodie
+                                a.btn.btn-banner(href="/products?loaisanpham=ao") Mua ngay
+                .carousel-item
+                    .banner-slide.banner-2
+                        .container
+                            .banner-content
+                                h2.banner-title BST XUÂN 2026
+                                p.banner-subtitle Phong cách trẻ trung, năng động
+                                a.btn.btn-banner(href="/products") Khám phá
+                .carousel-item
+                    .banner-slide.banner-3
+                        .container
+                            .banner-content
+                                h2.banner-title FREESHIP
+                                p.banner-subtitle Miễn phí vận chuyển đơn từ 300K
+                                a.btn.btn-banner(href="/products") Xem ngay
+            button.carousel-control-prev(type="button" data-bs-target="#bannerCarousel" data-bs-slide="prev")
+                span.carousel-control-prev-icon
+            button.carousel-control-next(type="button" data-bs-target="#bannerCarousel" data-bs-slide="next")
+                span.carousel-control-next-icon
+
+    //- Quick Links / Features
+    section.features-section
+        .container
+            .features-grid
+                .feature-item
+                    .feature-icon
+                        i.bi.bi-truck
+                    .feature-text
+                        h5 Miễn phí vận chuyển
+                        p Đơn hàng từ 300K
+                .feature-item
+                    .feature-icon
+                        i.bi.bi-arrow-repeat
+                    .feature-text
+                        h5 Đổi trả dễ dàng
+                        p Trong 7 ngày
+                .feature-item
+                    .feature-icon
+                        i.bi.bi-shield-check
+                    .feature-text
+                        h5 Sản phẩm chính hãng
+                        p 100% authentic
+                .feature-item
+                    .feature-icon
+                        i.bi.bi-headset
+                    .feature-text
+                        h5 Hỗ trợ 24/7
+                        p Hotline: 1900-xxxx
+
+    //- Danh mục sản phẩm
+    section.categories-section
+        .container
+            .section-header
+                h2.section-title
+                    i.bi.bi-grid-3x3-gap-fill.me-2
+                    | DANH MỤC
+            .categories-grid
+                a.category-item(href="/products?loaisanpham=ao")
+                    .category-icon
+                        i.bi.bi-person-standing
+                    span Áo
+                a.category-item(href="/products?loaisanpham=quan")
+                    .category-icon
+                        i.fa-solid.fa-socks
+                    span Quần
+                a.category-item(href="/products?loaisanpham=vay")
+                    .category-icon
+                        i.fa-solid.fa-vest
+                    span Váy
+                a.category-item(href="/products?loaisanpham=giay")
+                    .category-icon
+                        i.bi.bi-award
+                    span Giày
+                a.category-item(href="/products?loaisanpham=tui")
+                    .category-icon
+                        i.bi.bi-bag
+                    span Túi
+                a.category-item(href="/products?loaisanpham=phukien")
+                    .category-icon
+                        i.bi.bi-watch
+                    span Phụ kiện
+                a.category-item(href="/products?gioitinh=nam")
+                    .category-icon
+                        i.bi.bi-gender-male
+                    span Thời trang Nam
+                a.category-item(href="/products?gioitinh=nu")
+                    .category-icon
+                        i.bi.bi-gender-female
+                    span Thời trang Nữ
+
+    //- Flash Sale
+    if flashSaleProducts && flashSaleProducts.length
+        section.flash-sale-section
+            .container
+                .section-header.flash-sale-header
+                    h2.section-title
+                        i.bi.bi-lightning-charge-fill.text-warning.me-2
+                        | FLASH SALE
+                    .countdown
+                        span.countdown-label Kết thúc sau:
+                        .countdown-timer
+                            span.countdown-item#hours 02
+                            span.countdown-sep :
+                            span.countdown-item#minutes 30
+                            span.countdown-sep :
+                            span.countdown-item#seconds 00
+                .products-grid
+                    each product in flashSaleProducts
+                        +productCard(product)
+
+    //- Sản phẩm mới
+    section.products-section
+        .container
+            .section-header
+                h2.section-title
+                    i.bi.bi-stars.me-2
+                    | SẢN PHẨM MỚI
+                a.view-all(href="/products?sort=ngaytao-desc") Xem tất cả
+                    i.bi.bi-arrow-right.ms-1
+            if newProducts && newProducts.length
+                .products-grid
+                    each product in newProducts
+                        +productCard(product)
+            else
+                .text-center.py-5.text-muted
+                    i.bi.bi-box-seam.fs-1.d-block.mb-3
+                    p Chưa có sản phẩm nào
+
+    //- Sản phẩm bán chạy
+    section.products-section.bg-light
+        .container
+            .section-header
+                h2.section-title
+                    i.bi.bi-fire.text-danger.me-2
+                    | BÁN CHẠY NHẤT
+                a.view-all(href="/products") Xem tất cả
+                    i.bi.bi-arrow-right.ms-1
+            if bestSellerProducts && bestSellerProducts.length
+                .products-grid
+                    each product in bestSellerProducts
+                        +productCard(product)
+            else
+                .text-center.py-5.text-muted
+                    i.bi.bi-graph-up.fs-1.d-block.mb-3
+                    p Đang cập nhật
+
+    //- Sản phẩm giảm giá
+    section.products-section
+        .container
+            .section-header
+                h2.section-title
+                    i.bi.bi-percent.text-success.me-2
+                    | ĐANG GIẢM GIÁ
+                a.view-all(href="/products") Xem tất cả
+                    i.bi.bi-arrow-right.ms-1
+            if discountProducts && discountProducts.length
+                .products-grid
+                    each product in discountProducts
+                        +productCard(product)
+            else
+                .text-center.py-5.text-muted
+                    i.bi.bi-tags.fs-1.d-block.mb-3
+                    p Đang cập nhật
+
+//- Mixin Product Card
+mixin productCard(product)
+    .product-card
+        a.product-link(href=`/products/${product._id}`)
+            .product-image
+                img(src=product.displayImage || product.hinhanh || '/images/shopping.png' alt=product.tensanpham)
+                if product.phantramgiamgia > 0
+                    span.discount-badge -#{product.phantramgiamgia}%
+                //- Nút yêu thích + xem nhanh ở góc phải
+                .product-top-actions
+                    button.btn-icon.btn-view(type="button" title="Xem nhanh")
+                        i.bi.bi-eye
+                    button.btn-icon.btn-wishlist(type="button" title="Yêu thích")
+                        i.bi.bi-heart
+                //- Nút Mua + Thêm giỏ ở dưới ảnh
+                .product-bottom-actions
+                    button.btn-add-cart(type="button" title="Thêm vào giỏ")
+                        i.bi.bi-cart-plus
+                    button.btn-buy-now(type="button" title="Mua ngay")
+                        i.bi.bi-lightning-fill
+                        span Mua ngay
+        .product-info
+            h3.product-name #{product.tensanpham}
+            //- Variant thumbnails (hình biến thể)
+            if product.bienthe && product.bienthe.length
+                .variant-thumbs
+                    each bt, idx in product.bienthe.slice(0, 4)
+                        - const btImg = bt.hinhanh ? (bt.hinhanh.startsWith('/public') ? bt.hinhanh.replace('/public', '') : bt.hinhanh) : (product.displayImage || product.hinhanh || '/images/shopping.png')
+                        img.variant-thumb(src=btImg alt=bt.mausac title=bt.mausac)
+                    if product.bienthe.length > 4
+                        span.more-variants +#{product.bienthe.length - 4}
+            .product-price
+                if product.phantramgiamgia > 0
+                    span.price-original #{product.giaText || (product.gia ? product.gia.toLocaleString('vi-VN') + '₫' : '')}
+                    span.price-sale #{product.giamoiText || ((product.gia * (100 - product.phantramgiamgia) / 100).toLocaleString('vi-VN') + '₫')}
+                else
+                    span.price-sale #{product.giaText || (product.gia ? product.gia.toLocaleString('vi-VN') + '₫' : '—')}
+            .product-footer
+                .product-rating
+                    - const rating = product.danhgia || 4.5
+                    - const fullStars = Math.floor(rating)
+                    - const halfStar = rating % 1 >= 0.5
+                    each val in Array(fullStars)
+                        i.bi.bi-star-fill
+                    if halfStar
+                        i.bi.bi-star-half
+                    each val in Array(5 - fullStars - (halfStar ? 1 : 0))
+                        i.bi.bi-star
+                span.sold-count (đã bán)

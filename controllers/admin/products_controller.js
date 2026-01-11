@@ -56,6 +56,16 @@ const index = async (req, res) => {
             };
         }
 
+        // Lọc theo loại sản phẩm
+        if (req.query.loaisanpham) {
+            find.loaisanpham = req.query.loaisanpham;
+        }
+        
+        // Lọc theo giới tính
+        if (req.query.gioitinh) {
+            find.gioitinh = req.query.gioitinh;
+        }
+
         // Lọc theo ngày tạo
         if (req.query.dateFrom || req.query.dateTo) {
             find.ngaytao = {};
@@ -87,6 +97,8 @@ const index = async (req, res) => {
 
         let filterString = '';
         if (req.query.sort) filterString += `&sort=${req.query.sort}`;
+        if (req.query.loaisanpham) filterString += `&loaisanpham=${req.query.loaisanpham}`;
+        if (req.query.gioitinh) filterString += `&gioitinh=${req.query.gioitinh}`;
         if (req.query.priceMin) filterString += `&priceMin=${req.query.priceMin}`;
         if (req.query.priceMax) filterString += `&priceMax=${req.query.priceMax}`;
         if (req.query.dateFrom) filterString += `&dateFrom=${req.query.dateFrom}`;
@@ -98,8 +110,10 @@ const index = async (req, res) => {
             filterStatus,
             keyword: objectSearch.keyword,
             pagination: objectPagination,
-            // Truyền lại giá trị lọc để hiển thị trên form
+            
             currentSort: req.query.sort,
+            currentLoai: req.query.loaisanpham,
+            currentGioiTinh: req.query.gioitinh,
             priceMin: req.query.priceMin,
             priceMax: req.query.priceMax,
             dateFrom: req.query.dateFrom,
@@ -141,7 +155,7 @@ const createPost = async (req, res) => {
             }
         });
         
-        // Xử lý dữ liệu form
+        
         const productData = {
             tensanpham: req.body.tensanpham,
             mota: req.body.mota,

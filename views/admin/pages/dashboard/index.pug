@@ -1,5 +1,146 @@
 extends ../../layouts/default.pug
 block main
+    - const s = stats || { totalProducts: 0, activeProducts: 0, inactiveProducts: 0, outOfStockCount: 0 }
     .dashboard-container
-        h1 Trang chủ admin
-        p Welcome to the admin dashboard!
+        //- Header
+        .dashboard-header
+            h1.dashboard-title
+                i.bi.bi-speedometer2.me-3
+                | Dashboard
+            p.dashboard-subtitle Tổng quan hệ thống quản lý cửa hàng
+
+        //- Stats Cards
+        .stats-row
+            .stat-card.stat-total
+                .stat-icon
+                    i.bi.bi-box-seam
+                .stat-info
+                    .stat-value #{s.totalProducts || 0}
+                    .stat-label Tổng sản phẩm
+                .stat-trend
+                    i.bi.bi-graph-up-arrow
+            .stat-card.stat-active
+                .stat-icon
+                    i.bi.bi-check-circle
+                .stat-info
+                    .stat-value #{s.activeProducts || 0}
+                    .stat-label Đang bán
+                .stat-trend
+                    i.bi.bi-arrow-up.text-success
+            .stat-card.stat-inactive
+                .stat-icon
+                    i.bi.bi-pause-circle
+                .stat-info
+                    .stat-value #{s.inactiveProducts || 0}
+                    .stat-label Ngừng bán
+                .stat-trend
+                    i.bi.bi-dash
+            .stat-card.stat-outstock
+                .stat-icon
+                    i.bi.bi-exclamation-triangle
+                .stat-info
+                    .stat-value #{s.outOfStockCount || 0}
+                    .stat-label Hết hàng
+                .stat-trend
+                    i.bi.bi-arrow-down.text-danger
+
+        //- Content Row
+        .dashboard-row
+            //- Recent Products
+            .dashboard-col.col-main
+                .dashboard-card
+                    .card-header
+                        h3.card-title
+                            i.bi.bi-clock-history.me-2
+                            | Sản phẩm mới thêm
+                        a.view-all-link(href="/admin/products") Xem tất cả
+                            i.bi.bi-arrow-right.ms-1
+                    .card-body
+                        if recentProducts && recentProducts.length
+                            table.table.table-hover.recent-products-table
+                                thead
+                                    tr
+                                        th(width="50") #
+                                        th Hình ảnh
+                                        th Tên sản phẩm
+                                        th Giá
+                                        th Trạng thái
+                                        th Ngày tạo
+                                tbody
+                                    each product, idx in recentProducts
+                                        tr
+                                            td.text-muted #{idx + 1}
+                                            td
+                                                - const imgSrc = product.hinhanh ? (product.hinhanh.startsWith('/public') ? product.hinhanh.replace('/public', '') : product.hinhanh) : '/images/shopping.png'
+                                                img.product-thumb(src=imgSrc alt=product.tensanpham)
+                                            td
+                                                .product-name-cell #{product.tensanpham}
+                                            td.text-primary.fw-bold
+                                                - const discountedPrice = product.phantramgiamgia > 0 ? (product.gia * (100 - product.phantramgiamgia) / 100) : product.gia
+                                                | #{discountedPrice ? discountedPrice.toLocaleString('vi-VN') + '₫' : '—'}
+                                            td
+                                                if product.trangthai === 'dangban'
+                                                    span.badge.bg-success Đang bán
+                                                else
+                                                    span.badge.bg-secondary Ngừng bán
+                                            td.text-muted
+                                                - const createdDate = product.ngaytao ? new Date(product.ngaytao).toLocaleDateString('vi-VN') : '—'
+                                                | #{createdDate}
+                        else
+                            .empty-state
+                                i.bi.bi-inbox.fs-1.text-muted
+                                p.text-muted.mt-2 Chưa có sản phẩm nào
+
+            //- Sidebar Stats
+            .dashboard-col.col-side
+                //- By Type
+                .dashboard-card
+                    .card-header
+                        h3.card-title
+                            i.bi.bi-pie-chart.me-2
+                            | Theo loại sản phẩm
+                    .card-body
+                        if productsByType && productsByType.length
+                            ul.stat-list
+                                each item in productsByType
+                                    li.stat-list-item
+                                        span.stat-name
+                                            - const typeLabels = { ao: 'Áo', quan: 'Quần', vay: 'Váy', giay: 'Giày', tui: 'Túi', phukien: 'Phụ kiện' }
+                                            | #{typeLabels[item._id] || item._id || 'Khác'}
+                                        span.stat-count #{item.count}
+                        else
+                            p.text-muted.text-center Chưa có dữ liệu
+
+                //- By Gender
+                .dashboard-card
+                    .card-header
+                        h3.card-title
+                            i.bi.bi-people.me-2
+                            | Theo giới tính
+                    .card-body
+                        if productsByGender && productsByGender.length
+                            ul.stat-list
+                                each item in productsByGender
+                                    li.stat-list-item
+                                        span.stat-name
+                                            - const genderLabels = { nam: 'Nam', nu: 'Nữ', unisex: 'Unisex' }
+                                            | #{genderLabels[item._id] || item._id || 'Khác'}
+                                        span.stat-count #{item.count}
+                        else
+                            p.text-muted.text-center Chưa có dữ liệu
+
+                //- Quick Actions
+                .dashboard-card
+                    .card-header
+                        h3.card-title
+                            i.bi.bi-lightning.me-2
+                            | Thao tác nhanh
+                    .card-body
+                        .quick-actions
+                            a.quick-action-btn(href="/admin/products/create")
+                                i.bi.bi-plus-circle
+                                span Thêm sản phẩm
+                            a.quick-action-btn(href="/admin/products")
+                                i.bi.bi-list-ul
+                                span Danh sách SP
+                            

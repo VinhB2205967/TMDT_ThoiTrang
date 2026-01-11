@@ -62,7 +62,7 @@ block main
                         input(type="hidden" name="trangthai" value=activeStatus.status)
 
                     .row.g-3
-                        .col-md-3
+                        .col-md-2
                             label.form-label.small.fw-bold Sắp xếp
                             select.form-select.form-select-sm(name="sort" onchange="this.form.submit()")
                                 option(value="ngaytao-desc" selected=(currentSort=='ngaytao-desc')) Mới nhất
@@ -70,21 +70,43 @@ block main
                                 option(value="gia-desc" selected=(currentSort=='gia-desc')) Giá giảm dần
                                 option(value="gia-asc" selected=(currentSort=='gia-asc')) Giá tăng dần
                                 option(value="tensanpham-asc" selected=(currentSort=='tensanpham-asc')) Tên A-Z
-                        .col-md-4
+                        .col-md-2
+                            label.form-label.small.fw-bold Loại SP
+                            select.form-select.form-select-sm(name="loaisanpham" onchange="this.form.submit()")
+                                option(value="" selected=(!currentLoai)) Tất cả
+                                option(value="ao" selected=(currentLoai=='ao')) Áo
+                                option(value="quan" selected=(currentLoai=='quan')) Quần
+                                option(value="vay" selected=(currentLoai=='vay')) Váy
+                                option(value="phukien" selected=(currentLoai=='phukien')) Phụ kiện
+                                option(value="giay" selected=(currentLoai=='giay')) Giày
+                                option(value="tui" selected=(currentLoai=='tui')) Túi
+                        .col-md-2
+                            label.form-label.small.fw-bold Giới tính
+                            select.form-select.form-select-sm(name="gioitinh" onchange="this.form.submit()")
+                                option(value="" selected=(!currentGioiTinh)) Tất cả
+                                option(value="nam" selected=(currentGioiTinh=='nam')) Nam
+                                option(value="nu" selected=(currentGioiTinh=='nu')) Nữ
+                                option(value="unisex" selected=(currentGioiTinh=='unisex')) Unisex
+                        .col-md-3
                             label.form-label.small.fw-bold Khoảng giá
                             .input-group.input-group-sm
                                 input.form-control(type="number" name="priceMin" placeholder="Min" value=priceMin min="0")
                                 span.input-group-text -
                                 input.form-control(type="number" name="priceMax" placeholder="Max" value=priceMax min="0")
-                        .col-md-4
+                        .col-md-3
                             label.form-label.small.fw-bold Ngày tạo
                             .input-group.input-group-sm
                                 input.form-control(type="date" name="dateFrom" value=dateFrom)
                                 span.input-group-text -
                                 input.form-control(type="date" name="dateTo" value=dateTo)
-                        .col-md-1.d-flex.align-items-end
-                            button.btn.btn-primary.btn-sm.w-100(type="submit")
-                                i.bi.bi-funnel
+                    .row.mt-2
+                        .col-12.d-flex.justify-content-end.gap-2
+                            a.btn.btn-outline-secondary.btn-sm(href=`${admin}/products`)
+                                i.bi.bi-x-circle.me-1
+                                | Xóa lọc
+                            button.btn.btn-primary.btn-sm(type="submit")
+                                i.bi.bi-funnel.me-1
+                                | Lọc
     
     .dashboard-container
         if products && products.length
