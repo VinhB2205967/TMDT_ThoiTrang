@@ -62,7 +62,7 @@ block main
                                 
                                 .col-md-4
                                     label.form-label.fw-bold Loại sản phẩm
-                                    select.form-select(name="loaisanpham")
+                                    select#loaisanpham.form-select(name="loaisanpham" onchange="toggleSizeFields()")
                                         option(value="ao" selected=(product.loaisanpham === 'ao')) Áo
                                         option(value="quan" selected=(product.loaisanpham === 'quan')) Quần
                                         option(value="vay" selected=(product.loaisanpham === 'vay')) Váy
@@ -83,7 +83,9 @@ block main
                             
                             - const productSizes = product.sizes || [];
                             - const getSizeQty = (sizeCode) => { const found = productSizes.find(s => s.size === sizeCode); return found ? found.soluong : 0; }
-                            .mt-3
+                            - const noSizeTypes = ['tui', 'phukien']
+                            - const isNoSizeProduct = noSizeTypes.includes(product.loaisanpham)
+                            #baseSizeSection.mt-3(style=(isNoSizeProduct ? 'display:none' : ''))
                                 label.form-label.fw-bold Size chung (không theo biến thể)
                                 .row.g-2
                                     .col-4.col-md-2
@@ -104,6 +106,12 @@ block main
                                     .col-4.col-md-2
                                         label.form-label.small XXL
                                         input.form-control.form-control-sm.base-size-qty(type="number" name="size_XXL" min="0" value=getSizeQty('XXL') oninput="updateTotalStock()")
+                            
+                            //- Số lượng chung (cho sản phẩm không có size như Túi, Phụ kiện)
+                            #baseQtySection.mt-3(style=(isNoSizeProduct ? '' : 'display:none'))
+                                label.form-label.fw-bold Số lượng sản phẩm
+                                input.form-control.base-direct-qty(type="number" name="soluong_chinh" min="0" value=product.soluong_chinh || 0 oninput="updateTotalStock()")
+                                small.text-muted Số lượng cho sản phẩm chính (không theo biến thể)
                     
                     //- Card biến thể
                     - const bientheList = product.bienthe || [];
@@ -146,7 +154,12 @@ block main
                                                     input.variant-has-new-image(type="hidden" name="bienthe_has_new_image" value="0")
                                                     input.form-control.form-control-sm(type="file" name="bienthe_hinhanh" accept="image/*" onchange="markNewImage(this)")
                                                 small.text-muted Để trống nếu không đổi ảnh
-                                            .col-12
+                                            //- Số lượng trực tiếp (cho sản phẩm không có size)
+                                            .col-12.variant-qty-section(style=(isNoSizeProduct ? '' : 'display:none'))
+                                                label.form-label.small Số lượng *
+                                                input.form-control.form-control-sm.variant-direct-qty(type="number" name="bienthe_soluong" min="0" value=bt.soluong || 0 oninput="updateTotalStock()")
+                                            //- Số lượng theo Size (cho sản phẩm có size)
+                                            .col-12.variant-size-section(style=(isNoSizeProduct ? 'display:none' : ''))
                                                 label.form-label.small Số lượng theo Size
                                                 .row.g-2
                                                     .col-4.col-md-2
@@ -210,7 +223,7 @@ block main
                                 a.btn.btn-outline-secondary(href=`${admin}/products`)
                                     i.bi.bi-x-lg.me-1
                                     | Hủy bỏ
-                                a.btn.btn-outline-danger(href=`${admin}/products/${product._id}/delete` onclick="return confirm('Bạn có chắc muốn xóa sản phẩm này?')")
+                                a.btn.btn-outline-danger(href=`${admin}/products/${product._id}/delete` onclick="return confirmDelete()")
                                     i.bi.bi-trash.me-1
                                     | Xóa sản phẩm
 
@@ -219,3 +232,7 @@ block scripts
     script.
         // Khởi tạo variantIndex cho trang edit (số biến thể hiện có)
         initVariantIndex(#{(product.bienthe || []).length});
+        // Kiểm tra loại sản phẩm khi load trang
+        document.addEventListener('DOMContentLoaded', function() {
+            toggleSizeFields();
+        });

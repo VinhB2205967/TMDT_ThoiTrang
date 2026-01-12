@@ -96,9 +96,9 @@ block main
                                     a.btn-buy-now(href=`/products/${item._id}`)
                                         i.bi.bi-lightning-fill.me-1
                                         | Mua ngay
-                                    button.btn-add-cart(type="button" onclick="event.preventDefault(); event.stopPropagation();" title="Thêm vào giỏ")
+                                    button.btn-add-cart(type="button" onclick="handleAddCartClick(event)" title="Thêm vào giỏ")
                                         i.bi.bi-cart-plus
-                                button.btn-wishlist-float(onclick="event.preventDefault(); event.stopPropagation();" title="Yêu thích")
+                                button.btn-wishlist-float(onclick="handleWishlistClick(event)" title="Yêu thích")
                                     i.bi.bi-heart
             else
                 .text-center.py-5

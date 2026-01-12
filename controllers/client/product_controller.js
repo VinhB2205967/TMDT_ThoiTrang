@@ -208,6 +208,7 @@ module.exports.show = async (req, res) => {
             gia: updated.gia,
             phantramgiamgia: updated.phantramgiamgia,
             sizes: mainSizes,
+            soluong: updated.soluong_chinh || 0,
             isMain: true
         });
         

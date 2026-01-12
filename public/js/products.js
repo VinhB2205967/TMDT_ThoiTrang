@@ -3,36 +3,38 @@
  * Xử lý bộ lọc sản phẩm
  */
 
+// ===== DEBOUNCE HELPER =====
+let debounceTimer;
+const debounce = (callback, delay) => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(callback, delay);
+};
+
 // ===== AUTO SUBMIT FILTER =====
-document.addEventListener('DOMContentLoaded', function() {
-    // Lấy form filter
+const initFilterAutoSubmit = () => {
     const filterForm = document.querySelector('.filter-bar form');
     
     if (filterForm) {
         // Các select box tự động submit khi thay đổi
         const selects = filterForm.querySelectorAll('select');
         selects.forEach(select => {
-            select.addEventListener('change', function() {
+            select.addEventListener('change', () => {
                 filterForm.submit();
             });
         });
 
         // Input số (giá) - debounce rồi submit
         const priceInputs = filterForm.querySelectorAll('input[type="number"]');
-        let debounceTimer;
         priceInputs.forEach(input => {
-            input.addEventListener('input', function() {
-                clearTimeout(debounceTimer);
-                debounceTimer = setTimeout(() => {
-                    filterForm.submit();
-                }, 800); // Đợi 800ms sau khi ngừng gõ
+            input.addEventListener('input', () => {
+                debounce(() => filterForm.submit(), 800);
             });
         });
 
         // Enter trong ô tìm kiếm
         const searchInput = filterForm.querySelector('input[name="keyword"]');
         if (searchInput) {
-            searchInput.addEventListener('keypress', function(e) {
+            searchInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     filterForm.submit();
@@ -40,16 +42,21 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     }
+};
+
+// ===== INITIALIZE ON PAGE LOAD =====
+document.addEventListener('DOMContentLoaded', () => {
+    initFilterAutoSubmit();
 });
 
 // ===== ADD TO CART (placeholder) =====
-function addToCart(productId) {
+const addToCart = (productId) => {
     // Redirect to product detail page to select variant/size
     window.location.href = `/products/${productId}`;
-}
+};
 
 // ===== WISHLIST TOGGLE =====
-function toggleWishlist(btn, productId) {
+const toggleWishlist = (btn, productId) => {
     const icon = btn.querySelector('i');
     if (icon.classList.contains('bi-heart')) {
         icon.classList.remove('bi-heart');
@@ -62,4 +69,19 @@ function toggleWishlist(btn, productId) {
         btn.classList.remove('active');
         // TODO: Call API to remove from favorites
     }
-}
+};
+
+// ===== HANDLE ADD CART CLICK =====
+const handleAddCartClick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    // TODO: Show quick add modal or redirect to product detail
+};
+
+// ===== HANDLE WISHLIST CLICK =====
+const handleWishlistClick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const btn = event.currentTarget;
+    toggleWishlist(btn);
+};

@@ -166,7 +166,7 @@ block main
                                     .btn-group.btn-group-sm
                                         a.btn.btn-outline-warning(href=`${admin}/products/${product._id}/edit`, title="Sửa")
                                             i.bi.bi-pencil
-                                        a.btn.btn-outline-danger(href=`${admin}/products/${product._id}/delete`, title="Xóa" onclick="return confirm('Bạn có chắc muốn xóa sản phẩm này?')")
+                                        a.btn.btn-outline-danger(href=`${admin}/products/${product._id}/delete`, title="Xóa" onclick="return confirmDelete('Bạn có chắc chắn muốn xóa?')")
                                             i.bi.bi-trash
             
             
@@ -196,7 +196,7 @@ block main
                                     a.btn.btn-sm.btn-warning.flex-fill(href=`${admin}/products/${product._id}/edit`)
                                         i.bi.bi-pencil.me-1
                                         | Sửa
-                                    a.btn.btn-sm.btn-danger.flex-fill(href=`${admin}/products/${product._id}/delete` onclick="return confirm('Bạn có chắc muốn xóa sản phẩm này?')")
+                                    a.btn.btn-sm.btn-danger.flex-fill(href=`${admin}/products/${product._id}/delete` onclick="return confirmDelete('Bạn có chắc chắn muốn xóa?')")
                                         i.bi.bi-trash.me-1
                                         | Xóa
             
@@ -216,3 +216,6 @@ block main
                         a.btn.btn-primary(href=`${admin}/products/create`)
                             i.bi.bi-plus-lg.me-1
                             | Thêm sản phẩm mới
+
+block scripts
+    script(src="/admin/js/products.js")

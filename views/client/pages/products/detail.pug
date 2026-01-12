@@ -36,7 +36,7 @@ block main
                                             if v.hinhanh && v.hinhanh !== '/images/shopping.png' && shownImages.indexOf(v.hinhanh) === -1
                                                 - shownImages.push(v.hinhanh)
                                                 - var thumbTitle = v.mausac || ('Biến thể ' + (idx + 1))
-                                                .thumb-item(class=(idx === 0 ? 'active' : '') onclick=`document.getElementById('mainImage').src='${v.hinhanh}'; document.querySelectorAll('.thumb-item').forEach(t => t.classList.remove('active')); this.classList.add('active')`)
+                                                .thumb-item(class=(idx === 0 ? 'active' : '') data-img=v.hinhanh onclick="selectThumbnail(this.dataset.img, this)")
                                                     img(src=v.hinhanh alt=thumbTitle title=thumbTitle)
 
                         //- Product Info
@@ -62,9 +62,12 @@ block main
                                 //- Price Box
                                 .price-box
                                     if product.phantramgiamgia && product.phantramgiamgia > 0
-                                        .price-old #{product.giaText}đ
-                                        .price-discount -#{product.phantramgiamgia}%
-                                    .price-current #{product.giamoiText}đ
+                                        .price-old#priceOld #{product.giaText}đ
+                                        .price-discount#priceDiscount -#{product.phantramgiamgia}%
+                                    else
+                                        .price-old#priceOld(style="display:none")
+                                        .price-discount#priceDiscount(style="display:none")
+                                    .price-current#priceCurrent #{product.giamoiText}đ
                                 
                                 //- Product Meta
                                 .product-meta-info
@@ -101,6 +104,9 @@ block main
                                             .color-selector
                                                 each v, idx in product.bienthe
                                                     - var colorName = v.mausac || ('Màu ' + (idx + 1))
+                                                    - var variantGia = v.gia || product.gia
+                                                    - var variantGiamGia = v.phantramgiamgia !== undefined ? v.phantramgiamgia : product.phantramgiamgia
+                                                    - var variantGiaMoi = variantGiamGia > 0 ? Math.round(variantGia * (100 - variantGiamGia) / 100) : variantGia
                                                     input.color-input(
                                                         type='radio' 
                                                         name='bienthe_id' 
@@ -111,7 +117,14 @@ block main
                                                         data-variant-idx=idx
                                                     )
                                                     - var variantImage = v.hinhanh && v.hinhanh !== '/images/shopping.png' ? v.hinhanh : null
-                                                    label.color-option(for=`color${idx}` title=colorName onclick=`selectVariant(${idx}, '${colorName}', '${variantImage || product.hinhanh}')`)
+                                                    label.color-option(
+                                                        for=`color${idx}` 
+                                                        title=colorName 
+                                                        data-gia=variantGia
+                                                        data-giamoi=variantGiaMoi
+                                                        data-giamgia=variantGiamGia
+                                                        onclick=`selectVariant(${idx}, '${colorName}', '${variantImage || product.hinhanh}', this)`
+                                                    )
                                                         if variantImage
                                                             img(src=variantImage alt=colorName)
                                                         else if product.hinhanh
@@ -120,47 +133,86 @@ block main
                                                             span.color-dot(style=`background-color: ${v.colorCode || '#ccc'}`)
                                                         .color-name= colorName
 
-                                    //- Size selection - hiển thị size theo từng biến thể
-                                    .option-section
-                                        .option-label
-                                            span Kích cỡ: 
-                                            strong#selectedSize
-                                        
-                                        //- Tạo panel size cho từng biến thể
-                                        if product.bienthe && product.bienthe.length
-                                            each v, vidx in product.bienthe
-                                                - var variantSizes = v.sizes || []
-                                                - var sizeOrder = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
-                                                .size-selector.variant-size-panel(id=`sizePanel_${vidx}` style=(vidx === 0 ? '' : 'display:none'))
-                                                    if variantSizes.length
-                                                        each sz in sizeOrder
-                                                            - var sizeData = variantSizes.find(s => s.size === sz)
-                                                            if sizeData
-                                                                - var qty = sizeData.soluong || 0
-                                                                input.size-input(
-                                                                    type='radio' 
-                                                                    name='kichco' 
-                                                                    id=`size_${vidx}_${sz}` 
-                                                                    value=sz
-                                                                    disabled=(qty === 0)
-                                                                )
-                                                                label.size-option(for=`size_${vidx}_${sz}` class=(qty === 0 ? 'disabled' : '') onclick=`document.getElementById('selectedSize').textContent='${sz}'`)
-                                                                    span.size-name= sz
-                                                                    if qty > 0
-                                                                        span.size-qty (#{qty})
-                                                                    else
-                                                                        span.size-qty.out Hết
-                                                    else
-                                                        .text-muted.small Không có size cho màu này
+                                    //- Size selection - hiển thị size theo từng biến thể (chỉ cho sản phẩm có size)
+                                    - var noSizeTypes = ['tui', 'phukien']
+                                    - var hasSize = !noSizeTypes.includes(product.loaisanpham)
+                                    
+                                    if hasSize
+                                        .option-section#sizeSection
+                                            .option-label
+                                                span Kích cỡ: 
+                                                strong#selectedSize
+                                            
+                                            //- Tạo panel size cho từng biến thể
+                                            if product.bienthe && product.bienthe.length
+                                                each v, vidx in product.bienthe
+                                                    - var variantSizes = v.sizes || []
+                                                    - var sizeOrder = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+                                                    .size-selector.variant-size-panel(id=`sizePanel_${vidx}` style=(vidx === 0 ? '' : 'display:none'))
+                                                        if variantSizes.length
+                                                            each sz in sizeOrder
+                                                                - var sizeData = variantSizes.find(s => s.size === sz)
+                                                                if sizeData
+                                                                    - var qty = sizeData.soluong || 0
+                                                                    input.size-input(
+                                                                        type='radio' 
+                                                                        name='kichco' 
+                                                                        id=`size_${vidx}_${sz}` 
+                                                                        value=sz
+                                                                        disabled=(qty === 0)
+                                                                    )
+                                                                    label.size-option(for=`size_${vidx}_${sz}` class=(qty === 0 ? 'disabled' : '') data-size=sz onclick="handleSizeSelect(this.dataset.size)")
+                                                                        span.size-name= sz
+                                                                        if qty > 0
+                                                                            span.size-qty (#{qty})
+                                                                        else
+                                                                            span.size-qty.out Hết
+                                                        else
+                                                            .text-muted.small Không có size cho màu này
+                                    else
+                                        //- Hiển thị số lượng tồn kho của biến thể (cho sản phẩm không có size)
+                                        .option-section#stockSection
+                                            .option-label
+                                                span Tình trạng kho: 
+                                            
+                                            //- Panel số lượng chính (khi chưa chọn biến thể hoặc không có biến thể)
+                                            - var baseQty = product.soluong_chinh || 0
+                                            .variant-stock-panel#stockPanel_base(style=(product.bienthe && product.bienthe.length ? 'display:none' : ''))
+                                                if baseQty > 0
+                                                    span.text-success
+                                                        i.bi.bi-check-circle-fill.me-1
+                                                        | Còn #{baseQty} sản phẩm
+                                                else
+                                                    span.text-danger
+                                                        i.bi.bi-x-circle-fill.me-1
+                                                        | Hết hàng
+                                            
+                                            //- Panel cho từng biến thể
+                                            if product.bienthe && product.bienthe.length
+                                                each v, vidx in product.bienthe
+                                                    - var variantQty = v.soluong || 0
+                                                    .variant-stock-panel(id=`stockPanel_${vidx}` style=(vidx === 0 ? '' : 'display:none'))
+                                                        if variantQty > 0
+                                                            span.text-success
+                                                                i.bi.bi-check-circle-fill.me-1
+                                                                | Còn #{variantQty} sản phẩm
+                                                        else if baseQty > 0
+                                                            span.text-success
+                                                                i.bi.bi-check-circle-fill.me-1
+                                                                | Còn #{baseQty} sản phẩm
+                                                        else
+                                                            span.text-danger
+                                                                i.bi.bi-x-circle-fill.me-1
+                                                                | Hết hàng
 
                                     //- Quantity
                                     .option-section
                                         .option-label Số lượng:
                                         .quantity-selector
-                                            button.qty-btn.minus(type="button" onclick="let input = document.getElementById('qtyInput'); if(input.value > 1) input.value = parseInt(input.value) - 1;")
+                                            button.qty-btn.minus(type="button" onclick="decreaseQty()")
                                                 i.bi.bi-dash
                                             input#qtyInput.qty-input(type='number' name='soluong' value='1' min='1' max='99')
-                                            button.qty-btn.plus(type="button" onclick="let input = document.getElementById('qtyInput'); if(input.value < 99) input.value = parseInt(input.value) + 1;")
+                                            button.qty-btn.plus(type="button" onclick="increaseQty()")
                                                 i.bi.bi-plus
 
                                     //- Action Buttons
@@ -168,7 +220,7 @@ block main
                                         button.btn-add-to-cart(type='submit')
                                             i.bi.bi-cart-plus
                                             span Thêm vào giỏ hàng
-                                        button.btn-buy-now-detail(type='button' onclick='this.form.action="/checkout"; this.form.submit();')
+                                        button.btn-buy-now-detail(type='button' onclick="buyNow(this.form)")
                                             i.bi.bi-lightning-fill
                                             span Mua ngay
                                 
@@ -258,4 +310,7 @@ block main
                         | Quay lại danh sách
 
 block scripts
+    if product && product.bienthe
+        script.
+            window.productVariants = !{JSON.stringify(product.bienthe)};
     script(src="/js/product-detail.js")

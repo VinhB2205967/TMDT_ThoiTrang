@@ -62,7 +62,7 @@ block main
                                 
                                 .col-md-4
                                     label.form-label.fw-bold Loại sản phẩm
-                                    select.form-select(name="loaisanpham")
+                                    select#loaisanpham.form-select(name="loaisanpham" onchange="toggleSizeFields()")
                                         option(value="ao") Áo
                                         option(value="quan") Quần
                                         option(value="vay") Váy
@@ -81,7 +81,7 @@ block main
                                 input.form-control(type="text" name="mausac_chinh" placeholder="VD: Đen, Trắng, Xanh...")
                                 small.text-muted Màu sắc đại diện cho ảnh sản phẩm chính
                             
-                            .mt-3
+                            #baseSizeSection.mt-3
                                 label.form-label.fw-bold Size chung (không theo biến thể)
                                 .row.g-2
                                     .col-4.col-md-2
@@ -102,6 +102,12 @@ block main
                                     .col-4.col-md-2
                                         label.form-label.small XXL
                                         input.form-control.form-control-sm.base-size-qty(type="number" name="size_XXL" min="0" value="0" oninput="updateTotalStock()")
+                            
+                            //- Số lượng chung (cho sản phẩm không có size như Túi, Phụ kiện)
+                            #baseQtySection.mt-3(style="display:none")
+                                label.form-label.fw-bold Số lượng sản phẩm
+                                input.form-control.base-direct-qty(type="number" name="soluong_chinh" min="0" value="0" oninput="updateTotalStock()")
+                                small.text-muted Số lượng cho sản phẩm chính (không theo biến thể)
                     
                     //- Card biến thể
                     .card.mt-4
@@ -147,3 +153,7 @@ block scripts
     script.
         // Khởi tạo variantIndex cho trang create
         initVariantIndex(0);
+        // Kiểm tra loại sản phẩm khi load trang
+        document.addEventListener('DOMContentLoaded', function() {
+            toggleSizeFields();
+        });
