@@ -1,0 +1,66 @@
+/* --- Gallery Ảnh --- */
+.thumb-item {
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.2s ease;
+    opacity: 0.7;
+}
+
+.thumb-item:hover {
+    opacity: 1;
+}
+
+.thumb-item.active {
+    border-color: #000; /* Màu chủ đạo */
+    opacity: 1;
+}
+
+/* --- Chọn Size --- */
+.size-input {
+    display: none; /* Ẩn input radio/checkbox thật */
+}
+
+.size-input + label {
+    cursor: pointer;
+    border: 1px solid #dee2e6;
+    padding: 8px 15px;
+    margin-right: 8px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    font-size: 14px;
+    min-width: 40px;
+    text-align: center;
+}
+
+.size-input:checked + label {
+    background-color: #000;
+    color: #fff;
+    border-color: #000;
+}
+
+/* Style cho size hết hàng (Disabled) */
+.size-input:disabled + label {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: #f8f9fa;
+    text-decoration: line-through;
+    color: #999;
+    border-color: #eee;
+}
+
+/* --- Input Số lượng --- */
+.qty-btn {
+    width: 35px;
+    height: 35px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.qty-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

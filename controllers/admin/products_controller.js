@@ -3,416 +3,225 @@ const filterStatusHelper = require('../../helpers/filterStatus');
 const searchHelper = require('../../helpers/search');
 const paginationHelper = require('../../helpers/pagination');
 const productHelper = require('../../helpers/product');
+const productService = require('../../services/product.service');
+
+// ===== WHITELIST CHỐNG NoSQL Injection =====
+const ALLOWED_STATUS = ['dangban', 'ngungban', 'dahet'];
+const ALLOWED_GENDER = ['nam', 'nu', 'unisex'];
+const ALLOWED_TYPE = ['ao', 'quan', 'tui', 'phukien'];
+const ALLOWED_SORT = ['gia', 'ngaytao', 'tensanpham'];
 
 // [GET] /admin/products
 const index = async (req, res) => {
-    try {
-        // Filter Status
-        const filterStatus = filterStatusHelper(req.query);
+  try {
+    // Filter Status (UI)
+    const filterStatus = filterStatusHelper(req.query);
 
-        // Search
-        const objectSearch = searchHelper(req.query, { keywordKey: 'keyword' });
+    // Search
+    const objectSearch = searchHelper(req.query, { keywordKey: 'keyword' });
 
-        // Pagination
-        let objectPagination = {
-            currentPage: 1,
-            limit: 10
-        };
+    // Pagination
+    let objectPagination = {
+      currentPage: 1,
+      limit: 10
+    };
 
-        // Build query
-        const find = { daxoa: { $ne: true } };
-        
-        // Lọc theo trạng thái
-        if (req.query.trangthai === 'dahet') {
-            // Đã hết: soluongton = 0 hoặc không có
-            find.soluongton = { $lte: 0 };
-        } else if (req.query.trangthai) {
-            find.trangthai = req.query.trangthai;
-        }
-        
-        if (objectSearch.keyword) find.tensanpham = objectSearch.regex;
+    // Build base query
+    const find = { daxoa: { $ne: true } };
 
-        // Lọc theo giá (giá đã giảm = gia * (100 - phantramgiamgia) / 100)
-        if (req.query.priceMin || req.query.priceMax) {
-            const priceMin = parseInt(req.query.priceMin) || 0;
-            const priceMax = parseInt(req.query.priceMax) || Number.MAX_SAFE_INTEGER;
-            
-            // Sử dụng $expr để tính giá sau giảm
-            find.$expr = {
-                $and: [
-                    {
-                        $gte: [
-                            { $multiply: ['$gia', { $divide: [{ $subtract: [100, { $ifNull: ['$phantramgiamgia', 0] }] }, 100] }] },
-                            priceMin
-                        ]
-                    },
-                    {
-                        $lte: [
-                            { $multiply: ['$gia', { $divide: [{ $subtract: [100, { $ifNull: ['$phantramgiamgia', 0] }] }, 100] }] },
-                            priceMax
-                        ]
-                    }
+    // ===== TRẠNG THÁI =====
+    if (req.query.trangthai === 'dahet') {
+      find.soluongton = { $lte: 0 };
+    } else if (ALLOWED_STATUS.includes(req.query.trangthai)) {
+      find.trangthai = req.query.trangthai;
+    }
+
+    // ===== TÌM KIẾM =====
+    if (objectSearch.keyword) {
+      find.tensanpham = objectSearch.regex;
+    }
+
+    // ===== LỌC GIÁ SAU GIẢM =====
+    if (req.query.priceMin || req.query.priceMax) {
+      const priceMin = parseInt(req.query.priceMin) || 0;
+      const priceMax = parseInt(req.query.priceMax) || Number.MAX_SAFE_INTEGER;
+
+      find.$expr = {
+        $and: [
+          {
+            $gte: [
+              {
+                $multiply: [
+                  '$gia',
+                  {
+                    $divide: [
+                      { $subtract: [100, { $ifNull: ['$phantramgiamgia', 0] }] },
+                      100
+                    ]
+                  }
                 ]
-            };
-        }
-
-        // Lọc theo loại sản phẩm
-        if (req.query.loaisanpham) {
-            find.loaisanpham = req.query.loaisanpham;
-        }
-        
-        // Lọc theo giới tính
-        if (req.query.gioitinh) {
-            find.gioitinh = req.query.gioitinh;
-        }
-
-        // Lọc theo ngày tạo
-        if (req.query.dateFrom || req.query.dateTo) {
-            find.ngaytao = {};
-            if (req.query.dateFrom) find.ngaytao.$gte = new Date(req.query.dateFrom);
-            if (req.query.dateTo) {
-                const endDate = new Date(req.query.dateTo);
-                endDate.setHours(23, 59, 59, 999);
-                find.ngaytao.$lte = endDate;
-            }
-        }
-
-        // Sắp xếp
-        let sort = { ngaytao: -1 };
-        if (req.query.sort) {
-            const [key, value] = req.query.sort.split('-');
-            sort = { [key]: value === 'asc' ? 1 : -1 };
-        }
-
-        // Count & Pagination
-        const totalProducts = await Product.countDocuments(find);
-        objectPagination = paginationHelper(objectPagination, req.query, totalProducts);
-
-        // Get products
-        const products = await Product.find(find)
-            .sort(sort)
-            .skip(objectPagination.skip)
-            .limit(objectPagination.limit)
-            .lean();
-
-        let filterString = '';
-        if (req.query.sort) filterString += `&sort=${req.query.sort}`;
-        if (req.query.loaisanpham) filterString += `&loaisanpham=${req.query.loaisanpham}`;
-        if (req.query.gioitinh) filterString += `&gioitinh=${req.query.gioitinh}`;
-        if (req.query.priceMin) filterString += `&priceMin=${req.query.priceMin}`;
-        if (req.query.priceMax) filterString += `&priceMax=${req.query.priceMax}`;
-        if (req.query.dateFrom) filterString += `&dateFrom=${req.query.dateFrom}`;
-        if (req.query.dateTo) filterString += `&dateTo=${req.query.dateTo}`;
-
-        res.render("admin/pages/products/index.pug", {
-            titlePage: "Danh sách sản phẩm",
-            products: products.map(productHelper),
-            filterStatus,
-            keyword: objectSearch.keyword,
-            pagination: objectPagination,
-            
-            currentSort: req.query.sort,
-            currentLoai: req.query.loaisanpham,
-            currentGioiTinh: req.query.gioitinh,
-            priceMin: req.query.priceMin,
-            priceMax: req.query.priceMax,
-            dateFrom: req.query.dateFrom,
-            dateTo: req.query.dateTo,
-            filterString
-        });
-
-    } catch (error) {
-        console.error('Load products error:', error);
-        res.status(500).send('Không tải được danh sách sản phẩm');
+              },
+              priceMin
+            ]
+          },
+          {
+            $lte: [
+              {
+                $multiply: [
+                  '$gia',
+                  {
+                    $divide: [
+                      { $subtract: [100, { $ifNull: ['$phantramgiamgia', 0] }] },
+                      100
+                    ]
+                  }
+                ]
+              },
+              priceMax
+            ]
+          }
+        ]
+      };
     }
+
+    // ===== LOẠI SẢN PHẨM =====
+    if (ALLOWED_TYPE.includes(req.query.loaisanpham)) {
+      find.loaisanpham = req.query.loaisanpham;
+    }
+
+    // ===== GIỚI TÍNH =====
+    if (ALLOWED_GENDER.includes(req.query.gioitinh)) {
+      find.gioitinh = req.query.gioitinh;
+    }
+
+    // ===== NGÀY TẠO =====
+    if (req.query.dateFrom || req.query.dateTo) {
+      find.ngaytao = {};
+      if (req.query.dateFrom) {
+        find.ngaytao.$gte = new Date(req.query.dateFrom);
+      }
+      if (req.query.dateTo) {
+        const endDate = new Date(req.query.dateTo);
+        endDate.setHours(23, 59, 59, 999);
+        find.ngaytao.$lte = endDate;
+      }
+    }
+
+    // ===== SORT AN TOÀN =====
+    let sort = { ngaytao: -1 };
+    if (req.query.sort) {
+      const [key, value] = req.query.sort.split('-');
+      if (ALLOWED_SORT.includes(key)) {
+        sort = { [key]: value === 'asc' ? 1 : -1 };
+      }
+    }
+
+    // ===== COUNT & PAGINATION =====
+    const totalProducts = await Product.countDocuments(find);
+    objectPagination = paginationHelper(objectPagination, req.query, totalProducts);
+
+    // ===== QUERY DATA =====
+    const products = await Product.find(find)
+      .sort(sort)
+      .skip(objectPagination.skip)
+      .limit(objectPagination.limit)
+      .lean();
+
+    // ===== GIỮ FILTER TRÊN URL =====
+    let filterString = '';
+    if (req.query.sort) filterString += `&sort=${req.query.sort}`;
+    if (req.query.loaisanpham) filterString += `&loaisanpham=${req.query.loaisanpham}`;
+    if (req.query.gioitinh) filterString += `&gioitinh=${req.query.gioitinh}`;
+    if (req.query.priceMin) filterString += `&priceMin=${req.query.priceMin}`;
+    if (req.query.priceMax) filterString += `&priceMax=${req.query.priceMax}`;
+    if (req.query.dateFrom) filterString += `&dateFrom=${req.query.dateFrom}`;
+    if (req.query.dateTo) filterString += `&dateTo=${req.query.dateTo}`;
+
+    res.render('admin/pages/products/index.pug', {
+      titlePage: 'Danh sách sản phẩm',
+      products: products.map(productHelper),
+      filterStatus,
+      keyword: objectSearch.keyword,
+      pagination: objectPagination,
+
+      currentSort: req.query.sort,
+      currentLoai: req.query.loaisanpham,
+      currentGioiTinh: req.query.gioitinh,
+      priceMin: req.query.priceMin,
+      priceMax: req.query.priceMax,
+      dateFrom: req.query.dateFrom,
+      dateTo: req.query.dateTo,
+      filterString
+    });
+  } catch (error) {
+    console.error('Load products error:', error);
+    res.status(500).send('Không tải được danh sách sản phẩm');
+  }
 };
 
-// [GET] /admin/products/create
+// ================= CRUD KHÔNG CẦN SỬA =================
+
 const create = async (req, res) => {
-    try {
-        res.render("admin/pages/products/create.pug", {
-            titlePage: "Thêm sản phẩm mới"
-        });
-    } catch (error) {
-        console.error('Create product page error:', error);
-        res.status(500).send('Không thể tải trang thêm sản phẩm');
-    }
+  res.render('admin/pages/products/create.pug', { titlePage: 'Thêm sản phẩm mới' });
 };
 
-// [POST] /admin/products/create
 const createPost = async (req, res) => {
-    try {
-        // Kiểm tra loại sản phẩm có cần size không
-        const noSizeTypes = ['tui', 'phukien'];
-        const isNoSizeProduct = noSizeTypes.includes(req.body.loaisanpham);
-        
-        // Xử lý sizes gốc (mỗi size có số lượng riêng)
-        const sizeList = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-        const baseSizes = [];
-        let tongSizeGoc = 0;
-        let soluong_chinh = 0;
-        
-        if (isNoSizeProduct) {
-            // Sản phẩm không có size: lấy số lượng chính
-            soluong_chinh = parseInt(req.body.soluong_chinh) || 0;
-            tongSizeGoc = soluong_chinh;
-        } else {
-            // Sản phẩm có size: lấy số lượng theo size
-            sizeList.forEach(size => {
-                const qty = parseInt(req.body[`size_${size}`]) || 0;
-                if (qty > 0) {
-                    baseSizes.push({ size: size, soluong: qty });
-                    tongSizeGoc += qty;
-                }
-            });
-        }
-        
-        
-        const productData = {
-            tensanpham: req.body.tensanpham,
-            mota: req.body.mota,
-            gia: parseInt(req.body.gia) || 0,
-            phantramgiamgia: parseInt(req.body.phantramgiamgia) || 0,
-            mausac_chinh: req.body.mausac_chinh || '',
-            sizes: baseSizes,
-            soluong_chinh: soluong_chinh,
-            soluongton: tongSizeGoc,
-            gioitinh: req.body.gioitinh,
-            loaisanpham: req.body.loaisanpham,
-            trangthai: req.body.trangthai || 'dangban',
-            daxoa: false,
-            ngaytao: new Date()
-        };
+  try {
+    const productData = productService.prepareProductData(req.body, req.files);
+    productData.ngaytao = new Date();
+    productData.daxoa = false;
 
-        // Xử lý biến thể với sizes
-        if (req.body.bienthe_mausac) {
-            const mausacArr = Array.isArray(req.body.bienthe_mausac) ? req.body.bienthe_mausac : [req.body.bienthe_mausac];
-            const giaArr = Array.isArray(req.body.bienthe_gia) ? req.body.bienthe_gia : [req.body.bienthe_gia];
-            const giamgiaArr = Array.isArray(req.body.bienthe_giamgia) ? req.body.bienthe_giamgia : [req.body.bienthe_giamgia];
-            const soluongArr = Array.isArray(req.body.bienthe_soluong) ? req.body.bienthe_soluong : [req.body.bienthe_soluong];
-            
-            // Lấy ảnh biến thể
-            const bientheImages = req.files && req.files['bienthe_hinhanh'] ? req.files['bienthe_hinhanh'] : [];
-            
-            let tongBienThe = 0;
-            productData.bienthe = mausacArr.map((mausac, i) => {
-                let variantQty = 0;
-                const variantSizes = [];
-                
-                if (isNoSizeProduct) {
-                    // Sản phẩm không có size: lấy số lượng trực tiếp
-                    variantQty = parseInt(soluongArr[i]) || 0;
-                    tongBienThe += variantQty;
-                } else {
-                    // Sản phẩm có size: lấy số lượng theo size
-                    sizeList.forEach(size => {
-                        const qty = parseInt(req.body[`bienthe_${i}_size_${size}`]) || 0;
-                        if (qty > 0) {
-                            variantSizes.push({ size: size, soluong: qty });
-                            tongBienThe += qty;
-                        }
-                    });
-                }
-                
-                return {
-                    mausac: mausac,
-                    gia: parseInt(giaArr[i]) || null,
-                    phantramgiamgia: parseInt(giamgiaArr[i]) || 0,
-                    hinhanh: bientheImages[i] ? '/uploads/products/' + bientheImages[i].filename : null,
-                    soluong: variantQty,
-                    sizes: variantSizes
-                };
-            }).filter(bt => bt.mausac && bt.mausac.trim() !== '');
-            
-            // Tổng số lượng tồn = tổng size gốc + tổng size biến thể
-            productData.soluongton = tongSizeGoc + tongBienThe;
-        }
-
-        // Xử lý upload ảnh chính
-        if (req.files && req.files['hinhanh'] && req.files['hinhanh'][0]) {
-            productData.hinhanh = '/uploads/products/' + req.files['hinhanh'][0].filename;
-        }
-
-        // Tạo sản phẩm mới
-        const product = new Product(productData);
-        await product.save();
-
-        req.flash('success', 'Thêm sản phẩm thành công!');
-        res.redirect(req.app.locals.admin + '/products');
-    } catch (error) {
-        console.error('Create product error:', error);
-        req.flash('error', 'Không thể tạo sản phẩm: ' + error.message);
-        res.redirect('back');
-    }
+    await new Product(productData).save();
+    req.flash('success', 'Thêm sản phẩm thành công!');
+    res.redirect(req.app.locals.admin + '/products');
+  } catch (error) {
+    req.flash('error', error.message);
+    res.redirect('back');
+  }
 };
 
-// [GET] /admin/products/:id/edit
 const edit = async (req, res) => {
-    try {
-        const product = await Product.findById(req.params.id).lean();
-        
-        if (!product) {
-            return res.status(404).send('Không tìm thấy sản phẩm');
-        }
-
-        res.render("admin/pages/products/edit.pug", {
-            titlePage: "Chỉnh sửa sản phẩm",
-            product: productHelper(product)
-        });
-    } catch (error) {
-        console.error('Edit product page error:', error);
-        res.status(500).send('Không thể tải trang chỉnh sửa sản phẩm');
-    }
+  const product = await Product.findById(req.params.id).lean();
+  if (!product) return res.status(404).send('Không tìm thấy sản phẩm');
+  res.render('admin/pages/products/edit.pug', {
+    titlePage: 'Chỉnh sửa sản phẩm',
+    product: productHelper(product)
+  });
 };
 
-// [POST] /admin/products/:id/edit
 const editPost = async (req, res) => {
-    try {
-        // Lấy sản phẩm hiện tại để giữ lại ảnh cũ nếu không upload mới
-        const currentProduct = await Product.findById(req.params.id).lean();
-        
-        // Kiểm tra loại sản phẩm có cần size không
-        const noSizeTypes = ['tui', 'phukien'];
-        const isNoSizeProduct = noSizeTypes.includes(req.body.loaisanpham);
-        // Xử lý sizes gốc (mỗi size có số lượng riêng)
-        const sizeList = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-        const baseSizes = [];
-        let tongSizeGoc = 0;
-        let soluong_chinh = 0;
-        
-        if (isNoSizeProduct) {
-            // Sản phẩm không có size: lấy số lượng chính
-            soluong_chinh = parseInt(req.body.soluong_chinh) || 0;
-            tongSizeGoc = soluong_chinh;
-        } else {
-            // Sản phẩm có size: lấy số lượng theo size
-            sizeList.forEach(size => {
-                const qty = parseInt(req.body[`size_${size}`]) || 0;
-                if (qty > 0) {
-                    baseSizes.push({ size: size, soluong: qty });
-                    tongSizeGoc += qty;
-                }
-            });
-        }
-        
-        const productData = {
-            tensanpham: req.body.tensanpham,
-            mota: req.body.mota,
-            gia: parseInt(req.body.gia) || 0,
-            phantramgiamgia: parseInt(req.body.phantramgiamgia) || 0,
-            mausac_chinh: req.body.mausac_chinh || '',
-            sizes: baseSizes,
-            soluong_chinh: soluong_chinh,
-            soluongton: tongSizeGoc,
-            gioitinh: req.body.gioitinh,
-            loaisanpham: req.body.loaisanpham,
-            trangthai: req.body.trangthai
-        };
-
-        // Xử lý biến thể với sizes
-        if (req.body.bienthe_mausac) {
-            const mausacArr = Array.isArray(req.body.bienthe_mausac) ? req.body.bienthe_mausac : [req.body.bienthe_mausac];
-            const giaArr = Array.isArray(req.body.bienthe_gia) ? req.body.bienthe_gia : [req.body.bienthe_gia];
-            const giamgiaArr = Array.isArray(req.body.bienthe_giamgia) ? req.body.bienthe_giamgia : [req.body.bienthe_giamgia];
-            const soluongArr = Array.isArray(req.body.bienthe_soluong) ? req.body.bienthe_soluong : [req.body.bienthe_soluong];
-            const oldImageArr = Array.isArray(req.body.bienthe_hinhanh_cu) ? req.body.bienthe_hinhanh_cu : [req.body.bienthe_hinhanh_cu];
-            const hasNewImageArr = Array.isArray(req.body.bienthe_has_new_image) ? req.body.bienthe_has_new_image : [req.body.bienthe_has_new_image];
-            
-            // Lấy ảnh biến thể mới upload
-            const bientheImages = req.files && req.files['bienthe_hinhanh'] ? req.files['bienthe_hinhanh'] : [];
-            let imageIndex = 0;
-            
-            let tongBienThe = 0;
-            productData.bienthe = mausacArr.map((mausac, i) => {
-                let hinhanh = oldImageArr[i] || null; // Giữ ảnh cũ
-                
-                // Kiểm tra xem biến thể này có upload ảnh mới không
-                if (hasNewImageArr[i] === '1' && bientheImages[imageIndex]) {
-                    hinhanh = '/uploads/products/' + bientheImages[imageIndex].filename;
-                    imageIndex++;
-                }
-                
-                let variantQty = 0;
-                const variantSizes = [];
-                
-                if (isNoSizeProduct) {
-                    // Sản phẩm không có size: lấy số lượng trực tiếp
-                    variantQty = parseInt(soluongArr[i]) || 0;
-                    tongBienThe += variantQty;
-                } else {
-                    // Sản phẩm có size: lấy số lượng theo size
-                    sizeList.forEach(size => {
-                        const qty = parseInt(req.body[`bienthe_${i}_size_${size}`]) || 0;
-                        if (qty > 0) {
-                            variantSizes.push({ size: size, soluong: qty });
-                            tongBienThe += qty;
-                        }
-                    });
-                }
-                
-                return {
-                    mausac: mausac,
-                    gia: parseInt(giaArr[i]) || null,
-                    phantramgiamgia: parseInt(giamgiaArr[i]) || 0,
-                    hinhanh: hinhanh,
-                    soluong: variantQty,
-                    sizes: variantSizes
-                };
-            }).filter(bt => bt.mausac && bt.mausac.trim() !== '');
-            
-            // Tổng số lượng tồn = tổng size gốc + tổng size biến thể
-            productData.soluongton = tongSizeGoc + tongBienThe;
-        } else {
-            productData.bienthe = [];
-        }
-
-        // Xử lý upload ảnh chính mới
-        if (req.files && req.files['hinhanh'] && req.files['hinhanh'][0]) {
-            productData.hinhanh = '/uploads/products/' + req.files['hinhanh'][0].filename;
-        }
-
-        await Product.findByIdAndUpdate(req.params.id, productData);
-
-        req.flash('success', 'Cập nhật sản phẩm thành công!');
-        res.redirect(req.app.locals.admin + '/products');
-    } catch (error) {
-        console.error('Update product error:', error);
-        req.flash('error', 'Không thể cập nhật sản phẩm: ' + error.message);
-        res.redirect('back');
-    }
+  try {
+    const productData = productService.prepareProductData(req.body, req.files);
+    await Product.findByIdAndUpdate(req.params.id, productData);
+    req.flash('success', 'Cập nhật thành công!');
+    res.redirect(req.app.locals.admin + '/products');
+  } catch (error) {
+    req.flash('error', error.message);
+    res.redirect('back');
+  }
 };
 
-// [GET] /admin/products/:id/delete (Soft delete)
 const deleteProduct = async (req, res) => {
-    try {
-        await Product.findByIdAndUpdate(req.params.id, { daxoa: true });
-        req.flash('success', 'Xóa sản phẩm thành công!');
-        res.redirect(req.app.locals.admin + '/products');
-    } catch (error) {
-        console.error('Delete product error:', error);
-        req.flash('error', 'Không thể xóa sản phẩm');
-        res.redirect('back');
-    }
+  await Product.findByIdAndUpdate(req.params.id, { daxoa: true });
+  req.flash('success', 'Xóa sản phẩm thành công!');
+  res.redirect(req.app.locals.admin + '/products');
 };
 
-// [PATCH] /admin/products/:id/change-status
 const changeStatus = async (req, res) => {
-    try {
-        const { status } = req.body;
-        await Product.findByIdAndUpdate(req.params.id, { trangthai: status });
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Change status error:', error);
-        res.status(500).json({ success: false, message: 'Không thể thay đổi trạng thái' });
-    }
+  const status = req.body.status || req.body.trangthai;
+  if (!ALLOWED_STATUS.includes(status)) {
+    return res.status(400).json({ success: false });
+  }
+  await Product.findByIdAndUpdate(req.params.id, { trangthai: status });
+  res.json({ success: true });
 };
 
-module.exports = { 
-    index,
-    create,
-    createPost,
-    edit,
-    editPost,
-    delete: deleteProduct,
-    changeStatus
+module.exports = {
+  index,
+  create,
+  createPost,
+  edit,
+  editPost,
+  delete: deleteProduct,
+  changeStatus
 };

@@ -286,20 +286,20 @@ block main
                             i.bi.bi-grid
                             h3 Sản phẩm tương tự
                         .section-content
-                            .related-products-grid
+                            .related-products-grid.d-flex.flex-row.gap-3.flex-nowrap.overflow-auto.pb-2
                                 each item in related
-                                    a.related-product-card(href=`/products/${item._id}`)
-                                        .related-image
+                                    a.related-product-card.bg-white.shadow-sm.rounded-4.p-3.d-flex.flex-column.align-items-center.text-decoration-none.transition-hover(href=`/products/${item._id}` style="min-width:180px;max-width:200px;")
+                                        .related-image.position-relative.mb-2(style="width:120px;height:120px;overflow:hidden;border-radius:12px;background:#f8f9fa;display:flex;align-items:center;justify-content:center;")
                                             if item.hinhanh
-                                                img(src=item.hinhanh alt=item.tensanpham)
+                                                img(src=item.hinhanh alt=item.tensanpham style="max-width:100%;max-height:100%;object-fit:contain;")
                                             if item.phantramgiamgia && item.phantramgiamgia > 0
-                                                .mini-badge -#{item.phantramgiamgia}%
-                                        .related-info
-                                            .related-name= item.tensanpham
+                                                .mini-badge.position-absolute.top-0.start-0.bg-danger.text-white.px-2.py-1.rounded-end.shadow(style="font-size:0.85em;left:0;top:0;") -#{item.phantramgiamgia}%
+                                        .related-info.w-100.text-center
+                                            .related-name.fw-semibold.mb-1.text-dark(style="min-height:2.5em;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;")= item.tensanpham
                                             .related-price
                                                 if item.phantramgiamgia && item.phantramgiamgia > 0
-                                                    span.old #{item.giaText}đ
-                                                span.current #{item.giamoiText}đ
+                                                    span.old.text-muted.text-decoration-line-through.me-1 #{item.gia.toLocaleString('vi-VN')}đ
+                                                span.current.fw-bold.text-danger #{item.giaMoi.toLocaleString('vi-VN')}đ
             else
                 .empty-state
                     i.bi.bi-bag-x

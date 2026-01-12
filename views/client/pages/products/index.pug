@@ -82,8 +82,8 @@ block main
                                                     span.variant-more +#{item.bienthe.length - 5}
                                         .product-price
                                             if item.phantramgiamgia && item.phantramgiamgia > 0
-                                                span.original-price #{item.giaText}đ
-                                            span.sale-price #{item.giamoiText}đ
+                                                span.original-price #{item.gia.toLocaleString('vi-VN')}đ
+                                            span.sale-price #{item.giaMoi.toLocaleString('vi-VN')}đ
                                         .product-rating
                                             .stars
                                                 i.fas.fa-star
@@ -100,6 +100,8 @@ block main
                                         i.bi.bi-cart-plus
                                 button.btn-wishlist-float(onclick="handleWishlistClick(event)" title="Yêu thích")
                                     i.bi.bi-heart
+
+                           
             else
                 .text-center.py-5
                     i.bi.bi-bag-x.display-1.text-muted

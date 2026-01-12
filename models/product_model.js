@@ -34,5 +34,18 @@ const productSchema = new mongoose.Schema({
   ngaytao: Date
 });
 
+
+// Virtual: Giá mới sau giảm giá
+productSchema.virtual('giaMoi').get(function() {
+  if (this.phantramgiamgia > 0) {
+    return Math.round(this.gia * (1 - this.phantramgiamgia / 100));
+  }
+  return this.gia;
+});
+
+// Bật virtuals khi dùng .lean() hoặc toObject()
+productSchema.set('toJSON', { virtuals: true });
+productSchema.set('toObject', { virtuals: true });
+
 const Sanpham = mongoose.model("Sanpham", productSchema, "products");
 module.exports = Sanpham;

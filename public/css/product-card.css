@@ -1,0 +1,43 @@
+/* ==================== PRODUCT CARD & LIST ==================== */
+.product-card {
+    position: relative;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+.product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+.product-card-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+.product-card-link:hover .product-name {
+    color: #667eea;
+}
+.btn-wishlist-float {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 36px;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.95);
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.btn-wishlist-float:hover {
+    background: #ff416c;
+    color: white;
+    transform: scale(1.1);
+}
+.btn-wishlist-float i {
+    font-size: 18px;
+}

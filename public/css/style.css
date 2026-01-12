@@ -1,96 +1,4 @@
 
-/* ==================== FILTER BAR ==================== */
-.filter-bar {
-    background: #f8f9fa;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-}
-
-.filter-bar .form-control,
-.filter-bar .form-select {
-    border-radius: 8px;
-    border: 1px solid #dee2e6;
-    padding: 10px 15px;
-    font-size: 14px;
-}
-
-.filter-bar .form-control:focus,
-.filter-bar .form-select:focus {
-    border-color: #667eea;
-    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-}
-
-.filter-bar .btn-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border: none;
-    padding: 10px 24px;
-    border-radius: 8px;
-    font-weight: 600;
-}
-
-.filter-bar .btn-secondary {
-    background: #6c757d;
-    border: none;
-    padding: 10px 24px;
-    border-radius: 8px;
-}
-
-.filter-info {
-    padding: 10px 0;
-    font-size: 14px;
-}
-
-/* ==================== PRODUCT CARD LINK ==================== */
-.product-card {
-    position: relative;
-    transition: all 0.3s ease;
-    cursor: pointer;
-}
-
-.product-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-}
-
-.product-card-link {
-    text-decoration: none;
-    color: inherit;
-    display: block;
-}
-
-.product-card-link:hover .product-name {
-    color: #667eea;
-}
-
-.btn-wishlist-float {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 36px;
-    height: 36px;
-    background: rgba(255, 255, 255, 0.95);
-    border: none;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    z-index: 10;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-.btn-wishlist-float:hover {
-    background: #ff416c;
-    color: white;
-    transform: scale(1.1);
-}
-
-.btn-wishlist-float i {
-    font-size: 18px;
-}
-
 * {
     margin: 0;
     padding: 0;
@@ -98,15 +6,21 @@
 }
 
 /* ==================== HEADER ==================== */
+
 .header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #6c82f7;
     padding: 16px 0;
-    box-shadow: 0 4px 25px rgba(102, 126, 234, 0.35);
+    box-shadow: 0 4px 25px rgba(108, 130, 247, 0.35);
     position: sticky;
     top: 0;
     z-index: 1000;
 }
 
+/* Admin header nếu có class riêng */
+.admin-header {
+    background: #6c82f7 !important;
+    box-shadow: 0 4px 25px rgba(108, 130, 247, 0.35);
+}
 .header .container {
     max-width: 1400px;
     margin: 0 auto;

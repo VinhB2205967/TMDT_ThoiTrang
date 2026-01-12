@@ -157,9 +157,9 @@ body {
 
 /* Page Header Section */
 .page-header-section {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #6c82f7;
   padding: 24px 32px;
-  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 20px rgba(108, 130, 247, 0.3);
   position: sticky;
   top: 0;
   z-index: 999;
