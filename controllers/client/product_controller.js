@@ -115,7 +115,6 @@ module.exports.index = async (req, res) => {
             const [key, value] = req.query.sort.split('-');
             sort = { [key]: value === 'asc' ? 1 : -1 };
         }
-        
         const products = await Products.find(query).sort(sort).lean();
 
         // Xử lý giảm giá, format giá, chuẩn hóa ảnh

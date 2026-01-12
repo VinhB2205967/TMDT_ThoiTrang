@@ -2832,11 +2832,11 @@
 
 /* Banner riêng từng ảnh */
 .banner-1 {
-    background-image: url("/images/banner1.jpg");
+    background-image: url("banner1.jpg");
 }
 
 .banner-2 {
-    background-image: url("/images/banner2.jpg");
+    background-image: url("banner2.png");
 }
 
 .banner-3 {
