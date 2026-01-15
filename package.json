@@ -7,10 +7,11 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon --inspect index.js",
+    "start": "nodemon --inspect=0 index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "bootstrap-icons": "^1.13.1",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "express-flash": "^0.0.2",

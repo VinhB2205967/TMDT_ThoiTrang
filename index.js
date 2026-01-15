@@ -3,6 +3,7 @@ const app = express()
 require('dotenv').config()
 const flash = require('express-flash')
 const session = require('express-session')
+const mongoSanitize = require('./middlewares/mongoSanitize')
 const database = require("./config/database")
 const route = require('./routes/client/index_route')
 const routeAdmin = require('./routes/admin/index_route')
@@ -14,6 +15,9 @@ app.set('view engine', 'pug')
 app.use(express.static('public'))
 app.use(express.urlencoded({ extended: true }))
 app.use(express.json())
+
+// Prevent MongoDB operator injection via req.body/query/params
+app.use(mongoSanitize())
 
 // Session & Flash
 app.use(session({

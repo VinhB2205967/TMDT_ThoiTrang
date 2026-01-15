@@ -30,7 +30,7 @@ block main
                                     h3.product-name
                                         a(href=`/products/${product._id}`) #{product.tensanpham}
                                     .product-price
-                                        if product.giamoiText
+                                        if product.phantramgiamgia && product.phantramgiamgia > 0
                                             span.price-new #{product.giamoiText}
                                             span.price-old #{product.giaText}
                                         else

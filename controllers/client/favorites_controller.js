@@ -1,4 +1,5 @@
 const Sanpham = require("../../models/product_model");
+const productHelper = require("../../helpers/product");
 
 // [GET] /favorites
 module.exports.index = async (req, res) => {
@@ -21,32 +22,7 @@ module.exports.index = async (req, res) => {
         trangthai: "dangban"
       }).lean();
 
-      // Xử lý giá hiển thị
-      products = products.map(product => {
-        let gia = product.gia || 0;
-        let giamoi = gia;
-        let hinhanh = product.hinhanh || '/images/shopping.png';
-
-        if (product.bienthe && product.bienthe.length > 0) {
-          const firstVariant = product.bienthe[0];
-          gia = firstVariant.gia || product.gia || 0;
-          if (firstVariant.phantramgiamgia) {
-            giamoi = gia * (1 - firstVariant.phantramgiamgia / 100);
-          } else if (product.phantramgiamgia) {
-            giamoi = gia * (1 - product.phantramgiamgia / 100);
-          }
-          hinhanh = firstVariant.hinhanh || product.hinhanh || '/images/shopping.png';
-        } else if (product.phantramgiamgia) {
-          giamoi = gia * (1 - product.phantramgiamgia / 100);
-        }
-
-        return {
-          ...product,
-          giaText: gia.toLocaleString('vi-VN') + '₫',
-          giamoiText: giamoi < gia ? giamoi.toLocaleString('vi-VN') + '₫' : null,
-          displayImage: hinhanh
-        };
-      });
+      products = products.map(productHelper);
     }
 
     res.render("client/pages/favorites/index", {

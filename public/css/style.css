@@ -1321,6 +1321,13 @@
     transition: all 0.3s ease;
 }
 
+.category-icon img {
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+    display: block;
+}
+
 .category-item:hover .category-icon {
     background: rgba(255,255,255,0.2);
     color: #fff;

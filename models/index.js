@@ -8,6 +8,7 @@ const Chitietdonhang = require('./order_item_model');
 const Thanhtoan = require('./pay_model');
 const Danhgia = require('./review_model');
 const Yeuthich = require('./favorite_model');
+const Coupon = require('./coupon_model');
 
 module.exports = {
     Sanpham,
@@ -18,5 +19,6 @@ module.exports = {
     Chitietdonhang,
     Thanhtoan,
     Danhgia,
-    Yeuthich
+    Yeuthich,
+    Coupon
 };

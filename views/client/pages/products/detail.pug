@@ -62,12 +62,12 @@ block main
                                 //- Price Box
                                 .price-box
                                     if product.phantramgiamgia && product.phantramgiamgia > 0
-                                        .price-old#priceOld #{product.giaText}đ
+                                        .price-old#priceOld #{product.giaText}
                                         .price-discount#priceDiscount -#{product.phantramgiamgia}%
                                     else
                                         .price-old#priceOld(style="display:none")
                                         .price-discount#priceDiscount(style="display:none")
-                                    .price-current#priceCurrent #{product.giamoiText}đ
+                                    .price-current#priceCurrent #{product.giamoiText}
                                 
                                 //- Product Meta
                                 .product-meta-info
@@ -298,8 +298,8 @@ block main
                                             .related-name= item.tensanpham
                                             .related-price
                                                 if item.phantramgiamgia && item.phantramgiamgia > 0
-                                                    span.old #{item.giaText}đ
-                                                span.current #{item.giamoiText}đ
+                                                    span.old #{item.giaText}
+                                                span.current #{item.giamoiText}
             else
                 .empty-state
                     i.bi.bi-bag-x

@@ -26,7 +26,8 @@ const couponSchema = new mongoose.Schema({
     default: 0
   },
   giam_toida: { // Số tiền giảm tối đa (chỉ dùng khi loai là 'phantram')
-    type: Number
+    type: Number,
+    min: 0
   },
   
   ngay_batdau: {
@@ -49,6 +50,7 @@ const couponSchema = new mongoose.Schema({
   
   trangthai: { // 'active', 'inactive'
     type: String,
+    enum: ['active', 'inactive'],
     default: 'active'
   },
   daxoa: {
@@ -58,7 +60,30 @@ const couponSchema = new mongoose.Schema({
   
   ngaytao: { type: Date, default: Date.now },
   ngaycapnhat: Date
+}, {
+  minimize: false
 });
+
+couponSchema.index({ code: 1 }, { unique: true });
+couponSchema.index({ daxoa: 1, trangthai: 1, ngay_ketthuc: 1 });
+
+couponSchema.pre('save', function (next) {
+  this.ngaycapnhat = new Date();
+  next();
+});
+
+couponSchema.path('ngay_ketthuc').validate(function (value) {
+  if (!value) return true;
+  const start = this.ngay_batdau || this.ngaytao || new Date(0);
+  return value > start;
+}, 'ngay_ketthuc phải lớn hơn ngay_batdau');
+
+couponSchema.path('soluong_dasudung').validate(function (value) {
+  if (value == null) return true;
+  const max = this.soluong_toida;
+  if (max == null) return true;
+  return value <= max;
+}, 'soluong_dasudung không được vượt soluong_toida');
 
 const Coupon = mongoose.model("Coupon", couponSchema, "coupons");
 module.exports = Coupon;

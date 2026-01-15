@@ -4,6 +4,86 @@ const searchHelper = require('../../helpers/search');
 const paginationHelper = require('../../helpers/pagination');
 const productHelper = require('../../helpers/product');
 
+const NO_SIZE_TYPES = ['tui', 'phukien'];
+const SIZE_LIST = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+
+function isNoSizeProductType(loaisanpham) {
+    return NO_SIZE_TYPES.includes(loaisanpham);
+}
+
+function buildBaseSizes(reqBody, isNoSizeProduct) {
+    const baseSizes = [];
+    let tongSizeGoc = 0;
+    let soluong_chinh = 0;
+
+    if (isNoSizeProduct) {
+        soluong_chinh = parseInt(reqBody.soluong_chinh) || 0;
+        tongSizeGoc = soluong_chinh;
+        return { baseSizes, tongSizeGoc, soluong_chinh };
+    }
+
+    SIZE_LIST.forEach(size => {
+        const qty = parseInt(reqBody[`size_${size}`]) || 0;
+        if (qty > 0) {
+            baseSizes.push({ size: size, soluong: qty });
+            tongSizeGoc += qty;
+        }
+    });
+
+    return { baseSizes, tongSizeGoc, soluong_chinh };
+}
+
+function buildVariantsFromRequest({ reqBody, reqFiles, isNoSizeProduct, oldImageArr = [], hasNewImageArr = [] }) {
+    if (!reqBody.bienthe_mausac) {
+        return { variants: [], tongBienThe: 0 };
+    }
+
+    const mausacArr = Array.isArray(reqBody.bienthe_mausac) ? reqBody.bienthe_mausac : [reqBody.bienthe_mausac];
+    const giaArr = Array.isArray(reqBody.bienthe_gia) ? reqBody.bienthe_gia : [reqBody.bienthe_gia];
+    const giamgiaArr = Array.isArray(reqBody.bienthe_giamgia) ? reqBody.bienthe_giamgia : [reqBody.bienthe_giamgia];
+    const soluongArr = Array.isArray(reqBody.bienthe_soluong) ? reqBody.bienthe_soluong : [reqBody.bienthe_soluong];
+
+    const bientheImages = reqFiles && reqFiles['bienthe_hinhanh'] ? reqFiles['bienthe_hinhanh'] : [];
+    let imageIndex = 0;
+    let tongBienThe = 0;
+
+    const variants = mausacArr.map((mausac, i) => {
+        let hinhanh = oldImageArr[i] || null;
+
+        if (hasNewImageArr[i] === '1' && bientheImages[imageIndex]) {
+            hinhanh = '/uploads/products/' + bientheImages[imageIndex].filename;
+            imageIndex++;
+        }
+
+        let variantQty = 0;
+        const variantSizes = [];
+
+        if (isNoSizeProduct) {
+            variantQty = parseInt(soluongArr[i]) || 0;
+            tongBienThe += variantQty;
+        } else {
+            SIZE_LIST.forEach(size => {
+                const qty = parseInt(reqBody[`bienthe_${i}_size_${size}`]) || 0;
+                if (qty > 0) {
+                    variantSizes.push({ size: size, soluong: qty });
+                    tongBienThe += qty;
+                }
+            });
+        }
+
+        return {
+            mausac: mausac,
+            gia: parseInt(giaArr[i]) || null,
+            phantramgiamgia: parseInt(giamgiaArr[i]) || 0,
+            hinhanh: hinhanh,
+            soluong: variantQty,
+            sizes: variantSizes
+        };
+    }).filter(bt => bt.mausac && bt.mausac.trim() !== '');
+
+    return { variants, tongBienThe };
+}
+
 // [GET] /admin/products
 const index = async (req, res) => {
     try {
@@ -57,12 +137,14 @@ const index = async (req, res) => {
         }
 
         // Lọc theo loại sản phẩm
-        if (req.query.loaisanpham) {
+        const allowedLoai = new Set(['ao', 'quan', 'vay', 'phukien', 'giay', 'tui', 'aokhoac']);
+        if (req.query.loaisanpham && allowedLoai.has(req.query.loaisanpham)) {
             find.loaisanpham = req.query.loaisanpham;
         }
-        
+
         // Lọc theo giới tính
-        if (req.query.gioitinh) {
+        const allowedGioiTinh = new Set(['nam', 'nu', 'unisex']);
+        if (req.query.gioitinh && allowedGioiTinh.has(req.query.gioitinh)) {
             find.gioitinh = req.query.gioitinh;
         }
 
@@ -77,11 +159,15 @@ const index = async (req, res) => {
             }
         }
 
-        // Sắp xếp
+        // Sắp xếp (whitelist)
         let sort = { ngaytao: -1 };
         if (req.query.sort) {
-            const [key, value] = req.query.sort.split('-');
-            sort = { [key]: value === 'asc' ? 1 : -1 };
+            const [key, value] = String(req.query.sort).split('-');
+            const allowedSortKeys = new Set(['gia', 'ngaytao', 'tensanpham']);
+            const allowedSortDir = new Set(['asc', 'desc']);
+            if (allowedSortKeys.has(key) && allowedSortDir.has(value)) {
+                sort = { [key]: value === 'asc' ? 1 : -1 };
+            }
         }
 
         // Count & Pagination
@@ -142,30 +228,8 @@ const create = async (req, res) => {
 // [POST] /admin/products/create
 const createPost = async (req, res) => {
     try {
-        // Kiểm tra loại sản phẩm có cần size không
-        const noSizeTypes = ['tui', 'phukien'];
-        const isNoSizeProduct = noSizeTypes.includes(req.body.loaisanpham);
-        
-        // Xử lý sizes gốc (mỗi size có số lượng riêng)
-        const sizeList = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-        const baseSizes = [];
-        let tongSizeGoc = 0;
-        let soluong_chinh = 0;
-        
-        if (isNoSizeProduct) {
-            // Sản phẩm không có size: lấy số lượng chính
-            soluong_chinh = parseInt(req.body.soluong_chinh) || 0;
-            tongSizeGoc = soluong_chinh;
-        } else {
-            // Sản phẩm có size: lấy số lượng theo size
-            sizeList.forEach(size => {
-                const qty = parseInt(req.body[`size_${size}`]) || 0;
-                if (qty > 0) {
-                    baseSizes.push({ size: size, soluong: qty });
-                    tongSizeGoc += qty;
-                }
-            });
-        }
+        const isNoSizeProduct = isNoSizeProductType(req.body.loaisanpham);
+        const { baseSizes, tongSizeGoc, soluong_chinh } = buildBaseSizes(req.body, isNoSizeProduct);
         
         
         const productData = {
@@ -184,47 +248,19 @@ const createPost = async (req, res) => {
             ngaytao: new Date()
         };
 
-        // Xử lý biến thể với sizes
-        if (req.body.bienthe_mausac) {
-            const mausacArr = Array.isArray(req.body.bienthe_mausac) ? req.body.bienthe_mausac : [req.body.bienthe_mausac];
-            const giaArr = Array.isArray(req.body.bienthe_gia) ? req.body.bienthe_gia : [req.body.bienthe_gia];
-            const giamgiaArr = Array.isArray(req.body.bienthe_giamgia) ? req.body.bienthe_giamgia : [req.body.bienthe_giamgia];
-            const soluongArr = Array.isArray(req.body.bienthe_soluong) ? req.body.bienthe_soluong : [req.body.bienthe_soluong];
-            
-            // Lấy ảnh biến thể
+        const { variants, tongBienThe } = buildVariantsFromRequest({
+            reqBody: req.body,
+            reqFiles: req.files,
+            isNoSizeProduct
+        });
+
+        if (variants.length) {
+            // Với create: ảnh biến thể được lấy theo đúng index upload
             const bientheImages = req.files && req.files['bienthe_hinhanh'] ? req.files['bienthe_hinhanh'] : [];
-            
-            let tongBienThe = 0;
-            productData.bienthe = mausacArr.map((mausac, i) => {
-                let variantQty = 0;
-                const variantSizes = [];
-                
-                if (isNoSizeProduct) {
-                    // Sản phẩm không có size: lấy số lượng trực tiếp
-                    variantQty = parseInt(soluongArr[i]) || 0;
-                    tongBienThe += variantQty;
-                } else {
-                    // Sản phẩm có size: lấy số lượng theo size
-                    sizeList.forEach(size => {
-                        const qty = parseInt(req.body[`bienthe_${i}_size_${size}`]) || 0;
-                        if (qty > 0) {
-                            variantSizes.push({ size: size, soluong: qty });
-                            tongBienThe += qty;
-                        }
-                    });
-                }
-                
-                return {
-                    mausac: mausac,
-                    gia: parseInt(giaArr[i]) || null,
-                    phantramgiamgia: parseInt(giamgiaArr[i]) || 0,
-                    hinhanh: bientheImages[i] ? '/uploads/products/' + bientheImages[i].filename : null,
-                    soluong: variantQty,
-                    sizes: variantSizes
-                };
-            }).filter(bt => bt.mausac && bt.mausac.trim() !== '');
-            
-            // Tổng số lượng tồn = tổng size gốc + tổng size biến thể
+            productData.bienthe = variants.map((v, idx) => ({
+                ...v,
+                hinhanh: bientheImages[idx] ? '/uploads/products/' + bientheImages[idx].filename : v.hinhanh
+            }));
             productData.soluongton = tongSizeGoc + tongBienThe;
         }
 
@@ -271,29 +307,8 @@ const editPost = async (req, res) => {
         // Lấy sản phẩm hiện tại để giữ lại ảnh cũ nếu không upload mới
         const currentProduct = await Product.findById(req.params.id).lean();
         
-        // Kiểm tra loại sản phẩm có cần size không
-        const noSizeTypes = ['tui', 'phukien'];
-        const isNoSizeProduct = noSizeTypes.includes(req.body.loaisanpham);
-        // Xử lý sizes gốc (mỗi size có số lượng riêng)
-        const sizeList = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-        const baseSizes = [];
-        let tongSizeGoc = 0;
-        let soluong_chinh = 0;
-        
-        if (isNoSizeProduct) {
-            // Sản phẩm không có size: lấy số lượng chính
-            soluong_chinh = parseInt(req.body.soluong_chinh) || 0;
-            tongSizeGoc = soluong_chinh;
-        } else {
-            // Sản phẩm có size: lấy số lượng theo size
-            sizeList.forEach(size => {
-                const qty = parseInt(req.body[`size_${size}`]) || 0;
-                if (qty > 0) {
-                    baseSizes.push({ size: size, soluong: qty });
-                    tongSizeGoc += qty;
-                }
-            });
-        }
+        const isNoSizeProduct = isNoSizeProductType(req.body.loaisanpham);
+        const { baseSizes, tongSizeGoc, soluong_chinh } = buildBaseSizes(req.body, isNoSizeProduct);
         
         const productData = {
             tensanpham: req.body.tensanpham,
@@ -309,59 +324,20 @@ const editPost = async (req, res) => {
             trangthai: req.body.trangthai
         };
 
-        // Xử lý biến thể với sizes
-        if (req.body.bienthe_mausac) {
-            const mausacArr = Array.isArray(req.body.bienthe_mausac) ? req.body.bienthe_mausac : [req.body.bienthe_mausac];
-            const giaArr = Array.isArray(req.body.bienthe_gia) ? req.body.bienthe_gia : [req.body.bienthe_gia];
-            const giamgiaArr = Array.isArray(req.body.bienthe_giamgia) ? req.body.bienthe_giamgia : [req.body.bienthe_giamgia];
-            const soluongArr = Array.isArray(req.body.bienthe_soluong) ? req.body.bienthe_soluong : [req.body.bienthe_soluong];
-            const oldImageArr = Array.isArray(req.body.bienthe_hinhanh_cu) ? req.body.bienthe_hinhanh_cu : [req.body.bienthe_hinhanh_cu];
-            const hasNewImageArr = Array.isArray(req.body.bienthe_has_new_image) ? req.body.bienthe_has_new_image : [req.body.bienthe_has_new_image];
-            
-            // Lấy ảnh biến thể mới upload
-            const bientheImages = req.files && req.files['bienthe_hinhanh'] ? req.files['bienthe_hinhanh'] : [];
-            let imageIndex = 0;
-            
-            let tongBienThe = 0;
-            productData.bienthe = mausacArr.map((mausac, i) => {
-                let hinhanh = oldImageArr[i] || null; // Giữ ảnh cũ
-                
-                // Kiểm tra xem biến thể này có upload ảnh mới không
-                if (hasNewImageArr[i] === '1' && bientheImages[imageIndex]) {
-                    hinhanh = '/uploads/products/' + bientheImages[imageIndex].filename;
-                    imageIndex++;
-                }
-                
-                let variantQty = 0;
-                const variantSizes = [];
-                
-                if (isNoSizeProduct) {
-                    // Sản phẩm không có size: lấy số lượng trực tiếp
-                    variantQty = parseInt(soluongArr[i]) || 0;
-                    tongBienThe += variantQty;
-                } else {
-                    // Sản phẩm có size: lấy số lượng theo size
-                    sizeList.forEach(size => {
-                        const qty = parseInt(req.body[`bienthe_${i}_size_${size}`]) || 0;
-                        if (qty > 0) {
-                            variantSizes.push({ size: size, soluong: qty });
-                            tongBienThe += qty;
-                        }
-                    });
-                }
-                
-                return {
-                    mausac: mausac,
-                    gia: parseInt(giaArr[i]) || null,
-                    phantramgiamgia: parseInt(giamgiaArr[i]) || 0,
-                    hinhanh: hinhanh,
-                    soluong: variantQty,
-                    sizes: variantSizes
-                };
-            }).filter(bt => bt.mausac && bt.mausac.trim() !== '');
-            
-            // Tổng số lượng tồn = tổng size gốc + tổng size biến thể
-            productData.soluongton = tongSizeGoc + tongBienThe;
+        const oldImageArr = Array.isArray(req.body.bienthe_hinhanh_cu) ? req.body.bienthe_hinhanh_cu : [req.body.bienthe_hinhanh_cu];
+        const hasNewImageArr = Array.isArray(req.body.bienthe_has_new_image) ? req.body.bienthe_has_new_image : [req.body.bienthe_has_new_image];
+
+        const { variants: editVariants, tongBienThe: tongBienTheEdit } = buildVariantsFromRequest({
+            reqBody: req.body,
+            reqFiles: req.files,
+            isNoSizeProduct,
+            oldImageArr,
+            hasNewImageArr
+        });
+
+        if (editVariants.length) {
+            productData.bienthe = editVariants;
+            productData.soluongton = tongSizeGoc + tongBienTheEdit;
         } else {
             productData.bienthe = [];
         }

@@ -42,8 +42,10 @@ module.exports.index = async (req, res) => {
         .limit(8)
         .lean();
 
-        console.log('Home - New products:', newProducts.length);
-        console.log('Home - Discount products:', discountProducts.length);
+        if (process.env.NODE_ENV !== 'production') {
+            console.log('Home - New products:', newProducts.length);
+            console.log('Home - Discount products:', discountProducts.length);
+        }
 
         res.render("client/pages/home/index.pug", {
             titlePage: "Fashion Store - Thời trang chất lượng",

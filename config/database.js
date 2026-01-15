@@ -5,6 +5,7 @@ module.exports.connect = async () =>{
         console.log("kết nối thành công database")
     } catch (error) {
         console.log("kết nối thất bại database")
+        console.error(error)
     }
 }
 
