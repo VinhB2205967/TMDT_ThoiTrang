@@ -4,8 +4,10 @@ const controller = require('../../controllers/client/account_controller');
 const { requireAuth } = require('../../middlewares/auth');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 
 const AVATAR_DIR = path.join(process.cwd(), 'public', 'uploads', 'avatars');
+fs.mkdirSync(AVATAR_DIR, { recursive: true });
 
 const storage = multer.diskStorage({
 	destination: function (_req, _file, cb) {
@@ -29,7 +31,26 @@ const uploadAvatar = multer({
 });
 
 router.get('/account', requireAuth, controller.page);
-router.post('/account/profile', requireAuth, uploadAvatar.single('avatarFile'), controller.updateProfile);
+router.post(
+	'/account/profile',
+	requireAuth,
+	(req, res, next) => {
+		uploadAvatar.single('avatarFile')(req, res, (err) => {
+			if (!err) return next();
+			if (err && err.code === 'LIMIT_FILE_SIZE') {
+				req.flash?.('error', 'Ảnh tối đa 2MB');
+				return res.redirect('/account');
+			}
+			if (String(err && err.message) === 'ONLY_IMAGE') {
+				req.flash?.('error', 'Chỉ được upload file ảnh');
+				return res.redirect('/account');
+			}
+			req.flash?.('error', 'Upload ảnh thất bại');
+			return res.redirect('/account');
+		});
+	},
+	controller.updateProfile
+);
 router.post('/account/password', requireAuth, controller.changePassword);
 router.post('/account/delete', requireAuth, controller.deleteAccount);
 

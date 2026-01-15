@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const path = require('path');
 const fs = require('fs');
 const Nguoidung = require('../../models/user_model');
+const { normalizePhone, isValidPhoneVN, isSafeImageUrl } = require('../../helpers/validators');
 
 function normalizeString(value) {
   return String(value || '').trim();
@@ -52,10 +53,20 @@ module.exports.updateProfile = async (req, res) => {
     if (!userId) return res.redirect('/auth?mode=login');
 
     const hoten = normalizeString(req.body.hoten);
-    const sodienthoai = normalizeString(req.body.sodienthoai);
+    const rawPhone = normalizeString(req.body.sodienthoai);
+    if (rawPhone && !isValidPhoneVN(rawPhone)) {
+      req.flash?.('error', 'Số điện thoại không đúng định dạng');
+      return res.redirect('/account');
+    }
+    const sodienthoai = rawPhone ? normalizePhone(rawPhone) : '';
     const diachi = normalizeString(req.body.diachi);
     const gioitinh = normalizeString(req.body.gioitinh);
-    const avatarUrl = normalizeString(req.body.avatarUrl);
+    const avatarUrl = normalizeString(req.body.avatarUrl || req.body.avatar);
+
+    if (avatarUrl && !isSafeImageUrl(avatarUrl)) {
+      req.flash?.('error', 'Avatar URL không hợp lệ');
+      return res.redirect('/account');
+    }
 
     let ngaysinh = null;
     if (req.body.ngaysinh) {
@@ -63,7 +74,7 @@ module.exports.updateProfile = async (req, res) => {
       if (!Number.isNaN(parsed.getTime())) ngaysinh = parsed;
     }
 
-    let avatar = avatarUrl;
+    let avatar = '';
     if (req.file && req.file.filename) {
       avatar = `/uploads/avatars/${req.file.filename}`;
 
@@ -76,18 +87,24 @@ module.exports.updateProfile = async (req, res) => {
       }
     }
 
+    if (!avatar && avatarUrl) avatar = avatarUrl;
+
+    const $set = {
+      hoten,
+      sodienthoai,
+      diachi,
+      gioitinh,
+      ngaysinh,
+      ngaycapnhat: new Date()
+    };
+
+    // Only update avatar if user provided a file or a URL (avoid wiping existing avatar)
+    if (avatar) $set.avatar = avatar;
+
     await Nguoidung.updateOne(
       { _id: userId, daxoa: { $ne: true } },
       {
-        $set: {
-          hoten,
-          sodienthoai,
-          diachi,
-          gioitinh,
-          ngaysinh,
-          avatar,
-          ngaycapnhat: new Date()
-        }
+        $set
       }
     );
 

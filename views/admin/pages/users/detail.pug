@@ -108,5 +108,7 @@ block main
               if u.daxoa
                 form(method="POST" action=`/admin/users/${u._id}/restore`)
                   button.btn.btn-outline-success(type="submit") Khôi phục
+                form(method="POST" action=`/admin/users/${u._id}/hard-delete` onsubmit="return confirm('Xóa vĩnh viễn tài khoản này? Hành động không thể hoàn tác!')")
+                  button.btn.btn-danger(type="submit") Xóa vĩnh viễn
               form(method="POST" action=`/admin/users/${u._id}/delete` onsubmit="return confirm('Xóa tài khoản này?')")
                 button.btn.btn-outline-danger(type="submit") Xóa (mềm)

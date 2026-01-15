@@ -7,26 +7,32 @@ block main
   .container-fluid.p-4
     .card.border-0.shadow-sm.mb-4
       .card-body
-        form.row.g-2(method="GET" action="/admin/users")
+        form#userFilterForm.row.g-2(method="GET" action="/admin/users")
           .col-12.col-md-4
             input.form-control(type="text" name="keyword" placeholder="Tìm theo email hoặc họ tên" value=(filters && filters.keyword) || '')
           .col-6.col-md-2
-            select.form-select(name="vaitro")
+            select.form-select(name="vaitro" onchange="this.form.submit()")
               option(value="") Tất cả vai trò
               option(value="user" selected=(filters && filters.vaitro === 'user')) User
               option(value="admin" selected=(filters && filters.vaitro === 'admin')) Admin
           .col-6.col-md-2
-            select.form-select(name="trangthai")
+            select.form-select(name="trangthai" onchange="this.form.submit()")
               option(value="") Tất cả trạng thái
               option(value="active" selected=(filters && filters.trangthai === 'active')) Active
               option(value="noactive" selected=(filters && filters.trangthai === 'noactive')) Noactive
           .col-6.col-md-2
-            select.form-select(name="online")
+            select.form-select(name="deleted" onchange="this.form.submit()")
+              option(value="" selected=(!filters || !filters.deleted)) Chưa xóa
+              option(value="1" selected=(filters && filters.deleted === '1')) Đã xóa (thùng rác)
+              option(value="all" selected=(filters && filters.deleted === 'all')) Tất cả
+          .col-6.col-md-2
+            select.form-select(name="online" onchange="this.form.submit()")
               option(value="") Online + Offline
               option(value="1" selected=(filters && filters.online === '1')) Chỉ Online
               option(value="0" selected=(filters && filters.online === '0')) Chỉ Offline
-          .col-6.col-md-2
-            button.btn.btn-primary.w-100(type="submit") Lọc
+          .col-12.col-md-2.d-flex.gap-2
+            a.btn.btn-outline-secondary.flex-fill(href="/admin/users") Xóa lọc
+            button.btn.btn-primary.flex-fill(type="submit") Lọc
 
     .card.border-0.shadow-sm
       .card-body
@@ -37,6 +43,7 @@ block main
             table.table.align-middle
               thead
                 tr
+                  th Avatar
                   th Email
                   th Họ tên
                   th Vai trò
@@ -47,6 +54,11 @@ block main
               tbody
                 each u in users
                   tr(data-user-id=`${u._id}`)
+                    td
+                      if u.avatar
+                        img(src=u.avatar alt="avatar" style="width:32px;height:32px;border-radius:8px;object-fit:cover")
+                      else
+                        span.text-muted -
                     td #{u.email}
                     td #{u.hoten || ''}
                     td
@@ -65,6 +77,11 @@ block main
                       .d-flex.flex-wrap.gap-2
                         a.btn.btn-sm.btn-outline-secondary(href=`/admin/users/${u._id}`)
                           | Xem
+                        if u.daxoa
+                          form(method="POST" action=`/admin/users/${u._id}/restore` onsubmit="return confirm('Khôi phục tài khoản này?')")
+                            button.btn.btn-sm.btn-outline-success(type="submit") Khôi phục
+                          form(method="POST" action=`/admin/users/${u._id}/hard-delete` onsubmit="return confirm('Xóa vĩnh viễn tài khoản này? Hành động không thể hoàn tác!')")
+                            button.btn.btn-sm.btn-danger(type="submit") Xóa vĩnh viễn
                         form(method="POST" action=`/admin/users/${u._id}/role`)
                           select.form-select.form-select-sm(name="vaitro" onchange="this.form.submit()")
                             option(value="user" selected=(u.vaitro === 'user')) User
@@ -73,8 +90,44 @@ block main
                           select.form-select.form-select-sm(name="trangthai" onchange="this.form.submit()")
                             option(value="active" selected=(u.trangthai === 'active')) Active
                             option(value="noactive" selected=(u.trangthai === 'noactive')) Noactive
-                        form(method="POST" action=`/admin/users/${u._id}/delete` onsubmit="return confirm('Xóa tài khoản này?')")
-                          button.btn.btn-sm.btn-outline-danger(type="submit") Xóa
+                        if !u.daxoa
+                          form(method="POST" action=`/admin/users/${u._id}/delete` onsubmit="return confirm('Xóa mềm tài khoản này?')")
+                            button.btn.btn-sm.btn-outline-danger(type="submit") Xóa mềm
+
+          if pagination && pagination.totalPages > 1
+            nav.mt-4(aria-label="Phân trang người dùng")
+              ul.pagination.justify-content-center
+                li.page-item(class=pagination.currentPage === 1 ? 'disabled' : '')
+                  a.page-link(href=`/admin/users?page=${pagination.currentPage - 1}${filters && filters.keyword ? '&keyword=' + encodeURIComponent(filters.keyword) : ''}${filterString || ''}` aria-label="Trang trước")
+                    span(aria-hidden="true") «
+
+                - const startPage = Math.max(1, pagination.currentPage - 2)
+                - const endPage = Math.min(pagination.totalPages, pagination.currentPage + 2)
+
+                if startPage > 1
+                  li.page-item
+                    a.page-link(href=`/admin/users?page=1${filters && filters.keyword ? '&keyword=' + encodeURIComponent(filters.keyword) : ''}${filterString || ''}`) 1
+                  if startPage > 2
+                    li.page-item.disabled
+                      span.page-link ...
+
+                - for (let i = startPage; i <= endPage; i++)
+                  li.page-item(class=i === pagination.currentPage ? 'active' : '')
+                    a.page-link(href=`/admin/users?page=${i}${filters && filters.keyword ? '&keyword=' + encodeURIComponent(filters.keyword) : ''}${filterString || ''}`) #{i}
+
+                if endPage < pagination.totalPages
+                  if endPage < pagination.totalPages - 1
+                    li.page-item.disabled
+                      span.page-link ...
+                  li.page-item
+                    a.page-link(href=`/admin/users?page=${pagination.totalPages}${filters && filters.keyword ? '&keyword=' + encodeURIComponent(filters.keyword) : ''}${filterString || ''}`) #{pagination.totalPages}
+
+                li.page-item(class=pagination.currentPage === pagination.totalPages ? 'disabled' : '')
+                  a.page-link(href=`/admin/users?page=${pagination.currentPage + 1}${filters && filters.keyword ? '&keyword=' + encodeURIComponent(filters.keyword) : ''}${filterString || ''}` aria-label="Trang sau")
+                    span(aria-hidden="true") »
+
+            .text-center.text-muted.mt-2
+              small Hiển thị #{users.length} trên #{pagination.totalProducts} người dùng
 
 block scripts
   script.
@@ -83,8 +136,19 @@ block scripts
         keyword: #{JSON.stringify((filters && filters.keyword) || '')},
         vaitro: #{JSON.stringify((filters && filters.vaitro) || '')},
         trangthai: #{JSON.stringify((filters && filters.trangthai) || '')},
-        online: #{JSON.stringify((filters && filters.online) || '')}
+        online: #{JSON.stringify((filters && filters.online) || '')},
+        deleted: #{JSON.stringify((filters && filters.deleted) || '')},
+        page: #{JSON.stringify((pagination && pagination.currentPage) || 1)}
       };
+
+      // Auto-submit users filters (reusable helper)
+      if (window.FilterAutoSubmit && typeof window.FilterAutoSubmit.attachOnReady === 'function') {
+        window.FilterAutoSubmit.attachOnReady('#userFilterForm', {
+          keywordSubmitOnEnter: true,
+          // Make it feel "auto" without needing the Lọc button
+          keywordDebounceMs: 800
+        });
+      }
 
       function formatVi(iso) {
         try {
@@ -103,6 +167,8 @@ block scripts
         if (filters.vaitro) params.set('vaitro', filters.vaitro);
         if (filters.trangthai) params.set('trangthai', filters.trangthai);
         if (filters.online) params.set('online', filters.online);
+        if (filters.deleted) params.set('deleted', filters.deleted);
+        if (filters.page) params.set('page', String(filters.page));
 
         const res = await fetch('/admin/users/online?' + params.toString(), {
           headers: { 'Accept': 'application/json' },

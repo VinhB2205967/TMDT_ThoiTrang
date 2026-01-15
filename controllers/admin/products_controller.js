@@ -1,4 +1,5 @@
 const Product = require('../../models/product_model');
+const mongoose = require('mongoose');
 const filterStatusHelper = require('../../helpers/filterStatus');
 const searchHelper = require('../../helpers/search');
 const paginationHelper = require('../../helpers/pagination');
@@ -100,7 +101,11 @@ const index = async (req, res) => {
         };
 
         // Build query
-        const find = { daxoa: { $ne: true } };
+        const deleted = String(req.query.deleted || '').trim();
+        const find =
+            deleted === '1' ? { daxoa: true }
+                : deleted === 'all' ? {}
+                    : { daxoa: { $ne: true } };
         
         // Lọc theo trạng thái
         if (req.query.trangthai === 'dahet') {
@@ -189,6 +194,7 @@ const index = async (req, res) => {
         if (req.query.priceMax) filterString += `&priceMax=${req.query.priceMax}`;
         if (req.query.dateFrom) filterString += `&dateFrom=${req.query.dateFrom}`;
         if (req.query.dateTo) filterString += `&dateTo=${req.query.dateTo}`;
+        if (req.query.deleted) filterString += `&deleted=${req.query.deleted}`;
 
         res.render("admin/pages/products/index.pug", {
             titlePage: "Danh sách sản phẩm",
@@ -204,12 +210,56 @@ const index = async (req, res) => {
             priceMax: req.query.priceMax,
             dateFrom: req.query.dateFrom,
             dateTo: req.query.dateTo,
+            currentDeleted: deleted,
             filterString
         });
 
     } catch (error) {
         console.error('Load products error:', error);
         res.status(500).send('Không tải được danh sách sản phẩm');
+    }
+};
+
+// [POST] /admin/products/:id/restore
+const restoreProduct = async (req, res) => {
+    try {
+        const id = String(req.params.id || '');
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            req.flash('error', 'ID không hợp lệ');
+            return res.redirect('back');
+        }
+
+        await Product.findByIdAndUpdate(id, { daxoa: false });
+        req.flash('success', 'Đã khôi phục sản phẩm!');
+        return res.redirect('back');
+    } catch (error) {
+        console.error('Restore product error:', error);
+        req.flash('error', 'Không thể khôi phục sản phẩm');
+        return res.redirect('back');
+    }
+};
+
+// [POST] /admin/products/:id/hard-delete
+const hardDeleteProduct = async (req, res) => {
+    try {
+        const id = String(req.params.id || '');
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            req.flash('error', 'ID không hợp lệ');
+            return res.redirect('back');
+        }
+
+        const result = await Product.deleteOne({ _id: id, daxoa: true });
+        if (!result || result.deletedCount !== 1) {
+            req.flash('error', 'Chỉ được xóa vĩnh viễn sản phẩm đã xóa mềm');
+            return res.redirect('back');
+        }
+
+        req.flash('success', 'Đã xóa vĩnh viễn sản phẩm!');
+        return res.redirect(req.app.locals.admin + '/products?deleted=1');
+    } catch (error) {
+        console.error('Hard delete product error:', error);
+        req.flash('error', 'Không thể xóa vĩnh viễn sản phẩm');
+        return res.redirect('back');
     }
 };
 
@@ -390,5 +440,7 @@ module.exports = {
     edit,
     editPost,
     delete: deleteProduct,
+    restore: restoreProduct,
+    hardDelete: hardDeleteProduct,
     changeStatus
 };

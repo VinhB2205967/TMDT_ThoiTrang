@@ -62,6 +62,12 @@ block main
 
                     .row.g-3
                         .col-md-2
+                            label.form-label.small.fw-bold Xóa mềm
+                            select.form-select.form-select-sm(name="deleted" onchange="this.form.submit()")
+                                option(value="" selected=(!currentDeleted)) Chưa xóa
+                                option(value="1" selected=(currentDeleted=='1')) Đã xóa (thùng rác)
+                                option(value="all" selected=(currentDeleted=='all')) Tất cả
+                        .col-md-2
                             label.form-label.small.fw-bold Sắp xếp
                             select.form-select.form-select-sm(name="sort" onchange="this.form.submit()")
                                 option(value="ngaytao-desc" selected=(currentSort=='ngaytao-desc')) Mới nhất
@@ -167,8 +173,16 @@ block main
                                     .btn-group.btn-group-sm
                                         a.btn.btn-outline-warning(href=`${admin}/products/${product._id}/edit`, title="Sửa")
                                             i.bi.bi-pencil
-                                        a.btn.btn-outline-danger(href=`${admin}/products/${product._id}/delete`, title="Xóa" onclick="return confirmDelete('Bạn có chắc chắn muốn xóa?')")
-                                            i.bi.bi-trash
+                                        if product.daxoa
+                                            form(method="POST" action=`${admin}/products/${product._id}/restore` onsubmit="return confirm('Khôi phục sản phẩm này?')")
+                                                button.btn.btn-outline-success(type="submit" title="Khôi phục")
+                                                    i.bi.bi-arrow-counterclockwise
+                                            form(method="POST" action=`${admin}/products/${product._id}/hard-delete` onsubmit="return confirm('Xóa vĩnh viễn sản phẩm này? Hành động không thể hoàn tác!')")
+                                                button.btn.btn-danger(type="submit" title="Xóa vĩnh viễn")
+                                                    i.bi.bi-x-octagon
+                                        else
+                                            a.btn.btn-outline-danger(href=`${admin}/products/${product._id}/delete`, title="Xóa" onclick="return confirmDelete('Bạn có chắc chắn muốn xóa?')")
+                                                i.bi.bi-trash
             
             
             .row.g-3.d-lg-none
@@ -197,9 +211,19 @@ block main
                                     a.btn.btn-sm.btn-warning.flex-fill(href=`${admin}/products/${product._id}/edit`)
                                         i.bi.bi-pencil.me-1
                                         | Sửa
-                                    a.btn.btn-sm.btn-danger.flex-fill(href=`${admin}/products/${product._id}/delete` onclick="return confirmDelete('Bạn có chắc chắn muốn xóa?')")
-                                        i.bi.bi-trash.me-1
-                                        | Xóa
+                                    if product.daxoa
+                                        form.flex-fill(method="POST" action=`${admin}/products/${product._id}/restore` onsubmit="return confirm('Khôi phục sản phẩm này?')")
+                                            button.btn.btn-sm.btn-success.w-100(type="submit")
+                                                i.bi.bi-arrow-counterclockwise.me-1
+                                                | Khôi phục
+                                        form.flex-fill(method="POST" action=`${admin}/products/${product._id}/hard-delete` onsubmit="return confirm('Xóa vĩnh viễn sản phẩm này? Hành động không thể hoàn tác!')")
+                                            button.btn.btn-sm.btn-danger.w-100(type="submit")
+                                                i.bi.bi-x-octagon.me-1
+                                                | Xóa vĩnh viễn
+                                    else
+                                        a.btn.btn-sm.btn-danger.flex-fill(href=`${admin}/products/${product._id}/delete` onclick="return confirmDelete('Bạn có chắc chắn muốn xóa?')")
+                                            i.bi.bi-trash.me-1
+                                            | Xóa
             
            
             +page()
@@ -220,3 +244,19 @@ block main
 
 block scripts
     script(src="/admin/js/products.js")
+    script.
+        (function () {
+            if (window.FilterAutoSubmit && typeof window.FilterAutoSubmit.attachOnReady === 'function') {
+                window.FilterAutoSubmit.attachOnReady('.filter-search-card form[action$="/products"]', {
+                    inputSelectors: [
+                        'input[name="priceMin"]',
+                        'input[name="priceMax"]',
+                        'input[name="dateFrom"]',
+                        'input[name="dateTo"]'
+                    ],
+                    inputDebounceMs: 800,
+                    // keyword is handled by #form-search in /admin/js/admin.js
+                    keywordSelector: null
+                });
+            }
+        })();

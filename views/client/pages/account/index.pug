@@ -48,6 +48,7 @@ block main
                       input.form-control(type="file" name="avatarFile" accept="image/*")
                       .form-text Hoặc dán link ảnh (tuỳ chọn)
                       input.form-control.mt-2(type="text" name="avatarUrl" placeholder="https://..." value=(profile && profile.avatar) || '')
+                      
                   .d-flex.gap-2.mt-3
                     button.btn.btn-primary(type="submit") Lưu thay đổi
                     a.btn.btn-outline-secondary(href="/") Về trang chủ

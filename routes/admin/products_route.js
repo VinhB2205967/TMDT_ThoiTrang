@@ -41,6 +41,8 @@ router.post('/create', uploadFields, controller.createPost);
 router.get('/:id/edit', controller.edit);
 router.post('/:id/edit', uploadFields, controller.editPost);
 router.get('/:id/delete', controller.delete);
+router.post('/:id/restore', controller.restore);
+router.post('/:id/hard-delete', controller.hardDelete);
 router.patch('/:id/change-status', controller.changeStatus);
 
 module.exports = router;

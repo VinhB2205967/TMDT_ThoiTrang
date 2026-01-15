@@ -3,6 +3,7 @@ const passport = require('passport');
 const Nguoidung = require('../../models/user_model');
 const { redirectAfterLogin } = require('../../middlewares/auth');
 const { writeLoginLog } = require('../../services/loginLog');
+const { isValidEmail } = require('../../helpers/validators');
 
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
@@ -55,8 +56,8 @@ module.exports.register = async (req, res) => {
     const email = normalizeEmail(req.body.email);
     const password = String(req.body.password || '');
 
-    if (!email) {
-      req.flash('error', 'Email không hợp lệ');
+    if (!email || !isValidEmail(email)) {
+      req.flash('error', 'Email không đúng định dạng');
       return res.redirect('/auth?mode=register');
     }
 
@@ -94,6 +95,11 @@ module.exports.register = async (req, res) => {
     });
   } catch (err) {
     console.error('Register error:', err);
+    // Duplicate email
+    if (err && (err.code === 11000 || String(err.message || '').includes('E11000'))) {
+      req.flash('error', 'Email đã tồn tại');
+      return res.redirect('/auth?mode=register');
+    }
     req.flash('error', 'Có lỗi khi đăng ký');
     return res.redirect('/auth?mode=register');
   }
