@@ -63,6 +63,8 @@ block main
                           span.text-muted -
                     td
                       .d-flex.flex-wrap.gap-2
+                        a.btn.btn-sm.btn-outline-secondary(href=`/admin/users/${u._id}`)
+                          | Xem
                         form(method="POST" action=`/admin/users/${u._id}/role`)
                           select.form-select.form-select-sm(name="vaitro" onchange="this.form.submit()")
                             option(value="user" selected=(u.vaitro === 'user')) User

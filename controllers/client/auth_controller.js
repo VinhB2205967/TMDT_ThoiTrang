@@ -33,6 +33,11 @@ function cookieOptions() {
 
 // GET /auth (also used by /login, /register)
 module.exports.page = async (req, res) => {
+  // If already logged in, don't allow visiting login/register page
+  if (req.user && req.user.trangthai === 'active') {
+    return redirectAfterLogin(req.user, res);
+  }
+
   const mode = req.query.mode === 'register' ? 'register' : 'login';
   const rememberedEmail = String(req.cookies?.rememberEmail || '').trim();
   res.render('client/pages/auth/index.pug', {
@@ -239,6 +244,12 @@ module.exports.googleCallback = (req, res, next) => {
     if (!user) {
       writeLoginLog({ req, provider: 'google', status: 'failed', message: 'no_user' });
       req.flash('error', 'Không thể lấy thông tin Google');
+      return res.redirect('/auth?mode=login');
+    }
+
+    if (user.trangthai !== 'active') {
+      writeLoginLog({ req, user, provider: 'google', status: 'failed', message: 'noactive' });
+      req.flash('error', 'Tài khoản đang bị khóa');
       return res.redirect('/auth?mode=login');
     }
 

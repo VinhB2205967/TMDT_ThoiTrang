@@ -1,0 +1,112 @@
+extends ../../layouts/default.pug
+
+block main
+  .page-header-section
+    .d-flex.align-items-center.justify-content-between.flex-wrap.gap-2
+      h1.page-title Chi tiết tài khoản
+      a.btn.btn-outline-secondary(href="/admin/users")
+        i.bi.bi-arrow-left.me-1
+        | Quay lại
+
+  .container-fluid.p-4
+    .card.border-0.shadow-sm.mb-4
+      .card-body
+        .row.g-3
+          .col-12.col-lg-6
+            .mb-2
+              span.fw-semibold Email:
+              |  #{u.email}
+            .mb-2
+              span.fw-semibold Vai trò:
+              |  #{u.vaitro}
+            .mb-2
+              span.fw-semibold Trạng thái:
+              |  #{u.trangthai}
+            .mb-2
+              span.fw-semibold Đã xóa:
+              |  #{u.daxoa ? 'Có' : 'Không'}
+            .mb-2
+              span.fw-semibold Online:
+              |  #{u.isOnline ? 'Online' : 'Offline'}
+            .mb-2
+              span.fw-semibold Last seen:
+              if u.lastSeenAt
+                |  #{new Date(u.lastSeenAt).toLocaleString('vi-VN')}
+              else
+                |  -
+
+          .col-12.col-lg-6
+            if u.avatar
+              img(src=u.avatar alt="avatar" style="width:96px;height:96px;object-fit:cover;border-radius:12px")
+            else
+              .text-muted Không có avatar
+
+    .row.g-4
+      .col-12.col-lg-7
+        .card.border-0.shadow-sm
+          .card-body
+            h2.h6.fw-bold.mb-3 Cập nhật thông tin
+            form(method="POST" action=`/admin/users/${u._id}/update`)
+              .row.g-3
+                .col-12
+                  label.form-label Họ tên
+                  input.form-control(type="text" name="hoten" value=(u.hoten || ''))
+                .col-12.col-md-6
+                  label.form-label Số điện thoại
+                  input.form-control(type="text" name="sodienthoai" value=(u.sodienthoai || ''))
+                .col-12.col-md-6
+                  label.form-label Giới tính
+                  select.form-select(name="gioitinh")
+                    option(value="" selected=((u.gioitinh || '') === '')) Chọn...
+                    option(value="Nam" selected=((u.gioitinh || '') === 'Nam')) Nam
+                    option(value="Nữ" selected=((u.gioitinh || '') === 'Nữ')) Nữ
+                    option(value="Khác" selected=((u.gioitinh || '') === 'Khác')) Khác
+                .col-12
+                  label.form-label Địa chỉ
+                  input.form-control(type="text" name="diachi" value=(u.diachi || ''))
+                .col-12.col-md-6
+                  label.form-label Ngày sinh
+                  - const d = u.ngaysinh ? new Date(u.ngaysinh) : null;
+                  - const yyyy = d && !Number.isNaN(d.getTime()) ? d.getFullYear() : '';
+                  - const mm = d && !Number.isNaN(d.getTime()) ? String(d.getMonth() + 1).padStart(2, '0') : '';
+                  - const dd = d && !Number.isNaN(d.getTime()) ? String(d.getDate()).padStart(2, '0') : '';
+                  - const dateVal = yyyy ? `${yyyy}-${mm}-${dd}` : '';
+                  input.form-control(type="date" name="ngaysinh" value=dateVal)
+                .col-12
+                  label.form-label Avatar (URL)
+                  input.form-control(type="text" name="avatar" value=(u.avatar || ''))
+                .col-12.col-md-6
+                  label.form-label Vai trò
+                  select.form-select(name="vaitro")
+                    option(value="user" selected=(u.vaitro === 'user')) User
+                    option(value="admin" selected=(u.vaitro === 'admin')) Admin
+                .col-12.col-md-6
+                  label.form-label Trạng thái
+                  select.form-select(name="trangthai")
+                    option(value="active" selected=(u.trangthai === 'active')) Active
+                    option(value="noactive" selected=(u.trangthai === 'noactive')) Noactive
+              .mt-3
+                button.btn.btn-primary(type="submit") Lưu thay đổi
+
+      .col-12.col-lg-5
+        .card.border-0.shadow-sm.mb-4
+          .card-body
+            h2.h6.fw-bold.mb-3 Đặt lại mật khẩu
+            form(method="POST" action=`/admin/users/${u._id}/password`)
+              .mb-3
+                label.form-label Mật khẩu mới
+                input.form-control(type="password" name="newPassword" minlength="6" required)
+              .mb-3
+                label.form-label Xác nhận mật khẩu mới
+                input.form-control(type="password" name="confirmPassword" minlength="6" required)
+              button.btn.btn-success(type="submit") Đặt lại
+
+        .card.border-0.shadow-sm
+          .card-body
+            h2.h6.fw-bold.text-danger.mb-3 Hành động
+            .d-flex.flex-wrap.gap-2
+              if u.daxoa
+                form(method="POST" action=`/admin/users/${u._id}/restore`)
+                  button.btn.btn-outline-success(type="submit") Khôi phục
+              form(method="POST" action=`/admin/users/${u._id}/delete` onsubmit="return confirm('Xóa tài khoản này?')")
+                button.btn.btn-outline-danger(type="submit") Xóa (mềm)

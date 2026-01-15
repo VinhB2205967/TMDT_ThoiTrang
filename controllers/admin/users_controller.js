@@ -1,4 +1,5 @@
 const Nguoidung = require('../../models/user_model');
+const bcrypt = require('bcryptjs');
 
 function normalizeKeyword(keyword) {
   return String(keyword || '').trim();
@@ -9,6 +10,24 @@ function isOnline(lastSeenAt, windowMs) {
   const t = new Date(lastSeenAt).getTime();
   if (!Number.isFinite(t)) return false;
   return Date.now() - t <= windowMs;
+}
+
+function normalizeString(value) {
+  return String(value || '').trim();
+}
+
+function parseOptionalDate(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
+function backToDetailOrList(req, userId) {
+  const ref = String(req.get('referer') || '');
+  if (ref.includes(`/admin/users/${userId}`)) return `/admin/users/${userId}`;
+  return '/admin/users';
 }
 
 async function buildUserList({ keyword, vaitro, trangthai }) {
@@ -51,6 +70,28 @@ module.exports.index = async (req, res) => {
     titlePage: 'Quản lý người dùng',
     users: finalUsers,
     filters: { keyword, vaitro, trangthai, online }
+  });
+};
+
+// GET /admin/users/:id
+module.exports.detail = async (req, res) => {
+  const id = req.params.id;
+
+  const u = await Nguoidung.findById(id).lean();
+  if (!u) {
+    req.flash('error', 'Không tìm thấy người dùng');
+    return res.redirect('/admin/users');
+  }
+
+  const ONLINE_WINDOW_MS = 5 * 60 * 1000;
+  const decorated = {
+    ...u,
+    isOnline: isOnline(u.lastSeenAt, ONLINE_WINDOW_MS)
+  };
+
+  return res.render('admin/pages/users/detail.pug', {
+    titlePage: 'Chi tiết tài khoản',
+    u: decorated
   });
 };
 
@@ -128,4 +169,80 @@ module.exports.softDelete = async (req, res) => {
 
   req.flash('success', 'Đã xóa (mềm) tài khoản');
   return res.redirect('/admin/users');
+};
+
+// POST /admin/users/:id/update
+module.exports.updateFromDetail = async (req, res) => {
+  const id = req.params.id;
+
+  const hoten = normalizeString(req.body.hoten);
+  const sodienthoai = normalizeString(req.body.sodienthoai);
+  const diachi = normalizeString(req.body.diachi);
+  const gioitinh = normalizeString(req.body.gioitinh);
+  const avatar = normalizeString(req.body.avatar);
+  const ngaysinh = parseOptionalDate(req.body.ngaysinh);
+
+  const vaitro = normalizeString(req.body.vaitro);
+  const trangthai = normalizeString(req.body.trangthai);
+
+  if (vaitro && vaitro !== 'admin' && vaitro !== 'user') {
+    req.flash('error', 'Vai trò không hợp lệ');
+    return res.redirect(backToDetailOrList(req, id));
+  }
+  if (trangthai && trangthai !== 'active' && trangthai !== 'noactive') {
+    req.flash('error', 'Trạng thái không hợp lệ');
+    return res.redirect(backToDetailOrList(req, id));
+  }
+
+  const $set = {
+    hoten,
+    sodienthoai,
+    diachi,
+    gioitinh,
+    avatar,
+    ngaysinh,
+    ngaycapnhat: new Date()
+  };
+  if (vaitro) $set.vaitro = vaitro;
+  if (trangthai) $set.trangthai = trangthai;
+
+  await Nguoidung.updateOne({ _id: id }, { $set });
+  req.flash('success', 'Cập nhật tài khoản thành công');
+  return res.redirect(backToDetailOrList(req, id));
+};
+
+// POST /admin/users/:id/password
+module.exports.setPasswordFromDetail = async (req, res) => {
+  const id = req.params.id;
+  const newPassword = String(req.body.newPassword || '');
+  const confirmPassword = String(req.body.confirmPassword || '');
+
+  if (String(newPassword).length < 6) {
+    req.flash('error', 'Mật khẩu phải tối thiểu 6 ký tự');
+    return res.redirect(backToDetailOrList(req, id));
+  }
+  if (newPassword !== confirmPassword) {
+    req.flash('error', 'Xác nhận mật khẩu không khớp');
+    return res.redirect(backToDetailOrList(req, id));
+  }
+
+  const hashed = await bcrypt.hash(newPassword, 10);
+  await Nguoidung.updateOne(
+    { _id: id },
+    { $set: { matkhau: hashed, ngaycapnhat: new Date() } }
+  );
+
+  req.flash('success', 'Đã đặt lại mật khẩu');
+  return res.redirect(backToDetailOrList(req, id));
+};
+
+// POST /admin/users/:id/restore
+module.exports.restoreFromDetail = async (req, res) => {
+  const id = req.params.id;
+  await Nguoidung.updateOne(
+    { _id: id },
+    { $set: { daxoa: false, ngaycapnhat: new Date() } }
+  );
+  req.flash('success', 'Đã khôi phục tài khoản');
+  return res.redirect(backToDetailOrList(req, id));
 };

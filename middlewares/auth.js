@@ -10,7 +10,13 @@ function attachUserToLocals(req, res, next) {
 }
 
 function requireAuth(req, res, next) {
-  if (req.user) return next();
+  if (req.user && req.user.trangthai === 'active') return next();
+  if (req.user && req.user.trangthai !== 'active') {
+    // If user was deactivated while logged in, force logout.
+    try {
+      req.logout(() => {});
+    } catch {}
+  }
   return res.redirect('/auth?mode=login');
 }
 
@@ -34,7 +40,7 @@ function requireAdmin(req, res, next) {
   }
 
   // Fallback: if user is logged in via client passport session and is admin
-  if (req.user && req.user.vaitro === 'admin') return next();
+  if (req.user && req.user.vaitro === 'admin' && req.user.trangthai === 'active') return next();
 
   return res.redirect(`${adminPath}/login`);
 }
@@ -61,10 +67,62 @@ function trackOnline(req, res, next) {
   next();
 }
 
+function enforceActiveSessions(req, res, next) {
+  // Client passport session: logout immediately if noactive
+  if (req.user && req.user.trangthai !== 'active') {
+    const userId = req.user && req.user._id ? String(req.user._id) : null;
+    if (userId) {
+      const ONLINE_WINDOW_MS = 5 * 60 * 1000;
+      const offlineAt = new Date(Date.now() - ONLINE_WINDOW_MS - 1000);
+      Nguoidung.updateOne(
+        { _id: userId, daxoa: { $ne: true } },
+        { $set: { lastSeenAt: offlineAt } }
+      ).catch(() => {});
+    }
+
+    // Avoid infinite loop: if already on auth pages, just clear session and continue
+    const isAuthPage = req.path === '/auth' || req.path === '/login' || req.path === '/register' || req.path.startsWith('/auth/');
+    try {
+      req.logout(() => {});
+    } catch {}
+
+    if (!isAuthPage) {
+      req.flash?.('error', 'Tài khoản đang bị khóa');
+      return res.redirect('/auth?mode=login');
+    }
+  }
+
+  // Admin session context: if adminUserId exists but user is no longer active/admin, clear.
+  if (req.session && req.session.adminUserId) {
+    const adminPath = systemConfig.prefigAdmin;
+    // Only enforce inside /admin to avoid querying DB on every client page
+    if (req.path && req.path.startsWith(adminPath)) {
+      const adminUserId = req.session.adminUserId;
+      return Nguoidung.findOne({ _id: adminUserId, daxoa: { $ne: true } })
+        .lean()
+        .then((u) => {
+          if (!u || u.vaitro !== 'admin' || u.trangthai !== 'active') {
+            delete req.session.adminUserId;
+            req.flash?.('error', 'Tài khoản Admin đang bị khóa');
+            return res.redirect(`${adminPath}/login`);
+          }
+          return next();
+        })
+        .catch(() => {
+          delete req.session.adminUserId;
+          return res.redirect(`${adminPath}/login`);
+        });
+    }
+  }
+
+  return next();
+}
+
 module.exports = {
   attachUserToLocals,
   requireAuth,
   requireAdmin,
   redirectAfterLogin,
-  trackOnline
+  trackOnline,
+  enforceActiveSessions
 };

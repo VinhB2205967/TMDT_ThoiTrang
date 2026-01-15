@@ -1,0 +1,79 @@
+extends ../../layouts/default.pug
+
+block main
+  .container.py-5
+    .row.justify-content-center
+      .col-12.col-lg-8
+        .card.shadow-sm.border-0
+          .card-body.p-4
+            h1.h4.fw-bold.mb-3 Thông tin tài khoản
+
+            if messages && messages.error
+              .alert.alert-danger(role="alert") #{messages.error}
+            if messages && messages.success
+              .alert.alert-success(role="alert") #{messages.success}
+
+            .row.g-4
+              .col-12
+                h2.h6.fw-bold.mb-2 Cập nhật thông tin
+                form(method="POST" action="/account/profile" enctype="multipart/form-data")
+                  .row.g-3
+                    .col-12
+                      label.form-label Họ tên
+                      input.form-control(type="text" name="hoten" value=(profile && profile.hoten) || '')
+                    .col-12.col-md-6
+                      label.form-label Email
+                      input.form-control(type="email" value=(profile && profile.email) || '' readonly)
+                    .col-12.col-md-6
+                      label.form-label Số điện thoại
+                      input.form-control(type="text" name="sodienthoai" value=(profile && profile.sodienthoai) || '')
+                    .col-12
+                      label.form-label Địa chỉ
+                      input.form-control(type="text" name="diachi" value=(profile && profile.diachi) || '')
+                    .col-12.col-md-6
+                      label.form-label Giới tính
+                      select.form-select(name="gioitinh")
+                        option(value="" selected=((profile && profile.gioitinh) || '') === '') Chọn...
+                        option(value="Nam" selected=((profile && profile.gioitinh) || '') === 'Nam') Nam
+                        option(value="Nữ" selected=((profile && profile.gioitinh) || '') === 'Nữ') Nữ
+                        option(value="Khác" selected=((profile && profile.gioitinh) || '') === 'Khác') Khác
+                    .col-12.col-md-6
+                      label.form-label Ngày sinh
+                      input.form-control(type="date" name="ngaysinh" value=(profile && profile.ngaysinh) || '')
+                    .col-12
+                      label.form-label Avatar
+                      if profile && profile.avatar
+                        .mb-2
+                          img(src=profile.avatar alt="avatar" style="width:64px;height:64px;border-radius:12px;object-fit:cover")
+                      input.form-control(type="file" name="avatarFile" accept="image/*")
+                      .form-text Hoặc dán link ảnh (tuỳ chọn)
+                      input.form-control.mt-2(type="text" name="avatarUrl" placeholder="https://..." value=(profile && profile.avatar) || '')
+                  .d-flex.gap-2.mt-3
+                    button.btn.btn-primary(type="submit") Lưu thay đổi
+                    a.btn.btn-outline-secondary(href="/") Về trang chủ
+
+              .col-12
+                hr
+                h2.h6.fw-bold.mb-2 Đổi mật khẩu
+                form(method="POST" action="/account/password")
+                  if hasPassword
+                    .mb-3
+                      label.form-label Mật khẩu hiện tại
+                      input.form-control(type="password" name="oldPassword" autocomplete="current-password" required)
+                  else
+                    .alert.alert-info.mb-3 Bạn đang đăng nhập bằng Google, bạn có thể đặt mật khẩu mới.
+
+                  .mb-3
+                    label.form-label Mật khẩu mới
+                    input.form-control(type="password" name="newPassword" autocomplete="new-password" minlength="6" required)
+                  .mb-3
+                    label.form-label Xác nhận mật khẩu mới
+                    input.form-control(type="password" name="confirmPassword" autocomplete="new-password" minlength="6" required)
+                  button.btn.btn-success(type="submit") Đổi mật khẩu
+
+              .col-12
+                hr
+                h2.h6.fw-bold.text-danger.mb-2 Xóa tài khoản
+                .text-muted.small.mb-2 Hành động này sẽ xóa (mềm) tài khoản và đăng xuất ngay.
+                form(method="POST" action="/account/delete" onsubmit="return confirm('Bạn chắc chắn muốn xóa tài khoản?')")
+                  button.btn.btn-outline-danger(type="submit") Xóa tài khoản

@@ -20,13 +20,6 @@ html(lang="vi")
           i.bi.bi-check-circle-fill.me-2
           | #{messages.success}
           button.btn-close(type="button" data-bs-dismiss="alert" aria-label="Close")
-    if messages && messages.error
-      .container.mt-3
-        .alert.alert-danger.alert-dismissible.fade.show(role="alert")
-          i.bi.bi-exclamation-triangle-fill.me-2
-          | #{messages.error}
-          button.btn-close(type="button" data-bs-dismiss="alert" aria-label="Close")
-
     include ../partials/header.pug
     main.main-content
       block main
