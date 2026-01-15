@@ -1,0 +1,22 @@
+{
+  "watch": [
+    "index.js",
+    "config",
+    "controllers",
+    "helpers",
+    "middlewares",
+    "models",
+    "routes",
+    "services",
+    "views"
+  ],
+  "ext": "js,json,pug",
+  "ignore": [
+    "public/uploads/**",
+    "public/images/**",
+    "public/admin/**",
+    "public/css/**",
+    "public/js/**",
+    "node_modules/**"
+  ]
+}

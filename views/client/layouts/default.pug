@@ -8,7 +8,25 @@ html(lang="vi")
     link(href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet")
     link(href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet")
     link(rel="stylesheet", href="/css/style.css")
+    link(rel="stylesheet", href="/css/auth.css")
+    link(rel="stylesheet", href="/css/product-card.css")
+    link(rel="stylesheet", href="/css/product-detail.css")
+    link(rel="stylesheet", href="/css/filter-bar.css")
   body
+    //- Flash Messages
+    if messages && messages.success
+      .container.mt-3
+        .alert.alert-success.alert-dismissible.fade.show(role="alert")
+          i.bi.bi-check-circle-fill.me-2
+          | #{messages.success}
+          button.btn-close(type="button" data-bs-dismiss="alert" aria-label="Close")
+    if messages && messages.error
+      .container.mt-3
+        .alert.alert-danger.alert-dismissible.fade.show(role="alert")
+          i.bi.bi-exclamation-triangle-fill.me-2
+          | #{messages.error}
+          button.btn-close(type="button" data-bs-dismiss="alert" aria-label="Close")
+
     include ../partials/header.pug
     main.main-content
       block main

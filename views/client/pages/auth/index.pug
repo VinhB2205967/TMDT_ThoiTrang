@@ -1,0 +1,77 @@
+extends ../../layouts/default.pug
+
+block main
+  .auth-wrap
+    .container.py-5.auth-page(data-mode=mode)
+      .row.justify-content-center
+        .col-12.col-md-10.col-lg-6
+          .card.shadow-sm.border-0.auth-card
+            .card-body.p-4.auth-card-body
+              h1.h4.fw-bold.mb-3.text-center Đăng nhập / Đăng ký
+
+              if messages && messages.error
+                .alert.alert-danger(role="alert") #{messages.error}
+              if messages && messages.success
+                .alert.alert-success(role="alert") #{messages.success}
+
+              ul.nav.nav-pills.justify-content-center.mb-4
+                li.nav-item
+                  a.nav-link(class=(mode === 'login' ? 'active' : '') href="/auth?mode=login") Đăng nhập
+                li.nav-item
+                  a.nav-link(class=(mode === 'register' ? 'active' : '') href="/auth?mode=register") Đăng ký
+
+              if mode === 'login'
+                form(method="POST" action="/auth/login")
+                  .mb-3
+                    label.form-label Email
+                    input.form-control(type="email" name="email" required autocomplete="email" value=(rememberedEmail || ''))
+                  .mb-3
+                    label.form-label Mật khẩu
+                    input.form-control(type="password" name="password" required autocomplete="current-password")
+                  .d-flex.align-items-center.justify-content-between.mb-3
+                    .form-check
+                      input.form-check-input(type="checkbox" name="remember" id="rememberEmail" checked=Boolean(rememberedEmail))
+                      label.form-check-label(for="rememberEmail") Ghi nhớ email
+                  button.btn.btn-primary.w-100(type="submit") Đăng nhập
+              else
+                form(method="POST" action="/auth/register")
+                  .mb-3
+                    label.form-label Họ tên
+                    input.form-control(type="text" name="hoten" autocomplete="name")
+                  .mb-3
+                    label.form-label Email
+                    input.form-control(type="email" name="email" required autocomplete="email")
+                  .mb-3
+                    label.form-label Mật khẩu
+                    input.form-control(type="password" name="password" required autocomplete="new-password" minlength="6")
+                  button.btn.btn-success.w-100(type="submit") Tạo tài khoản
+
+              .text-center.my-3.text-muted hoặc
+              if googleEnabled
+                a.btn.btn-outline-dark.w-100(href="/auth/google")
+                  i.fa-brands.fa-google.me-2
+                  if mode === 'register'
+                    | Đăng ký với Google
+                  else
+                    | Đăng nhập với Google
+              else
+                button.btn.btn-outline-dark.w-100(type="button" disabled)
+                  i.fa-brands.fa-google.me-2
+                  if mode === 'register'
+                    | Đăng ký với Google
+                  else
+                    | Đăng nhập với Google
+                .small.text-muted.mt-2
+                  | (Chưa cấu hình Google Login trong .env)
+
+              hr.my-4
+              .d-flex.justify-content-between.align-items-center
+                a.text-decoration-none(href="/")
+                  i.bi.bi-arrow-left.me-1
+                  | Về trang chủ
+                if isAuthenticated
+                  form(method="POST" action="/auth/logout")
+                    button.btn.btn-link.text-danger.p-0(type="submit") Đăng xuất
+
+block scripts
+  script(src="/js/auth.js")

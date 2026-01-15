@@ -105,6 +105,16 @@ body {
   padding: 14px 12px 20px;
 }
 
+.sider-footer {
+  position: sticky;
+  bottom: 0;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.85);
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
 .sider .inner-menu ul {
   list-style: none;
   padding: 0;
@@ -128,7 +138,32 @@ body {
   transition: background 0.2s ease, transform 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
+.sider .inner-menu .sider-menu-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 12px;
+  border-radius: 12px;
+  color: #cbd5e1;
+  background: transparent;
+  text-decoration: none;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  border: 1px solid transparent;
+  transition: background 0.2s ease, transform 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  cursor: pointer;
+  text-align: left;
+}
+
 .sider .inner-menu a i {
+  width: 22px;
+  text-align: center;
+  font-size: 18px;
+  color: #94a3b8;
+}
+
+.sider .inner-menu .sider-menu-btn i {
   width: 22px;
   text-align: center;
   font-size: 18px;
@@ -143,7 +178,19 @@ body {
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.18);
 }
 
+.sider .inner-menu .sider-menu-btn:hover {
+  background: rgba(99, 102, 241, 0.14);
+  color: #ffffff;
+  border-color: rgba(99, 102, 241, 0.35);
+  transform: none;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.18);
+}
+
 .sider .inner-menu a:hover i {
+  color: #c7d2fe;
+}
+
+.sider .inner-menu .sider-menu-btn:hover i {
   color: #c7d2fe;
 }
 
@@ -157,9 +204,9 @@ body {
 
 /* Page Header Section */
 .page-header-section {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #6c82f7;
   padding: 24px 32px;
-  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 20px rgba(108, 130, 247, 0.3);
   position: sticky;
   top: 0;
   z-index: 999;

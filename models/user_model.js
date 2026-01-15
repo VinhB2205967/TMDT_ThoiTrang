@@ -17,8 +17,9 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: "user"
   },
-  trangthai: {                      // Trạng thái: active, blocked
+  trangthai: {                      // Trạng thái: active, noactive
     type: String,
+    enum: ['active', 'noactive'],
     default: "active"
   },
   xacthuc: {                        // Email đã xác thực chưa
@@ -37,6 +38,13 @@ const userSchema = new mongoose.Schema({
     default: Date.now
   },
   ngaycapnhat: Date
+  ,
+  // Activity tracking
+  lastSeenAt: Date,
+  lastLoginAt: Date,
+  lastLoginProvider: String,
+  lastLoginIp: String,
+  lastLoginUserAgent: String
 });
 
 const Nguoidung = mongoose.model("Nguoidung", userSchema, "users");

@@ -1,0 +1,38 @@
+/* --- Khối Biến thể --- */
+.variant-item {
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    transition: box-shadow 0.2s;
+}
+
+.variant-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* --- Preview Ảnh --- */
+.variant-preview {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+}
+
+/* --- Toggle Sections (Size/Qty) --- */
+/* Class hỗ trợ ẩn hiện mượt mà nếu cần */
+.variant-size-section,
+.variant-qty-section {
+    transition: all 0.3s ease;
+}
+
+/* --- Form Controls nhỏ gọn cho bảng biến thể --- */
+.variant-item .form-label {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-bottom: 0.25rem;
+}
+
+.variant-item .form-control-sm {
+    font-size: 0.875rem;
+}

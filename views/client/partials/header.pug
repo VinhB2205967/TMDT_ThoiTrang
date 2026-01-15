@@ -36,9 +36,27 @@ header.header
                             span Giỏ hàng
                             span.cart-badge 0
                 .auth-buttons
-                    a.btn.btn-login(href="/login")
-                        i.bi.bi-box-arrow-in-right.me-1
-                        span Đăng nhập
-                    a.btn.btn-register(href="/register")
-                        i.bi.bi-person-plus.me-1
-                        span Đăng ký
+                    if isAuthenticated
+                        .dropdown
+                            a#userMenu.btn.btn-login.dropdown-toggle(href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false")
+                                img(src=(user && user.avatar ? user.avatar : '/images/download.jpg') alt="avatar" style="width:28px;height:28px;border-radius:50%;object-fit:cover;" class="me-2")
+                                span #{(user && user.hoten) ? user.hoten : 'Tài khoản'}
+                            ul.dropdown-menu.dropdown-menu-end(aria-labelledby="userMenu")
+                                if user && user.vaitro === 'admin'
+                                    li
+                                        a.dropdown-item(href=`${adminPath}`)
+                                            i.bi.bi-shield-lock.me-2
+                                            | Vào trang Admin
+                                    li: hr.dropdown-divider
+                                li
+                                    form(method="POST" action="/auth/logout")
+                                        button.dropdown-item(type="submit")
+                                            i.bi.bi-box-arrow-right.me-2
+                                            | Đăng xuất
+                    else
+                        a.btn.btn-login(href="/auth?mode=login")
+                            i.bi.bi-box-arrow-in-right.me-1
+                            span Đăng nhập
+                        a.btn.btn-register(href="/auth?mode=register")
+                            i.bi.bi-person-plus.me-1
+                            span Đăng ký

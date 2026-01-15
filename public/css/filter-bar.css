@@ -1,0 +1,36 @@
+/* ==================== FILTER BAR ==================== */
+.filter-bar {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.filter-bar .form-control,
+.filter-bar .form-select {
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    padding: 10px 15px;
+    font-size: 14px;
+}
+.filter-bar .form-control:focus,
+.filter-bar .form-select:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+.filter-bar .btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+.filter-bar .btn-secondary {
+    background: #6c757d;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 8px;
+}
+.filter-info {
+    padding: 10px 0;
+    font-size: 14px;
+}

@@ -231,7 +231,7 @@ window.selectVariant = (idx, colorName, imgSrc, labelElement) => {
             firstAvailableSize.checked = true;
             window.handleSizeSelect(firstAvailableSize.value); // Gọi handler để cập nhật state
         } else {
-            window.handleSizeSelect(''); // Không có size nào, reset
+            window.handleSizeSelect(''); 
         }
     } else {
         // Nếu không có size panel, đây là sản phẩm không có size

@@ -1,0 +1,166 @@
+extends ../../layouts/default.pug
+
+block main
+  .page-header-section
+    h1.page-title Quản lý người dùng
+
+  .container-fluid.p-4
+    .card.border-0.shadow-sm.mb-4
+      .card-body
+        form.row.g-2(method="GET" action="/admin/users")
+          .col-12.col-md-4
+            input.form-control(type="text" name="keyword" placeholder="Tìm theo email hoặc họ tên" value=(filters && filters.keyword) || '')
+          .col-6.col-md-2
+            select.form-select(name="vaitro")
+              option(value="") Tất cả vai trò
+              option(value="user" selected=(filters && filters.vaitro === 'user')) User
+              option(value="admin" selected=(filters && filters.vaitro === 'admin')) Admin
+          .col-6.col-md-2
+            select.form-select(name="trangthai")
+              option(value="") Tất cả trạng thái
+              option(value="active" selected=(filters && filters.trangthai === 'active')) Active
+              option(value="noactive" selected=(filters && filters.trangthai === 'noactive')) Noactive
+          .col-6.col-md-2
+            select.form-select(name="online")
+              option(value="") Online + Offline
+              option(value="1" selected=(filters && filters.online === '1')) Chỉ Online
+              option(value="0" selected=(filters && filters.online === '0')) Chỉ Offline
+          .col-6.col-md-2
+            button.btn.btn-primary.w-100(type="submit") Lọc
+
+    .card.border-0.shadow-sm
+      .card-body
+        if !users || users.length === 0
+          .text-muted Không có người dùng.
+        else
+          .table-responsive
+            table.table.align-middle
+              thead
+                tr
+                  th Email
+                  th Họ tên
+                  th Vai trò
+                  th Trạng thái
+                  th Online
+                  th Last seen
+                  th(style="width: 360px") Thao tác
+              tbody
+                each u in users
+                  tr(data-user-id=`${u._id}`)
+                    td #{u.email}
+                    td #{u.hoten || ''}
+                    td
+                      span.badge(class=(u.vaitro === 'admin' ? 'bg-warning text-dark' : 'bg-secondary')) #{u.vaitro}
+                    td
+                      span.badge(class=(u.trangthai === 'active' ? 'bg-success' : 'bg-danger')) #{u.trangthai}
+                    td
+                      span.badge.user-online-badge(class=(u.isOnline ? 'bg-success' : 'bg-secondary')) #{u.isOnline ? 'Online' : 'Offline'}
+                    td
+                      span.user-lastseen(data-iso=(u.lastSeenAt ? new Date(u.lastSeenAt).toISOString() : ''))
+                        if u.lastSeenAt
+                          | #{new Date(u.lastSeenAt).toLocaleString('vi-VN')}
+                        else
+                          span.text-muted -
+                    td
+                      .d-flex.flex-wrap.gap-2
+                        form(method="POST" action=`/admin/users/${u._id}/role`)
+                          select.form-select.form-select-sm(name="vaitro" onchange="this.form.submit()")
+                            option(value="user" selected=(u.vaitro === 'user')) User
+                            option(value="admin" selected=(u.vaitro === 'admin')) Admin
+                        form(method="POST" action=`/admin/users/${u._id}/status`)
+                          select.form-select.form-select-sm(name="trangthai" onchange="this.form.submit()")
+                            option(value="active" selected=(u.trangthai === 'active')) Active
+                            option(value="noactive" selected=(u.trangthai === 'noactive')) Noactive
+                        form(method="POST" action=`/admin/users/${u._id}/delete` onsubmit="return confirm('Xóa tài khoản này?')")
+                          button.btn.btn-sm.btn-outline-danger(type="submit") Xóa
+
+block scripts
+  script.
+    (function () {
+      const filters = {
+        keyword: #{JSON.stringify((filters && filters.keyword) || '')},
+        vaitro: #{JSON.stringify((filters && filters.vaitro) || '')},
+        trangthai: #{JSON.stringify((filters && filters.trangthai) || '')},
+        online: #{JSON.stringify((filters && filters.online) || '')}
+      };
+
+      function formatVi(iso) {
+        try {
+          if (!iso) return '-';
+          const d = new Date(iso);
+          if (Number.isNaN(d.getTime())) return '-';
+          return d.toLocaleString('vi-VN');
+        } catch {
+          return '-';
+        }
+      }
+
+      async function refreshOnline() {
+        const params = new URLSearchParams();
+        if (filters.keyword) params.set('keyword', filters.keyword);
+        if (filters.vaitro) params.set('vaitro', filters.vaitro);
+        if (filters.trangthai) params.set('trangthai', filters.trangthai);
+        if (filters.online) params.set('online', filters.online);
+
+        const res = await fetch('/admin/users/online?' + params.toString(), {
+          headers: { 'Accept': 'application/json' },
+          credentials: 'same-origin'
+        });
+
+        // If admin session expired, server likely redirected to /admin/login.
+        if (res.redirected && res.url && res.url.includes('/admin/login')) {
+          location.href = res.url;
+          return;
+        }
+
+        if (!res.ok) return;
+
+        const contentType = (res.headers && res.headers.get && res.headers.get('content-type')) || '';
+        if (!contentType.includes('application/json')) return;
+
+        let data;
+        try {
+          data = await res.json();
+        } catch {
+          return;
+        }
+        if (!data || !Array.isArray(data.users)) return;
+
+        const ids = new Set(data.users.map(u => String(u.id)));
+        const allRows = Array.from(document.querySelectorAll('tr[data-user-id]'));
+
+        // When filtering online/offline, keep the table consistent in realtime.
+        // If a new matching user appears that isn't currently rendered, reload.
+        if (filters.online === '1' || filters.online === '0') {
+          const anyMissing = data.users.some(u => !document.querySelector('tr[data-user-id="' + u.id + '"]'));
+          if (anyMissing) {
+            location.reload();
+            return;
+          }
+          for (const row of allRows) {
+            const id = row.getAttribute('data-user-id');
+            row.style.display = ids.has(id) ? '' : 'none';
+          }
+        }
+
+        for (const u of data.users) {
+          const row = document.querySelector('tr[data-user-id="' + u.id + '"]');
+          if (!row) continue;
+          const badge = row.querySelector('.user-online-badge');
+          const lastSeen = row.querySelector('.user-lastseen');
+          if (badge) {
+            badge.textContent = u.isOnline ? 'Online' : 'Offline';
+            badge.classList.toggle('bg-success', !!u.isOnline);
+            badge.classList.toggle('bg-secondary', !u.isOnline);
+          }
+          if (lastSeen) {
+            lastSeen.setAttribute('data-iso', u.lastSeenAt || '');
+            lastSeen.textContent = formatVi(u.lastSeenAt);
+          }
+        }
+      }
+
+      // Poll every 5 seconds
+      refreshOnline();
+      setInterval(refreshOnline, 5000);
+    })();

@@ -4,7 +4,6 @@ const productHelper = require('../../helpers/product');
 //[GET] /
 module.exports.index = async (req, res) => {
     try {
-        // Sản phẩm mới nhất (8 sản phẩm)
         const newProducts = await Product.find({ 
             trangthai: 'dangban',
             daxoa: false
@@ -32,7 +31,6 @@ module.exports.index = async (req, res) => {
         .sort({ phantramgiamgia: -1 })
         .limit(8)
         .lean();
-
         // Best seller
         const bestSellerProducts = await Product.find({ 
             trangthai: 'dangban',
