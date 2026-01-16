@@ -75,6 +75,5 @@ block main
               .col-12
                 hr
                 h2.h6.fw-bold.text-danger.mb-2 Xóa tài khoản
-                .text-muted.small.mb-2 Hành động này sẽ xóa (mềm) tài khoản và đăng xuất ngay.
                 form(method="POST" action="/account/delete" onsubmit="return confirm('Bạn chắc chắn muốn xóa tài khoản?')")
                   button.btn.btn-outline-danger(type="submit") Xóa tài khoản

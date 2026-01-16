@@ -13,7 +13,6 @@ block main
                 .alert.alert-danger(role="alert") #{messages.error}
               if messages && messages.success
                 .alert.alert-success(role="alert") #{messages.success}
-
               ul.nav.nav-pills.justify-content-center.mb-4
                 li.nav-item
                   a.nav-link(class=(mode === 'login' ? 'active' : '') href="/auth?mode=login") Đăng nhập
