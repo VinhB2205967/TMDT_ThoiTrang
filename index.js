@@ -1,5 +1,6 @@
 const express = require('express')
 const app = express()
+const path = require('path')
 require('dotenv').config()
 const flash = require('express-flash')
 const session = require('express-session')
@@ -9,6 +10,7 @@ const mongoSanitize = require('./middlewares/mongoSanitize')
 const passport = require('passport')
 const { configurePassport } = require('./config/passport')
 const { attachUserToLocals, trackOnline, enforceActiveSessions } = require('./middlewares/auth')
+const { attachCartCount } = require('./middlewares/cart')
 const { seedAdminOnConnect } = require('./services/seedAdmin')
 const database = require("./config/database")
 const route = require('./routes/client/index_route')
@@ -20,7 +22,7 @@ database.connect();
 // Auth setup
 configurePassport();
 seedAdminOnConnect();
-app.set('views', './views')
+app.set('views', path.join(__dirname, 'views'))
 app.set('view engine', 'pug')
 app.use(express.static('public'))
 app.use(express.urlencoded({ extended: true }))
@@ -84,6 +86,7 @@ app.use(passport.initialize())
 app.use(passport.session())
 app.use(enforceActiveSessions)
 app.use(attachUserToLocals)
+app.use(attachCartCount)
 app.use(trackOnline)
 
 app.locals.prefigAdmin = systemConfig.prefigAdmin;

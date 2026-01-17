@@ -1,5 +1,12 @@
 const mongoose = require("mongoose");
 
+const addressSchema = new mongoose.Schema({
+  label: String,
+  tennguoinhan: String,
+  sodienthoai: String,
+  diachi: String
+}, { _id: true });
+
 const userSchema = new mongoose.Schema({
   hoten: String,                    // Họ tên đầy đủ
   email: {
@@ -10,6 +17,10 @@ const userSchema = new mongoose.Schema({
   matkhau: String,                  // Mật khẩu (đã hash)
   sodienthoai: String,              // Số điện thoại
   diachi: String,                   // Địa chỉ mặc định
+  diachiList: {                     // Nhiều địa chỉ, chọn 1 khi thanh toán
+    type: [addressSchema],
+    default: []
+  },
   gioitinh: String,                 // Nam/Nữ/Khác
   ngaysinh: Date,
   avatar: String,                   // URL ảnh đại diện

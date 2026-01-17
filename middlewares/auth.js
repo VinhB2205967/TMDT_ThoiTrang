@@ -1,6 +1,11 @@
 const systemConfig = require('../config/system');
 const Nguoidung = require('../models/user_model');
 
+function wantsJSON(req) {
+  const accept = String(req.headers.accept || '');
+  return req.xhr || accept.includes('application/json') || String(req.headers['x-requested-with'] || '').toLowerCase() === 'xmlhttprequest';
+}
+
 function attachUserToLocals(req, res, next) {
   res.locals.user = req.user || null;
   res.locals.isAuthenticated = Boolean(req.user);
@@ -16,6 +21,13 @@ function requireAuth(req, res, next) {
     try {
       req.logout(() => {});
     } catch {}
+  }
+  if (wantsJSON(req)) {
+    return res.status(401).json({
+      success: false,
+      message: 'Bạn cần đăng nhập',
+      redirect: '/auth?mode=login'
+    });
   }
   return res.redirect('/auth?mode=login');
 }

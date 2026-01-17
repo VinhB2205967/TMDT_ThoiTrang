@@ -70,14 +70,13 @@ const orderSchema = new mongoose.Schema({
 });
 
 // Tạo mã đơn hàng tự động
-orderSchema.pre('save', function(next) {
+orderSchema.pre('save', function() {
   if (!this.madonhang) {
     const now = new Date();
     const dateStr = now.toISOString().slice(0,10).replace(/-/g, '');
     const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
     this.madonhang = `DH${dateStr}${random}`;
   }
-  next();
 });
 
 const Donhang = mongoose.model("Donhang", orderSchema, "orders");

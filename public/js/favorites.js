@@ -27,11 +27,17 @@ const removeFavorite = async (btn) => {
     const card = btn.closest('.col-6');
     
     try {
-        const res = await fetch(`/favorites/remove/${productId}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        });
-        const data = await res.json();
+        let data;
+        if (window.App && window.App.apiFetch) {
+            const r = await window.App.apiFetch(`/favorites/remove/${productId}`, { method: 'POST' });
+            data = r.data;
+        } else {
+            const res = await fetch(`/favorites/remove/${productId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            data = await res.json();
+        }
         
         if (data.success) {
             animateRemoveCard(card, checkEmptyFavorites);

@@ -25,16 +25,17 @@ header.header
                         li: a(href="/products")
                             i.bi.bi-grid
                             span Sản phẩm
-                        li: a(href="/orders")
-                            i.bi.bi-bag-check
-                            span Đã mua
+                        if isAuthenticated
+                            li: a(href="/orders")
+                                i.bi.bi-bag-check
+                                span Lịch sử mua
                         li: a(href="/favorites")
                             i.bi.bi-heart
                             span Yêu thích
                         li: a(href="/cart")
                             i.bi.bi-cart3
                             span Giỏ hàng
-                            span.cart-badge 0
+                            span.cart-badge #{cartCount || 0}
                 .auth-buttons
                     if isAuthenticated
                         .dropdown
@@ -46,6 +47,10 @@ header.header
                                     a.dropdown-item(href="/account")
                                         i.bi.bi-person-circle.me-2
                                         | Xem thông tin
+                                li
+                                    a.dropdown-item(href="/orders")
+                                        i.bi.bi-bag-check.me-2
+                                        | Lịch sử mua
                                 li: hr.dropdown-divider
                                 if user && user.vaitro === 'admin'
                                     li

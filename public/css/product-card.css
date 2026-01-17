@@ -41,3 +41,17 @@
 .btn-wishlist-float i {
     font-size: 18px;
 }
+
+/* Active state (favorited) */
+.btn-wishlist-float.active,
+.btn-wishlist.active,
+.wishlist-btn.active {
+    background: #ff416c;
+    color: #fff;
+}
+
+.btn-wishlist-float.active i,
+.btn-wishlist.active i,
+.wishlist-btn.active i {
+    color: #fff;
+}

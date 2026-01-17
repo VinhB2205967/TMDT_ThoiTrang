@@ -206,3 +206,73 @@ module.exports.show = async (req, res) => {
         res.status(500).send('Lỗi server');
     }
 };
+
+
+// [GET] /products/:id/options
+module.exports.options = async (req, res) => {
+    try {
+        const id = req.params.id;
+        const product = await Products.findOne({ _id: id, daxoa: { $ne: true }, trangthai: 'dangban' }).lean();
+        if (!product) return res.status(404).json({ success: false, message: 'Sản phẩm không tồn tại' });
+
+        const updated = productHelper(product);
+        updated.hinhanh = updated.displayImage || productViewHelper.normalizeImage(updated.hinhanh);
+
+        const noSizeTypes = ['tui', 'phukien'];
+        const hasSize = !noSizeTypes.includes(String(updated.loaisanpham || '').toLowerCase());
+
+        const baseGia = updated.gia || 0;
+        const baseGiam = updated.phantramgiamgia || 0;
+        const baseGiaMoi = baseGiam > 0 ? Math.round(baseGia * (100 - baseGiam) / 100) : baseGia;
+
+        const variants = [];
+
+        // Main variant
+        variants.push({
+            id: 'main',
+            mausac: updated.mausac_chinh || 'Mặc định',
+            hinhanh: updated.hinhanh || '/images/shopping.png',
+            gia: baseGia,
+            phantramgiamgia: baseGiam,
+            giamoi: baseGiaMoi,
+            soluong: updated.soluong_chinh || 0,
+            sizes: Array.isArray(updated.sizes) ? updated.sizes.map(s => ({ size: s.size, soluong: s.soluong || 0 })) : []
+        });
+
+        // DB variants
+        if (updated.bienthe && updated.bienthe.length) {
+            updated.bienthe.forEach((v) => {
+                const gia = v.gia || baseGia;
+                const giam = v.phantramgiamgia != null ? v.phantramgiamgia : baseGiam;
+                const giamoi = giam > 0 ? Math.round(gia * (100 - giam) / 100) : gia;
+                variants.push({
+                    id: String(v._id),
+                    mausac: v.mausac || 'Màu',
+                    hinhanh: (productViewHelper.normalizeImage(v.hinhanh) || updated.hinhanh || '/images/shopping.png'),
+                    gia,
+                    phantramgiamgia: giam,
+                    giamoi,
+                    soluong: v.soluong || 0,
+                    sizes: Array.isArray(v.sizes) ? v.sizes.map(s => ({ size: s.size, soluong: s.soluong || 0 })) : []
+                });
+            });
+        }
+
+        return res.json({
+            success: true,
+            product: {
+                id: String(updated._id),
+                tensanpham: updated.tensanpham,
+                hinhanh: updated.hinhanh || '/images/shopping.png',
+                gia: baseGia,
+                phantramgiamgia: baseGiam,
+                giamoi: baseGiaMoi,
+                hasSize,
+                variants
+            }
+        });
+    } catch (error) {
+        console.error('options error:', error);
+        return res.status(500).json({ success: false, message: 'Lỗi server' });
+    }
+};

@@ -1,55 +1,67 @@
 extends ../../layouts/default.pug
 
 block main
-    .favorites-page
+    .products-section
         .container.py-4
-            .favorites-header.mb-4
-                h1.favorites-title
+            .d-flex.flex-wrap.justify-content-between.align-items-center.gap-2.mb-3
+                h1.mb-0
                     i.bi.bi-heart-fill.text-danger.me-2
                     | Sản phẩm yêu thích
                 if products && products.length
-                    p.text-muted Bạn có #{products.length} sản phẩm yêu thích
+                    .text-muted Bạn có #{products.length} sản phẩm yêu thích
 
             if products && products.length
-                .row.g-4
+                .row.g-3.g-md-4
                     each product in products
-                        .col-6.col-md-4.col-lg-3
-                            .product-card
-                                .product-image
-                                    img(src=product.displayImage || '/images/shopping.png' alt=product.tensanpham)
-                                    .product-overlay
-                                        button.btn-remove-favorite(
-                                            type="button" 
-                                            title="Xóa khỏi yêu thích"
-                                            data-id=product._id
-                                        )
-                                            i.bi.bi-heart-fill
-                                        a.btn-quick-view(href=`/products/${product._id}` title="Xem chi tiết")
-                                            i.bi.bi-eye
-                                .product-info
-                                    h3.product-name
-                                        a(href=`/products/${product._id}`) #{product.tensanpham}
-                                    .product-price
+                        .col-6.col-sm-6.col-md-4.col-lg-3
+                            .product-card.h-100(data-product-id=product._id)
+                                a.product-card-link(href=`/products/${product._id}`)
+                                    .product-image
+                                        img(src=(product.hinhanh || product.displayImage || '/images/shopping.png') alt=product.tensanpham loading="lazy")
                                         if product.phantramgiamgia && product.phantramgiamgia > 0
-                                            span.price-new #{product.giamoiText}
-                                            span.price-old #{product.giaText}
-                                        else
-                                            span.price-current #{product.giaText}
-                                    .product-actions
-                                        button.btn.btn-buy-now(type="button")
-                                            i.bi.bi-bag-plus.me-1
-                                            | Mua ngay
-                                        button.btn.btn-add-cart(type="button" title="Thêm vào giỏ")
-                                            i.bi.bi-cart-plus
+                                            .discount-badge
+                                                | -#{product.phantramgiamgia}%
+                                    .product-info
+                                        h3.product-name #{product.tensanpham}
+                                        if product.bienthe && product.bienthe.length
+                                            .product-variants
+                                                each variant, idx in product.bienthe
+                                                    if idx < 5
+                                                        if variant.hinhanh && variant.hinhanh !== '/images/shopping.png'
+                                                            img.variant-img(src=variant.hinhanh alt=variant.mausac title=variant.mausac)
+                                                        else
+                                                            span.variant-dot(style=`background-color: ${variant.colorCode || '#ccc'}` title=variant.mausac)
+                                                if product.bienthe.length > 5
+                                                    span.variant-more +#{product.bienthe.length - 5}
+                                        .product-price
+                                            if product.phantramgiamgia && product.phantramgiamgia > 0
+                                                span.original-price #{product.giaText}
+                                            span.sale-price #{product.giamoiText}
+                                        .product-rating
+                                            .stars
+                                                i.fas.fa-star
+                                                i.fas.fa-star
+                                                i.fas.fa-star
+                                                i.fas.fa-star
+                                                i.fas.fa-star-half-alt
+                                            span.review-count (đã bán)
+
+                                .product-actions
+                                    a.btn-buy-now(href=`/products/${product._id}`)
+                                        i.bi.bi-lightning-fill.me-1
+                                        | Mua ngay
+                                    button.btn-add-cart(type="button" title="Thêm vào giỏ")
+                                        i.bi.bi-cart-plus
+
+                                button.btn-wishlist-float.active(type='button' title="Yêu thích" data-product-id=product._id)
+                                    i.bi.bi-heart-fill
             else
-                .empty-favorites.text-center.py-5
-                    .empty-icon.mb-4
-                        i.bi.bi-heart.display-1.text-muted
-                    h4.text-muted Chưa có sản phẩm yêu thích
-                    p.text-muted.mb-4 Hãy khám phá và thêm sản phẩm bạn yêu thích vào đây!
+                .text-center.py-5.text-muted
+                    i.bi.bi-heart.display-1.d-block.mb-3
+                    p.mb-3 Chưa có sản phẩm yêu thích.
                     a.btn.btn-primary(href="/products")
                         i.bi.bi-grid.me-2
                         | Khám phá sản phẩm
 
 block scripts
-    script(src="/js/favorites.js")
+    //- Favorites interactions handled by /js/script.js (wishlist toggle / quick add / buy)

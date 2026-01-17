@@ -1,0 +1,50 @@
+extends ../../layouts/default.pug
+
+block main
+  .container.py-4
+    h1.mb-3 Giỏ hàng
+
+    if cart && cart.sanpham && cart.sanpham.length
+      .card
+        .card-body
+          .d-flex.justify-content-between.align-items-center.mb-2
+            .form-check
+              input#cartSelectAll.form-check-input(type='checkbox')
+              label.form-check-label(for='cartSelectAll') Chọn tất
+
+          each item in cart.sanpham
+            .d-flex.align-items-center.gap-3.py-3.border-bottom
+              - const __unitPrice = (item.giagiam || item.gia || 0)
+              - const __lineTotal = (__unitPrice * (item.soluong || 1))
+              input.form-check-input.cart-select(type='checkbox' value=item._id checked style='margin-right:6px;' data-unit-price=__unitPrice)
+              img(src=(item.hinhanh || '/images/shopping.png') alt=item.tensanpham style='width:64px;height:64px;object-fit:cover;border-radius:10px;')
+              .flex-grow-1
+                .fw-semibold #{item.tensanpham}
+                .small.text-muted
+                  | #{item.mausac || ''}#{item.kichco ? (' - ' + item.kichco) : ''}
+                .fw-semibold.mt-1.cart-line-total(data-item-id=item._id) #{__lineTotal.toLocaleString('vi-VN')}₫
+                button.btn.btn-sm.btn-outline-secondary.mt-2(type='button' data-action='edit-options' data-item-id=item._id data-product-id=item.sanpham_id data-variant-id=(item.bienthe_id || 'main') data-size=(item.kichco || '') data-qty=(item.soluong || 1)) Sửa lựa chọn
+
+              form.d-flex.align-items-center.gap-2(method='POST' action='/cart/update')
+                input(type='hidden' name='itemId' value=item._id)
+                input.form-control.form-control-sm(type='number' name='soluong' min='1' value=item.soluong style='width:90px;' data-item-id=item._id)
+                button.btn.btn-sm.btn-outline-primary(type='submit') Cập nhật
+
+              form(method='POST' action='/cart/remove')
+                input(type='hidden' name='itemId' value=item._id)
+                button.btn.btn-sm.btn-outline-danger(type='submit' title='Xóa')
+                  i.bi.bi-trash
+
+          form#cartCheckoutForm.d-flex.justify-content-between.align-items-center.mt-3(method='GET' action='/cart/checkout')
+            div
+              .text-muted Tạm tính
+              .fw-semibold#cartSubtotalValue 0₫
+            button.btn.btn-primary(type='submit') Thanh toán
+
+      form.mt-3(method='POST' action='/cart/clear')
+        button.btn.btn-outline-secondary(type='submit') Xóa giỏ hàng
+    else
+      .text-center.py-5.text-muted
+        i.bi.bi-cart-x.fs-1.d-block.mb-3
+        p Giỏ hàng đang trống.
+        a.btn.btn-primary(href='/products') Mua sắm ngay

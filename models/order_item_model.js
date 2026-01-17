@@ -47,9 +47,8 @@ const orderItemSchema = new mongoose.Schema({
 });
 
 // Tính thành tiền
-orderItemSchema.pre('save', function(next) {
+orderItemSchema.pre('save', function() {
   this.thanhtien = (this.giaban || this.giagoc) * this.soluong;
-  next();
 });
 
 const Chitietdonhang = mongoose.model("Chitietdonhang", orderItemSchema, "order_item");

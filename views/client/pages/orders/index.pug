@@ -1,0 +1,43 @@
+extends ../../layouts/default.pug
+
+block main
+  .container.py-4
+    h1.mb-3 Đơn hàng của tôi
+
+    - const statusLabels = locals.statusLabels || { all: 'Tất cả', choxacnhan: 'Chờ xác nhận', daxacnhan: 'Đã xác nhận', dangchuanbi: 'Đang chuẩn bị', danggiao: 'Đang giao', dagiao: 'Đã giao', dahuy: 'Đã hủy', hoanhang: 'Hoàn hàng' }
+    - const current = currentStatus || 'all'
+
+    .d-flex.flex-wrap.gap-2.mb-3
+      each s in (statusOptions || ['all','choxacnhan','daxacnhan','dangchuanbi','danggiao','dagiao','dahuy','hoanhang'])
+        - const active = String(current) === String(s)
+        a.btn.btn-sm(class=active ? 'btn-primary' : 'btn-outline-primary', href=`/orders?status=${s}`) #{statusLabels[s] || s}
+
+    if orders && orders.length
+      .list-group
+        each o in orders
+          .list-group-item
+            .d-flex.justify-content-between.align-items-center.gap-2
+              a.text-decoration-none.flex-grow-1(href=`/orders/${o._id}`)
+                .fw-semibold #{o.madonhang || 'Đơn hàng'}
+                .small.text-muted.d-block #{(o.ngaytao ? new Date(o.ngaytao).toLocaleString('vi-VN') : '')}
+
+              .d-flex.align-items-center.gap-2
+                - const label = statusLabels[o.trangthai] || o.trangthai
+                span.badge.bg-secondary #{label}
+
+                if o.trangthai === 'choxacnhan'
+                  form(method='POST', action=`/orders/${o._id}/cancel`)
+                    button.btn.btn-sm.btn-outline-danger(type='submit' onclick="return confirm('Bạn muốn hủy đơn hàng này?')")
+                      i.bi.bi-x-circle.me-1
+                      | Hủy
+
+                if o.trangthai === 'dahuy'
+                  form(method='POST', action=`/orders/${o._id}/reorder`)
+                    button.btn.btn-sm.btn-outline-success(type='submit')
+                      i.bi.bi-arrow-repeat.me-1
+                      | Mua lại
+    else
+      .text-center.py-5.text-muted
+        i.bi.bi-bag-x.fs-1.d-block.mb-3
+        p Bạn chưa có đơn hàng nào.
+        a.btn.btn-primary(href='/products') Mua sắm ngay

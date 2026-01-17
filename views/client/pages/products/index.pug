@@ -62,7 +62,7 @@ block main
                 .row.g-3.g-md-4
                     each item in products
                         .col-6.col-sm-6.col-md-4.col-lg-3
-                            .product-card.h-100
+                            .product-card.h-100(data-product-id=item._id)
                                 a.product-card-link(href=`/products/${item._id}`)
                                     .product-image
                                         img(src=item.hinhanh alt=item.tensanpham loading="lazy")
@@ -97,9 +97,9 @@ block main
                                     a.btn-buy-now(href=`/products/${item._id}`)
                                         i.bi.bi-lightning-fill.me-1
                                         | Mua ngay
-                                    button.btn-add-cart(type="button" onclick="handleAddCartClick(event)" title="Thêm vào giỏ")
+                                    button.btn-add-cart(type="button" title="Thêm vào giỏ")
                                         i.bi.bi-cart-plus
-                                button.btn-wishlist-float(onclick="handleWishlistClick(event)" title="Yêu thích")
+                                button.btn-wishlist-float(type='button' title="Yêu thích")
                                     i.bi.bi-heart
             else
                 .text-center.py-5

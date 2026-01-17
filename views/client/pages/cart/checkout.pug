@@ -1,0 +1,77 @@
+extends ../../layouts/default.pug
+
+block main
+  .container.py-4
+    h1.mb-3 Thanh toán
+
+    if items && items.length
+      form(method='POST' action='/cart/checkout')
+        each id in selectedIds
+          input(type='hidden' name='itemIds' value=id)
+        .row.g-3
+          .col-lg-7
+            .card
+              .card-body
+                .fw-semibold.mb-2 Thông tin giao hàng
+                if addresses && addresses.length
+                  label.form-label Chọn địa chỉ
+                  select#checkoutAddressSelect.form-select.mb-3(name='addressId')
+                    each a in addresses
+                      option(value=a._id data-ten=a.tennguoinhan data-phone=a.sodienthoai data-address=a.diachi) #{a.label}: #{a.diachi}
+                    option(value='new' data-ten='' data-phone='' data-address='') Địa chỉ mới...
+
+                .row.g-2
+                  .col-md-6
+                    input.form-control(name='tennguoinhan' placeholder='Họ tên' value=(userProfile && userProfile.hoten) || '')
+                  .col-md-6
+                    input.form-control(name='sodienthoai' placeholder='Số điện thoại' value=(userProfile && userProfile.sodienthoai) || '')
+                  //- Email không bắt buộc
+                  input(type='hidden' name='email' value=(userProfile && userProfile.email) || '')
+                  .col-12
+                    input.form-control(name='diachigiao' placeholder='Địa chỉ giao hàng' value=(userProfile && userProfile.diachi) || '')
+                  #addressLabelWrap.col-12(style='display:none')
+                    input.form-control(name='addressLabel' placeholder='Tên gợi nhớ (VD: Nhà, Công ty)')
+                  #saveAddressWrap.col-12(style='display:none')
+                    .form-check
+                      input.form-check-input(type='checkbox' name='saveAddress' value='1' id='saveAddress')
+                      label.form-check-label(for='saveAddress') Lưu địa chỉ này cho lần sau
+                  .col-12
+                    textarea.form-control(name='ghichu' rows='2' placeholder='Ghi chú')
+
+                hr
+                .fw-semibold.mb-2 Phương thức thanh toán
+                .d-flex.flex-column.gap-2
+                  label.form-check
+                    input.form-check-input(type='radio' name='phuongthucthanhtoan' value='cod' checked)
+                    span.form-check-label
+                      i.bi.bi-truck.me-2
+                      | Thanh toán khi nhận hàng (COD)
+                  label.form-check
+                    input.form-check-input(type='radio' name='phuongthucthanhtoan' value='momo')
+                    span.form-check-label
+                      span.payment-badge.payment-badge--momo.me-2 MoMo
+                      | Ví MoMo
+                  label.form-check
+                    input.form-check-input(type='radio' name='phuongthucthanhtoan' value='zalopay')
+                    span.form-check-label
+                      span.payment-badge.payment-badge--zalopay.me-2 ZaloPay
+                      | ZaloPay
+
+          .col-lg-5
+            .card
+              .card-body
+                .fw-semibold.mb-2 Đơn hàng
+                each item in items
+                  .d-flex.justify-content-between.small.py-1
+                    span #{item.tensanpham} x#{item.soluong}
+                    span #{((item.giagiam || item.gia || 0) * (item.soluong || 1)).toLocaleString('vi-VN')}₫
+                hr
+                .d-flex.justify-content-between.fw-semibold
+                  span Tổng
+                  span #{(subtotal || 0).toLocaleString('vi-VN')}₫
+                button.btn.btn-primary.w-100.mt-3(type='submit') Đặt hàng
+    else
+      .text-center.py-5.text-muted
+        i.bi.bi-cart-x.fs-1.d-block.mb-3
+        p Không có sản phẩm để thanh toán.
+        a.btn.btn-primary(href='/products') Mua sắm ngay

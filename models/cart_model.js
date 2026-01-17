@@ -46,13 +46,12 @@ const cartSchema = new mongoose.Schema({
 });
 
 // Middleware tính tổng tiền trước khi lưu
-cartSchema.pre('save', function(next) {
+cartSchema.pre('save', function() {
   this.tongtien = this.sanpham.reduce((sum, item) => {
     const gia = item.giagiam || item.gia || 0;
     return sum + (gia * item.soluong);
   }, 0);
   this.ngaycapnhat = new Date();
-  next();
 });
 
 const Giohang = mongoose.model("Giohang", cartSchema, "carts");

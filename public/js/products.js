@@ -4,10 +4,11 @@
  */
 
 // ===== DEBOUNCE HELPER =====
-let debounceTimer;
 const debounce = (callback, delay) => {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(callback, delay);
+    if (window.App && window.App.debounce) return window.App.debounce(callback, delay, 'products-filter');
+    // fallback
+    if (debounce.__t) clearTimeout(debounce.__t);
+    debounce.__t = setTimeout(callback, delay);
 };
 
 // ===== AUTO SUBMIT FILTER =====

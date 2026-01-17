@@ -181,7 +181,7 @@ block main
 
 //- Mixin Product Card
 mixin productCard(product)
-    .product-card
+    .product-card(data-product-id=product._id)
         a.product-link(href=`/products/${product._id}`)
             .product-image
                 img(src=product.displayImage || product.hinhanh || '/images/shopping.png' alt=product.tensanpham)

@@ -64,3 +64,9 @@
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+/* Wishlist active */
+.wishlist-btn.active {
+    background: #ff416c !important;
+    color: #fff !important;
+}

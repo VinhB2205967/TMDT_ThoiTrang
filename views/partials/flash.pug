@@ -1,0 +1,17 @@
+//- Shared flash messages (client + admin)
+//- Expected locals: messages (from express-flash)
+
+if messages && (messages.success || messages.error)
+  - const _success = Array.isArray(messages.success) ? messages.success[0] : messages.success
+  - const _error = Array.isArray(messages.error) ? messages.error[0] : messages.error
+  .container.mt-3
+    if _success
+      .alert.alert-success.alert-dismissible.fade.show.flash-alert(role="alert" data-auto-dismiss="5000")
+        i.bi.bi-check-circle-fill.me-2
+        | #{_success}
+        button.btn-close(type="button" data-bs-dismiss="alert" aria-label="Close")
+    if _error
+      .alert.alert-danger.alert-dismissible.fade.show.flash-alert(role="alert" data-auto-dismiss="5000")
+        i.bi.bi-exclamation-triangle-fill.me-2
+        | #{_error}
+        button.btn-close(type="button" data-bs-dismiss="alert" aria-label="Close")

@@ -1,0 +1,103 @@
+﻿extends ../../layouts/default.pug
+
+block main
+  - const formatMoney = (n) => (Number(n || 0)).toLocaleString('vi-VN') + 'đ'
+  - const statusLabels = { choxacnhan: 'Chờ xác nhận', daxacnhan: 'Đã xác nhận', dangchuanbi: 'Đang chuẩn bị', danggiao: 'Đang giao', dagiao: 'Đã giao', dahuy: 'Đã hủy', hoanhang: 'Hoàn hàng' }
+  - const paymentLabels = { cod: 'Thanh toán khi nhận hàng (COD)', momo: 'MoMo', zalopay: 'ZaloPay', vnpay: 'VNPay', banking: 'Chuyển khoản' }
+
+  .container.py-4
+    if !order
+      h1.mb-3 Không tìm thấy đơn hàng
+      p.text-muted Đơn hàng không tồn tại hoặc bạn không có quyền xem.
+      a.btn.btn-outline-secondary(href='/orders') Quay lại danh sách
+    else
+      .d-flex.flex-wrap.justify-content-between.align-items-center.gap-2.mb-3
+        h1.h3.mb-0 Chi tiết đơn hàng
+        a.btn.btn-outline-secondary(href='/orders')
+          i.bi.bi-arrow-left.me-2
+          | Quay lại
+
+      .row.g-3
+        .col-lg-7
+          .card
+            .card-body
+              .d-flex.justify-content-between.align-items-start
+                div
+                  .text-muted.small Mã đơn
+                  .fw-semibold #{order.madonhang || order._id}
+                - const __statusLabel = statusLabels[order.trangthai] || order.trangthai || '-'
+                .badge.bg-secondary #{__statusLabel}
+
+              if order.ngaytao
+                .text-muted.small.mt-1 Ngày đặt: #{new Date(order.ngaytao).toLocaleString('vi-VN')}
+
+              hr
+              .fw-semibold.mb-2 Thông tin giao hàng
+              .row.g-2
+                .col-md-6
+                  .text-muted.small Người nhận
+                  .fw-semibold #{order.tennguoinhan || '-'}
+                .col-md-6
+                  .text-muted.small Số điện thoại
+                  .fw-semibold #{order.sodienthoai || '-'}
+                if order.email
+                  .col-md-6
+                    .text-muted.small Email
+                    .fw-semibold #{order.email}
+                .col-12
+                  .text-muted.small Địa chỉ
+                  .fw-semibold #{order.diachigiao || '-'}
+
+              if order.ghichu
+                .mt-2
+                  .text-muted.small Ghi chú
+                  .fw-semibold #{order.ghichu}
+
+              hr
+              .fw-semibold.mb-2 Thanh toán
+              - const __payLabel = paymentLabels[order.phuongthucthanhtoan] || order.phuongthucthanhtoan || '-'
+              .d-flex.justify-content-between
+                span.text-muted Phương thức
+                span.fw-semibold #{__payLabel}
+              .d-flex.justify-content-between
+                span.text-muted Trạng thái
+                if order.dathanhtoan
+                  span.fw-semibold.text-success Đã thanh toán
+                else
+                  span.fw-semibold.text-warning Chưa thanh toán
+
+        .col-lg-5
+          .card
+            .card-body
+              .fw-semibold.mb-2 Sản phẩm
+              if items && items.length
+                each it in items
+                  .d-flex.gap-2.py-2.border-bottom
+                    if it.hinhanh
+                      img.rounded(border='0' src=it.hinhanh alt=it.tensanpham width='56' height='56' style='object-fit:cover')
+                    .flex-grow-1
+                      .fw-semibold #{it.tensanpham || 'Sản phẩm'}
+                      .small.text-muted
+                        | #{(it.mausac || '-').trim()}#{it.kichco ? (' - ' + it.kichco) : ''}
+                        |   #{it.soluong || 1}
+                    - const __lineTotal = (it.thanhtien || ((it.giaban || it.giagoc || 0) * (it.soluong || 1)) || 0)
+                    .fw-semibold #{formatMoney(__lineTotal)}
+              else
+                p.text-muted.small.mb-0 Không có sản phẩm.
+
+              hr
+              .d-flex.justify-content-between
+                span.text-muted Tạm tính
+                span.fw-semibold #{formatMoney(order.tamtinh || 0)}
+              if (order.phivanchuyen || 0) > 0
+                .d-flex.justify-content-between
+                  span.text-muted Phí vận chuyển
+                  span.fw-semibold #{formatMoney(order.phivanchuyen || 0)}
+              if (order.giamgia || 0) > 0
+                .d-flex.justify-content-between
+                  span.text-muted Giảm giá
+                  span.fw-semibold -#{formatMoney(order.giamgia || 0)}
+              .d-flex.justify-content-between.mt-2
+                span.fw-semibold Tổng thanh toán
+                span.fw-bold.text-danger #{formatMoney(order.tongtien || 0)}
+

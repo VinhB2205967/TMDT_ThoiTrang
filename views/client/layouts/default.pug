@@ -13,17 +13,14 @@ html(lang="vi")
     link(rel="stylesheet", href="/css/product-detail.css")
     link(rel="stylesheet", href="/css/filter-bar.css")
   body
-    //- Flash Messages
-    if messages && messages.success
-      .container.mt-3
-        .alert.alert-success.alert-dismissible.fade.show(role="alert")
-          i.bi.bi-check-circle-fill.me-2
-          | #{messages.success}
-          button.btn-close(type="button" data-bs-dismiss="alert" aria-label="Close")
     include ../partials/header.pug
+    include ../../partials/flash.pug
     main.main-content
       block main
+    include ../partials/quick_add_modal.pug
     include ../partials/footer.pug
     script(src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js")
+    script(src="/js/shared/utils.js")
+    script(src="/js/shared/flash.js")
     script(src="/js/script.js")
     block scripts

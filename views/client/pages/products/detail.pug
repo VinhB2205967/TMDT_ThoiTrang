@@ -21,7 +21,7 @@ block main
                                     if product.phantramgiamgia && product.phantramgiamgia > 0
                                         .sale-badge
                                             span -#{product.phantramgiamgia}%
-                                    button.wishlist-btn(type="button" title="Yêu thích")
+                                    button.wishlist-btn(type="button" title="Yêu thích" data-product-id=product._id)
                                         i.bi.bi-heart
                                     if product.hinhanh
                                         img#mainImage.main-product-image(src=product.hinhanh alt=product.tensanpham)
@@ -220,7 +220,7 @@ block main
                                         button.btn-add-to-cart(type='submit')
                                             i.bi.bi-cart-plus
                                             span Thêm vào giỏ hàng
-                                        button.btn-buy-now-detail(type='button' onclick="buyNow(this.form)")
+                                        button.btn-buy-now-detail(type='submit' formaction='/cart/buy-now')
                                             i.bi.bi-lightning-fill
                                             span Mua ngay
                                 

@@ -9,7 +9,10 @@ let currentSize = '';
 let maxQuantity = 99; // Default max
 
 // ===== HELPER FUNCTIONS =====
-const formatPrice = (price) => new Intl.NumberFormat('vi-VN').format(price);
+const formatPrice = (price) => {
+    if (window.App && window.App.formatNumberVI) return window.App.formatNumberVI(price);
+    return new Intl.NumberFormat('vi-VN').format(price);
+};
 
 // ===== DOM ELEMENT GETTERS (memoized for performance) =====
 const getElement = (id) => {

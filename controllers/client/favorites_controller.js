@@ -1,40 +1,57 @@
 const Sanpham = require("../../models/product_model");
 const productHelper = require("../../helpers/product");
+const Yeuthich = require("../../models/favorite_model");
+
+function wantsJSON(req) {
+  const accept = String(req.headers.accept || '');
+  return req.xhr || accept.includes('application/json') || String(req.headers['x-requested-with'] || '').toLowerCase() === 'xmlhttprequest';
+}
 
 // [GET] /favorites
 module.exports.index = async (req, res) => {
   try {
-    // Lấy danh sách ID từ cookie hoặc session (tạm thời dùng cookie)
-    let favoriteIds = [];
-    if (req.cookies && req.cookies.favorites) {
-      try {
-        favoriteIds = JSON.parse(req.cookies.favorites);
-      } catch (e) {
-        favoriteIds = [];
-      }
-    }
+    const favs = await Yeuthich.find({ nguoidung_id: req.user._id })
+      .sort({ ngaythem: -1 })
+      .select('sanpham_id')
+      .lean();
+
+    const favoriteIds = (favs || []).map(f => String(f.sanpham_id));
 
     let products = [];
-    if (favoriteIds.length > 0) {
-      products = await Sanpham.find({
+    if (favoriteIds.length) {
+      const found = await Sanpham.find({
         _id: { $in: favoriteIds },
         daxoa: { $ne: true },
-        trangthai: "dangban"
+        trangthai: 'dangban'
       }).lean();
 
-      products = products.map(productHelper);
+      const byId = new Map((found || []).map(p => [String(p._id), productHelper(p)]));
+      products = favoriteIds.map(id => byId.get(id)).filter(Boolean);
     }
 
-    res.render("client/pages/favorites/index", {
-      pageTitle: "Sản phẩm yêu thích",
-      products: products
+    res.render('client/pages/favorites/index', {
+      titlePage: 'Sản phẩm yêu thích',
+      products
     });
   } catch (error) {
     console.error("Favorites error:", error);
-    res.render("client/pages/favorites/index", {
-      pageTitle: "Sản phẩm yêu thích",
+    res.render('client/pages/favorites/index', {
+      titlePage: 'Sản phẩm yêu thích',
       products: []
     });
+  }
+};
+
+// [GET] /favorites/ids
+module.exports.ids = async (req, res) => {
+  try {
+    const favs = await Yeuthich.find({ nguoidung_id: req.user._id })
+      .select('sanpham_id')
+      .lean();
+    const ids = (favs || []).map(f => String(f.sanpham_id));
+    return res.json({ success: true, ids });
+  } catch {
+    return res.json({ success: true, ids: [] });
   }
 };
 
@@ -42,28 +59,14 @@ module.exports.index = async (req, res) => {
 module.exports.add = async (req, res) => {
   try {
     const productId = req.params.id;
-    let favoriteIds = [];
-    
-    if (req.cookies && req.cookies.favorites) {
-      try {
-        favoriteIds = JSON.parse(req.cookies.favorites);
-      } catch (e) {
-        favoriteIds = [];
-      }
-    }
-
-    if (!favoriteIds.includes(productId)) {
-      favoriteIds.push(productId);
-    }
-
-    res.cookie('favorites', JSON.stringify(favoriteIds), {
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 ngày
-      httpOnly: true
-    });
-
-    res.json({ success: true, message: "Đã thêm vào yêu thích" });
+    await Yeuthich.updateOne(
+      { nguoidung_id: req.user._id, sanpham_id: productId },
+      { $setOnInsert: { nguoidung_id: req.user._id, sanpham_id: productId, ngaythem: new Date() } },
+      { upsert: true }
+    );
+    return res.json({ success: true, active: true, message: 'Đã thêm vào yêu thích' });
   } catch (error) {
-    res.json({ success: false, message: "Có lỗi xảy ra" });
+    return res.status(500).json({ success: false, message: 'Có lỗi xảy ra' });
   }
 };
 
@@ -71,25 +74,28 @@ module.exports.add = async (req, res) => {
 module.exports.remove = async (req, res) => {
   try {
     const productId = req.params.id;
-    let favoriteIds = [];
-    
-    if (req.cookies && req.cookies.favorites) {
-      try {
-        favoriteIds = JSON.parse(req.cookies.favorites);
-      } catch (e) {
-        favoriteIds = [];
-      }
+    await Yeuthich.deleteOne({ nguoidung_id: req.user._id, sanpham_id: productId });
+    return res.json({ success: true, active: false, message: 'Đã xóa khỏi yêu thích' });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Có lỗi xảy ra' });
+  }
+};
+
+// [POST] /favorites/toggle/:id
+module.exports.toggle = async (req, res) => {
+  try {
+    const productId = req.params.id;
+
+    const existing = await Yeuthich.findOne({ nguoidung_id: req.user._id, sanpham_id: productId }).select('_id').lean();
+    if (existing) {
+      await Yeuthich.deleteOne({ _id: existing._id });
+      return res.json({ success: true, active: false });
     }
 
-    favoriteIds = favoriteIds.filter(id => id !== productId);
-
-    res.cookie('favorites', JSON.stringify(favoriteIds), {
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-      httpOnly: true
-    });
-
-    res.json({ success: true, message: "Đã xóa khỏi yêu thích" });
+    await Yeuthich.create({ nguoidung_id: req.user._id, sanpham_id: productId });
+    return res.json({ success: true, active: true });
   } catch (error) {
-    res.json({ success: false, message: "Có lỗi xảy ra" });
+    if (wantsJSON(req)) return res.status(500).json({ success: false, message: 'Có lỗi xảy ra' });
+    return res.redirect('/favorites');
   }
 };
