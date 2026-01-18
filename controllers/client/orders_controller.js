@@ -16,6 +16,39 @@ module.exports.index = async (req, res) => {
     .sort({ ngaytao: -1 })
     .lean();
 
+  // Attach preview info (first product + count) for nicer orders list UI
+  if (orders && orders.length) {
+    const orderIds = orders.map(o => o._id);
+    const orderItems = await Chitietdonhang.find({ donhang_id: { $in: orderIds } })
+      .select('donhang_id tensanpham hinhanh')
+      .sort({ ngaytao: 1 })
+      .lean();
+
+    const map = new Map();
+    for (const it of (orderItems || [])) {
+      const key = String(it.donhang_id);
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, { first: it, count: 1 });
+      } else {
+        existing.count += 1;
+      }
+    }
+
+    for (const o of orders) {
+      const info = map.get(String(o._id));
+      if (!info) {
+        o.preview = null;
+        continue;
+      }
+      o.preview = {
+        name: info.first && info.first.tensanpham ? String(info.first.tensanpham) : 'Sản phẩm',
+        image: normalizeImage(info.first && info.first.hinhanh ? String(info.first.hinhanh) : ''),
+        count: info.count || 1
+      };
+    }
+  }
+
   res.render('client/pages/orders/index.pug', {
     titlePage: 'Đơn hàng của tôi',
     orders: orders || [],
@@ -31,7 +64,8 @@ module.exports.detail = async (req, res) => {
     return res.status(404).render('client/pages/orders/detail.pug', {
       titlePage: 'Không tìm thấy đơn hàng',
       order: null,
-      items: []
+      items: [],
+      statusLabels
     });
   }
 
@@ -40,7 +74,8 @@ module.exports.detail = async (req, res) => {
   return res.render('client/pages/orders/detail.pug', {
     titlePage: `Chi tiết ${order.madonhang || 'đơn hàng'}`,
     order,
-    items: items || []
+    items: items || [],
+    statusLabels
   });
 };
 

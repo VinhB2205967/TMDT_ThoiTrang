@@ -1,0 +1,295 @@
+/*
+  Shared UI enhancements (non-breaking overrides)
+  Loaded after existing CSS.
+*/
+
+:root {
+  --ui-bg: #f6f7fb;
+  --ui-card-bg: #ffffff;
+  --ui-text: #111827;
+  --ui-muted: #6b7280;
+  --ui-border: rgba(17, 24, 39, 0.10);
+  --ui-shadow: 0 10px 30px rgba(17, 24, 39, 0.10);
+  --ui-shadow-sm: 0 6px 18px rgba(17, 24, 39, 0.08);
+  --ui-radius: 16px;
+  --ui-radius-sm: 12px;
+  --ui-ring: 0 0 0 .2rem rgba(102, 126, 234, 0.22);
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  color: var(--ui-text);
+  background: radial-gradient(1200px 600px at 15% 0%, rgba(108,130,247,0.12), transparent 60%),
+              radial-gradient(900px 500px at 90% 10%, rgba(255, 71, 87, 0.08), transparent 55%),
+              var(--ui-bg);
+}
+
+.main-content {
+  min-height: calc(100vh - 120px);
+}
+
+/* Smooth micro-interactions */
+@media (prefers-reduced-motion: no-preference) {
+  a, .btn, .card, .form-control, .form-select, .dropdown-menu {
+    transition: color .18s ease, background-color .18s ease, border-color .18s ease,
+                box-shadow .18s ease, transform .18s ease, opacity .18s ease;
+  }
+
+  .main-content > .container,
+  .main-content .container.py-4,
+  .main-content .container.py-5 {
+    animation: uiFadeUp .28s ease both;
+  }
+}
+
+@keyframes uiFadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Cards */
+.card {
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  box-shadow: var(--ui-shadow-sm);
+}
+
+.card .card-header {
+  background: rgba(255,255,255,0.8);
+  border-bottom: 1px solid var(--ui-border);
+}
+
+/* Forms */
+.form-control,
+.form-select {
+  border-radius: 12px;
+  border-color: rgba(17, 24, 39, 0.14);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: rgba(102, 126, 234, 0.55);
+  box-shadow: var(--ui-ring);
+}
+
+/* Buttons */
+.btn {
+  border-radius: 12px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .btn:not(.btn-link):not(.btn-sm):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 20px rgba(17, 24, 39, 0.12);
+  }
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea, #6c82f7);
+  border-color: transparent;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.02);
+}
+
+.btn-outline-secondary {
+  border-color: rgba(17, 24, 39, 0.18);
+}
+
+/* Flash alerts under header */
+.flash-alert {
+  border-radius: 14px;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  box-shadow: var(--ui-shadow-sm);
+}
+
+/* Header polish (client) */
+.header {
+  background: linear-gradient(135deg, rgba(108,130,247,0.92), rgba(102,126,234,0.92));
+  border-bottom: 1px solid rgba(255,255,255,0.18);
+  backdrop-filter: saturate(120%) blur(10px);
+  -webkit-backdrop-filter: saturate(120%) blur(10px);
+}
+
+.header-nav .nav-list a {
+  border: 1px solid transparent;
+}
+
+.header-nav .nav-list a:hover {
+  border-color: rgba(255,255,255,0.25);
+}
+
+.header-search .input-group {
+  backdrop-filter: blur(8px);
+}
+
+.dropdown-menu {
+  border-radius: 14px;
+  border: 1px solid rgba(17, 24, 39, 0.10);
+  box-shadow: var(--ui-shadow);
+  padding: 8px;
+}
+
+.dropdown-item {
+  border-radius: 10px;
+}
+
+.dropdown-item:hover {
+  background: rgba(102, 126, 234, 0.10);
+}
+
+/* Orders */
+.order-filters .btn {
+  border-radius: 999px;
+}
+
+.order-list .order-item {
+  border-radius: 14px;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  background: rgba(255,255,255,0.92);
+}
+
+.order-list .order-item + .order-item {
+  margin-top: 10px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .order-list .order-item:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--ui-shadow);
+  }
+}
+
+.order-status {
+  padding: .45rem .7rem;
+  font-weight: 700;
+  border-radius: 999px;
+}
+
+.order-status[data-status="choxacnhan"] { background: rgba(245, 158, 11, 0.15); color: #b45309; }
+.order-status[data-status="daxacnhan"] { background: rgba(59, 130, 246, 0.15); color: #1d4ed8; }
+.order-status[data-status="dangchuanbi"] { background: rgba(59, 130, 246, 0.12); color: #1d4ed8; }
+.order-status[data-status="danggiao"] { background: rgba(99, 102, 241, 0.15); color: #4338ca; }
+.order-status[data-status="dagiao"] { background: rgba(16, 185, 129, 0.15); color: #047857; }
+.order-status[data-status="dahuy"] { background: rgba(239, 68, 68, 0.15); color: #b91c1c; }
+.order-status[data-status="hoanhang"] { background: rgba(75, 85, 99, 0.15); color: #111827; }
+
+/* Orders list thumbnail + title */
+.order-thumb {
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  object-fit: cover;
+  border: 1px solid rgba(17, 24, 39, 0.10);
+  background: #fff;
+}
+
+.order-thumb-fallback {
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(17, 24, 39, 0.10);
+  background: rgba(102, 126, 234, 0.10);
+  color: #4f46e5;
+}
+
+.order-title {
+  line-height: 1.15;
+}
+
+/* Product detail action buttons: make colors nicer */
+.btn-add-to-cart,
+.btn-buy-now-detail {
+  border-radius: 16px;
+  letter-spacing: 0.2px;
+}
+
+.btn-add-to-cart {
+  background: linear-gradient(135deg, #4f46e5 0%, #6c82f7 100%);
+  box-shadow: 0 12px 26px rgba(79, 70, 229, 0.28);
+}
+
+.btn-add-to-cart:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 34px rgba(79, 70, 229, 0.34);
+}
+
+.btn-buy-now-detail {
+  background: linear-gradient(135deg, #f97316 0%, #ef4444 100%);
+  box-shadow: 0 12px 26px rgba(239, 68, 68, 0.22);
+}
+
+.btn-buy-now-detail:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 34px rgba(239, 68, 68, 0.30);
+}
+
+.btn-add-to-cart:active,
+.btn-buy-now-detail:active {
+  transform: translateY(0);
+}
+
+/* Card buttons: keep consistent vibe */
+.btn-buy-now {
+  background: linear-gradient(135deg, #f97316 0%, #ef4444 100%);
+  border: none;
+}
+
+.btn-add-cart {
+  background: linear-gradient(135deg, #4f46e5 0%, #6c82f7 100%);
+  border: none;
+}
+
+/* Product cards: keep existing behavior but soften default */
+.product-card {
+  border-radius: var(--ui-radius);
+}
+
+.product-card img,
+.product-card .product-image,
+.product-card .card-img-top {
+  border-radius: 14px;
+}
+
+/* Cart page */
+.cart-item-row {
+  background: var(--ui-card-bg);
+  border-radius: var(--ui-radius);
+  padding: 14px;
+  margin-bottom: 10px;
+  border: 1px solid rgba(17, 24, 39, 0.06);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cart-item-row:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--ui-shadow);
+  }
+}
+
+.cart-item-row .cart-line-total {
+  font-size: 1rem;
+}
+
+#cartCheckoutForm {
+  border-top: 1px solid rgba(17, 24, 39, 0.08);
+  padding-top: 12px;
+}
+
+/* Make checkbox area nicer */
+.cart-select {
+  width: 18px;
+  height: 18px;
+}
+
+/* Orders / status pills */
+.badge,
+.btn-group .btn {
+  border-radius: 999px;
+}

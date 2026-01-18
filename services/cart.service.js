@@ -1,5 +1,4 @@
 const Giohang = require('../models/cart_model');
-
 function normalizeImage(path) {
   if (!path) return '/images/shopping.png';
   if (path.startsWith('/public')) return path.replace('/public', '');

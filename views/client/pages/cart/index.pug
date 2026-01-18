@@ -13,7 +13,7 @@ block main
               label.form-check-label(for='cartSelectAll') Chọn tất
 
           each item in cart.sanpham
-            .d-flex.align-items-center.gap-3.py-3.border-bottom
+            .d-flex.align-items-center.gap-3.border-bottom.cart-item-row
               - const __unitPrice = (item.giagiam || item.gia || 0)
               - const __lineTotal = (__unitPrice * (item.soluong || 1))
               input.form-check-input.cart-select(type='checkbox' value=item._id checked style='margin-right:6px;' data-unit-price=__unitPrice)

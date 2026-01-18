@@ -333,6 +333,8 @@
 				if (!(cb instanceof HTMLInputElement)) return;
 				cb.checked = set.has(String(cb.value));
 			});
+			// If a subtotal calculator was registered, recompute after restoring selection
+			if (typeof window.__cartComputeSubtotal === 'function') window.__cartComputeSubtotal();
 		}
 
 		const persist = () => {
@@ -603,8 +605,9 @@
 
 		hydrateFavoriteHearts();
 
-		initCartSubtotalBySelection();
+		// Apply persisted selection before any subtotal computation
 		initCartSelectionPersistence();
+		initCartSubtotalBySelection();
 		initCartSelectAll();
 		initCartAutoQtySync();
 		initCheckoutAddressSelect();
