@@ -13,6 +13,25 @@ function noSizeByType(loaisanpham) {
   return ['tui', 'phukien'].includes(String(loaisanpham || '').toLowerCase());
 }
 
+function computeTotalStock(productDoc) {
+  if (!productDoc) return 0;
+
+  const hasSize = !noSizeByType(productDoc.loaisanpham);
+  let total = 0;
+
+  if (hasSize) {
+    (productDoc.sizes || []).forEach(s => { total += (s && s.soluong) ? Number(s.soluong) : 0; });
+    (productDoc.bienthe || []).forEach(v => {
+      (v.sizes || []).forEach(s => { total += (s && s.soluong) ? Number(s.soluong) : 0; });
+    });
+    return total;
+  }
+
+  total += Number(productDoc.soluong_chinh || 0);
+  (productDoc.bienthe || []).forEach(v => { total += Number(v.soluong || 0); });
+  return total;
+}
+
 // normalizeImage + getOrCreateCart are shared in services/cart.service.js
 
 function resolveVariantAndStock(productDoc, bientheId, kichco) {
@@ -334,6 +353,8 @@ async function decrementStockForItem(item) {
   const product = await Sanpham.findById(productId);
   if (!product) throw new Error('Sản phẩm không tồn tại');
 
+  const baseTotal = (typeof product.soluongton === 'number') ? product.soluongton : computeTotalStock(product);
+
   const hasSize = !noSizeByType(product.loaisanpham);
 
   if (!variantId) {
@@ -345,6 +366,8 @@ async function decrementStockForItem(item) {
       if ((product.soluong_chinh || 0) < qty) throw new Error('Không đủ hàng');
       product.soluong_chinh = (product.soluong_chinh || 0) - qty;
     }
+
+    product.soluongton = Math.max(0, baseTotal - qty);
     await product.save();
     return;
   }
@@ -361,6 +384,7 @@ async function decrementStockForItem(item) {
     v.soluong = (v.soluong || 0) - qty;
   }
 
+  product.soluongton = Math.max(0, baseTotal - qty);
   await product.save();
 }
 

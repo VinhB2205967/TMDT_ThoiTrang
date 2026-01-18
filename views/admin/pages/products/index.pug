@@ -39,74 +39,85 @@ block main
     
     .filter-search-sticky
         .filter-search-card
-            .card-body.p-3
-                .row.align-items-end.g-3
+            .card-body.p-2
+                .row.align-items-end.g-2
                     .col-lg-5
-                        label.filter-label.mb-2
+                        label.filter-label.mb-1
                             i.bi.bi-funnel.me-1
                             | Trạng thái
                         .btn-group.w-100(role="group")
                             +filter_status(filterStatus)
                     .col-lg-4
                         +search(keyword)
-                
-                //- Bộ lọc nâng cao
-                hr.mt-3.mb-3
-                form(action=`${admin}/products` method="GET")
-                    //- Giữ lại keyword và trạng thái nếu có
-                    if keyword
-                        input(type="hidden" name="keyword" value=keyword)
-                    - const activeStatus = filterStatus.find(item => item.class === 'active')
-                    if activeStatus && activeStatus.status
-                        input(type="hidden" name="trangthai" value=activeStatus.status)
 
-                    .row.g-3
-                        .col-md-2
-                            label.form-label.small.fw-bold Xóa mềm
-                            select.form-select.form-select-sm(name="deleted" onchange="this.form.submit()")
-                                option(value="" selected=(!currentDeleted)) Chưa xóa
-                                option(value="1" selected=(currentDeleted=='1')) Đã xóa (thùng rác)
-                                option(value="all" selected=(currentDeleted=='all')) Tất cả
-                        .col-md-2
-                            label.form-label.small.fw-bold Sắp xếp
-                            select.form-select.form-select-sm(name="sort" onchange="this.form.submit()")
-                                option(value="ngaytao-desc" selected=(currentSort=='ngaytao-desc')) Mới nhất
-                                option(value="ngaytao-asc" selected=(currentSort=='ngaytao-asc')) Cũ nhất
-                                option(value="gia-desc" selected=(currentSort=='gia-desc')) Giá giảm dần
-                                option(value="gia-asc" selected=(currentSort=='gia-asc')) Giá tăng dần
-                                option(value="tensanpham-asc" selected=(currentSort=='tensanpham-asc')) Tên A-Z
-                        .col-md-2
-                            label.form-label.small.fw-bold Loại SP
-                            select.form-select.form-select-sm(name="loaisanpham" onchange="this.form.submit()")
-                                option(value="" selected=(!currentLoai)) Tất cả
-                                option(value="ao" selected=(currentLoai=='ao')) Áo
-                                option(value="quan" selected=(currentLoai=='quan')) Quần
-                                option(value="vay" selected=(currentLoai=='vay')) Váy
-                                option(value="phukien" selected=(currentLoai=='phukien')) Phụ kiện
-                                option(value="giay" selected=(currentLoai=='giay')) Giày
-                                option(value="tui" selected=(currentLoai=='tui')) Túi
-                                option(value="aokhoac" selected=(currentLoai=='aokhoac')) Áo khoác
-                        .col-md-2
-                            label.form-label.small.fw-bold Giới tính
-                            select.form-select.form-select-sm(name="gioitinh" onchange="this.form.submit()")
-                                option(value="" selected=(!currentGioiTinh)) Tất cả
-                                option(value="nam" selected=(currentGioiTinh=='nam')) Nam
-                                option(value="nu" selected=(currentGioiTinh=='nu')) Nữ
-                                option(value="unisex" selected=(currentGioiTinh=='unisex')) Unisex
-                        .col-md-3
-                            label.form-label.small.fw-bold Khoảng giá
-                            .input-group.input-group-sm
-                                input.form-control(type="number" name="priceMin" placeholder="Min" value=priceMin min="0")
-                                span.input-group-text -
-                                input.form-control(type="number" name="priceMax" placeholder="Max" value=priceMax min="0")
-                        .col-md-3
-                            label.form-label.small.fw-bold Ngày tạo
-                            .input-group.input-group-sm
-                                input.form-control(type="date" name="dateFrom" value=dateFrom)
-                                span.input-group-text -
-                                input.form-control(type="date" name="dateTo" value=dateTo)
-                    .row.mt-2
-                        .col-12.d-flex.justify-content-end.gap-2
+                //- Bộ lọc nâng cao (thu gọn mặc định)
+                - const hasAdvanced = !!(currentDeleted || currentSort || currentLoai || currentGioiTinh || priceMin || priceMax || dateFrom || dateTo);
+                .d-flex.justify-content-between.align-items-center.mt-2
+                    button.btn.btn-outline-primary.btn-sm(type='button' data-bs-toggle='collapse' data-bs-target='#advancedFilters' aria-expanded=hasAdvanced ? 'true' : 'false' aria-controls='advancedFilters')
+                        i.bi.bi-sliders.me-1
+                        | Bộ lọc nâng cao
+                    if hasAdvanced
+                        a.btn.btn-outline-secondary.btn-sm(href=`${admin}/products`)
+                            i.bi.bi-x-circle.me-1
+                            | Xóa lọc
+
+                #advancedFilters.collapse(class=hasAdvanced ? 'show' : '')
+                    hr.mt-2.mb-2
+                    form(action=`${admin}/products` method="GET")
+                        //- Giữ lại keyword và trạng thái nếu có
+                        if keyword
+                            input(type="hidden" name="keyword" value=keyword)
+                        - const activeStatus = filterStatus.find(item => item.class === 'active')
+                        if activeStatus && activeStatus.status
+                            input(type="hidden" name="trangthai" value=activeStatus.status)
+
+                        .row.g-2
+                            .col-md-2
+                                label.form-label.small.fw-bold Xóa mềm
+                                select.form-select.form-select-sm(name="deleted" onchange="this.form.submit()")
+                                    option(value="" selected=(!currentDeleted)) Chưa xóa
+                                    option(value="1" selected=(currentDeleted=='1')) Đã xóa (thùng rác)
+                                    option(value="all" selected=(currentDeleted=='all')) Tất cả
+                            .col-md-2
+                                label.form-label.small.fw-bold Sắp xếp
+                                select.form-select.form-select-sm(name="sort" onchange="this.form.submit()")
+                                    option(value="ngaytao-desc" selected=(currentSort=='ngaytao-desc')) Mới nhất
+                                    option(value="ngaytao-asc" selected=(currentSort=='ngaytao-asc')) Cũ nhất
+                                    option(value="gia-desc" selected=(currentSort=='gia-desc')) Giá giảm dần
+                                    option(value="gia-asc" selected=(currentSort=='gia-asc')) Giá tăng dần
+                                    option(value="tensanpham-asc" selected=(currentSort=='tensanpham-asc')) Tên A-Z
+                            .col-md-2
+                                label.form-label.small.fw-bold Loại SP
+                                select.form-select.form-select-sm(name="loaisanpham" onchange="this.form.submit()")
+                                    option(value="" selected=(!currentLoai)) Tất cả
+                                    option(value="ao" selected=(currentLoai=='ao')) Áo
+                                    option(value="quan" selected=(currentLoai=='quan')) Quần
+                                    option(value="vay" selected=(currentLoai=='vay')) Váy
+                                    option(value="phukien" selected=(currentLoai=='phukien')) Phụ kiện
+                                    option(value="giay" selected=(currentLoai=='giay')) Giày
+                                    option(value="tui" selected=(currentLoai=='tui')) Túi
+                                    option(value="aokhoac" selected=(currentLoai=='aokhoac')) Áo khoác
+                            .col-md-2
+                                label.form-label.small.fw-bold Giới tính
+                                select.form-select.form-select-sm(name="gioitinh" onchange="this.form.submit()")
+                                    option(value="" selected=(!currentGioiTinh)) Tất cả
+                                    option(value="nam" selected=(currentGioiTinh=='nam')) Nam
+                                    option(value="nu" selected=(currentGioiTinh=='nu')) Nữ
+                                    option(value="unisex" selected=(currentGioiTinh=='unisex')) Unisex
+                            .col-md-3
+                                label.form-label.small.fw-bold Khoảng giá
+                                .input-group.input-group-sm
+                                    input.form-control(type="number" name="priceMin" placeholder="Min" value=priceMin min="0")
+                                    span.input-group-text -
+                                    input.form-control(type="number" name="priceMax" placeholder="Max" value=priceMax min="0")
+                            .col-md-3
+                                label.form-label.small.fw-bold Ngày tạo
+                                .input-group.input-group-sm
+                                    input.form-control(type="date" name="dateFrom" value=dateFrom)
+                                    span.input-group-text -
+                                    input.form-control(type="date" name="dateTo" value=dateTo)
+
+                        .d-flex.justify-content-end.gap-2.mt-2
                             a.btn.btn-outline-secondary.btn-sm(href=`${admin}/products`)
                                 i.bi.bi-x-circle.me-1
                                 | Xóa lọc

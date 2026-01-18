@@ -166,12 +166,16 @@ const index = async (req, res) => {
 
         // Sắp xếp (whitelist)
         let sort = { ngaytao: -1 };
+        let sortKey = 'ngaytao';
+        let sortDir = -1;
         if (req.query.sort) {
             const [key, value] = String(req.query.sort).split('-');
             const allowedSortKeys = new Set(['gia', 'ngaytao', 'tensanpham']);
             const allowedSortDir = new Set(['asc', 'desc']);
             if (allowedSortKeys.has(key) && allowedSortDir.has(value)) {
-                sort = { [key]: value === 'asc' ? 1 : -1 };
+                sortKey = key;
+                sortDir = value === 'asc' ? 1 : -1;
+                sort = { [key]: sortDir };
             }
         }
 
@@ -180,11 +184,35 @@ const index = async (req, res) => {
         objectPagination = paginationHelper(objectPagination, req.query, totalProducts);
 
         // Get products
-        const products = await Product.find(find)
-            .sort(sort)
-            .skip(objectPagination.skip)
-            .limit(objectPagination.limit)
-            .lean();
+        // NOTE: when sorting by price, use discounted price (gia after giamgia)
+        let products;
+        if (sortKey === 'gia') {
+            const discountExpr = {
+                $multiply: [
+                    { $ifNull: ['$gia', 0] },
+                    {
+                        $divide: [
+                            { $subtract: [100, { $ifNull: ['$phantramgiamgia', 0] }] },
+                            100
+                        ]
+                    }
+                ]
+            };
+
+            products = await Product.aggregate([
+                { $match: find },
+                { $addFields: { __giaSauGiam: discountExpr } },
+                { $sort: { __giaSauGiam: sortDir, ngaytao: -1 } },
+                { $skip: objectPagination.skip },
+                { $limit: objectPagination.limit }
+            ]);
+        } else {
+            products = await Product.find(find)
+                .sort(sort)
+                .skip(objectPagination.skip)
+                .limit(objectPagination.limit)
+                .lean();
+        }
 
         let filterString = '';
         if (req.query.sort) filterString += `&sort=${req.query.sort}`;

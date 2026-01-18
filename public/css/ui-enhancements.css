@@ -203,6 +203,38 @@ body {
   line-height: 1.15;
 }
 
+.order-list .order-item a {
+  min-width: 0;
+}
+
+.order-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 576px) {
+  .order-list .order-item .d-flex.justify-content-between.align-items-center {
+    flex-wrap: wrap;
+  }
+
+  .order-list .order-item .d-flex.align-items-center.gap-2 {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+/* Checkout */
+.checkout-page .card {
+  border-radius: 16px;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  background: rgba(255,255,255,0.92);
+}
+
+.checkout-page .card .card-body {
+  padding: 1.1rem;
+}
+
 /* Product detail action buttons: make colors nicer */
 .btn-add-to-cart,
 .btn-buy-now-detail {
@@ -221,13 +253,13 @@ body {
 }
 
 .btn-buy-now-detail {
-  background: linear-gradient(135deg, #f97316 0%, #ef4444 100%);
-  box-shadow: 0 12px 26px rgba(239, 68, 68, 0.22);
+  background: linear-gradient(135deg, #6c82f7 0%, #667eea 100%);
+  box-shadow: 0 12px 26px rgba(108, 130, 247, 0.28);
 }
 
 .btn-buy-now-detail:hover {
   transform: translateY(-2px);
-  box-shadow: 0 18px 34px rgba(239, 68, 68, 0.30);
+  box-shadow: 0 18px 34px rgba(108, 130, 247, 0.34);
 }
 
 .btn-add-to-cart:active,
@@ -237,7 +269,7 @@ body {
 
 /* Card buttons: keep consistent vibe */
 .btn-buy-now {
-  background: linear-gradient(135deg, #f97316 0%, #ef4444 100%);
+  background: linear-gradient(135deg, #6c82f7 0%, #667eea 100%);
   border: none;
 }
 

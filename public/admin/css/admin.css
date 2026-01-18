@@ -280,7 +280,7 @@ body {
   top: 80px;
   z-index: 998;
   background: #f5f7fb;
-  padding: 16px 32px 0 32px;
+  padding: 8px 20px 0 20px;
 }
 
 .filter-search-card {
@@ -288,9 +288,13 @@ body {
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   border: 1px solid rgba(226, 232, 240, 0.8);
-  margin-bottom: 24px;
+  margin-bottom: 12px;
   overflow: hidden;
   transition: all 0.3s ease;
+}
+
+.filter-search-card hr {
+  opacity: 0.08;
 }
 
 .filter-search-card:hover {
@@ -299,7 +303,32 @@ body {
 }
 
 .filter-search-card .card-body {
-  padding: 20px 24px;
+  padding: 14px 18px;
+}
+
+/* Make the products filter panel more compact */
+.filter-search-card .btn {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.filter-search-card .btn-group .btn {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.filter-search-card .form-control-sm,
+.filter-search-card .form-select-sm,
+.filter-search-card .input-group-sm > .form-control,
+.filter-search-card .input-group-sm > .form-select,
+.filter-search-card .input-group-sm > .input-group-text {
+  font-size: 12px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.filter-search-card .form-label.small {
+  margin-bottom: 4px;
 }
 
 .filter-label {
@@ -307,8 +336,8 @@ body {
   font-weight: 700;
   color: #475569;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 10px;
+  letter-spacing: 0.6px;
+  margin-bottom: 6px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -331,6 +360,7 @@ body {
   border: 1px solid transparent;
   font-weight: 500;
   font-size: 13px;
+  padding: 8px 12px;
 }
 
 .filter-section .btn-group .btn:hover {
@@ -347,9 +377,9 @@ body {
 /* Date Filter Section */
 .date-filter-section {
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-  padding: 16px;
+  padding: 12px;
   border-radius: 12px;
-  margin-top: 12px;
+  margin-top: 8px;
   border: 1px solid #bae6fd;
 }
 

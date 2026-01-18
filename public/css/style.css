@@ -725,7 +725,7 @@
 /* Buy Now Button */
 .btn-buy-now {
     flex: 1;
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    background: linear-gradient(135deg, #6c82f7 0%, #667eea 100%);
     color: white;
     border: none;
     padding: 10px 16px;
@@ -741,7 +741,7 @@
 
 .btn-buy-now:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
+    box-shadow: 0 6px 20px rgba(108, 130, 247, 0.35);
 }
 
 /* Add to Cart Button */
@@ -1460,7 +1460,7 @@
 .btn-buy-now {
     flex: 1;
     height: 44px;
-    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    background: linear-gradient(135deg, #6c82f7 0%, #667eea 100%);
     border: none;
     color: #fff;
     font-size: 14px;
@@ -1474,7 +1474,7 @@
 }
 
 .btn-buy-now:hover {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #667eea 0%, #6c82f7 100%);
 }
 
 .btn-buy-now i {
