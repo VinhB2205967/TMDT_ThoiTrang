@@ -80,7 +80,7 @@ block main
                             .mt-3
                                 label.form-label.fw-bold Màu sắc sản phẩm chính
                                 input.form-control(type="text" name="mausac_chinh" placeholder="VD: Đen, Trắng, Xanh...")
-                                small.text-muted Màu sắc đại diện cho ảnh sản phẩm chính
+                                small.text-muted Màu sắc đại diện cho ảnh sản phẩm
                             
                             #baseSizeSection.mt-3
                                 label.form-label.fw-bold Size chung (không theo biến thể)
@@ -108,7 +108,7 @@ block main
                             #baseQtySection.mt-3(style="display:none")
                                 label.form-label.fw-bold Số lượng sản phẩm
                                 input.form-control.base-direct-qty(type="number" name="soluong_chinh" min="0" value="0" oninput="updateTotalStock()")
-                                small.text-muted Số lượng cho sản phẩm chính (không theo biến thể)
+                                small.text-muted Số lượng cho sản phẩm
                     
                     //- Card biến thể
                     .card.mt-4

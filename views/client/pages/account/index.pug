@@ -7,12 +7,6 @@ block main
         .card.shadow-sm.border-0
           .card-body.p-4
             h1.h4.fw-bold.mb-3 Thông tin tài khoản
-
-            if messages && messages.error
-              .alert.alert-danger(role="alert") #{messages.error}
-            if messages && messages.success
-              .alert.alert-success(role="alert") #{messages.success}
-
             .row.g-4
               .col-12
                 h2.h6.fw-bold.mb-2 Cập nhật thông tin
