@@ -35,14 +35,14 @@ const uploadFields = upload.fields([
 ]);
 
 // Routes
-router.get('/', controller.index);
-router.get('/create', controller.create);
-router.post('/create', uploadFields, controller.createPost);
-router.get('/:id/edit', controller.edit);
-router.post('/:id/edit', uploadFields, controller.editPost);
-router.get('/:id/delete', controller.delete);
-router.post('/:id/restore', controller.restore);
-router.post('/:id/hard-delete', controller.hardDelete);
-router.patch('/:id/change-status', controller.changeStatus);
+router.get('/', controller.danhSach);
+router.get('/create', controller.taoMoi);
+router.post('/create', uploadFields, controller.taoMoiPost);
+router.get('/:id/edit', controller.chinhSua);
+router.post('/:id/edit', uploadFields, controller.chinhSuaPost);
+router.get('/:id/delete', controller.xoaMem);
+router.post('/:id/restore', controller.khoiPhuc);
+router.post('/:id/hard-delete', controller.xoaVinhVien);
+router.patch('/:id/change-status', controller.doiTrangThai);
 
 module.exports = router;

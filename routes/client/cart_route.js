@@ -4,14 +4,14 @@ const router = express.Router();
 const { requireAuth } = require('../../middlewares/auth');
 const controller = require('../../controllers/client/cart_controller');
 
-router.get('/', requireAuth, controller.index);
-router.post('/add', requireAuth, controller.add);
-router.post('/buy-now', requireAuth, controller.buyNow);
-router.post('/update', requireAuth, controller.updateQty);
-router.post('/update-options', requireAuth, controller.updateOptions);
-router.post('/remove', requireAuth, controller.remove);
-router.post('/clear', requireAuth, controller.clear);
-router.get('/checkout', requireAuth, controller.checkoutPage);
-router.post('/checkout', requireAuth, controller.checkoutSubmit);
+router.get('/', requireAuth, controller.danhSach);
+router.post('/add', requireAuth, controller.them);
+router.post('/buy-now', requireAuth, controller.muaNgay);
+router.post('/update', requireAuth, controller.capNhatSoLuong);
+router.post('/update-options', requireAuth, controller.capNhatTuyChon);
+router.post('/remove', requireAuth, controller.xoa);
+router.post('/clear', requireAuth, controller.xoaHet);
+router.get('/checkout', requireAuth, controller.trangThanhToan);
+router.post('/checkout', requireAuth, controller.xuLyThanhToan);
 
 module.exports = router;

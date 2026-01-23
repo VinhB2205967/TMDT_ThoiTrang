@@ -4,481 +4,481 @@ const Chitietdonhang = require('../../models/order_item_model');
 const Nguoidung = require('../../models/user_model');
 const { getOrCreateCart, normalizeImage } = require('../../services/cart.service');
 
-function wantsJSON(req) {
-  const accept = String(req.headers.accept || '');
-  return req.xhr || accept.includes('application/json') || String(req.headers['x-requested-with'] || '').toLowerCase() === 'xmlhttprequest';
+function muonJSON(req) {
+  const chapNhan = String(req.headers.accept || '');
+  return req.xhr || chapNhan.includes('application/json') || String(req.headers['x-requested-with'] || '').toLowerCase() === 'xmlhttprequest';
 }
 
-function noSizeByType(loaisanpham) {
+function laLoaiKhongSize(loaisanpham) {
   return ['tui', 'phukien'].includes(String(loaisanpham || '').toLowerCase());
 }
 
-function computeTotalStock(productDoc) {
+function tinhTongTon(productDoc) {
   if (!productDoc) return 0;
 
-  const hasSize = !noSizeByType(productDoc.loaisanpham);
-  let total = 0;
+  const coSize = !laLoaiKhongSize(productDoc.loaisanpham);
+  let tong = 0;
 
-  if (hasSize) {
-    (productDoc.sizes || []).forEach(s => { total += (s && s.soluong) ? Number(s.soluong) : 0; });
+  if (coSize) {
+    (productDoc.sizes || []).forEach(s => { tong += (s && s.soluong) ? Number(s.soluong) : 0; });
     (productDoc.bienthe || []).forEach(v => {
-      (v.sizes || []).forEach(s => { total += (s && s.soluong) ? Number(s.soluong) : 0; });
+      (v.sizes || []).forEach(s => { tong += (s && s.soluong) ? Number(s.soluong) : 0; });
     });
-    return total;
+    return tong;
   }
 
-  total += Number(productDoc.soluong_chinh || 0);
-  (productDoc.bienthe || []).forEach(v => { total += Number(v.soluong || 0); });
-  return total;
+  tong += Number(productDoc.soluong_chinh || 0);
+  (productDoc.bienthe || []).forEach(v => { tong += Number(v.soluong || 0); });
+  return tong;
 }
 
-// normalizeImage + getOrCreateCart are shared in services/cart.service.js
+// Dùng chung service
 
-function resolveVariantAndStock(productDoc, bientheId, kichco) {
-  const hasSize = !noSizeByType(productDoc.loaisanpham);
-  const isMain = !bientheId || bientheId === 'main';
+function layBienTheVaTon(productDoc, bientheId, kichco) {
+  const coSize = !laLoaiKhongSize(productDoc.loaisanpham);
+  const laChinh = !bientheId || bientheId === 'main';
 
-  if (isMain) {
+  if (laChinh) {
     const mausac = productDoc.mausac_chinh || 'Mặc định';
     const hinhanh = normalizeImage(productDoc.hinhanh);
     const gia = productDoc.gia || 0;
-    const giam = productDoc.phantramgiamgia || 0;
-    const giagiam = giam > 0 ? Math.round(gia * (100 - giam) / 100) : gia;
+    const giamGia = productDoc.phantramgiamgia || 0;
+    const giagiam = giamGia > 0 ? Math.round(gia * (100 - giamGia) / 100) : gia;
 
-    if (hasSize) {
+    if (coSize) {
       const sizes = Array.isArray(productDoc.sizes) ? productDoc.sizes : [];
-      const sizeRow = sizes.find(s => s.size === kichco);
-      const stock = sizeRow ? (sizeRow.soluong || 0) : 0;
-      return { hasSize, stock, bienTheObjId: null, mausac, hinhanh, gia, giagiam };
+      const dongSize = sizes.find(s => s.size === kichco);
+      const tonKho = dongSize ? (dongSize.soluong || 0) : 0;
+      return { hasSize: coSize, stock: tonKho, bienTheObjId: null, mausac, hinhanh, gia, giagiam };
     }
 
-    const stock = productDoc.soluong_chinh || 0;
-    return { hasSize, stock, bienTheObjId: null, mausac, hinhanh, gia, giagiam };
+    const tonKho = productDoc.soluong_chinh || 0;
+    return { hasSize: coSize, stock: tonKho, bienTheObjId: null, mausac, hinhanh, gia, giagiam };
   }
 
-  const variant = (productDoc.bienthe || []).find(v => String(v._id) === String(bientheId));
-  if (!variant) return { error: 'Biến thể không tồn tại' };
+  const bienThe = (productDoc.bienthe || []).find(v => String(v._id) === String(bientheId));
+  if (!bienThe) return { error: 'Biến thể không tồn tại' };
 
-  const mausac = variant.mausac || 'Màu';
-  const hinhanh = normalizeImage(variant.hinhanh) || normalizeImage(productDoc.hinhanh);
-  const gia = variant.gia || productDoc.gia || 0;
-  const giam = variant.phantramgiamgia != null ? variant.phantramgiamgia : (productDoc.phantramgiamgia || 0);
-  const giagiam = giam > 0 ? Math.round(gia * (100 - giam) / 100) : gia;
+  const mausac = bienThe.mausac || 'Màu';
+  const hinhanh = normalizeImage(bienThe.hinhanh) || normalizeImage(productDoc.hinhanh);
+  const gia = bienThe.gia || productDoc.gia || 0;
+  const giamGia = bienThe.phantramgiamgia != null ? bienThe.phantramgiamgia : (productDoc.phantramgiamgia || 0);
+  const giagiam = giamGia > 0 ? Math.round(gia * (100 - giamGia) / 100) : gia;
 
-  if (hasSize) {
-    const sizes = Array.isArray(variant.sizes) ? variant.sizes : [];
-    const sizeRow = sizes.find(s => s.size === kichco);
-    const stock = sizeRow ? (sizeRow.soluong || 0) : 0;
-    return { hasSize, stock, bienTheObjId: variant._id, mausac, hinhanh, gia, giagiam };
+  if (coSize) {
+    const sizes = Array.isArray(bienThe.sizes) ? bienThe.sizes : [];
+    const dongSize = sizes.find(s => s.size === kichco);
+    const tonKho = dongSize ? (dongSize.soluong || 0) : 0;
+    return { hasSize: coSize, stock: tonKho, bienTheObjId: bienThe._id, mausac, hinhanh, gia, giagiam };
   }
 
-  const stock = variant.soluong || 0;
-  return { hasSize, stock, bienTheObjId: variant._id, mausac, hinhanh, gia, giagiam };
+  const tonKho = bienThe.soluong || 0;
+  return { hasSize: coSize, stock: tonKho, bienTheObjId: bienThe._id, mausac, hinhanh, gia, giagiam };
 }
 
-module.exports.index = async (req, res) => {
-  const cart = await getOrCreateCart(req.user._id);
+module.exports.danhSach = async (req, res) => {
+  const gioHang = await getOrCreateCart(req.user._id);
   res.render('client/pages/cart/index.pug', {
     titlePage: 'Giỏ hàng',
-    cart
+    cart: gioHang
   });
 };
 
-module.exports.add = async (req, res) => {
+module.exports.them = async (req, res) => {
   try {
     const { sanpham_id, bienthe_id, kichco } = req.body;
-    const soluong = Math.max(1, parseInt(req.body.soluong, 10) || 1);
+    const soLuong = Math.max(1, parseInt(req.body.soluong, 10) || 1);
 
-    const product = await Sanpham.findOne({ _id: sanpham_id, daxoa: { $ne: true }, trangthai: 'dangban' });
-    if (!product) {
-      return wantsJSON(req) ? res.status(404).json({ success: false, message: 'Sản phẩm không tồn tại' }) : res.redirect('/products');
+    const sanPham = await Sanpham.findOne({ _id: sanpham_id, daxoa: { $ne: true }, trangthai: 'dangban' });
+    if (!sanPham) {
+      return muonJSON(req) ? res.status(404).json({ success: false, message: 'Sản phẩm không tồn tại' }) : res.redirect('/products');
     }
 
-    const hasSize = !noSizeByType(product.loaisanpham);
-    if (hasSize && !kichco) {
-      return wantsJSON(req) ? res.status(400).json({ success: false, message: 'Vui lòng chọn size' }) : res.redirect(`/products/${sanpham_id}`);
+    const coSize = !laLoaiKhongSize(sanPham.loaisanpham);
+    if (coSize && !kichco) {
+      return muonJSON(req) ? res.status(400).json({ success: false, message: 'Vui lòng chọn size' }) : res.redirect(`/products/${sanpham_id}`);
     }
 
-    const resolved = resolveVariantAndStock(product, bienthe_id, kichco);
-    if (resolved.error) {
-      return wantsJSON(req) ? res.status(400).json({ success: false, message: resolved.error }) : res.redirect(`/products/${sanpham_id}`);
+    const ketQua = layBienTheVaTon(sanPham, bienthe_id, kichco);
+    if (ketQua.error) {
+      return muonJSON(req) ? res.status(400).json({ success: false, message: ketQua.error }) : res.redirect(`/products/${sanpham_id}`);
     }
 
-    if (resolved.stock <= 0) {
-      return wantsJSON(req) ? res.status(400).json({ success: false, message: 'Hết hàng' }) : res.redirect(`/products/${sanpham_id}`);
+    if (ketQua.stock <= 0) {
+      return muonJSON(req) ? res.status(400).json({ success: false, message: 'Hết hàng' }) : res.redirect(`/products/${sanpham_id}`);
     }
 
-    const qtyToAdd = Math.min(soluong, resolved.stock);
+    const soLuongThem = Math.min(soLuong, ketQua.stock);
 
-    const cart = await getOrCreateCart(req.user._id);
-    const existing = cart.sanpham.find(i => String(i.sanpham_id) === String(sanpham_id)
-      && String(i.bienthe_id || '') === String(resolved.bienTheObjId || '')
+    const gioHang = await getOrCreateCart(req.user._id);
+    const tonTai = gioHang.sanpham.find(i => String(i.sanpham_id) === String(sanpham_id)
+      && String(i.bienthe_id || '') === String(ketQua.bienTheObjId || '')
       && String(i.kichco || '') === String(kichco || ''));
 
-    if (existing) {
-      existing.soluong = Math.min(resolved.stock, (existing.soluong || 0) + qtyToAdd);
+    if (tonTai) {
+      tonTai.soluong = Math.min(ketQua.stock, (tonTai.soluong || 0) + soLuongThem);
     } else {
-      cart.sanpham.push({
+      gioHang.sanpham.push({
         sanpham_id,
-        bienthe_id: resolved.bienTheObjId,
-        tensanpham: product.tensanpham,
-        hinhanh: resolved.hinhanh,
-        mausac: resolved.mausac,
+        bienthe_id: ketQua.bienTheObjId,
+        tensanpham: sanPham.tensanpham,
+        hinhanh: ketQua.hinhanh,
+        mausac: ketQua.mausac,
         kichco: kichco || null,
-        gia: resolved.gia,
-        giagiam: resolved.giagiam,
-        soluong: qtyToAdd
+        gia: ketQua.gia,
+        giagiam: ketQua.giagiam,
+        soluong: soLuongThem
       });
     }
 
-    await cart.save();
+    await gioHang.save();
 
-    if (wantsJSON(req)) {
-      return res.json({ success: true, cartCount: cart.sanpham.length });
+    if (muonJSON(req)) {
+      return res.json({ success: true, cartCount: gioHang.sanpham.length });
     }
 
     return res.redirect('/cart');
   } catch (e) {
-    if (wantsJSON(req)) return res.status(500).json({ success: false, message: 'Có lỗi xảy ra' });
+    if (muonJSON(req)) return res.status(500).json({ success: false, message: 'Có lỗi xảy ra' });
     return res.redirect('/cart');
   }
 };
 
-module.exports.buyNow = async (req, res) => {
+module.exports.muaNgay = async (req, res) => {
   try {
     const { sanpham_id, bienthe_id, kichco } = req.body;
-    const soluong = Math.max(1, parseInt(req.body.soluong, 10) || 1);
+    const soLuong = Math.max(1, parseInt(req.body.soluong, 10) || 1);
 
-    const product = await Sanpham.findOne({ _id: sanpham_id, daxoa: { $ne: true }, trangthai: 'dangban' });
-    if (!product) {
-      return wantsJSON(req) ? res.status(404).json({ success: false, message: 'Sản phẩm không tồn tại' }) : res.redirect('/products');
+    const sanPham = await Sanpham.findOne({ _id: sanpham_id, daxoa: { $ne: true }, trangthai: 'dangban' });
+    if (!sanPham) {
+      return muonJSON(req) ? res.status(404).json({ success: false, message: 'Sản phẩm không tồn tại' }) : res.redirect('/products');
     }
 
-    const hasSize = !noSizeByType(product.loaisanpham);
-    if (hasSize && !kichco) {
-      return wantsJSON(req) ? res.status(400).json({ success: false, message: 'Vui lòng chọn size' }) : res.redirect(`/products/${sanpham_id}`);
+    const coSize = !laLoaiKhongSize(sanPham.loaisanpham);
+    if (coSize && !kichco) {
+      return muonJSON(req) ? res.status(400).json({ success: false, message: 'Vui lòng chọn size' }) : res.redirect(`/products/${sanpham_id}`);
     }
 
-    const resolved = resolveVariantAndStock(product, bienthe_id, kichco);
-    if (resolved.error) {
-      return wantsJSON(req) ? res.status(400).json({ success: false, message: resolved.error }) : res.redirect(`/products/${sanpham_id}`);
+    const ketQua = layBienTheVaTon(sanPham, bienthe_id, kichco);
+    if (ketQua.error) {
+      return muonJSON(req) ? res.status(400).json({ success: false, message: ketQua.error }) : res.redirect(`/products/${sanpham_id}`);
     }
 
-    if (resolved.stock <= 0) {
-      return wantsJSON(req) ? res.status(400).json({ success: false, message: 'Hết hàng' }) : res.redirect(`/products/${sanpham_id}`);
+    if (ketQua.stock <= 0) {
+      return muonJSON(req) ? res.status(400).json({ success: false, message: 'Hết hàng' }) : res.redirect(`/products/${sanpham_id}`);
     }
 
-    const qtyToAdd = Math.min(soluong, resolved.stock);
-    const cart = await getOrCreateCart(req.user._id);
+    const soLuongThem = Math.min(soLuong, ketQua.stock);
+    const gioHang = await getOrCreateCart(req.user._id);
 
-    const existing = cart.sanpham.find(i => String(i.sanpham_id) === String(sanpham_id)
-      && String(i.bienthe_id || '') === String(resolved.bienTheObjId || '')
+    const tonTai = gioHang.sanpham.find(i => String(i.sanpham_id) === String(sanpham_id)
+      && String(i.bienthe_id || '') === String(ketQua.bienTheObjId || '')
       && String(i.kichco || '') === String(kichco || ''));
 
-    let targetItemId;
-    if (existing) {
-      existing.soluong = qtyToAdd;
-      targetItemId = existing._id;
+    let idItemDich;
+    if (tonTai) {
+      tonTai.soluong = soLuongThem;
+      idItemDich = tonTai._id;
     } else {
-      cart.sanpham.push({
+      gioHang.sanpham.push({
         sanpham_id,
-        bienthe_id: resolved.bienTheObjId,
-        tensanpham: product.tensanpham,
-        hinhanh: resolved.hinhanh,
-        mausac: resolved.mausac,
+        bienthe_id: ketQua.bienTheObjId,
+        tensanpham: sanPham.tensanpham,
+        hinhanh: ketQua.hinhanh,
+        mausac: ketQua.mausac,
         kichco: kichco || null,
-        gia: resolved.gia,
-        giagiam: resolved.giagiam,
-        soluong: qtyToAdd
+        gia: ketQua.gia,
+        giagiam: ketQua.giagiam,
+        soluong: soLuongThem
       });
-      targetItemId = cart.sanpham[cart.sanpham.length - 1]._id;
+      idItemDich = gioHang.sanpham[gioHang.sanpham.length - 1]._id;
     }
 
-    await cart.save();
+    await gioHang.save();
 
-    const redirectUrl = targetItemId ? `/cart/checkout?itemIds=${targetItemId}` : '/cart/checkout';
+    const duongDanChuyen = idItemDich ? `/cart/checkout?itemIds=${idItemDich}` : '/cart/checkout';
 
-    if (wantsJSON(req)) {
-      return res.json({ success: true, cartCount: cart.sanpham.length, redirect: redirectUrl });
+    if (muonJSON(req)) {
+      return res.json({ success: true, cartCount: gioHang.sanpham.length, redirect: duongDanChuyen });
     }
 
-    return res.redirect(redirectUrl);
+    return res.redirect(duongDanChuyen);
   } catch (e) {
-    if (wantsJSON(req)) return res.status(500).json({ success: false, message: 'Có lỗi xảy ra' });
+    if (muonJSON(req)) return res.status(500).json({ success: false, message: 'Có lỗi xảy ra' });
     return res.redirect('/cart');
   }
 };
 
-module.exports.updateQty = async (req, res) => {
-  const itemId = req.body.itemId;
-  const qty = Math.max(1, parseInt(req.body.soluong, 10) || 1);
+module.exports.capNhatSoLuong = async (req, res) => {
+  const idItem = req.body.itemId;
+  const soLuong = Math.max(1, parseInt(req.body.soluong, 10) || 1);
 
-  const cart = await getOrCreateCart(req.user._id);
-  const item = cart.sanpham.id(itemId);
-  if (item) item.soluong = qty;
-  await cart.save();
+  const gioHang = await getOrCreateCart(req.user._id);
+  const dongItem = gioHang.sanpham.id(idItem);
+  if (dongItem) dongItem.soluong = soLuong;
+  await gioHang.save();
 
-  return wantsJSON(req) ? res.json({ success: true, cartCount: cart.sanpham.length }) : res.redirect('/cart');
+  return muonJSON(req) ? res.json({ success: true, cartCount: gioHang.sanpham.length }) : res.redirect('/cart');
 };
 
-module.exports.updateOptions = async (req, res) => {
+module.exports.capNhatTuyChon = async (req, res) => {
   try {
-    const itemId = String(req.body.itemId || '').trim();
-    const sanpham_id = String(req.body.sanpham_id || '').trim();
-    const bienthe_id = req.body.bienthe_id ? String(req.body.bienthe_id).trim() : null;
-    const kichco = req.body.kichco ? String(req.body.kichco).trim() : null;
-    const soluong = Math.max(1, parseInt(req.body.soluong, 10) || 1);
+    const idItem = String(req.body.itemId || '').trim();
+    const idSanPham = String(req.body.sanpham_id || '').trim();
+    const idBienThe = req.body.bienthe_id ? String(req.body.bienthe_id).trim() : null;
+    const kichCo = req.body.kichco ? String(req.body.kichco).trim() : null;
+    const soLuong = Math.max(1, parseInt(req.body.soluong, 10) || 1);
 
-    const cart = await getOrCreateCart(req.user._id);
-    const item = cart.sanpham.id(itemId);
-    if (!item) return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm trong giỏ' });
+    const gioHang = await getOrCreateCart(req.user._id);
+    const dongItem = gioHang.sanpham.id(idItem);
+    if (!dongItem) return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm trong giỏ' });
 
-    const productId = sanpham_id || String(item.sanpham_id);
-    const product = await Sanpham.findOne({ _id: productId, daxoa: { $ne: true }, trangthai: 'dangban' });
-    if (!product) return res.status(404).json({ success: false, message: 'Sản phẩm không tồn tại' });
+    const idSanPhamThuc = idSanPham || String(dongItem.sanpham_id);
+    const sanPham = await Sanpham.findOne({ _id: idSanPhamThuc, daxoa: { $ne: true }, trangthai: 'dangban' });
+    if (!sanPham) return res.status(404).json({ success: false, message: 'Sản phẩm không tồn tại' });
 
-    const hasSize = !noSizeByType(product.loaisanpham);
-    if (hasSize && !kichco) return res.status(400).json({ success: false, message: 'Vui lòng chọn size' });
+    const coSize = !laLoaiKhongSize(sanPham.loaisanpham);
+    if (coSize && !kichCo) return res.status(400).json({ success: false, message: 'Vui lòng chọn size' });
 
-    const resolved = resolveVariantAndStock(product, bienthe_id, kichco);
-    if (resolved.error) return res.status(400).json({ success: false, message: resolved.error });
-    if (resolved.stock <= 0) return res.status(400).json({ success: false, message: 'Hết hàng' });
+    const ketQua = layBienTheVaTon(sanPham, idBienThe, kichCo);
+    if (ketQua.error) return res.status(400).json({ success: false, message: ketQua.error });
+    if (ketQua.stock <= 0) return res.status(400).json({ success: false, message: 'Hết hàng' });
 
-    const qty = Math.min(soluong, resolved.stock);
+    const soLuongHopLe = Math.min(soLuong, ketQua.stock);
 
-    // Merge if another line already has same selection
-    const dup = cart.sanpham.find(i => String(i._id) !== String(itemId)
-      && String(i.sanpham_id) === String(productId)
-      && String(i.bienthe_id || '') === String(resolved.bienTheObjId || '')
-      && String(i.kichco || '') === String(kichco || ''));
+    // Gộp dòng
+    const dongTrung = gioHang.sanpham.find(i => String(i._id) !== String(idItem)
+      && String(i.sanpham_id) === String(idSanPhamThuc)
+      && String(i.bienthe_id || '') === String(ketQua.bienTheObjId || '')
+      && String(i.kichco || '') === String(kichCo || ''));
 
-    if (dup) {
-      dup.soluong = Math.min(resolved.stock, (dup.soluong || 0) + qty);
-      item.remove();
+    if (dongTrung) {
+      dongTrung.soluong = Math.min(ketQua.stock, (dongTrung.soluong || 0) + soLuongHopLe);
+      dongItem.remove();
     } else {
-      item.sanpham_id = productId;
-      item.bienthe_id = resolved.bienTheObjId;
-      item.tensanpham = product.tensanpham;
-      item.hinhanh = resolved.hinhanh;
-      item.mausac = resolved.mausac;
-      item.kichco = kichco || null;
-      item.gia = resolved.gia;
-      item.giagiam = resolved.giagiam;
-      item.soluong = qty;
+      dongItem.sanpham_id = idSanPhamThuc;
+      dongItem.bienthe_id = ketQua.bienTheObjId;
+      dongItem.tensanpham = sanPham.tensanpham;
+      dongItem.hinhanh = ketQua.hinhanh;
+      dongItem.mausac = ketQua.mausac;
+      dongItem.kichco = kichCo || null;
+      dongItem.gia = ketQua.gia;
+      dongItem.giagiam = ketQua.giagiam;
+      dongItem.soluong = soLuongHopLe;
     }
 
-    await cart.save();
-    return res.json({ success: true, cartCount: cart.sanpham.length });
+    await gioHang.save();
+    return res.json({ success: true, cartCount: gioHang.sanpham.length });
   } catch (e) {
     return res.status(500).json({ success: false, message: 'Có lỗi xảy ra' });
   }
 };
 
-module.exports.remove = async (req, res) => {
-  const itemId = req.body.itemId;
+module.exports.xoa = async (req, res) => {
+  const idItem = req.body.itemId;
 
-  const cart = await getOrCreateCart(req.user._id);
-  cart.sanpham = cart.sanpham.filter(i => String(i._id) !== String(itemId));
-  await cart.save();
+  const gioHang = await getOrCreateCart(req.user._id);
+  gioHang.sanpham = gioHang.sanpham.filter(i => String(i._id) !== String(idItem));
+  await gioHang.save();
 
-  return wantsJSON(req) ? res.json({ success: true, cartCount: cart.sanpham.length }) : res.redirect('/cart');
+  return muonJSON(req) ? res.json({ success: true, cartCount: gioHang.sanpham.length }) : res.redirect('/cart');
 };
 
-module.exports.clear = async (req, res) => {
-  const cart = await getOrCreateCart(req.user._id);
-  cart.sanpham = [];
-  await cart.save();
-  return wantsJSON(req) ? res.json({ success: true, cartCount: 0 }) : res.redirect('/cart');
+module.exports.xoaHet = async (req, res) => {
+  const gioHang = await getOrCreateCart(req.user._id);
+  gioHang.sanpham = [];
+  await gioHang.save();
+  return muonJSON(req) ? res.json({ success: true, cartCount: 0 }) : res.redirect('/cart');
 };
 
-module.exports.checkoutPage = async (req, res) => {
-  const cart = await getOrCreateCart(req.user._id);
+module.exports.trangThanhToan = async (req, res) => {
+  const gioHang = await getOrCreateCart(req.user._id);
 
-  const q = req.query.itemIds;
-  const selectedIds = Array.isArray(q) ? q.map(String) : (q ? [String(q)] : []);
-  const selectedSet = new Set(selectedIds);
-  const items = selectedIds.length
-    ? (cart.sanpham || []).filter(it => selectedSet.has(String(it._id)))
-    : (cart.sanpham || []);
+  const thamSo = req.query.itemIds;
+  const danhSachIdChon = Array.isArray(thamSo) ? thamSo.map(String) : (thamSo ? [String(thamSo)] : []);
+  const tapIdChon = new Set(danhSachIdChon);
+  const danhSachItem = danhSachIdChon.length
+    ? (gioHang.sanpham || []).filter(it => tapIdChon.has(String(it._id)))
+    : (gioHang.sanpham || []);
 
-  const subtotal = items.reduce((sum, it) => {
-    const price = it.giagiam || it.gia || 0;
-    return sum + (price * (it.soluong || 1));
+  const tamTinh = danhSachItem.reduce((sum, it) => {
+    const gia = it.giagiam || it.gia || 0;
+    return sum + (gia * (it.soluong || 1));
   }, 0);
 
-  const user = await Nguoidung.findOne({ _id: req.user._id, daxoa: { $ne: true } }).lean();
-  const diachiList = Array.isArray(user?.diachiList) ? user.diachiList : [];
-  const addresses = [];
-  if (user?.diachi) {
-    addresses.push({
+  const nguoiDung = await Nguoidung.findOne({ _id: req.user._id, daxoa: { $ne: true } }).lean();
+  const danhSachDiaChi = Array.isArray(nguoiDung?.diachiList) ? nguoiDung.diachiList : [];
+  const danhSachDiaChiHienThi = [];
+  if (nguoiDung?.diachi) {
+    danhSachDiaChiHienThi.push({
       _id: 'profile',
       label: 'Địa chỉ mặc định',
-      tennguoinhan: user?.hoten || '',
-      sodienthoai: user?.sodienthoai || '',
-      diachi: user?.diachi || ''
+      tennguoinhan: nguoiDung?.hoten || '',
+      sodienthoai: nguoiDung?.sodienthoai || '',
+      diachi: nguoiDung?.diachi || ''
     });
   }
-  diachiList.forEach((a) => {
-    addresses.push({
-      _id: String(a._id),
-      label: a.label || 'Địa chỉ',
-      tennguoinhan: a.tennguoinhan || user?.hoten || '',
-      sodienthoai: a.sodienthoai || user?.sodienthoai || '',
-      diachi: a.diachi || ''
+  danhSachDiaChi.forEach((diaChi) => {
+    danhSachDiaChiHienThi.push({
+      _id: String(diaChi._id),
+      label: diaChi.label || 'Địa chỉ',
+      tennguoinhan: diaChi.tennguoinhan || nguoiDung?.hoten || '',
+      sodienthoai: diaChi.sodienthoai || nguoiDung?.sodienthoai || '',
+      diachi: diaChi.diachi || ''
     });
   });
 
   res.render('client/pages/cart/checkout.pug', {
     titlePage: 'Thanh toán',
-    cart,
-    items,
-    subtotal,
-    selectedIds: items.map(it => String(it._id)),
+    cart: gioHang,
+    items: danhSachItem,
+    subtotal: tamTinh,
+    selectedIds: danhSachItem.map(it => String(it._id)),
     userProfile: {
-      hoten: user?.hoten || '',
-      sodienthoai: user?.sodienthoai || '',
-      email: user?.email || '',
-      diachi: user?.diachi || ''
+      hoten: nguoiDung?.hoten || '',
+      sodienthoai: nguoiDung?.sodienthoai || '',
+      email: nguoiDung?.email || '',
+      diachi: nguoiDung?.diachi || ''
     },
-    addresses
+    addresses: danhSachDiaChiHienThi
   });
 };
 
-async function decrementStockForItem(item) {
-  const productId = item.sanpham_id;
-  const variantId = item.bienthe_id;
-  const size = item.kichco;
-  const qty = item.soluong || 1;
+async function truTonTheoItem(item) {
+  const idSanPham = item.sanpham_id;
+  const idBienThe = item.bienthe_id;
+  const kichCo = item.kichco;
+  const soLuong = item.soluong || 1;
 
-  const product = await Sanpham.findById(productId);
-  if (!product) throw new Error('Sản phẩm không tồn tại');
+  const sanPham = await Sanpham.findById(idSanPham);
+  if (!sanPham) throw new Error('Sản phẩm không tồn tại');
 
-  const baseTotal = (typeof product.soluongton === 'number') ? product.soluongton : computeTotalStock(product);
+  const tongGoc = (typeof sanPham.soluongton === 'number') ? sanPham.soluongton : tinhTongTon(sanPham);
 
-  const hasSize = !noSizeByType(product.loaisanpham);
+  const coSize = !laLoaiKhongSize(sanPham.loaisanpham);
 
-  if (!variantId) {
-    if (hasSize) {
-      const row = (product.sizes || []).find(s => s.size === size);
-      if (!row || row.soluong < qty) throw new Error('Không đủ hàng');
-      row.soluong -= qty;
+  if (!idBienThe) {
+    if (coSize) {
+      const dong = (sanPham.sizes || []).find(s => s.size === kichCo);
+      if (!dong || dong.soluong < soLuong) throw new Error('Không đủ hàng');
+      dong.soluong -= soLuong;
     } else {
-      if ((product.soluong_chinh || 0) < qty) throw new Error('Không đủ hàng');
-      product.soluong_chinh = (product.soluong_chinh || 0) - qty;
+      if ((sanPham.soluong_chinh || 0) < soLuong) throw new Error('Không đủ hàng');
+      sanPham.soluong_chinh = (sanPham.soluong_chinh || 0) - soLuong;
     }
 
-    product.soluongton = Math.max(0, baseTotal - qty);
-    await product.save();
+    sanPham.soluongton = Math.max(0, tongGoc - soLuong);
+    await sanPham.save();
     return;
   }
 
-  const v = (product.bienthe || []).id(variantId);
-  if (!v) throw new Error('Biến thể không tồn tại');
+  const bienThe = (sanPham.bienthe || []).id(idBienThe);
+  if (!bienThe) throw new Error('Biến thể không tồn tại');
 
-  if (hasSize) {
-    const row = (v.sizes || []).find(s => s.size === size);
-    if (!row || row.soluong < qty) throw new Error('Không đủ hàng');
-    row.soluong -= qty;
+  if (coSize) {
+    const dong = (bienThe.sizes || []).find(s => s.size === kichCo);
+    if (!dong || dong.soluong < soLuong) throw new Error('Không đủ hàng');
+    dong.soluong -= soLuong;
   } else {
-    if ((v.soluong || 0) < qty) throw new Error('Không đủ hàng');
-    v.soluong = (v.soluong || 0) - qty;
+    if ((bienThe.soluong || 0) < soLuong) throw new Error('Không đủ hàng');
+    bienThe.soluong = (bienThe.soluong || 0) - soLuong;
   }
 
-  product.soluongton = Math.max(0, baseTotal - qty);
-  await product.save();
+  sanPham.soluongton = Math.max(0, tongGoc - soLuong);
+  await sanPham.save();
 }
 
-module.exports.checkoutSubmit = async (req, res) => {
+module.exports.xuLyThanhToan = async (req, res) => {
   try {
-    const cart = await getOrCreateCart(req.user._id);
-    if (!cart.sanpham || cart.sanpham.length === 0) {
+    const gioHang = await getOrCreateCart(req.user._id);
+    if (!gioHang.sanpham || gioHang.sanpham.length === 0) {
       return res.redirect('/cart');
     }
 
-    const rawIds = req.body.itemIds;
-    const selectedIds = Array.isArray(rawIds) ? rawIds.map(String) : (rawIds ? [String(rawIds)] : []);
-    const selectedSet = new Set(selectedIds);
-    const items = selectedIds.length
-      ? cart.sanpham.filter(it => selectedSet.has(String(it._id)))
-      : cart.sanpham;
+    const idsRaw = req.body.itemIds;
+    const danhSachIdChon = Array.isArray(idsRaw) ? idsRaw.map(String) : (idsRaw ? [String(idsRaw)] : []);
+    const tapIdChon = new Set(danhSachIdChon);
+    const danhSachItem = danhSachIdChon.length
+      ? gioHang.sanpham.filter(it => tapIdChon.has(String(it._id)))
+      : gioHang.sanpham;
 
-    if (!items.length) {
+    if (!danhSachItem.length) {
       req.flash?.('error', 'Vui lòng chọn sản phẩm để thanh toán');
       return res.redirect('/cart');
     }
 
-    const user = await Nguoidung.findOne({ _id: req.user._id, daxoa: { $ne: true } });
+    const nguoiDung = await Nguoidung.findOne({ _id: req.user._id, daxoa: { $ne: true } });
 
-    const addressId = String(req.body.addressId || '');
-    let tennguoinhan = '';
-    let sodienthoai = '';
-    let diachigiao = '';
+    const idDiaChi = String(req.body.addressId || '');
+    let tenNguoiNhan = '';
+    let soDienThoai = '';
+    let diaChiGiao = '';
 
-    if (addressId && addressId !== 'new') {
-      if (addressId === 'profile') {
-        tennguoinhan = String(user?.hoten || '').trim();
-        sodienthoai = String(user?.sodienthoai || '').trim();
-        diachigiao = String(user?.diachi || '').trim();
+    if (idDiaChi && idDiaChi !== 'new') {
+      if (idDiaChi === 'profile') {
+        tenNguoiNhan = String(nguoiDung?.hoten || '').trim();
+        soDienThoai = String(nguoiDung?.sodienthoai || '').trim();
+        diaChiGiao = String(nguoiDung?.diachi || '').trim();
       } else {
-        const found = (user?.diachiList || []).find(a => String(a._id) === addressId);
-        if (found) {
-          tennguoinhan = String(found.tennguoinhan || user?.hoten || '').trim();
-          sodienthoai = String(found.sodienthoai || user?.sodienthoai || '').trim();
-          diachigiao = String(found.diachi || '').trim();
+        const diaChiTimThay = (nguoiDung?.diachiList || []).find(a => String(a._id) === idDiaChi);
+        if (diaChiTimThay) {
+          tenNguoiNhan = String(diaChiTimThay.tennguoinhan || nguoiDung?.hoten || '').trim();
+          soDienThoai = String(diaChiTimThay.sodienthoai || nguoiDung?.sodienthoai || '').trim();
+          diaChiGiao = String(diaChiTimThay.diachi || '').trim();
         }
       }
     }
 
-    // fallback/new
-    if (!tennguoinhan || !sodienthoai || !diachigiao) {
-      tennguoinhan = String(req.body.tennguoinhan || '').trim();
-      sodienthoai = String(req.body.sodienthoai || '').trim();
-      diachigiao = String(req.body.diachigiao || '').trim();
+    // Fallback
+    if (!tenNguoiNhan || !soDienThoai || !diaChiGiao) {
+      tenNguoiNhan = String(req.body.tennguoinhan || '').trim();
+      soDienThoai = String(req.body.sodienthoai || '').trim();
+      diaChiGiao = String(req.body.diachigiao || '').trim();
     }
 
-    if (!tennguoinhan || !sodienthoai || !diachigiao) {
+    if (!tenNguoiNhan || !soDienThoai || !diaChiGiao) {
       req.flash?.('error', 'Vui lòng nhập đầy đủ họ tên, số điện thoại, địa chỉ');
       return res.redirect('/cart/checkout');
     }
 
-    const email = String(req.body.email || user?.email || '').trim();
-    const ghichu = String(req.body.ghichu || '').trim();
-    const phuongthucthanhtoan = String(req.body.phuongthucthanhtoan || 'cod');
+    const emailLienHe = String(req.body.email || nguoiDung?.email || '').trim();
+    const ghiChu = String(req.body.ghichu || '').trim();
+    const phuongThucThanhToan = String(req.body.phuongthucthanhtoan || 'cod');
 
-    // Save new address if requested
-    if (String(req.body.saveAddress || '') && user && (addressId === 'new' || !addressId)) {
-      user.diachiList = user.diachiList || [];
-      user.diachiList.push({
+    // Lưu địa chỉ mới
+    if (String(req.body.saveAddress || '') && nguoiDung && (idDiaChi === 'new' || !idDiaChi)) {
+      nguoiDung.diachiList = nguoiDung.diachiList || [];
+      nguoiDung.diachiList.push({
         label: String(req.body.addressLabel || '').trim() || 'Địa chỉ',
-        tennguoinhan,
-        sodienthoai,
-        diachi: diachigiao
+        tennguoinhan: tenNguoiNhan,
+        sodienthoai: soDienThoai,
+        diachi: diaChiGiao
       });
-      await user.save();
+      await nguoiDung.save();
     }
 
-    const subtotal = items.reduce((sum, it) => {
-      const price = it.giagiam || it.gia || 0;
-      return sum + (price * (it.soluong || 1));
+    const tamTinh = danhSachItem.reduce((sum, it) => {
+      const gia = it.giagiam || it.gia || 0;
+      return sum + (gia * (it.soluong || 1));
     }, 0);
 
-    const order = await Donhang.create({
+    const donHang = await Donhang.create({
       nguoidung_id: req.user._id,
-      tennguoinhan,
-      sodienthoai,
-      email,
-      diachigiao,
-      ghichu,
-      phuongthucthanhtoan,
-      tamtinh: subtotal,
-      tongtien: subtotal,
+      tennguoinhan: tenNguoiNhan,
+      sodienthoai: soDienThoai,
+      email: emailLienHe,
+      diachigiao: diaChiGiao,
+      ghichu: ghiChu,
+      phuongthucthanhtoan: phuongThucThanhToan,
+      tamtinh: tamTinh,
+      tongtien: tamTinh,
       trangthai: 'choxacnhan'
     });
 
-    for (const it of items) {
-      await decrementStockForItem(it);
+    for (const it of danhSachItem) {
+      await truTonTheoItem(it);
       await Chitietdonhang.create({
-        donhang_id: order._id,
+        donhang_id: donHang._id,
         sanpham_id: it.sanpham_id,
         bienthe_id: it.bienthe_id,
         tensanpham: it.tensanpham,
@@ -492,17 +492,17 @@ module.exports.checkoutSubmit = async (req, res) => {
       });
     }
 
-    const paidSet = new Set(items.map(it => String(it._id)));
-    cart.sanpham = cart.sanpham.filter(it => !paidSet.has(String(it._id)));
-    await cart.save();
+    const tapDaThanhToan = new Set(danhSachItem.map(it => String(it._id)));
+    gioHang.sanpham = gioHang.sanpham.filter(it => !tapDaThanhToan.has(String(it._id)));
+    await gioHang.save();
 
-    if (phuongthucthanhtoan === 'cod') {
+    if (phuongThucThanhToan === 'cod') {
       req.flash?.('success', 'Đặt hàng thành công!');
     }
 
-    return res.redirect(`/orders/${order._id}`);
+    return res.redirect(`/orders/${donHang._id}`);
   } catch (e) {
-    if (wantsJSON(req)) return res.status(500).json({ success: false, message: e.message || 'Có lỗi xảy ra' });
+    if (muonJSON(req)) return res.status(500).json({ success: false, message: e.message || 'Có lỗi xảy ra' });
     req.flash?.('error', e.message || 'Có lỗi xảy ra');
     return res.redirect('/cart/checkout');
   }

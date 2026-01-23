@@ -6,25 +6,25 @@ const { escapeRegex, normalizePhone, isValidPhoneVN, isSafeImageUrl } = require(
 
 const ONLINE_WINDOW_MS = 5 * 60 * 1000;
 
-function normalizeKeyword(keyword) {
-  const k = String(keyword || '').trim();
+function chuanHoaTuKhoa(tuKhoa) {
+  const k = String(tuKhoa || '').trim();
   if (!k) return '';
   // Avoid regex injection / heavy patterns
   return escapeRegex(k.slice(0, 100));
 }
 
-function isOnline(lastSeenAt, windowMs) {
+function dangOnline(lastSeenAt, windowMs) {
   if (!lastSeenAt) return false;
   const t = new Date(lastSeenAt).getTime();
   if (!Number.isFinite(t)) return false;
   return Date.now() - t <= windowMs;
 }
 
-function normalizeString(value) {
+function chuanHoaChuoi(value) {
   return String(value || '').trim();
 }
 
-function parseOptionalDate(value) {
+function phanTichNgayTuyChon(value) {
   const raw = String(value || '').trim();
   if (!raw) return null;
   const d = new Date(raw);
@@ -32,58 +32,57 @@ function parseOptionalDate(value) {
   return d;
 }
 
-function backToDetailOrList(req, userId) {
+function quayLaiChiTietHoacDanhSach(req, userId) {
   const ref = String(req.get('referer') || '');
   if (ref.includes(`/admin/users/${userId}`)) return `/admin/users/${userId}`;
   return '/admin/users';
 }
 
-async function buildUserList({ keyword, vaitro, trangthai, deleted }) {
-  // Deprecated: kept for backward compatibility of require() smoke tests.
-  // Use buildUserFilter + pagination in index/onlineSnapshot.
-  const filter = buildUserFilter({ keyword, vaitro, trangthai, online: '', deleted });
-  return Nguoidung.find(filter).sort({ ngaytao: -1 }).lean();
+async function taoDanhSachNguoiDung({ keyword: tuKhoa, vaitro, trangthai, deleted }) {
+  // Danh sách (deprecated)
+  const boLoc = taoBoLocNguoiDung({ keyword: tuKhoa, vaitro, trangthai, online: '', deleted });
+  return Nguoidung.find(boLoc).sort({ ngaytao: -1 }).lean();
 }
 
-function buildUserFilter({ keyword, vaitro, trangthai, online, deleted }) {
-  // deleted: '' | '1' | 'all'
-  const filter =
+function taoBoLocNguoiDung({ keyword: tuKhoa, vaitro, trangthai, online, deleted }) {
+  // Lọc
+  const boLoc =
     deleted === '1' ? { daxoa: true }
       : deleted === 'all' ? {}
         : { daxoa: { $ne: true } };
 
-  if (vaitro === 'admin' || vaitro === 'user') filter.vaitro = vaitro;
-  if (trangthai === 'active' || trangthai === 'noactive') filter.trangthai = trangthai;
+  if (vaitro === 'admin' || vaitro === 'user') boLoc.vaitro = vaitro;
+  if (trangthai === 'active' || trangthai === 'noactive') boLoc.trangthai = trangthai;
 
-  const and = [];
-  if (keyword) {
-    and.push({
+  const dieuKienVa = [];
+  if (tuKhoa) {
+    dieuKienVa.push({
       $or: [
-        { email: { $regex: keyword, $options: 'i' } },
-        { hoten: { $regex: keyword, $options: 'i' } }
+        { email: { $regex: tuKhoa, $options: 'i' } },
+        { hoten: { $regex: tuKhoa, $options: 'i' } }
       ]
     });
   }
 
-  const threshold = new Date(Date.now() - ONLINE_WINDOW_MS);
+  const mocThoiGian = new Date(Date.now() - ONLINE_WINDOW_MS);
   if (online === '1') {
-    filter.lastSeenAt = { $gte: threshold };
+    boLoc.lastSeenAt = { $gte: mocThoiGian };
   } else if (online === '0') {
-    and.push({
+    dieuKienVa.push({
       $or: [
-        { lastSeenAt: { $lt: threshold } },
+        { lastSeenAt: { $lt: mocThoiGian } },
         { lastSeenAt: { $exists: false } },
         { lastSeenAt: null }
       ]
     });
   }
 
-  if (and.length) filter.$and = and;
+  if (dieuKienVa.length) boLoc.$and = dieuKienVa;
 
-  return filter;
+  return boLoc;
 }
 
-function buildUserFilterString({ vaitro, trangthai, online, deleted }) {
+function taoChuoiBoLoc({ vaitro, trangthai, online, deleted }) {
   let s = '';
   if (vaitro) s += `&vaitro=${encodeURIComponent(vaitro)}`;
   if (trangthai) s += `&trangthai=${encodeURIComponent(trangthai)}`;
@@ -92,43 +91,43 @@ function buildUserFilterString({ vaitro, trangthai, online, deleted }) {
   return s;
 }
 
-// GET /admin/users
-module.exports.index = async (req, res) => {
+// Danh sách
+module.exports.danhSach = async (req, res) => {
   try {
-    const keyword = normalizeKeyword(req.query.keyword);
-    const vaitro = String(req.query.vaitro || '').trim();
-    const trangthai = String(req.query.trangthai || '').trim();
+    const tuKhoa = chuanHoaTuKhoa(req.query.keyword);
+    const vaiTro = String(req.query.vaitro || '').trim();
+    const trangThai = String(req.query.trangthai || '').trim();
     const online = String(req.query.online || '').trim();
-    const deleted = String(req.query.deleted || '').trim();
+    const daXoa = String(req.query.deleted || '').trim();
 
-    let objectPagination = {
+    let phanTrang = {
       currentPage: 1,
       limit: 10
     };
 
-    const find = buildUserFilter({ keyword, vaitro, trangthai, online, deleted });
-    const totalUsers = await Nguoidung.countDocuments(find);
-    objectPagination = paginationHelper(objectPagination, req.query, totalUsers);
+    const dieuKien = taoBoLocNguoiDung({ keyword: tuKhoa, vaitro: vaiTro, trangthai: trangThai, online, deleted: daXoa });
+    const tongNguoiDung = await Nguoidung.countDocuments(dieuKien);
+    phanTrang = paginationHelper(phanTrang, req.query, tongNguoiDung);
 
-    const users = await Nguoidung.find(find)
+    const danhSachNguoiDung = await Nguoidung.find(dieuKien)
       .sort({ ngaytao: -1 })
-      .skip(objectPagination.skip)
-      .limit(objectPagination.limit)
+      .skip(phanTrang.skip)
+      .limit(phanTrang.limit)
       .lean();
 
-    const decorated = users.map(u => ({
+    const nguoiDungDaXuLy = danhSachNguoiDung.map(u => ({
       ...u,
-      isOnline: isOnline(u.lastSeenAt, ONLINE_WINDOW_MS)
+      isOnline: dangOnline(u.lastSeenAt, ONLINE_WINDOW_MS)
     }));
 
-    const filterString = buildUserFilterString({ vaitro, trangthai, online, deleted });
+    const chuoiBoLoc = taoChuoiBoLoc({ vaitro: vaiTro, trangthai: trangThai, online, deleted: daXoa });
 
     return res.render('admin/pages/users/index.pug', {
       titlePage: 'Quản lý người dùng',
-      users: decorated,
-      filters: { keyword, vaitro, trangthai, online, deleted },
-      pagination: objectPagination,
-      filterString
+      users: nguoiDungDaXuLy,
+      filters: { keyword: tuKhoa, vaitro: vaiTro, trangthai: trangThai, online, deleted: daXoa },
+      pagination: phanTrang,
+      filterString: chuoiBoLoc
     });
   } catch (err) {
     console.error('admin users index error:', err);
@@ -143,8 +142,8 @@ module.exports.index = async (req, res) => {
   }
 };
 
-// GET /admin/users/:id
-module.exports.detail = async (req, res) => {
+// Chi tiết
+module.exports.chiTiet = async (req, res) => {
   try {
     const id = req.params.id;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -152,20 +151,20 @@ module.exports.detail = async (req, res) => {
       return res.redirect('/admin/users');
     }
 
-    const u = await Nguoidung.findById(id).lean();
-    if (!u) {
+    const nguoiDung = await Nguoidung.findById(id).lean();
+    if (!nguoiDung) {
       req.flash('error', 'Không tìm thấy người dùng');
       return res.redirect('/admin/users');
     }
 
-    const decorated = {
-      ...u,
-      isOnline: isOnline(u.lastSeenAt, ONLINE_WINDOW_MS)
+    const nguoiDungDaXuLy = {
+      ...nguoiDung,
+      isOnline: dangOnline(nguoiDung.lastSeenAt, ONLINE_WINDOW_MS)
     };
 
     return res.render('admin/pages/users/detail.pug', {
       titlePage: 'Chi tiết tài khoản',
-      u: decorated
+      u: nguoiDungDaXuLy
     });
   } catch (err) {
     console.error('admin users detail error:', err);
@@ -174,33 +173,33 @@ module.exports.detail = async (req, res) => {
   }
 };
 
-// GET /admin/users/online (JSON snapshot for polling)
-module.exports.onlineSnapshot = async (req, res) => {
+// Online snapshot
+module.exports.anhChupOnline = async (req, res) => {
   try {
-    const keyword = normalizeKeyword(req.query.keyword);
-    const vaitro = String(req.query.vaitro || '').trim();
-    const trangthai = String(req.query.trangthai || '').trim();
+    const tuKhoa = chuanHoaTuKhoa(req.query.keyword);
+    const vaiTro = String(req.query.vaitro || '').trim();
+    const trangThai = String(req.query.trangthai || '').trim();
     const online = String(req.query.online || '').trim();
-    const deleted = String(req.query.deleted || '').trim();
+    const daXoa = String(req.query.deleted || '').trim();
 
-    let objectPagination = {
+    let phanTrang = {
       currentPage: 1,
       limit: 10
     };
 
-    const find = buildUserFilter({ keyword, vaitro, trangthai, online, deleted });
-    const totalUsers = await Nguoidung.countDocuments(find);
-    objectPagination = paginationHelper(objectPagination, req.query, totalUsers);
+    const dieuKien = taoBoLocNguoiDung({ keyword: tuKhoa, vaitro: vaiTro, trangthai: trangThai, online, deleted: daXoa });
+    const tongNguoiDung = await Nguoidung.countDocuments(dieuKien);
+    phanTrang = paginationHelper(phanTrang, req.query, tongNguoiDung);
 
-    const users = await Nguoidung.find(find)
+    const danhSachNguoiDung = await Nguoidung.find(dieuKien)
       .select({ _id: 1, lastSeenAt: 1 })
       .sort({ ngaytao: -1 })
-      .skip(objectPagination.skip)
-      .limit(objectPagination.limit)
+      .skip(phanTrang.skip)
+      .limit(phanTrang.limit)
       .lean();
 
-    const snapshot = users.map(u => {
-      const onlineNow = isOnline(u.lastSeenAt, ONLINE_WINDOW_MS);
+    const anhChup = danhSachNguoiDung.map(u => {
+      const onlineNow = dangOnline(u.lastSeenAt, ONLINE_WINDOW_MS);
       return {
         id: String(u._id),
         isOnline: onlineNow,
@@ -209,7 +208,7 @@ module.exports.onlineSnapshot = async (req, res) => {
     });
     return res.json({
       now: new Date().toISOString(),
-      users: snapshot
+      users: anhChup
     });
   } catch (err) {
     console.error('admin users onlineSnapshot error:', err);
@@ -217,8 +216,8 @@ module.exports.onlineSnapshot = async (req, res) => {
   }
 };
 
-// POST /admin/users/:id/role
-module.exports.updateRole = async (req, res) => {
+// Cập nhật vai trò
+module.exports.capNhatVaiTro = async (req, res) => {
   try {
     const id = req.params.id;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -226,15 +225,15 @@ module.exports.updateRole = async (req, res) => {
       return res.redirect('/admin/users');
     }
 
-    const vaitro = String(req.body.vaitro || '').trim();
-    if (vaitro !== 'admin' && vaitro !== 'user') {
+    const vaiTro = String(req.body.vaitro || '').trim();
+    if (vaiTro !== 'admin' && vaiTro !== 'user') {
       req.flash('error', 'Vai trò không hợp lệ');
       return res.redirect('/admin/users');
     }
 
     await Nguoidung.updateOne(
       { _id: id, daxoa: { $ne: true } },
-      { $set: { vaitro, ngaycapnhat: new Date() } }
+      { $set: { vaitro: vaiTro, ngaycapnhat: new Date() } }
     );
     req.flash('success', 'Cập nhật vai trò thành công');
     return res.redirect('/admin/users');
@@ -245,8 +244,8 @@ module.exports.updateRole = async (req, res) => {
   }
 };
 
-// POST /admin/users/:id/status
-module.exports.updateStatus = async (req, res) => {
+// Cập nhật trạng thái
+module.exports.capNhatTrangThai = async (req, res) => {
   try {
     const id = req.params.id;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -254,15 +253,15 @@ module.exports.updateStatus = async (req, res) => {
       return res.redirect('/admin/users');
     }
 
-    const trangthai = String(req.body.trangthai || '').trim();
-    if (trangthai !== 'active' && trangthai !== 'noactive') {
+    const trangThai = String(req.body.trangthai || '').trim();
+    if (trangThai !== 'active' && trangThai !== 'noactive') {
       req.flash('error', 'Trạng thái không hợp lệ');
       return res.redirect('/admin/users');
     }
 
     await Nguoidung.updateOne(
       { _id: id, daxoa: { $ne: true } },
-      { $set: { trangthai, ngaycapnhat: new Date() } }
+      { $set: { trangthai: trangThai, ngaycapnhat: new Date() } }
     );
     req.flash('success', 'Cập nhật trạng thái thành công');
     return res.redirect('/admin/users');
@@ -273,8 +272,8 @@ module.exports.updateStatus = async (req, res) => {
   }
 };
 
-// POST /admin/users/:id/delete
-module.exports.softDelete = async (req, res) => {
+// Xóa mềm
+module.exports.xoaMem = async (req, res) => {
   try {
     const id = req.params.id;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -296,8 +295,8 @@ module.exports.softDelete = async (req, res) => {
   }
 };
 
-// POST /admin/users/:id/update
-module.exports.updateFromDetail = async (req, res) => {
+// Cập nhật chi tiết
+module.exports.capNhatTuChiTiet = async (req, res) => {
   try {
     const id = req.params.id;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -305,34 +304,34 @@ module.exports.updateFromDetail = async (req, res) => {
       return res.redirect('/admin/users');
     }
 
-    const hoten = normalizeString(req.body.hoten);
-    const rawPhone = normalizeString(req.body.sodienthoai);
+    const hoten = chuanHoaChuoi(req.body.hoten);
+    const rawPhone = chuanHoaChuoi(req.body.sodienthoai);
     const sodienthoai = rawPhone ? normalizePhone(rawPhone) : '';
-    const diachi = normalizeString(req.body.diachi);
-    const gioitinh = normalizeString(req.body.gioitinh);
-    const avatar = normalizeString(req.body.avatar);
-    const ngaysinh = parseOptionalDate(req.body.ngaysinh);
+    const diachi = chuanHoaChuoi(req.body.diachi);
+    const gioitinh = chuanHoaChuoi(req.body.gioitinh);
+    const avatar = chuanHoaChuoi(req.body.avatar);
+    const ngaysinh = phanTichNgayTuyChon(req.body.ngaysinh);
 
-    const vaitro = normalizeString(req.body.vaitro);
-    const trangthai = normalizeString(req.body.trangthai);
+    const vaitro = chuanHoaChuoi(req.body.vaitro);
+    const trangthai = chuanHoaChuoi(req.body.trangthai);
 
     if (rawPhone && !isValidPhoneVN(rawPhone)) {
       req.flash('error', 'Số điện thoại không đúng định dạng');
-      return res.redirect(backToDetailOrList(req, id));
+      return res.redirect(quayLaiChiTietHoacDanhSach(req, id));
     }
 
     if (avatar && !isSafeImageUrl(avatar)) {
       req.flash('error', 'Avatar URL không hợp lệ');
-      return res.redirect(backToDetailOrList(req, id));
+      return res.redirect(quayLaiChiTietHoacDanhSach(req, id));
     }
 
     if (vaitro && vaitro !== 'admin' && vaitro !== 'user') {
       req.flash('error', 'Vai trò không hợp lệ');
-      return res.redirect(backToDetailOrList(req, id));
+      return res.redirect(quayLaiChiTietHoacDanhSach(req, id));
     }
     if (trangthai && trangthai !== 'active' && trangthai !== 'noactive') {
       req.flash('error', 'Trạng thái không hợp lệ');
-      return res.redirect(backToDetailOrList(req, id));
+      return res.redirect(quayLaiChiTietHoacDanhSach(req, id));
     }
 
     const $set = {
@@ -349,7 +348,7 @@ module.exports.updateFromDetail = async (req, res) => {
 
     await Nguoidung.updateOne({ _id: id }, { $set });
     req.flash('success', 'Cập nhật tài khoản thành công');
-    return res.redirect(backToDetailOrList(req, id));
+    return res.redirect(quayLaiChiTietHoacDanhSach(req, id));
   } catch (err) {
     console.error('admin users updateFromDetail error:', err);
     req.flash('error', 'Không thể cập nhật tài khoản');
@@ -357,8 +356,8 @@ module.exports.updateFromDetail = async (req, res) => {
   }
 };
 
-// POST /admin/users/:id/password
-module.exports.setPasswordFromDetail = async (req, res) => {
+// Đặt lại mật khẩu
+module.exports.datMatKhauTuChiTiet = async (req, res) => {
   try {
     const id = req.params.id;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -371,11 +370,11 @@ module.exports.setPasswordFromDetail = async (req, res) => {
 
     if (String(newPassword).length < 6) {
       req.flash('error', 'Mật khẩu phải tối thiểu 6 ký tự');
-      return res.redirect(backToDetailOrList(req, id));
+      return res.redirect(quayLaiChiTietHoacDanhSach(req, id));
     }
     if (newPassword !== confirmPassword) {
       req.flash('error', 'Xác nhận mật khẩu không khớp');
-      return res.redirect(backToDetailOrList(req, id));
+      return res.redirect(quayLaiChiTietHoacDanhSach(req, id));
     }
 
     const hashed = await bcrypt.hash(newPassword, 10);
@@ -385,7 +384,7 @@ module.exports.setPasswordFromDetail = async (req, res) => {
     );
 
     req.flash('success', 'Đã đặt lại mật khẩu');
-    return res.redirect(backToDetailOrList(req, id));
+    return res.redirect(quayLaiChiTietHoacDanhSach(req, id));
   } catch (err) {
     console.error('admin users setPasswordFromDetail error:', err);
     req.flash('error', 'Không thể đặt lại mật khẩu');
@@ -393,8 +392,8 @@ module.exports.setPasswordFromDetail = async (req, res) => {
   }
 };
 
-// POST /admin/users/:id/restore
-module.exports.restoreFromDetail = async (req, res) => {
+// Khôi phục
+module.exports.khoiPhucTuChiTiet = async (req, res) => {
   try {
     const id = req.params.id;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -407,7 +406,7 @@ module.exports.restoreFromDetail = async (req, res) => {
       { $set: { daxoa: false, ngaycapnhat: new Date() } }
     );
     req.flash('success', 'Đã khôi phục tài khoản');
-    return res.redirect(backToDetailOrList(req, id));
+    return res.redirect(quayLaiChiTietHoacDanhSach(req, id));
   } catch (err) {
     console.error('admin users restoreFromDetail error:', err);
     req.flash('error', 'Không thể khôi phục tài khoản');
@@ -415,8 +414,8 @@ module.exports.restoreFromDetail = async (req, res) => {
   }
 };
 
-// POST /admin/users/:id/hard-delete
-module.exports.hardDelete = async (req, res) => {
+// Xóa vĩnh viễn
+module.exports.xoaVinhVien = async (req, res) => {
   try {
     const id = req.params.id;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -427,7 +426,7 @@ module.exports.hardDelete = async (req, res) => {
     const result = await Nguoidung.deleteOne({ _id: id, daxoa: true });
     if (!result || result.deletedCount !== 1) {
       req.flash('error', 'Chỉ được xóa vĩnh viễn tài khoản đã xóa mềm');
-      return res.redirect(backToDetailOrList(req, id));
+      return res.redirect(quayLaiChiTietHoacDanhSach(req, id));
     }
 
     req.flash('success', 'Đã xóa vĩnh viễn tài khoản');

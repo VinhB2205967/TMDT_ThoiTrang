@@ -4,26 +4,26 @@ const filterStatusHelper = require('../../helpers/filterStatus');
 const searchHelper = require('../../helpers/search');
 const paginationHelper = require('../../helpers/pagination');
 const productHelper = require('../../helpers/product');
-
-const NO_SIZE_TYPES = ['tui', 'phukien'];
-const SIZE_LIST = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-
-function isNoSizeProductType(loaisanpham) {
-    return NO_SIZE_TYPES.includes(loaisanpham);
+// Loại không size
+const LOAI_KHONG_SIZE = ['tui', 'phukien'];
+const DANH_SACH_SIZE = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+// Kiểm tra size
+function laLoaiKhongSize(loaisanpham) {
+    return LOAI_KHONG_SIZE.includes(loaisanpham);
 }
-
-function buildBaseSizes(reqBody, isNoSizeProduct) {
+// Size gốc
+function taoSizeGoc(reqBody, isNoSizeProduct) {
     const baseSizes = [];
     let tongSizeGoc = 0;
     let soluong_chinh = 0;
-
+// không có size
     if (isNoSizeProduct) {
         soluong_chinh = parseInt(reqBody.soluong_chinh) || 0;
         tongSizeGoc = soluong_chinh;
         return { baseSizes, tongSizeGoc, soluong_chinh };
     }
-
-    SIZE_LIST.forEach(size => {
+// có size
+    DANH_SACH_SIZE.forEach(size => {
         const qty = parseInt(reqBody[`size_${size}`]) || 0;
         if (qty > 0) {
             baseSizes.push({ size: size, soluong: qty });
@@ -33,8 +33,8 @@ function buildBaseSizes(reqBody, isNoSizeProduct) {
 
     return { baseSizes, tongSizeGoc, soluong_chinh };
 }
-
-function buildVariantsFromRequest({ reqBody, reqFiles, isNoSizeProduct, oldImageArr = [], hasNewImageArr = [] }) {
+// Biến thể
+function bienThe({ reqBody, reqFiles, isNoSizeProduct, oldImageArr = [], hasNewImageArr = [] }) {
     if (!reqBody.bienthe_mausac) {
         return { variants: [], tongBienThe: 0 };
     }
@@ -63,7 +63,7 @@ function buildVariantsFromRequest({ reqBody, reqFiles, isNoSizeProduct, oldImage
             variantQty = parseInt(soluongArr[i]) || 0;
             tongBienThe += variantQty;
         } else {
-            SIZE_LIST.forEach(size => {
+            DANH_SACH_SIZE.forEach(size => {
                 const qty = parseInt(reqBody[`bienthe_${i}_size_${size}`]) || 0;
                 if (qty > 0) {
                     variantSizes.push({ size: size, soluong: qty });
@@ -85,56 +85,56 @@ function buildVariantsFromRequest({ reqBody, reqFiles, isNoSizeProduct, oldImage
     return { variants, tongBienThe };
 }
 
-// [GET] /admin/products
-const index = async (req, res) => {
+// Danh sách
+const danhSach = async (req, res) => {
     try {
-        // Filter Status
-        const filterStatus = filterStatusHelper(req.query);
+        // Lọc trạng thái
+        const boLocTrangThai = filterStatusHelper(req.query);
 
-        // Search
-        const objectSearch = searchHelper(req.query, { keywordKey: 'keyword' });
+        // Tìm kiếm
+        const doiTuongTimKiem = searchHelper(req.query, { keywordKey: 'keyword' });
 
-        // Pagination
-        let objectPagination = {
+        // Phân trang
+        let phanTrang = {
             currentPage: 1,
             limit: 10
         };
 
-        // Build query
-        const deleted = String(req.query.deleted || '').trim();
-        const find =
-            deleted === '1' ? { daxoa: true }
-                : deleted === 'all' ? {}
+        // Xây dựng điều kiện lọc
+        const daXoa = String(req.query.deleted || '').trim();
+        const dieuKien =
+            daXoa === '1' ? { daxoa: true }
+                : daXoa === 'all' ? {}
                     : { daxoa: { $ne: true } };
         
         // Lọc theo trạng thái
         if (req.query.trangthai === 'dahet') {
             // Đã hết: soluongton = 0 hoặc không có
-            find.soluongton = { $lte: 0 };
+            dieuKien.soluongton = { $lte: 0 };
         } else if (req.query.trangthai) {
-            find.trangthai = req.query.trangthai;
+            dieuKien.trangthai = req.query.trangthai;
         }
         
-        if (objectSearch.keyword) find.tensanpham = objectSearch.regex;
+        if (doiTuongTimKiem.keyword) dieuKien.tensanpham = doiTuongTimKiem.regex;
 
         // Lọc theo giá (giá đã giảm = gia * (100 - phantramgiamgia) / 100)
         if (req.query.priceMin || req.query.priceMax) {
-            const priceMin = parseInt(req.query.priceMin) || 0;
-            const priceMax = parseInt(req.query.priceMax) || Number.MAX_SAFE_INTEGER;
+            const giaTu = parseInt(req.query.priceMin) || 0;
+            const giaDen = parseInt(req.query.priceMax) || Number.MAX_SAFE_INTEGER;
             
             // Sử dụng $expr để tính giá sau giảm
-            find.$expr = {
+            dieuKien.$expr = {
                 $and: [
                     {
                         $gte: [
                             { $multiply: ['$gia', { $divide: [{ $subtract: [100, { $ifNull: ['$phantramgiamgia', 0] }] }, 100] }] },
-                            priceMin
+                            giaTu
                         ]
                     },
                     {
                         $lte: [
                             { $multiply: ['$gia', { $divide: [{ $subtract: [100, { $ifNull: ['$phantramgiamgia', 0] }] }, 100] }] },
-                            priceMax
+                            giaDen
                         ]
                     }
                 ]
@@ -142,52 +142,52 @@ const index = async (req, res) => {
         }
 
         // Lọc theo loại sản phẩm
-        const allowedLoai = new Set(['ao', 'quan', 'vay', 'phukien', 'giay', 'tui', 'aokhoac']);
-        if (req.query.loaisanpham && allowedLoai.has(req.query.loaisanpham)) {
-            find.loaisanpham = req.query.loaisanpham;
+        const tapLoaiChoPhep = new Set(['ao', 'quan', 'vay', 'phukien', 'giay', 'tui', 'aokhoac']);
+        if (req.query.loaisanpham && tapLoaiChoPhep.has(req.query.loaisanpham)) {
+            dieuKien.loaisanpham = req.query.loaisanpham;
         }
 
         // Lọc theo giới tính
-        const allowedGioiTinh = new Set(['nam', 'nu', 'unisex']);
-        if (req.query.gioitinh && allowedGioiTinh.has(req.query.gioitinh)) {
-            find.gioitinh = req.query.gioitinh;
+        const tapGioiTinhChoPhep = new Set(['nam', 'nu', 'unisex']);
+        if (req.query.gioitinh && tapGioiTinhChoPhep.has(req.query.gioitinh)) {
+            dieuKien.gioitinh = req.query.gioitinh;
         }
 
         // Lọc theo ngày tạo
         if (req.query.dateFrom || req.query.dateTo) {
-            find.ngaytao = {};
-            if (req.query.dateFrom) find.ngaytao.$gte = new Date(req.query.dateFrom);
+            dieuKien.ngaytao = {};
+            if (req.query.dateFrom) dieuKien.ngaytao.$gte = new Date(req.query.dateFrom);
             if (req.query.dateTo) {
-                const endDate = new Date(req.query.dateTo);
-                endDate.setHours(23, 59, 59, 999);
-                find.ngaytao.$lte = endDate;
+                const ngayKetThuc = new Date(req.query.dateTo);
+                ngayKetThuc.setHours(23, 59, 59, 999);
+                dieuKien.ngaytao.$lte = ngayKetThuc;
             }
         }
 
         // Sắp xếp (whitelist)
-        let sort = { ngaytao: -1 };
-        let sortKey = 'ngaytao';
-        let sortDir = -1;
+        let sapXep = { ngaytao: -1 };
+        let khoaSapXep = 'ngaytao';
+        let chieuSapXep = -1;
         if (req.query.sort) {
-            const [key, value] = String(req.query.sort).split('-');
-            const allowedSortKeys = new Set(['gia', 'ngaytao', 'tensanpham']);
-            const allowedSortDir = new Set(['asc', 'desc']);
-            if (allowedSortKeys.has(key) && allowedSortDir.has(value)) {
-                sortKey = key;
-                sortDir = value === 'asc' ? 1 : -1;
-                sort = { [key]: sortDir };
+            const [khoa, huong] = String(req.query.sort).split('-');
+            const tapKhoaSapXep = new Set(['gia', 'ngaytao', 'tensanpham']);
+            const tapChieuSapXep = new Set(['asc', 'desc']);
+            if (tapKhoaSapXep.has(khoa) && tapChieuSapXep.has(huong)) {
+                khoaSapXep = khoa;
+                chieuSapXep = huong === 'asc' ? 1 : -1;
+                sapXep = { [khoa]: chieuSapXep };
             }
         }
 
         // Count & Pagination
-        const totalProducts = await Product.countDocuments(find);
-        objectPagination = paginationHelper(objectPagination, req.query, totalProducts);
+        const tongSanPham = await Product.countDocuments(dieuKien);
+        phanTrang = paginationHelper(phanTrang, req.query, tongSanPham);
 
         // Get products
         // NOTE: when sorting by price, use discounted price (gia after giamgia)
-        let products;
-        if (sortKey === 'gia') {
-            const discountExpr = {
+        let danhSachSanPham;
+        if (khoaSapXep === 'gia') {
+            const bieuThucGiaGiam = {
                 $multiply: [
                     { $ifNull: ['$gia', 0] },
                     {
@@ -199,37 +199,37 @@ const index = async (req, res) => {
                 ]
             };
 
-            products = await Product.aggregate([
-                { $match: find },
-                { $addFields: { __giaSauGiam: discountExpr } },
-                { $sort: { __giaSauGiam: sortDir, ngaytao: -1 } },
-                { $skip: objectPagination.skip },
-                { $limit: objectPagination.limit }
+            danhSachSanPham = await Product.aggregate([
+                { $match: dieuKien },
+                { $addFields: { __giaSauGiam: bieuThucGiaGiam } },
+                { $sort: { __giaSauGiam: chieuSapXep, ngaytao: -1 } },
+                { $skip: phanTrang.skip },
+                { $limit: phanTrang.limit }
             ]);
         } else {
-            products = await Product.find(find)
-                .sort(sort)
-                .skip(objectPagination.skip)
-                .limit(objectPagination.limit)
+            danhSachSanPham = await Product.find(dieuKien)
+                .sort(sapXep)
+                .skip(phanTrang.skip)
+                .limit(phanTrang.limit)
                 .lean();
         }
 
-        let filterString = '';
-        if (req.query.sort) filterString += `&sort=${req.query.sort}`;
-        if (req.query.loaisanpham) filterString += `&loaisanpham=${req.query.loaisanpham}`;
-        if (req.query.gioitinh) filterString += `&gioitinh=${req.query.gioitinh}`;
-        if (req.query.priceMin) filterString += `&priceMin=${req.query.priceMin}`;
-        if (req.query.priceMax) filterString += `&priceMax=${req.query.priceMax}`;
-        if (req.query.dateFrom) filterString += `&dateFrom=${req.query.dateFrom}`;
-        if (req.query.dateTo) filterString += `&dateTo=${req.query.dateTo}`;
-        if (req.query.deleted) filterString += `&deleted=${req.query.deleted}`;
+        let chuoiBoLoc = '';
+        if (req.query.sort) chuoiBoLoc += `&sort=${req.query.sort}`;
+        if (req.query.loaisanpham) chuoiBoLoc += `&loaisanpham=${req.query.loaisanpham}`;
+        if (req.query.gioitinh) chuoiBoLoc += `&gioitinh=${req.query.gioitinh}`;
+        if (req.query.priceMin) chuoiBoLoc += `&priceMin=${req.query.priceMin}`;
+        if (req.query.priceMax) chuoiBoLoc += `&priceMax=${req.query.priceMax}`;
+        if (req.query.dateFrom) chuoiBoLoc += `&dateFrom=${req.query.dateFrom}`;
+        if (req.query.dateTo) chuoiBoLoc += `&dateTo=${req.query.dateTo}`;
+        if (req.query.deleted) chuoiBoLoc += `&deleted=${req.query.deleted}`;
 
         res.render("admin/pages/products/index.pug", {
             titlePage: "Danh sách sản phẩm",
-            products: products.map(productHelper),
-            filterStatus,
-            keyword: objectSearch.keyword,
-            pagination: objectPagination,
+            products: danhSachSanPham.map(productHelper),
+            filterStatus: boLocTrangThai,
+            keyword: doiTuongTimKiem.keyword,
+            pagination: phanTrang,
             
             currentSort: req.query.sort,
             currentLoai: req.query.loaisanpham,
@@ -238,8 +238,8 @@ const index = async (req, res) => {
             priceMax: req.query.priceMax,
             dateFrom: req.query.dateFrom,
             dateTo: req.query.dateTo,
-            currentDeleted: deleted,
-            filterString
+            currentDeleted: daXoa,
+            filterString: chuoiBoLoc
         });
 
     } catch (error) {
@@ -248,8 +248,8 @@ const index = async (req, res) => {
     }
 };
 
-// [POST] /admin/products/:id/restore
-const restoreProduct = async (req, res) => {
+// Khôi phục
+const khoiPhuc = async (req, res) => {
     try {
         const id = String(req.params.id || '');
         if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -267,8 +267,8 @@ const restoreProduct = async (req, res) => {
     }
 };
 
-// [POST] /admin/products/:id/hard-delete
-const hardDeleteProduct = async (req, res) => {
+// Xóa vĩnh viễn
+const xoaVinhVien = async (req, res) => {
     try {
         const id = String(req.params.id || '');
         if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -291,8 +291,8 @@ const hardDeleteProduct = async (req, res) => {
     }
 };
 
-// [GET] /admin/products/create
-const create = async (req, res) => {
+// Tạo mới
+const taoMoi = async (req, res) => {
     try {
         res.render("admin/pages/products/create.pug", {
             titlePage: "Thêm sản phẩm mới"
@@ -303,21 +303,21 @@ const create = async (req, res) => {
     }
 };
 
-// [POST] /admin/products/create
-const createPost = async (req, res) => {
+// Tạo mới
+const taoMoiPost = async (req, res) => {
     try {
-        const isNoSizeProduct = isNoSizeProductType(req.body.loaisanpham);
-        const { baseSizes, tongSizeGoc, soluong_chinh } = buildBaseSizes(req.body, isNoSizeProduct);
+        const laKhongSize = laLoaiKhongSize(req.body.loaisanpham);
+        const { baseSizes: sizesGoc, tongSizeGoc, soluong_chinh: soLuongChinh } = taoSizeGoc(req.body, laKhongSize);
         
         
-        const productData = {
+        const duLieuSanPham = {
             tensanpham: req.body.tensanpham,
             mota: req.body.mota,
             gia: parseInt(req.body.gia) || 0,
             phantramgiamgia: parseInt(req.body.phantramgiamgia) || 0,
             mausac_chinh: req.body.mausac_chinh || '',
-            sizes: baseSizes,
-            soluong_chinh: soluong_chinh,
+            sizes: sizesGoc,
+            soluong_chinh: soLuongChinh,
             soluongton: tongSizeGoc,
             gioitinh: req.body.gioitinh,
             loaisanpham: req.body.loaisanpham,
@@ -326,30 +326,30 @@ const createPost = async (req, res) => {
             ngaytao: new Date()
         };
 
-        const { variants, tongBienThe } = buildVariantsFromRequest({
+        const { variants: danhSachBienThe, tongBienThe } = bienThe({
             reqBody: req.body,
             reqFiles: req.files,
-            isNoSizeProduct
+            isNoSizeProduct: laKhongSize
         });
 
-        if (variants.length) {
+        if (danhSachBienThe.length) {
             // Với create: ảnh biến thể được lấy theo đúng index upload
-            const bientheImages = req.files && req.files['bienthe_hinhanh'] ? req.files['bienthe_hinhanh'] : [];
-            productData.bienthe = variants.map((v, idx) => ({
+            const anhBienThe = req.files && req.files['bienthe_hinhanh'] ? req.files['bienthe_hinhanh'] : [];
+            duLieuSanPham.bienthe = danhSachBienThe.map((v, idx) => ({
                 ...v,
-                hinhanh: bientheImages[idx] ? '/uploads/products/' + bientheImages[idx].filename : v.hinhanh
+                hinhanh: anhBienThe[idx] ? '/uploads/products/' + anhBienThe[idx].filename : v.hinhanh
             }));
-            productData.soluongton = tongSizeGoc + tongBienThe;
+            duLieuSanPham.soluongton = tongSizeGoc + tongBienThe;
         }
 
         // Xử lý upload ảnh chính
         if (req.files && req.files['hinhanh'] && req.files['hinhanh'][0]) {
-            productData.hinhanh = '/uploads/products/' + req.files['hinhanh'][0].filename;
+            duLieuSanPham.hinhanh = '/uploads/products/' + req.files['hinhanh'][0].filename;
         }
 
         // Tạo sản phẩm mới
-        const product = new Product(productData);
-        await product.save();
+        const sanPham = new Product(duLieuSanPham);
+        await sanPham.save();
 
         req.flash('success', 'Thêm sản phẩm thành công!');
         res.redirect(req.app.locals.admin + '/products');
@@ -360,8 +360,8 @@ const createPost = async (req, res) => {
     }
 };
 
-// [GET] /admin/products/:id/edit
-const edit = async (req, res) => {
+// Chỉnh sửa
+const chinhSua = async (req, res) => {
     try {
         const product = await Product.findById(req.params.id).lean();
         
@@ -379,53 +379,53 @@ const edit = async (req, res) => {
     }
 };
 
-// [POST] /admin/products/:id/edit
-const editPost = async (req, res) => {
+// Chỉnh sửa
+const chinhSuaPost = async (req, res) => {
     try {
         // Lấy sản phẩm hiện tại để giữ lại ảnh cũ nếu không upload mới
-        const currentProduct = await Product.findById(req.params.id).lean();
+        const sanPhamHienTai = await Product.findById(req.params.id).lean();
         
-        const isNoSizeProduct = isNoSizeProductType(req.body.loaisanpham);
-        const { baseSizes, tongSizeGoc, soluong_chinh } = buildBaseSizes(req.body, isNoSizeProduct);
+        const laKhongSize = laLoaiKhongSize(req.body.loaisanpham);
+        const { baseSizes: sizesGoc, tongSizeGoc, soluong_chinh: soLuongChinh } = taoSizeGoc(req.body, laKhongSize);
         
-        const productData = {
+        const duLieuSanPham = {
             tensanpham: req.body.tensanpham,
             mota: req.body.mota,
             gia: parseInt(req.body.gia) || 0,
             phantramgiamgia: parseInt(req.body.phantramgiamgia) || 0,
             mausac_chinh: req.body.mausac_chinh || '',
-            sizes: baseSizes,
-            soluong_chinh: soluong_chinh,
+            sizes: sizesGoc,
+            soluong_chinh: soLuongChinh,
             soluongton: tongSizeGoc,
             gioitinh: req.body.gioitinh,
             loaisanpham: req.body.loaisanpham,
             trangthai: req.body.trangthai
         };
 
-        const oldImageArr = Array.isArray(req.body.bienthe_hinhanh_cu) ? req.body.bienthe_hinhanh_cu : [req.body.bienthe_hinhanh_cu];
-        const hasNewImageArr = Array.isArray(req.body.bienthe_has_new_image) ? req.body.bienthe_has_new_image : [req.body.bienthe_has_new_image];
+        const anhCuArr = Array.isArray(req.body.bienthe_hinhanh_cu) ? req.body.bienthe_hinhanh_cu : [req.body.bienthe_hinhanh_cu];
+        const coAnhMoiArr = Array.isArray(req.body.bienthe_has_new_image) ? req.body.bienthe_has_new_image : [req.body.bienthe_has_new_image];
 
-        const { variants: editVariants, tongBienThe: tongBienTheEdit } = buildVariantsFromRequest({
+        const { variants: bienTheChinhSua, tongBienThe: tongBienTheEdit } = bienThe({
             reqBody: req.body,
             reqFiles: req.files,
-            isNoSizeProduct,
-            oldImageArr,
-            hasNewImageArr
+            isNoSizeProduct: laKhongSize,
+            oldImageArr: anhCuArr,
+            hasNewImageArr: coAnhMoiArr
         });
 
-        if (editVariants.length) {
-            productData.bienthe = editVariants;
-            productData.soluongton = tongSizeGoc + tongBienTheEdit;
+        if (bienTheChinhSua.length) {
+            duLieuSanPham.bienthe = bienTheChinhSua;
+            duLieuSanPham.soluongton = tongSizeGoc + tongBienTheEdit;
         } else {
-            productData.bienthe = [];
+            duLieuSanPham.bienthe = [];
         }
 
         // Xử lý upload ảnh chính mới
         if (req.files && req.files['hinhanh'] && req.files['hinhanh'][0]) {
-            productData.hinhanh = '/uploads/products/' + req.files['hinhanh'][0].filename;
+            duLieuSanPham.hinhanh = '/uploads/products/' + req.files['hinhanh'][0].filename;
         }
 
-        await Product.findByIdAndUpdate(req.params.id, productData);
+        await Product.findByIdAndUpdate(req.params.id, duLieuSanPham);
 
         req.flash('success', 'Cập nhật sản phẩm thành công!');
         res.redirect(req.app.locals.admin + '/products');
@@ -436,8 +436,8 @@ const editPost = async (req, res) => {
     }
 };
 
-// [GET] /admin/products/:id/delete (Soft delete)
-const deleteProduct = async (req, res) => {
+// Xóa mềm
+const xoaMem = async (req, res) => {
     try {
         await Product.findByIdAndUpdate(req.params.id, { daxoa: true });
         req.flash('success', 'Xóa sản phẩm thành công!');
@@ -449,8 +449,8 @@ const deleteProduct = async (req, res) => {
     }
 };
 
-// [PATCH] /admin/products/:id/change-status
-const changeStatus = async (req, res) => {
+// Đổi trạng thái
+const doiTrangThai = async (req, res) => {
     try {
         const { status } = req.body;
         await Product.findByIdAndUpdate(req.params.id, { trangthai: status });
@@ -462,13 +462,13 @@ const changeStatus = async (req, res) => {
 };
 
 module.exports = { 
-    index,
-    create,
-    createPost,
-    edit,
-    editPost,
-    delete: deleteProduct,
-    restore: restoreProduct,
-    hardDelete: hardDeleteProduct,
-    changeStatus
+    danhSach,
+    taoMoi,
+    taoMoiPost,
+    chinhSua,
+    chinhSuaPost,
+    xoaMem,
+    khoiPhuc,
+    xoaVinhVien,
+    doiTrangThai
 };

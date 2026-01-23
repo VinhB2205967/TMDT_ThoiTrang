@@ -2,14 +2,14 @@ const bcrypt = require('bcryptjs');
 const Nguoidung = require('../../models/user_model');
 const systemConfig = require('../../config/system');
 const { writeLoginLog } = require('../../services/loginLog');
-
-function normalizeEmail(email) {
+// Chuẩn hóa email
+function chuanHoaEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
 
-// GET /admin/login
-module.exports.pageLogin = (req, res) => {
-  // If already admin-authenticated, go straight to admin home
+// Đăng nhập
+module.exports.trangDangNhap = (req, res) => {
+  // nếu đăng nhập => admin
   if (req.session?.adminUserId) return res.redirect(systemConfig.prefigAdmin);
 
   res.render('admin/pages/auth/login.pug', {
@@ -17,46 +17,46 @@ module.exports.pageLogin = (req, res) => {
   });
 };
 
-// POST /admin/login
-module.exports.login = async (req, res) => {
+// Đăng nhập
+module.exports.dangNhap = async (req, res) => {
   try {
-    const email = normalizeEmail(req.body.email);
-    const password = String(req.body.password || '');
+    const emailDangNhap = chuanHoaEmail(req.body.email);
+    const matKhau = String(req.body.password || '');
 
-    if (!email || !password) {
-      await writeLoginLog({ req, email, provider: 'admin', status: 'failed', message: 'missing_credentials' });
+    if (!emailDangNhap || !matKhau) {
+      await writeLoginLog({ req, email: emailDangNhap, provider: 'admin', status: 'failed', message: 'missing_credentials' });
       req.flash('error', 'Vui lòng nhập email và mật khẩu');
       return res.redirect(`${systemConfig.prefigAdmin}/login`);
     }
 
-    const user = await Nguoidung.findOne({ email, daxoa: { $ne: true } });
-    if (!user) {
-      await writeLoginLog({ req, email, provider: 'admin', status: 'failed', message: 'user_not_found' });
+    const nguoiDung = await Nguoidung.findOne({ email: emailDangNhap, daxoa: { $ne: true } });
+    if (!nguoiDung) {
+      await writeLoginLog({ req, email: emailDangNhap, provider: 'admin', status: 'failed', message: 'user_not_found' });
       req.flash('error', 'Sai email hoặc mật khẩu');
       return res.redirect(`${systemConfig.prefigAdmin}/login`);
     }
 
-    if (user.trangthai !== 'active') {
-      await writeLoginLog({ req, user, provider: 'admin', status: 'failed', message: 'noactive' });
+    if (nguoiDung.trangthai !== 'active') {
+      await writeLoginLog({ req, user: nguoiDung, provider: 'admin', status: 'failed', message: 'noactive' });
       req.flash('error', 'Tài khoản đang bị khóa');
       return res.redirect(`${systemConfig.prefigAdmin}/login`);
     }
 
-    if (user.vaitro !== 'admin') {
-      await writeLoginLog({ req, user, provider: 'admin', status: 'failed', message: 'not_admin' });
+    if (nguoiDung.vaitro !== 'admin') {
+      await writeLoginLog({ req, user: nguoiDung, provider: 'admin', status: 'failed', message: 'not_admin' });
       req.flash('error', 'Tài khoản này không có quyền Admin');
       return res.redirect(`${systemConfig.prefigAdmin}/login`);
     }
 
-    const ok = await bcrypt.compare(password, user.matkhau || '');
-    if (!ok) {
-      await writeLoginLog({ req, user, provider: 'admin', status: 'failed', message: 'wrong_password' });
+    const hopLe = await bcrypt.compare(matKhau, nguoiDung.matkhau || '');
+    if (!hopLe) {
+      await writeLoginLog({ req, user: nguoiDung, provider: 'admin', status: 'failed', message: 'wrong_password' });
       req.flash('error', 'Sai email hoặc mật khẩu');
       return res.redirect(`${systemConfig.prefigAdmin}/login`);
     }
-
+// cập nhật thông tin
     await Nguoidung.updateOne(
-      { _id: user._id },
+      { _id: nguoiDung._id },
       {
         $set: {
           lastLoginAt: new Date(),
@@ -67,30 +67,30 @@ module.exports.login = async (req, res) => {
         }
       }
     );
-
-    req.session.adminUserId = String(user._id);
-    await writeLoginLog({ req, user, provider: 'admin', status: 'success' });
+// lưu session
+    req.session.adminUserId = String(nguoiDung._id);
+    await writeLoginLog({ req, user: nguoiDung, provider: 'admin', status: 'success' });
     req.flash('success', 'Đăng nhập Admin thành công');
     return res.redirect(systemConfig.prefigAdmin);
   } catch (err) {
     console.error('Admin login error:', err);
-    await writeLoginLog({ req, email: normalizeEmail(req.body.email), provider: 'admin', status: 'failed', message: 'exception' });
+    await writeLoginLog({ req, email: chuanHoaEmail(req.body.email), provider: 'admin', status: 'failed', message: 'exception' });
     req.flash('error', 'Có lỗi khi đăng nhập Admin');
     return res.redirect(`${systemConfig.prefigAdmin}/login`);
   }
 };
 
-// POST /admin/logout
-module.exports.logout = (req, res) => {
-  const adminUserId = req.session && req.session.adminUserId;
+// Đăng xuất
+module.exports.dangXuat = (req, res) => {
+  const idAdmin = req.session && req.session.adminUserId;
 
-  // Mark offline immediately (so realtime /admin/users polling updates right away)
-  if (adminUserId) {
+ // cập nhật trạng thái offline
+  if (idAdmin) {
     const ONLINE_WINDOW_MS = 5 * 60 * 1000;
-    const offlineAt = new Date(Date.now() - ONLINE_WINDOW_MS - 1000);
+    const thoiDiemOffline = new Date(Date.now() - ONLINE_WINDOW_MS - 1000);
     Nguoidung.updateOne(
-      { _id: adminUserId, daxoa: { $ne: true } },
-      { $set: { lastSeenAt: offlineAt } }
+      { _id: idAdmin, daxoa: { $ne: true } },
+      { $set: { lastSeenAt: thoiDiemOffline } }
     ).catch(() => {});
   }
 

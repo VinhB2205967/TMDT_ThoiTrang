@@ -30,7 +30,7 @@ const uploadAvatar = multer({
 	}
 });
 
-router.get('/account', requireAuth, controller.page);
+router.get('/account', requireAuth, controller.trang);
 router.post(
 	'/account/profile',
 	requireAuth,
@@ -49,9 +49,9 @@ router.post(
 			return res.redirect('/account');
 		});
 	},
-	controller.updateProfile
+	controller.capNhatHoSo
 );
-router.post('/account/password', requireAuth, controller.changePassword);
-router.post('/account/delete', requireAuth, controller.deleteAccount);
+router.post('/account/password', requireAuth, controller.doiMatKhau);
+router.post('/account/delete', requireAuth, controller.xoaTaiKhoan);
 
 module.exports = router;

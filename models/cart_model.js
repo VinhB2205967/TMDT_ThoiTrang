@@ -11,12 +11,12 @@ const cartItemSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     default: null
   },
-  tensanpham: String,               // Lưu tên để hiển thị nhanh
-  hinhanh: String,                  // Hình ảnh sản phẩm/biến thể
-  mausac: String,                   // Màu sắc đã chọn
-  kichco: String,                   // Size đã chọn
-  gia: Number,                      // Giá tại thời điểm thêm
-  giagiam: Number,                  // Giá sau giảm
+  tensanpham: String,               
+  hinhanh: String,                 
+  mausac: String,                  
+  kichco: String,                  
+  gia: Number,                     
+  giagiam: Number,                 
   soluong: {
     type: Number,
     default: 1,
@@ -30,8 +30,8 @@ const cartSchema = new mongoose.Schema({
     ref: "Nguoidung",
     required: true
   },
-  sanpham: [cartItemSchema],        // Danh sách sản phẩm trong giỏ
-  tongtien: {                       // Tổng tiền (tự tính)
+  sanpham: [cartItemSchema],        
+  tongtien: {                       
     type: Number,
     default: 0
   },

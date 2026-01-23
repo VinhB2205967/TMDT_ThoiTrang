@@ -4,11 +4,11 @@ const fs = require('fs');
 const Nguoidung = require('../../models/user_model');
 const { normalizePhone, isValidPhoneVN, isSafeImageUrl } = require('../../helpers/validators');
 
-function normalizeString(value) {
+function chuanHoaChuoi(value) {
   return String(value || '').trim();
 }
 
-function toDateInputValue(d) {
+function dinhDangNgayInput(d) {
   try {
     if (!d) return '';
     const date = new Date(d);
@@ -22,87 +22,87 @@ function toDateInputValue(d) {
   }
 }
 
-function validateNewPassword(password) {
+function kiemTraMatKhauMoi(password) {
   const p = String(password || '');
   if (p.length < 6) return 'Mật khẩu phải tối thiểu 6 ký tự';
   return null;
 }
 
-// GET /account
-module.exports.page = async (req, res) => {
-  const user = req.user;
+// Thông tin
+module.exports.trang = async (req, res) => {
+  const nguoiDung = req.user;
   res.render('client/pages/account/index.pug', {
     titlePage: 'Thông tin tài khoản',
     profile: {
-      hoten: user?.hoten || '',
-      email: user?.email || '',
-      sodienthoai: user?.sodienthoai || '',
-      diachi: user?.diachi || '',
-      gioitinh: user?.gioitinh || '',
-      ngaysinh: toDateInputValue(user?.ngaysinh),
-      avatar: user?.avatar || ''
+      hoten: nguoiDung?.hoten || '',
+      email: nguoiDung?.email || '',
+      sodienthoai: nguoiDung?.sodienthoai || '',
+      diachi: nguoiDung?.diachi || '',
+      gioitinh: nguoiDung?.gioitinh || '',
+      ngaysinh: dinhDangNgayInput(nguoiDung?.ngaysinh),
+      avatar: nguoiDung?.avatar || ''
     },
-    hasPassword: Boolean(user?.matkhau)
+    hasPassword: Boolean(nguoiDung?.matkhau)
   });
 };
 
-// POST /account/profile
-module.exports.updateProfile = async (req, res) => {
+// Cập nhật hồ sơ
+module.exports.capNhatHoSo = async (req, res) => {
   try {
-    const userId = req.user && req.user._id ? String(req.user._id) : null;
-    if (!userId) return res.redirect('/auth?mode=login');
+    const idNguoiDung = req.user && req.user._id ? String(req.user._id) : null;
+    if (!idNguoiDung) return res.redirect('/auth?mode=login');
 
-    const hoten = normalizeString(req.body.hoten);
-    const rawPhone = normalizeString(req.body.sodienthoai);
-    if (rawPhone && !isValidPhoneVN(rawPhone)) {
+    const hoTen = chuanHoaChuoi(req.body.hoten);
+    const sdtRaw = chuanHoaChuoi(req.body.sodienthoai);
+    if (sdtRaw && !isValidPhoneVN(sdtRaw)) {
       req.flash?.('error', 'Số điện thoại không đúng định dạng');
       return res.redirect('/account');
     }
-    const sodienthoai = rawPhone ? normalizePhone(rawPhone) : '';
-    const diachi = normalizeString(req.body.diachi);
-    const gioitinh = normalizeString(req.body.gioitinh);
-    const avatarUrl = normalizeString(req.body.avatarUrl || req.body.avatar);
+    const sodienthoai = sdtRaw ? normalizePhone(sdtRaw) : '';
+    const diachi = chuanHoaChuoi(req.body.diachi);
+    const gioitinh = chuanHoaChuoi(req.body.gioitinh);
+    const avatarUrl = chuanHoaChuoi(req.body.avatarUrl || req.body.avatar);
 
     if (avatarUrl && !isSafeImageUrl(avatarUrl)) {
       req.flash?.('error', 'Avatar URL không hợp lệ');
       return res.redirect('/account');
     }
 
-    let ngaysinh = null;
+    let ngaySinh = null;
     if (req.body.ngaysinh) {
-      const parsed = new Date(req.body.ngaysinh);
-      if (!Number.isNaN(parsed.getTime())) ngaysinh = parsed;
+      const ngayParsed = new Date(req.body.ngaysinh);
+      if (!Number.isNaN(ngayParsed.getTime())) ngaySinh = ngayParsed;
     }
 
     let avatar = '';
     if (req.file && req.file.filename) {
       avatar = `/uploads/avatars/${req.file.filename}`;
 
-      // Best-effort delete old avatar file if it was also an uploaded avatar
-      const oldAvatar = String(req.user?.avatar || '');
-      if (oldAvatar.startsWith('/uploads/avatars/')) {
-        const oldName = path.basename(oldAvatar);
-        const oldPath = path.join(process.cwd(), 'public', 'uploads', 'avatars', oldName);
-        fs.promises.unlink(oldPath).catch(() => {});
+      // Xóa ảnh cũ
+      const avatarCu = String(req.user?.avatar || '');
+      if (avatarCu.startsWith('/uploads/avatars/')) {
+        const tenCu = path.basename(avatarCu);
+        const duongDanCu = path.join(process.cwd(), 'public', 'uploads', 'avatars', tenCu);
+        fs.promises.unlink(duongDanCu).catch(() => {});
       }
     }
 
     if (!avatar && avatarUrl) avatar = avatarUrl;
 
     const $set = {
-      hoten,
+      hoten: hoTen,
       sodienthoai,
       diachi,
       gioitinh,
-      ngaysinh,
+      ngaysinh: ngaySinh,
       ngaycapnhat: new Date()
     };
 
-    // Only update avatar if user provided a file or a URL (avoid wiping existing avatar)
+    // Chỉ cập nhật khi có avatar
     if (avatar) $set.avatar = avatar;
 
     await Nguoidung.updateOne(
-      { _id: userId, daxoa: { $ne: true } },
+      { _id: idNguoiDung, daxoa: { $ne: true } },
       {
         $set
       }
@@ -117,45 +117,45 @@ module.exports.updateProfile = async (req, res) => {
   }
 };
 
-// POST /account/password
-module.exports.changePassword = async (req, res) => {
+// Đổi mật khẩu
+module.exports.doiMatKhau = async (req, res) => {
   try {
-    const userId = req.user && req.user._id ? String(req.user._id) : null;
-    if (!userId) return res.redirect('/auth?mode=login');
+    const idNguoiDung = req.user && req.user._id ? String(req.user._id) : null;
+    if (!idNguoiDung) return res.redirect('/auth?mode=login');
 
-    const oldPassword = String(req.body.oldPassword || '');
-    const newPassword = String(req.body.newPassword || '');
-    const confirmPassword = String(req.body.confirmPassword || '');
+    const matKhauCu = String(req.body.oldPassword || '');
+    const matKhauMoi = String(req.body.newPassword || '');
+    const xacNhanMatKhau = String(req.body.confirmPassword || '');
 
-    const pwError = validateNewPassword(newPassword);
-    if (pwError) {
-      req.flash?.('error', pwError);
+    const loiMatKhau = kiemTraMatKhauMoi(matKhauMoi);
+    if (loiMatKhau) {
+      req.flash?.('error', loiMatKhau);
       return res.redirect('/account');
     }
 
-    if (newPassword !== confirmPassword) {
+    if (matKhauMoi !== xacNhanMatKhau) {
       req.flash?.('error', 'Xác nhận mật khẩu không khớp');
       return res.redirect('/account');
     }
 
-    const user = await Nguoidung.findOne({ _id: userId, daxoa: { $ne: true } });
-    if (!user) {
+    const nguoiDung = await Nguoidung.findOne({ _id: idNguoiDung, daxoa: { $ne: true } });
+    if (!nguoiDung) {
       req.flash?.('error', 'Không tìm thấy tài khoản');
       return res.redirect('/auth?mode=login');
     }
 
-    if (user.matkhau) {
-      const ok = await bcrypt.compare(oldPassword, user.matkhau);
-      if (!ok) {
+    if (nguoiDung.matkhau) {
+      const hopLe = await bcrypt.compare(matKhauCu, nguoiDung.matkhau);
+      if (!hopLe) {
         req.flash?.('error', 'Mật khẩu hiện tại không đúng');
         return res.redirect('/account');
       }
     }
 
-    const hashed = await bcrypt.hash(newPassword, 10);
+    const matKhauMaHoa = await bcrypt.hash(matKhauMoi, 10);
     await Nguoidung.updateOne(
-      { _id: userId, daxoa: { $ne: true } },
-      { $set: { matkhau: hashed, ngaycapnhat: new Date() } }
+      { _id: idNguoiDung, daxoa: { $ne: true } },
+      { $set: { matkhau: matKhauMaHoa, ngaycapnhat: new Date() } }
     );
 
     req.flash?.('success', 'Đổi mật khẩu thành công');
@@ -167,23 +167,23 @@ module.exports.changePassword = async (req, res) => {
   }
 };
 
-// POST /account/delete
-module.exports.deleteAccount = async (req, res) => {
+// Xóa tài khoản
+module.exports.xoaTaiKhoan = async (req, res) => {
   try {
-    const userId = req.user && req.user._id ? String(req.user._id) : null;
-    if (!userId) return res.redirect('/auth?mode=login');
+    const idNguoiDung = req.user && req.user._id ? String(req.user._id) : null;
+    if (!idNguoiDung) return res.redirect('/auth?mode=login');
 
     await Nguoidung.updateOne(
-      { _id: userId, daxoa: { $ne: true } },
+      { _id: idNguoiDung, daxoa: { $ne: true } },
       { $set: { daxoa: true, trangthai: 'noactive', ngaycapnhat: new Date() } }
     );
 
-    // Mark offline immediately
+    // Offline ngay
     const ONLINE_WINDOW_MS = 5 * 60 * 1000;
-    const offlineAt = new Date(Date.now() - ONLINE_WINDOW_MS - 1000);
+    const thoiDiemOffline = new Date(Date.now() - ONLINE_WINDOW_MS - 1000);
     Nguoidung.updateOne(
-      { _id: userId },
-      { $set: { lastSeenAt: offlineAt } }
+      { _id: idNguoiDung },
+      { $set: { lastSeenAt: thoiDiemOffline } }
     ).catch(() => {});
 
     try {

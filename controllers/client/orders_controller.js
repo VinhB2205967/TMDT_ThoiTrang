@@ -4,14 +4,14 @@ const Sanpham = require('../../models/product_model');
 const { getOrCreateCart, normalizeImage } = require('../../services/cart.service');
 const { statusLabels, getAllowedStatuses } = require('../../helpers/orderStatus');
 
-function noSizeByType(loaisanpham) {
+function laLoaiKhongSize(loaisanpham) {
   return ['tui', 'phukien'].includes(String(loaisanpham || '').toLowerCase());
 }
 
-function computeTotalStock(productDoc) {
+function tinhTongTon(productDoc) {
   if (!productDoc) return 0;
 
-  const hasSize = !noSizeByType(productDoc.loaisanpham);
+  const hasSize = !laLoaiKhongSize(productDoc.loaisanpham);
   let total = 0;
 
   if (hasSize) {
@@ -27,7 +27,7 @@ function computeTotalStock(productDoc) {
   return total;
 }
 
-async function incrementStockForOrderItem(orderItemDoc) {
+async function congTonChoChiTietDon(orderItemDoc) {
   const productId = orderItemDoc.sanpham_id;
   const variantId = orderItemDoc.bienthe_id;
   const size = orderItemDoc.kichco;
@@ -36,8 +36,8 @@ async function incrementStockForOrderItem(orderItemDoc) {
   const product = await Sanpham.findById(productId);
   if (!product) throw new Error('Sản phẩm không tồn tại');
 
-  const baseTotal = (typeof product.soluongton === 'number') ? product.soluongton : computeTotalStock(product);
-  const hasSize = !noSizeByType(product.loaisanpham);
+  const baseTotal = (typeof product.soluongton === 'number') ? product.soluongton : tinhTongTon(product);
+  const hasSize = !laLoaiKhongSize(product.loaisanpham);
 
   if (!variantId) {
     if (hasSize) {
@@ -76,63 +76,63 @@ async function incrementStockForOrderItem(orderItemDoc) {
   await product.save();
 }
 
-module.exports.index = async (req, res) => {
-  const status = String(req.query.status || 'all');
-  const allowed = new Set(getAllowedStatuses());
-  const currentStatus = allowed.has(status) ? status : 'all';
+module.exports.danhSach = async (req, res) => {
+  const trangThai = String(req.query.status || 'all');
+  const tapChoPhep = new Set(getAllowedStatuses());
+  const trangThaiHienTai = tapChoPhep.has(trangThai) ? trangThai : 'all';
 
-  const filter = { nguoidung_id: req.user._id, daxoa: { $ne: true } };
-  if (currentStatus !== 'all') filter.trangthai = currentStatus;
+  const boLoc = { nguoidung_id: req.user._id, daxoa: { $ne: true } };
+  if (trangThaiHienTai !== 'all') boLoc.trangthai = trangThaiHienTai;
 
-  const orders = await Donhang.find(filter)
+  const danhSachDon = await Donhang.find(boLoc)
     .sort({ ngaytao: -1 })
     .lean();
 
-  // Attach preview info (first product + count) for nicer orders list UI
-  if (orders && orders.length) {
-    const orderIds = orders.map(o => o._id);
-    const orderItems = await Chitietdonhang.find({ donhang_id: { $in: orderIds } })
+  // Preview
+  if (danhSachDon && danhSachDon.length) {
+    const danhSachIdDon = danhSachDon.map(o => o._id);
+    const danhSachChiTiet = await Chitietdonhang.find({ donhang_id: { $in: danhSachIdDon } })
       .select('donhang_id tensanpham hinhanh')
       .sort({ ngaytao: 1 })
       .lean();
 
-    const map = new Map();
-    for (const it of (orderItems || [])) {
+    const mapDon = new Map();
+    for (const it of (danhSachChiTiet || [])) {
       const key = String(it.donhang_id);
-      const existing = map.get(key);
-      if (!existing) {
-        map.set(key, { first: it, count: 1 });
+      const tonTai = mapDon.get(key);
+      if (!tonTai) {
+        mapDon.set(key, { first: it, count: 1 });
       } else {
-        existing.count += 1;
+        tonTai.count += 1;
       }
     }
 
-    for (const o of orders) {
-      const info = map.get(String(o._id));
-      if (!info) {
-        o.preview = null;
+    for (const don of danhSachDon) {
+      const thongTin = mapDon.get(String(don._id));
+      if (!thongTin) {
+        don.preview = null;
         continue;
       }
-      o.preview = {
-        name: info.first && info.first.tensanpham ? String(info.first.tensanpham) : 'Sản phẩm',
-        image: normalizeImage(info.first && info.first.hinhanh ? String(info.first.hinhanh) : ''),
-        count: info.count || 1
+      don.preview = {
+        name: thongTin.first && thongTin.first.tensanpham ? String(thongTin.first.tensanpham) : 'Sản phẩm',
+        image: normalizeImage(thongTin.first && thongTin.first.hinhanh ? String(thongTin.first.hinhanh) : ''),
+        count: thongTin.count || 1
       };
     }
   }
 
   res.render('client/pages/orders/index.pug', {
     titlePage: 'Đơn hàng của tôi',
-    orders: orders || [],
-    currentStatus,
+    orders: danhSachDon || [],
+    currentStatus: trangThaiHienTai,
     statusOptions: getAllowedStatuses(),
     statusLabels
   });
 };
 
-module.exports.detail = async (req, res) => {
-  const order = await Donhang.findOne({ _id: req.params.id, nguoidung_id: req.user._id, daxoa: { $ne: true } }).lean();
-  if (!order) {
+module.exports.chiTiet = async (req, res) => {
+  const donHang = await Donhang.findOne({ _id: req.params.id, nguoidung_id: req.user._id, daxoa: { $ne: true } }).lean();
+  if (!donHang) {
     return res.status(404).render('client/pages/orders/detail.pug', {
       titlePage: 'Không tìm thấy đơn hàng',
       order: null,
@@ -141,114 +141,114 @@ module.exports.detail = async (req, res) => {
     });
   }
 
-  const items = await Chitietdonhang.find({ donhang_id: order._id }).lean();
+  const danhSachItem = await Chitietdonhang.find({ donhang_id: donHang._id }).lean();
 
   return res.render('client/pages/orders/detail.pug', {
-    titlePage: `Chi tiết ${order.madonhang || 'đơn hàng'}`,
-    order,
-    items: items || [],
+    titlePage: `Chi tiết ${donHang.madonhang || 'đơn hàng'}`,
+    order: donHang,
+    items: danhSachItem || [],
     statusLabels
   });
 };
 
-module.exports.cancel = async (req, res) => {
-  const reason = String(req.body.reason || '').trim() || 'Khách hàng hủy đơn';
+module.exports.huyDon = async (req, res) => {
+  const lyDo = String(req.body.reason || '').trim() || 'Khách hàng hủy đơn';
 
-  // Atomic status update to prevent double-cancel/double-restock
-  const order = await Donhang.findOneAndUpdate(
+  // Cập nhật trạng thái
+  const donHang = await Donhang.findOneAndUpdate(
     { _id: req.params.id, nguoidung_id: req.user._id, daxoa: { $ne: true }, trangthai: 'choxacnhan' },
-    { $set: { trangthai: 'dahuy', lydohuy: reason, ngaycapnhat: new Date() } },
+    { $set: { trangthai: 'dahuy', lydohuy: lyDo, ngaycapnhat: new Date() } },
     { new: true }
   );
 
-  if (!order) {
-    const existing = await Donhang.findOne({ _id: req.params.id, nguoidung_id: req.user._id, daxoa: { $ne: true } })
+  if (!donHang) {
+    const tonTai = await Donhang.findOne({ _id: req.params.id, nguoidung_id: req.user._id, daxoa: { $ne: true } })
       .select('_id trangthai')
       .lean();
 
-    if (!existing) {
+    if (!tonTai) {
       req.flash?.('error', 'Không tìm thấy đơn hàng.');
       return res.redirect('/orders');
     }
 
     req.flash?.('error', 'Đơn hàng này không thể hủy ở trạng thái hiện tại.');
-    return res.redirect(`/orders/${existing._id}`);
+    return res.redirect(`/orders/${tonTai._id}`);
   }
 
-  const items = await Chitietdonhang.find({ donhang_id: order._id });
-  const errors = [];
+  const danhSachItem = await Chitietdonhang.find({ donhang_id: donHang._id });
+  const danhSachLoi = [];
 
-  for (const it of (items || [])) {
+  for (const it of (danhSachItem || [])) {
     try {
-      await incrementStockForOrderItem(it);
+      await congTonChoChiTietDon(it);
     } catch (e) {
-      errors.push(e?.message || 'Có lỗi khi hoàn tồn kho');
+      danhSachLoi.push(e?.message || 'Có lỗi khi hoàn tồn kho');
     }
   }
 
-  if (errors.length) {
+  if (danhSachLoi.length) {
     req.flash?.('error', 'Đã hủy đơn, nhưng có lỗi khi hoàn tồn kho cho một số sản phẩm. Vui lòng liên hệ shop.');
-    return res.redirect(`/orders/${order._id}`);
+    return res.redirect(`/orders/${donHang._id}`);
   }
 
   req.flash?.('success', 'Đã hủy đơn hàng và hoàn lại số lượng sản phẩm.');
   return res.redirect('/orders');
 };
 
-module.exports.reorder = async (req, res) => {
-  const order = await Donhang.findOne({ _id: req.params.id, nguoidung_id: req.user._id, daxoa: { $ne: true } }).lean();
-  if (!order) {
+module.exports.muaLai = async (req, res) => {
+  const donHang = await Donhang.findOne({ _id: req.params.id, nguoidung_id: req.user._id, daxoa: { $ne: true } }).lean();
+  if (!donHang) {
     req.flash('success', 'Không tìm thấy đơn hàng.');
     return res.redirect('/orders');
   }
 
-  const items = await Chitietdonhang.find({ donhang_id: order._id }).lean();
-  if (!items || !items.length) {
+  const danhSachItem = await Chitietdonhang.find({ donhang_id: donHang._id }).lean();
+  if (!danhSachItem || !danhSachItem.length) {
     req.flash('success', 'Đơn hàng không có sản phẩm để mua lại.');
     return res.redirect('/orders');
   }
 
-  const cart = await getOrCreateCart(req.user._id);
+  const gioHang = await getOrCreateCart(req.user._id);
 
-  let addedCount = 0;
-  let skippedCount = 0;
+  let soDaThem = 0;
+  let soBoQua = 0;
 
-  for (const it of items) {
-    const product = await Sanpham.findOne({ _id: it.sanpham_id, daxoa: { $ne: true }, trangthai: 'dangban' }).lean();
-    if (!product) {
-      skippedCount += 1;
+  for (const it of danhSachItem) {
+    const sanPham = await Sanpham.findOne({ _id: it.sanpham_id, daxoa: { $ne: true }, trangthai: 'dangban' }).lean();
+    if (!sanPham) {
+      soBoQua += 1;
       continue;
     }
 
     const bientheId = it.bienthe_id ? String(it.bienthe_id) : '';
     const sizeVal = it.kichco ? String(it.kichco) : '';
 
-    const existing = (cart.sanpham || []).find(ci => String(ci.sanpham_id) === String(it.sanpham_id)
+    const tonTai = (gioHang.sanpham || []).find(ci => String(ci.sanpham_id) === String(it.sanpham_id)
       && String(ci.bienthe_id || '') === bientheId
       && String(ci.kichco || '') === sizeVal);
 
     const qty = Math.max(1, parseInt(it.soluong, 10) || 1);
 
-    if (existing) {
-      existing.soluong = (existing.soluong || 0) + qty;
+    if (tonTai) {
+      tonTai.soluong = (tonTai.soluong || 0) + qty;
     } else {
-      cart.sanpham.push({
+      gioHang.sanpham.push({
         sanpham_id: it.sanpham_id,
         bienthe_id: it.bienthe_id || null,
-        tensanpham: it.tensanpham || product.tensanpham,
-        hinhanh: normalizeImage(it.hinhanh) || normalizeImage(product.hinhanh),
-        mausac: it.mausac || product.mausac_chinh || 'Mặc định',
+        tensanpham: it.tensanpham || sanPham.tensanpham,
+        hinhanh: normalizeImage(it.hinhanh) || normalizeImage(sanPham.hinhanh),
+        mausac: it.mausac || sanPham.mausac_chinh || 'Mặc định',
         kichco: it.kichco || null,
-        gia: it.giagoc || it.giaban || product.gia || 0,
-        giagiam: it.giaban || it.giagoc || product.gia || 0,
+        gia: it.giagoc || it.giaban || sanPham.gia || 0,
+        giagiam: it.giaban || it.giagoc || sanPham.gia || 0,
         soluong: qty
       });
     }
 
-    addedCount += 1;
+    soDaThem += 1;
   }
 
-  await cart.save();
-  req.flash('success', `Đã thêm ${addedCount} sản phẩm vào giỏ hàng${skippedCount ? ` (bỏ qua ${skippedCount} sản phẩm đã ngừng bán)` : ''}.`);
+  await gioHang.save();
+  req.flash('success', `Đã thêm ${soDaThem} sản phẩm vào giỏ hàng${soBoQua ? ` (bỏ qua ${soBoQua} sản phẩm đã ngừng bán)` : ''}.`);
   return res.redirect('/cart');
 };
