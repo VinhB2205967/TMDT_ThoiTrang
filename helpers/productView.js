@@ -1,4 +1,4 @@
-const COLOR_MAP = {
+const bangmamau = {
   'đỏ': '#e74c3c',
   do: '#e74c3c',
   red: '#e74c3c',
@@ -39,22 +39,22 @@ const COLOR_MAP = {
   'xanh navy': '#1a237e'
 };
 
-function getColorCode(colorName) {
-  if (!colorName) return '#ccc';
-  const lowerColor = String(colorName).toLowerCase().trim();
-  return COLOR_MAP[lowerColor] || colorName;
+function layMaMau(tenmau) {
+  if (!tenmau) return '#ccc';
+  const mauthuong = String(tenmau).toLowerCase().trim();
+  return bangmamau[mauthuong] || tenmau;
 }
 
-function normalizeImage(img) {
-  if (!img) return '/images/shopping.png';
-  if (img.startsWith('/public/')) return img.replace('/public', '');
-  if (img.startsWith('http')) return img;
-  if (img.startsWith('/')) return img;
-  return `/images/${img}`;
+function chuanHoaAnh(duongdan) {
+  if (!duongdan) return '/images/shopping.png';
+  if (duongdan.startsWith('/public/')) return duongdan.replace('/public', '');
+  if (duongdan.startsWith('http')) return duongdan;
+  if (duongdan.startsWith('/')) return duongdan;
+  return `/images/${duongdan}`;
 }
 
 module.exports = {
-  COLOR_MAP,
-  getColorCode,
-  normalizeImage
+  bangmamau,
+  layMaMau,
+  chuanHoaAnh
 };

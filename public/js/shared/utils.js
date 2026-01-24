@@ -22,14 +22,14 @@
   };
 
   App.setCartBadge = App.setCartBadge || function setCartBadge(count) {
-    const badge = App.qs('.cart-badge');
-    if (!badge) return;
-    badge.textContent = String(count ?? 0);
+    const huyHieu = App.qs('.cart-badge');
+    if (!huyHieu) return;
+    huyHieu.textContent = String(count ?? 0);
   };
 
   App.wantsJsonResponse = App.wantsJsonResponse || function wantsJsonResponse(res) {
-    const ct = String(res.headers.get('content-type') || '');
-    return ct.includes('application/json');
+    const kieuNoiDung = String(res.headers.get('content-type') || '');
+    return kieuNoiDung.includes('application/json');
   };
 
   App.safeJson = App.safeJson || async function safeJson(res) {
@@ -43,7 +43,7 @@
 
   App.apiFetch = App.apiFetch || async function apiFetch(url, options = {}, cfg = {}) {
     const { redirectOn401 = true } = cfg;
-    const opts = {
+    const tuyChon = {
       credentials: 'same-origin',
       ...options,
       headers: {
@@ -52,36 +52,36 @@
       }
     };
 
-    const res = await fetch(url, opts);
-    const data = await App.safeJson(res);
+    const phanHoi = await fetch(url, tuyChon);
+    const duLieu = await App.safeJson(phanHoi);
 
-    if (res.status === 401) {
+    if (phanHoi.status === 401) {
       if (redirectOn401) {
-        const redirect = data && data.redirect ? data.redirect : '/auth?mode=login';
-        window.location.href = redirect;
+        const chuyenHuong = duLieu && duLieu.redirect ? duLieu.redirect : '/auth?mode=login';
+        window.location.href = chuyenHuong;
       }
-      return { ok: false, status: 401, data };
+      return { ok: false, status: 401, data: duLieu };
     }
 
-    return { ok: res.ok, status: res.status, data };
+    return { ok: phanHoi.ok, status: phanHoi.status, data: duLieu };
   };
 
-  const __debounceTimers = (App.__debounceTimers = App.__debounceTimers || new Map());
+  const boHenGio = (App.__debounceTimers = App.__debounceTimers || new Map());
   App.debounce = App.debounce || function debounce(callback, delay, key = 'default') {
-    const k = String(key);
-    const old = __debounceTimers.get(k);
-    if (old) clearTimeout(old);
-    const t = setTimeout(callback, delay);
-    __debounceTimers.set(k, t);
+    const khoa = String(key);
+    const henGioCu = boHenGio.get(khoa);
+    if (henGioCu) clearTimeout(henGioCu);
+    const henGioMoi = setTimeout(callback, delay);
+    boHenGio.set(khoa, henGioMoi);
   };
 
   App.autoDismissAlerts = App.autoDismissAlerts || function autoDismissAlerts(selector = '.flash-alert', ms = 5000) {
-    const els = App.qsa(selector);
-    if (!els.length) return;
+    const danhSach = App.qsa(selector);
+    if (!danhSach.length) return;
 
-    els.forEach((el) => {
-      const delayAttr = el.getAttribute('data-auto-dismiss');
-      const delay = delayAttr ? Math.max(0, parseInt(delayAttr, 10) || ms) : ms;
+    danhSach.forEach((el) => {
+      const thuocTinhTre = el.getAttribute('data-auto-dismiss');
+      const thoiGian = thuocTinhTre ? Math.max(0, parseInt(thuocTinhTre, 10) || ms) : ms;
 
       setTimeout(() => {
         try {
@@ -97,7 +97,7 @@
 
         // Fallback: remove element
         el.remove();
-      }, delay);
+      }, thoiGian);
     });
   };
 })();

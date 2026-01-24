@@ -1,24 +1,24 @@
 (function () {
-  const page = document.querySelector('.auth-page');
-  const card = document.querySelector('.auth-card');
-  if (!page || !card) return;
+  const trang = document.querySelector('.auth-page');
+  const the = document.querySelector('.auth-card');
+  if (!trang || !the) return;
 
-  const currentMode = page.getAttribute('data-mode') || 'login';
+  const cheDoHienTai = trang.getAttribute('data-mode') || 'login';
 
-  function goWithAnimation(href, targetMode) {
+  function diChuyenKemHieuUng(href, cheDoDich) {
     if (!href) return;
 
-    const isToRegister = targetMode === 'register';
-    const isFromRegister = currentMode === 'register';
+    const denDangKy = cheDoDich === 'register';
+    const tuDangKy = cheDoHienTai === 'register';
 
-    card.classList.remove('auth-leave-left', 'auth-leave-right');
+    the.classList.remove('auth-leave-left', 'auth-leave-right');
 
-    if (isToRegister && !isFromRegister) {
-      card.classList.add('auth-leave-left');
-    } else if (!isToRegister && isFromRegister) {
-      card.classList.add('auth-leave-right');
+    if (denDangKy && !tuDangKy) {
+      the.classList.add('auth-leave-left');
+    } else if (!denDangKy && tuDangKy) {
+      the.classList.add('auth-leave-right');
     } else {
-      card.classList.add('auth-leave-left');
+      the.classList.add('auth-leave-left');
     }
 
     window.setTimeout(() => {
@@ -29,11 +29,11 @@
   document.querySelectorAll('.auth-card .nav-link[href]').forEach((a) => {
     a.addEventListener('click', (e) => {
       const href = a.getAttribute('href');
-      const url = new URL(href, window.location.origin);
-      const targetMode = url.searchParams.get('mode') || 'login';
-      if (targetMode === currentMode) return;
+      const duongDan = new URL(href, window.location.origin);
+      const cheDoDich = duongDan.searchParams.get('mode') || 'login';
+      if (cheDoDich === cheDoHienTai) return;
       e.preventDefault();
-      goWithAnimation(href, targetMode);
+      diChuyenKemHieuUng(href, cheDoDich);
     });
   });
 })();

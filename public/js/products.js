@@ -4,41 +4,41 @@
  */
 
 // ===== DEBOUNCE HELPER =====
-const debounce = (callback, delay) => {
+const chongDoi = (callback, delay) => {
     if (window.App && window.App.debounce) return window.App.debounce(callback, delay, 'products-filter');
     // fallback
-    if (debounce.__t) clearTimeout(debounce.__t);
-    debounce.__t = setTimeout(callback, delay);
+    if (chongDoi.__t) clearTimeout(chongDoi.__t);
+    chongDoi.__t = setTimeout(callback, delay);
 };
 
 // ===== AUTO SUBMIT FILTER =====
-const initFilterAutoSubmit = () => {
-    const filterForm = document.querySelector('.filter-bar form');
+const khoiTaoLocTuDong = () => {
+    const formLoc = document.querySelector('.filter-bar form');
     
-    if (filterForm) {
+    if (formLoc) {
         // Các select box tự động submit khi thay đổi
-        const selects = filterForm.querySelectorAll('select');
-        selects.forEach(select => {
-            select.addEventListener('change', () => {
-                filterForm.submit();
+        const danhSachSelect = formLoc.querySelectorAll('select');
+        danhSachSelect.forEach(oChon => {
+            oChon.addEventListener('change', () => {
+                formLoc.submit();
             });
         });
 
         // Input số (giá) - debounce rồi submit
-        const priceInputs = filterForm.querySelectorAll('input[type="number"]');
-        priceInputs.forEach(input => {
+        const oGia = formLoc.querySelectorAll('input[type="number"]');
+        oGia.forEach(input => {
             input.addEventListener('input', () => {
-                debounce(() => filterForm.submit(), 800);
+                chongDoi(() => formLoc.submit(), 800);
             });
         });
 
         // Enter trong ô tìm kiếm
-        const searchInput = filterForm.querySelector('input[name="keyword"]');
-        if (searchInput) {
-            searchInput.addEventListener('keypress', (e) => {
+        const oTimKiem = formLoc.querySelector('input[name="keyword"]');
+        if (oTimKiem) {
+            oTimKiem.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    filterForm.submit();
+                    formLoc.submit();
                 }
             });
         }
@@ -47,42 +47,42 @@ const initFilterAutoSubmit = () => {
 
 // ===== INITIALIZE ON PAGE LOAD =====
 document.addEventListener('DOMContentLoaded', () => {
-    initFilterAutoSubmit();
+    khoiTaoLocTuDong();
 });
 
 // ===== ADD TO CART (placeholder) =====
-const addToCart = (productId) => {
+const themGio = (maSanPham) => {
     // Redirect to product detail page to select variant/size
-    window.location.href = `/products/${productId}`;
+    window.location.href = `/products/${maSanPham}`;
 };
 
 // ===== WISHLIST TOGGLE =====
-const toggleWishlist = (btn, productId) => {
-    const icon = btn.querySelector('i');
-    if (icon.classList.contains('bi-heart')) {
-        icon.classList.remove('bi-heart');
-        icon.classList.add('bi-heart-fill');
-        btn.classList.add('active');
+const doiYeuThich = (nut, maSanPham) => {
+    const bieuTuong = nut.querySelector('i');
+    if (bieuTuong.classList.contains('bi-heart')) {
+        bieuTuong.classList.remove('bi-heart');
+        bieuTuong.classList.add('bi-heart-fill');
+        nut.classList.add('active');
         // TODO: Call API to add to favorites
     } else {
-        icon.classList.remove('bi-heart-fill');
-        icon.classList.add('bi-heart');
-        btn.classList.remove('active');
+        bieuTuong.classList.remove('bi-heart-fill');
+        bieuTuong.classList.add('bi-heart');
+        nut.classList.remove('active');
         // TODO: Call API to remove from favorites
     }
 };
 
 // ===== HANDLE ADD CART CLICK =====
-const handleAddCartClick = (event) => {
+const xuLyThemGio = (event) => {
     event.preventDefault();
     event.stopPropagation();
     // TODO: Show quick add modal or redirect to product detail
 };
 
 // ===== HANDLE WISHLIST CLICK =====
-const handleWishlistClick = (event) => {
+const xuLyYeuThich = (event) => {
     event.preventDefault();
     event.stopPropagation();
-    const btn = event.currentTarget;
-    toggleWishlist(btn);
+    const nut = event.currentTarget;
+    doiYeuThich(nut);
 };

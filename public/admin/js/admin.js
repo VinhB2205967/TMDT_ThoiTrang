@@ -1,43 +1,43 @@
 // Button Status Filter
-const buttonsStatus = document.querySelectorAll("[button-status]");
-if(buttonsStatus.length > 0) {
-    buttonsStatus.forEach(button => {
-        button.addEventListener("click", () => {
-            let url = new URL(window.location.href);
-            const status = button.getAttribute("button-status");
+const nutTrangThai = document.querySelectorAll("[button-status]");
+if(nutTrangThai.length > 0) {
+    nutTrangThai.forEach(nut => {
+        nut.addEventListener("click", () => {
+            let duongDan = new URL(window.location.href);
+            const trangThai = nut.getAttribute("button-status");
             
-            url.searchParams.delete("page");
+            duongDan.searchParams.delete("page");
             
-            if(status) {
-                url.searchParams.set("trangthai", status);
+            if(trangThai) {
+                duongDan.searchParams.set("trangthai", trangThai);
             } else {
-                url.searchParams.delete("trangthai");
+                duongDan.searchParams.delete("trangthai");
             }
             
-            window.location.href = url.href;
+            window.location.href = duongDan.href;
         });
     });
 }
 // End Button Status
 
 // Form Search
-const formSearch = document.querySelector("#form-search");
-if(formSearch) {
-    formSearch.addEventListener("submit", (e) => {
+const formTimKiem = document.querySelector("#form-search");
+if(formTimKiem) {
+    formTimKiem.addEventListener("submit", (e) => {
         e.preventDefault();
-        let url = new URL(window.location.href);
-        const keyword = e.target.elements.keyword.value.trim();
+        let duongDan = new URL(window.location.href);
+        const tuKhoa = e.target.elements.keyword.value.trim();
 
-        if(keyword) {
-            url.searchParams.set("keyword", keyword);
+        if(tuKhoa) {
+            duongDan.searchParams.set("keyword", tuKhoa);
         } else {
-            url.searchParams.delete("keyword");
+            duongDan.searchParams.delete("keyword");
         }
         
         // Reset về trang 1 khi tìm kiếm
-        url.searchParams.delete("page");
+        duongDan.searchParams.delete("page");
 
-        window.location.href = url.href;
+        window.location.href = duongDan.href;
     });
 }
 // End Form Search

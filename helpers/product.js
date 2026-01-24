@@ -1,5 +1,5 @@
 // Chuẩn hóa ảnh
-const normalizeImage = (hinhanh) => {
+const chuanHoaAnh = (hinhanh) => {
     if (!hinhanh) return '/images/shopping.png';
     
     if (hinhanh.startsWith('/public/')) {
@@ -14,7 +14,7 @@ const normalizeImage = (hinhanh) => {
 };
 
 // Chuẩn hóa giá
-const normalizePrice = (gia, phantramgiamgia) => {
+const chuanHoaGia = (gia, phantramgiamgia) => {
     if (!gia) return {};
     
     const discount = phantramgiamgia || 0;
@@ -29,7 +29,7 @@ const normalizePrice = (gia, phantramgiamgia) => {
 };
 
 // Tính tồn kho từ sizes (mỗi size có số lượng riêng) hoặc số lượng trực tiếp
-const calculateStock = (sizes, bienthe, soluongton, soluong_chinh) => {
+const tinhTonKho = (sizes, bienthe, soluongton, soluong_chinh) => {
     let total = 0;
     
     // Tính tổng từ sizes gốc (cho sản phẩm có size)
@@ -68,18 +68,18 @@ const calculateStock = (sizes, bienthe, soluongton, soluong_chinh) => {
 module.exports = (item) => {
     const p = { ...item };
 
-    p.displayImage = normalizeImage(p.hinhanh);
+    p.displayImage = chuanHoaAnh(p.hinhanh);
     
-    const priceData = normalizePrice(p.gia, p.phantramgiamgia);
+    const priceData = chuanHoaGia(p.gia, p.phantramgiamgia);
     Object.assign(p, priceData);
     
-    p.tonkho = calculateStock(p.sizes, p.bienthe, p.soluongton, p.soluong_chinh);
+    p.tonkho = tinhTonKho(p.sizes, p.bienthe, p.soluongton, p.soluong_chinh);
 
     // Chuẩn hóa ảnh cho các biến thể
     if (Array.isArray(p.bienthe) && p.bienthe.length) {
         p.bienthe = p.bienthe.map(bt => ({
             ...bt,
-            hinhanh: normalizeImage(bt.hinhanh)
+            hinhanh: chuanHoaAnh(bt.hinhanh)
         }));
     }
 

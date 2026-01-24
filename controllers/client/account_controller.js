@@ -1,8 +1,8 @@
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const fs = require('fs');
-const Nguoidung = require('../../models/user_model');
-const { normalizePhone, isValidPhoneVN, isSafeImageUrl } = require('../../helpers/validators');
+const nguoidung = require('../../models/user_model');
+const { chuanHoaSoDienThoai, laSoDienThoaiVN, laUrlAnhAnToan } = require('../../helpers/validators');
 
 function chuanHoaChuoi(value) {
   return String(value || '').trim();
@@ -30,48 +30,48 @@ function kiemTraMatKhauMoi(password) {
 
 // Thông tin
 module.exports.trang = async (req, res) => {
-  const nguoiDung = req.user;
+  const taikhoan = req.user;
   res.render('client/pages/account/index.pug', {
     titlePage: 'Thông tin tài khoản',
     profile: {
-      hoten: nguoiDung?.hoten || '',
-      email: nguoiDung?.email || '',
-      sodienthoai: nguoiDung?.sodienthoai || '',
-      diachi: nguoiDung?.diachi || '',
-      gioitinh: nguoiDung?.gioitinh || '',
-      ngaysinh: dinhDangNgayInput(nguoiDung?.ngaysinh),
-      avatar: nguoiDung?.avatar || ''
+      hoten: taikhoan?.hoten || '',
+      email: taikhoan?.email || '',
+      sodienthoai: taikhoan?.sodienthoai || '',
+      diachi: taikhoan?.diachi || '',
+      gioitinh: taikhoan?.gioitinh || '',
+      ngaysinh: dinhDangNgayInput(taikhoan?.ngaysinh),
+      avatar: taikhoan?.avatar || ''
     },
-    hasPassword: Boolean(nguoiDung?.matkhau)
+    hasPassword: Boolean(taikhoan?.matkhau)
   });
 };
 
 // Cập nhật hồ sơ
 module.exports.capNhatHoSo = async (req, res) => {
   try {
-    const idNguoiDung = req.user && req.user._id ? String(req.user._id) : null;
-    if (!idNguoiDung) return res.redirect('/auth?mode=login');
+    const idnguoidung = req.user && req.user._id ? String(req.user._id) : null;
+    if (!idnguoidung) return res.redirect('/auth?mode=login');
 
-    const hoTen = chuanHoaChuoi(req.body.hoten);
-    const sdtRaw = chuanHoaChuoi(req.body.sodienthoai);
-    if (sdtRaw && !isValidPhoneVN(sdtRaw)) {
+    const hoten = chuanHoaChuoi(req.body.hoten);
+    const sdtraw = chuanHoaChuoi(req.body.sodienthoai);
+    if (sdtraw && !laSoDienThoaiVN(sdtraw)) {
       req.flash?.('error', 'Số điện thoại không đúng định dạng');
       return res.redirect('/account');
     }
-    const sodienthoai = sdtRaw ? normalizePhone(sdtRaw) : '';
+    const sodienthoai = sdtraw ? chuanHoaSoDienThoai(sdtraw) : '';
     const diachi = chuanHoaChuoi(req.body.diachi);
     const gioitinh = chuanHoaChuoi(req.body.gioitinh);
-    const avatarUrl = chuanHoaChuoi(req.body.avatarUrl || req.body.avatar);
+    const avatarurl = chuanHoaChuoi(req.body.avatarUrl || req.body.avatar);
 
-    if (avatarUrl && !isSafeImageUrl(avatarUrl)) {
+    if (avatarurl && !laUrlAnhAnToan(avatarurl)) {
       req.flash?.('error', 'Avatar URL không hợp lệ');
       return res.redirect('/account');
     }
 
-    let ngaySinh = null;
+    let ngaysinh = null;
     if (req.body.ngaysinh) {
-      const ngayParsed = new Date(req.body.ngaysinh);
-      if (!Number.isNaN(ngayParsed.getTime())) ngaySinh = ngayParsed;
+      const ngayparsed = new Date(req.body.ngaysinh);
+      if (!Number.isNaN(ngayparsed.getTime())) ngaysinh = ngayparsed;
     }
 
     let avatar = '';
@@ -79,30 +79,30 @@ module.exports.capNhatHoSo = async (req, res) => {
       avatar = `/uploads/avatars/${req.file.filename}`;
 
       // Xóa ảnh cũ
-      const avatarCu = String(req.user?.avatar || '');
-      if (avatarCu.startsWith('/uploads/avatars/')) {
-        const tenCu = path.basename(avatarCu);
-        const duongDanCu = path.join(process.cwd(), 'public', 'uploads', 'avatars', tenCu);
-        fs.promises.unlink(duongDanCu).catch(() => {});
+      const avatarcu = String(req.user?.avatar || '');
+      if (avatarcu.startsWith('/uploads/avatars/')) {
+        const tencu = path.basename(avatarcu);
+        const duongdancu = path.join(process.cwd(), 'public', 'uploads', 'avatars', tencu);
+        fs.promises.unlink(duongdancu).catch(() => {});
       }
     }
 
-    if (!avatar && avatarUrl) avatar = avatarUrl;
+    if (!avatar && avatarurl) avatar = avatarurl;
 
     const $set = {
-      hoten: hoTen,
+      hoten,
       sodienthoai,
       diachi,
       gioitinh,
-      ngaysinh: ngaySinh,
+      ngaysinh,
       ngaycapnhat: new Date()
     };
 
     // Chỉ cập nhật khi có avatar
     if (avatar) $set.avatar = avatar;
 
-    await Nguoidung.updateOne(
-      { _id: idNguoiDung, daxoa: { $ne: true } },
+    await nguoidung.updateOne(
+      { _id: idnguoidung, daxoa: { $ne: true } },
       {
         $set
       }
@@ -120,42 +120,42 @@ module.exports.capNhatHoSo = async (req, res) => {
 // Đổi mật khẩu
 module.exports.doiMatKhau = async (req, res) => {
   try {
-    const idNguoiDung = req.user && req.user._id ? String(req.user._id) : null;
-    if (!idNguoiDung) return res.redirect('/auth?mode=login');
+    const idnguoidung = req.user && req.user._id ? String(req.user._id) : null;
+    if (!idnguoidung) return res.redirect('/auth?mode=login');
 
-    const matKhauCu = String(req.body.oldPassword || '');
-    const matKhauMoi = String(req.body.newPassword || '');
-    const xacNhanMatKhau = String(req.body.confirmPassword || '');
+    const matkhaucu = String(req.body.oldPassword || '');
+    const matkhaumoi = String(req.body.newPassword || '');
+    const xacnhanmatkhau = String(req.body.confirmPassword || '');
 
-    const loiMatKhau = kiemTraMatKhauMoi(matKhauMoi);
-    if (loiMatKhau) {
-      req.flash?.('error', loiMatKhau);
+    const loimatkhau = kiemTraMatKhauMoi(matkhaumoi);
+    if (loimatkhau) {
+      req.flash?.('error', loimatkhau);
       return res.redirect('/account');
     }
 
-    if (matKhauMoi !== xacNhanMatKhau) {
+    if (matkhaumoi !== xacnhanmatkhau) {
       req.flash?.('error', 'Xác nhận mật khẩu không khớp');
       return res.redirect('/account');
     }
 
-    const nguoiDung = await Nguoidung.findOne({ _id: idNguoiDung, daxoa: { $ne: true } });
-    if (!nguoiDung) {
+    const taikhoan = await nguoidung.findOne({ _id: idnguoidung, daxoa: { $ne: true } });
+    if (!taikhoan) {
       req.flash?.('error', 'Không tìm thấy tài khoản');
       return res.redirect('/auth?mode=login');
     }
 
-    if (nguoiDung.matkhau) {
-      const hopLe = await bcrypt.compare(matKhauCu, nguoiDung.matkhau);
-      if (!hopLe) {
+    if (taikhoan.matkhau) {
+      const hople = await bcrypt.compare(matkhaucu, taikhoan.matkhau);
+      if (!hople) {
         req.flash?.('error', 'Mật khẩu hiện tại không đúng');
         return res.redirect('/account');
       }
     }
 
-    const matKhauMaHoa = await bcrypt.hash(matKhauMoi, 10);
-    await Nguoidung.updateOne(
-      { _id: idNguoiDung, daxoa: { $ne: true } },
-      { $set: { matkhau: matKhauMaHoa, ngaycapnhat: new Date() } }
+    const matkhaumahoa = await bcrypt.hash(matkhaumoi, 10);
+    await nguoidung.updateOne(
+      { _id: idnguoidung, daxoa: { $ne: true } },
+      { $set: { matkhau: matkhaumahoa, ngaycapnhat: new Date() } }
     );
 
     req.flash?.('success', 'Đổi mật khẩu thành công');
@@ -170,20 +170,20 @@ module.exports.doiMatKhau = async (req, res) => {
 // Xóa tài khoản
 module.exports.xoaTaiKhoan = async (req, res) => {
   try {
-    const idNguoiDung = req.user && req.user._id ? String(req.user._id) : null;
-    if (!idNguoiDung) return res.redirect('/auth?mode=login');
+    const idnguoidung = req.user && req.user._id ? String(req.user._id) : null;
+    if (!idnguoidung) return res.redirect('/auth?mode=login');
 
-    await Nguoidung.updateOne(
-      { _id: idNguoiDung, daxoa: { $ne: true } },
+    await nguoidung.updateOne(
+      { _id: idnguoidung, daxoa: { $ne: true } },
       { $set: { daxoa: true, trangthai: 'noactive', ngaycapnhat: new Date() } }
     );
 
     // Offline ngay
-    const ONLINE_WINDOW_MS = 5 * 60 * 1000;
-    const thoiDiemOffline = new Date(Date.now() - ONLINE_WINDOW_MS - 1000);
-    Nguoidung.updateOne(
-      { _id: idNguoiDung },
-      { $set: { lastSeenAt: thoiDiemOffline } }
+    const onlinewindowms = 5 * 60 * 1000;
+    const thoidiemoffline = new Date(Date.now() - onlinewindowms - 1000);
+    nguoidung.updateOne(
+      { _id: idnguoidung },
+      { $set: { lastSeenAt: thoidiemoffline } }
     ).catch(() => {});
 
     try {

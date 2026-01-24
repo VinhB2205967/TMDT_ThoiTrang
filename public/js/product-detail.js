@@ -4,32 +4,32 @@
  */
 
 // Global state to hold variant and selection info
-let currentVariantIndex = 0;
-let currentSize = '';
-let maxQuantity = 99; // Default max
+let chiSoBienTheHienTai = 0;
+let kichCoHienTai = '';
+let soLuongToiDa = 99; // Default max
 
 // ===== HELPER FUNCTIONS =====
-const formatPrice = (price) => {
-    if (window.App && window.App.formatNumberVI) return window.App.formatNumberVI(price);
-    return new Intl.NumberFormat('vi-VN').format(price);
+const dinhDangGia = (gia) => {
+    if (window.App && window.App.formatNumberVI) return window.App.formatNumberVI(gia);
+    return new Intl.NumberFormat('vi-VN').format(gia);
 };
 
 // ===== DOM ELEMENT GETTERS (memoized for performance) =====
-const getElement = (id) => {
-    const element = document.getElementById(id);
-    if (!element) console.warn(`Element with ID '${id}' not found.`);
-    return element;
+const layPhanTu = (id) => {
+    const phanTu = document.getElementById(id);
+    if (!phanTu) console.warn(`Element with ID '${id}' not found.`);
+    return phanTu;
 };
-const memoizedGetters = {
-    mainImage: () => getElement('mainImage'),
-    qtyInput: () => getElement('qtyInput'),
-    selectedColor: () => getElement('selectedColor'),
-    selectedSize: () => getElement('selectedSize'),
-    priceOld: () => getElement('priceOld'),
-    priceDiscount: () => getElement('priceDiscount'),
-    priceCurrent: () => getElement('priceCurrent'),
-    sizeSection: () => getElement('sizeSection'),
-    addToCartForm: () => getElement('addToCartForm'),
+const boLayNhanh = {
+    mainImage: () => layPhanTu('mainImage'),
+    qtyInput: () => layPhanTu('qtyInput'),
+    selectedColor: () => layPhanTu('selectedColor'),
+    selectedSize: () => layPhanTu('selectedSize'),
+    priceOld: () => layPhanTu('priceOld'),
+    priceDiscount: () => layPhanTu('priceDiscount'),
+    priceCurrent: () => layPhanTu('priceCurrent'),
+    sizeSection: () => layPhanTu('sizeSection'),
+    addToCartForm: () => layPhanTu('addToCartForm'),
     plusBtn: () => document.querySelector('.qty-btn.plus'),
     minusBtn: () => document.querySelector('.qty-btn.minus')
 };
@@ -39,16 +39,16 @@ const memoizedGetters = {
 /**
  * Cập nhật hiển thị giá dựa trên biến thể được chọn.
  */
-const updatePriceDisplay = (gia, giaMoi, giamGia) => {
-    const priceCurrent = memoizedGetters.priceCurrent();
-    const priceOld = memoizedGetters.priceOld();
-    const priceDiscount = memoizedGetters.priceDiscount();
+const capNhatHienThiGia = (gia, giaMoi, giamGia) => {
+    const priceCurrent = boLayNhanh.priceCurrent();
+    const priceOld = boLayNhanh.priceOld();
+    const priceDiscount = boLayNhanh.priceDiscount();
 
-    if (priceCurrent) priceCurrent.textContent = formatPrice(giaMoi) + 'đ';
+    if (priceCurrent) priceCurrent.textContent = dinhDangGia(giaMoi) + 'đ';
 
     if (giamGia > 0) {
         if (priceOld) {
-            priceOld.textContent = formatPrice(gia) + 'đ';
+            priceOld.textContent = dinhDangGia(gia) + 'đ';
             priceOld.style.display = '';
         }
         if (priceDiscount) {
@@ -64,42 +64,42 @@ const updatePriceDisplay = (gia, giaMoi, giamGia) => {
 /**
  * Cập nhật trạng thái (enabled/disabled) của nút tăng/giảm số lượng.
  */
-const updateQuantityButtons = () => {
-    const input = memoizedGetters.qtyInput();
-    const plusBtn = memoizedGetters.plusBtn();
-    const minusBtn = memoizedGetters.minusBtn();
+const capNhatNutSoLuong = () => {
+    const input = boLayNhanh.qtyInput();
+    const plusBtn = boLayNhanh.plusBtn();
+    const minusBtn = boLayNhanh.minusBtn();
     if (!input || !plusBtn || !minusBtn) return;
 
-    const currentValue = parseInt(input.value);
-    plusBtn.disabled = currentValue >= maxQuantity;
-    minusBtn.disabled = currentValue <= 1;
+    const giaTriHienTai = parseInt(input.value);
+    plusBtn.disabled = giaTriHienTai >= soLuongToiDa;
+    minusBtn.disabled = giaTriHienTai <= 1;
 };
 
 /**
  * Cập nhật thuộc tính `max` của input số lượng và reset giá trị nếu cần.
  */
-const updateQuantityInputState = () => {
-    const input = memoizedGetters.qtyInput();
+const capNhatTrangThaiSoLuong = () => {
+    const input = boLayNhanh.qtyInput();
     if (!input) return;
 
-    const hasSizeSection = !!memoizedGetters.sizeSection();
-    const variant = window.productVariants[currentVariantIndex];
+    const coPhanSize = !!boLayNhanh.sizeSection();
+    const bienThe = window.productVariants[chiSoBienTheHienTai];
     
-    if (hasSizeSection) {
+    if (coPhanSize) {
         // Sản phẩm có size, max quantity phụ thuộc vào size
-        const sizeData = variant?.sizes?.find(s => s.size === currentSize);
-        maxQuantity = sizeData?.soluong || 0;
+        const duLieuSize = bienThe?.sizes?.find(s => s.size === kichCoHienTai);
+        soLuongToiDa = duLieuSize?.soluong || 0;
     } else {
         // Sản phẩm không có size, max quantity là của biến thể
-        maxQuantity = variant?.soluong || 0;
+        soLuongToiDa = bienThe?.soluong || 0;
     }
     
     // Nếu không có hàng, đặt max là 0
-    if(maxQuantity <= 0) {
-        maxQuantity = 0;
+    if(soLuongToiDa <= 0) {
+        soLuongToiDa = 0;
     }
 
-    input.max = maxQuantity;
+    input.max = soLuongToiDa;
 
     // Tìm hoặc tạo element hiển thị thông báo hết hàng
     let stockMsg = document.getElementById('stock-message');
@@ -113,42 +113,42 @@ const updateQuantityInputState = () => {
     }
 
     // Nút thêm giỏ hàng
-    const addToCartBtn = document.querySelector('#addToCartForm button[type="submit"]');
+    const nutThemGio = document.querySelector('#addToCartForm button[type="submit"]');
 
     // Reset số lượng về 1 nếu vượt quá hoặc nếu không còn hàng
-    let currentValue = parseInt(input.value);
-    if (isNaN(currentValue)) currentValue = 1;
+    let giaTriHienTai = parseInt(input.value);
+    if (isNaN(giaTriHienTai)) giaTriHienTai = 1;
 
-    if (maxQuantity === 0) {
+    if (soLuongToiDa === 0) {
         input.value = 0;
         input.disabled = true;
         
         stockMsg.textContent = 'Hết hàng';
         stockMsg.style.display = 'block';
         
-        if (addToCartBtn) {
-            addToCartBtn.disabled = true;
-            if (!addToCartBtn.dataset.originalText) addToCartBtn.dataset.originalText = addToCartBtn.textContent;
-            addToCartBtn.textContent = 'Hết hàng';
+        if (nutThemGio) {
+            nutThemGio.disabled = true;
+            if (!nutThemGio.dataset.originalText) nutThemGio.dataset.originalText = nutThemGio.textContent;
+            nutThemGio.textContent = 'Hết hàng';
         }
     } else {
         input.disabled = false;
         
         stockMsg.style.display = 'none';
         
-        if (addToCartBtn) {
-            addToCartBtn.disabled = false;
-            if (addToCartBtn.dataset.originalText) addToCartBtn.textContent = addToCartBtn.dataset.originalText;
+        if (nutThemGio) {
+            nutThemGio.disabled = false;
+            if (nutThemGio.dataset.originalText) nutThemGio.textContent = nutThemGio.dataset.originalText;
         }
 
-        if (currentValue > maxQuantity) {
-            input.value = maxQuantity;
-        } else if (currentValue < 1) {
+        if (giaTriHienTai > soLuongToiDa) {
+            input.value = soLuongToiDa;
+        } else if (giaTriHienTai < 1) {
             input.value = 1;
         }
     }
 
-    updateQuantityButtons();
+    capNhatNutSoLuong();
 };
 
 
@@ -157,18 +157,18 @@ const updateQuantityInputState = () => {
 /**
  * Cập nhật trạng thái hiển thị của các nút size (ẩn/hiện/disable) dựa trên tồn kho.
  */
-const updateSizeOptionsState = (variantIdx) => {
-    const variant = window.productVariants[variantIdx];
-    if (!variant || !variant.sizes) return;
+const capNhatTrangThaiSize = (chiSoBienThe) => {
+    const bienThe = window.productVariants[chiSoBienThe];
+    if (!bienThe || !bienThe.sizes) return;
 
-    const sizePanel = getElement(`sizePanel_${variantIdx}`);
+    const sizePanel = layPhanTu(`sizePanel_${chiSoBienThe}`);
     if (!sizePanel) return;
 
     const inputs = sizePanel.querySelectorAll('input.size-input');
     inputs.forEach(input => {
-        const sizeVal = input.value;
-        const sizeData = variant.sizes.find(s => s.size === sizeVal);
-        const stock = sizeData ? sizeData.soluong : 0;
+        const giaTriSize = input.value;
+        const duLieuSize = bienThe.sizes.find(s => s.size === giaTriSize);
+        const tonKho = duLieuSize ? duLieuSize.soluong : 0;
         
         // Tìm label tương ứng để thay đổi giao diện
         let label = input.nextElementSibling;
@@ -176,7 +176,7 @@ const updateSizeOptionsState = (variantIdx) => {
              if (input.id) label = sizePanel.querySelector(`label[for="${input.id}"]`);
         }
 
-        if (stock <= 0) {
+        if (tonKho <= 0) {
             input.disabled = true;
             if (label) {
                 label.classList.add('disabled', 'opacity-50');
@@ -188,7 +188,7 @@ const updateSizeOptionsState = (variantIdx) => {
             if (label) {
                 label.classList.remove('disabled', 'opacity-50');
                 label.style.textDecoration = 'none';
-                label.title = `Còn ${stock} sản phẩm`;
+                label.title = `Còn ${tonKho} sản phẩm`;
             }
         }
     });
@@ -197,17 +197,17 @@ const updateSizeOptionsState = (variantIdx) => {
 /**
  * Xử lý khi người dùng chọn một màu sắc (biến thể) mới.
  */
-window.selectVariant = (idx, colorName, imgSrc, labelElement) => {
-    currentVariantIndex = idx;
+window.chonBienThe = (idx, tenMau, anh, labelElement) => {
+    chiSoBienTheHienTai = idx;
     
     // Update color name display
-    const selectedColorEl = memoizedGetters.selectedColor();
-    if (selectedColorEl) selectedColorEl.textContent = colorName;
+    const selectedColorEl = boLayNhanh.selectedColor();
+    if (selectedColorEl) selectedColorEl.textContent = tenMau;
 
     // Update main image
-    const mainImageEl = memoizedGetters.mainImage();
-    if (mainImageEl && imgSrc && imgSrc !== 'null' && imgSrc !== '/images/shopping.png') {
-        mainImageEl.src = imgSrc;
+    const mainImageEl = boLayNhanh.mainImage();
+    if (mainImageEl && anh && anh !== 'null' && anh !== '/images/shopping.png') {
+        mainImageEl.src = anh;
     }
 
     // Update price from variant data attributes
@@ -215,116 +215,116 @@ window.selectVariant = (idx, colorName, imgSrc, labelElement) => {
         const gia = parseInt(labelElement.dataset.gia) || 0;
         const giaMoi = parseInt(labelElement.dataset.giamoi) || gia;
         const giamGia = parseInt(labelElement.dataset.giamgia) || 0;
-        updatePriceDisplay(gia, giaMoi, giamGia);
+        capNhatHienThiGia(gia, giaMoi, giamGia);
     }
     
     // Chuyển đổi hiển thị giữa các panel size/stock
     document.querySelectorAll('.variant-size-panel, .variant-stock-panel').forEach(p => p.style.display = 'none');
     
-    const sizePanel = getElement(`sizePanel_${idx}`);
+    const sizePanel = layPhanTu(`sizePanel_${idx}`);
     if (sizePanel) {
         sizePanel.style.display = 'flex';
         
         // Cập nhật giao diện các nút size (disable nếu hết hàng)
-        updateSizeOptionsState(idx);
+        capNhatTrangThaiSize(idx);
 
         // Tự động chọn size đầu tiên còn hàng
-        const firstAvailableSize = sizePanel.querySelector('input.size-input:not(:disabled)');
-        if (firstAvailableSize) {
-            firstAvailableSize.checked = true;
-            window.handleSizeSelect(firstAvailableSize.value); // Gọi handler để cập nhật state
+        const sizeConHangDau = sizePanel.querySelector('input.size-input:not(:disabled)');
+        if (sizeConHangDau) {
+            sizeConHangDau.checked = true;
+            window.chonSize(sizeConHangDau.value); // Gọi handler để cập nhật state
         } else {
-            window.handleSizeSelect(''); 
+            window.chonSize(''); 
         }
     } else {
         // Nếu không có size panel, đây là sản phẩm không có size
-        const stockPanel = getElement(`stockPanel_${idx}`);
+        const stockPanel = layPhanTu(`stockPanel_${idx}`);
         if(stockPanel) stockPanel.style.display = 'block';
-        updateQuantityInputState(); // Cập nhật số lượng cho biến thể
+        capNhatTrangThaiSoLuong(); // Cập nhật số lượng cho biến thể
     }
 };
 
 /**
  * Xử lý khi người dùng chọn một kích cỡ (size) mới.
  */
-window.handleSizeSelect = (sizeName) => {
-    currentSize = sizeName;
-    const selectedSizeEl = memoizedGetters.selectedSize();
-    if (selectedSizeEl) selectedSizeEl.textContent = sizeName;
+window.chonSize = (tenSize) => {
+    kichCoHienTai = tenSize;
+    const selectedSizeEl = boLayNhanh.selectedSize();
+    if (selectedSizeEl) selectedSizeEl.textContent = tenSize;
     
-    updateQuantityInputState();
+    capNhatTrangThaiSoLuong();
 };
 
 /**
  * Xử lý khi người dùng chọn thumbnail ảnh.
  */
-window.selectThumbnail = (imgSrc, element) => {
+window.chonAnhNho = (anh, phanTu) => {
     // Update main image
-    const mainImageEl = memoizedGetters.mainImage();
-    if (mainImageEl && imgSrc) {
-        mainImageEl.src = imgSrc;
+    const mainImageEl = boLayNhanh.mainImage();
+    if (mainImageEl && anh) {
+        mainImageEl.src = anh;
     }
 
     // Update active class
     document.querySelectorAll('.thumb-item').forEach(el => el.classList.remove('active'));
-    if (element) {
-        element.classList.add('active');
+    if (phanTu) {
+        phanTu.classList.add('active');
     }
 };
 
 /**
  * Giảm số lượng.
  */
-window.decreaseQty = () => {
-    const input = memoizedGetters.qtyInput();
+window.giamSoLuong = () => {
+    const input = boLayNhanh.qtyInput();
     if (!input) return;
     
-    let newValue = parseInt(input.value) - 1;
-    if (newValue >= 1) {
-        input.value = newValue;
+    let giaTriMoi = parseInt(input.value) - 1;
+    if (giaTriMoi >= 1) {
+        input.value = giaTriMoi;
     }
-    updateQuantityButtons();
+    capNhatNutSoLuong();
 };
 
 /**
  * Tăng số lượng, kiểm tra không vượt quá max.
  */
-window.increaseQty = () => {
-    const input = memoizedGetters.qtyInput();
+window.tangSoLuong = () => {
+    const input = boLayNhanh.qtyInput();
     if (!input) return;
     
-    let currentValue = parseInt(input.value) || 0;
-    if (currentValue < maxQuantity) {
-        input.value = currentValue + 1;
+    let giaTriHienTai = parseInt(input.value) || 0;
+    if (giaTriHienTai < soLuongToiDa) {
+        input.value = giaTriHienTai + 1;
     } else {
-        input.value = maxQuantity;
+        input.value = soLuongToiDa;
     }
-    updateQuantityButtons();
+    capNhatNutSoLuong();
 };
 
 /**
  * Xử lý sự kiện 'input' trên trường số lượng để đảm bảo giá trị hợp lệ.
  */
-const handleQuantityInputChange = (event) => {
+const xuLyNhapSoLuong = (event) => {
     const input = event.target;
-    let value = parseInt(input.value);
+    let giaTri = parseInt(input.value);
 
-    if (isNaN(value) || value < 1) {
-        value = 1;
+    if (isNaN(giaTri) || giaTri < 1) {
+        giaTri = 1;
     }
     
-    if (value > maxQuantity) {
-        value = maxQuantity;
+    if (giaTri > soLuongToiDa) {
+        giaTri = soLuongToiDa;
     }
     
-    if (maxQuantity === 0) {
-        value = 0;
+    if (soLuongToiDa === 0) {
+        giaTri = 0;
     }
 
-    if (input.value != value) {
-        input.value = value;
+    if (input.value != giaTri) {
+        input.value = giaTri;
     }
-    updateQuantityButtons();
+    capNhatNutSoLuong();
 };
 
 
@@ -333,60 +333,60 @@ const handleQuantityInputChange = (event) => {
 /**
  * Khởi tạo trạng thái ban đầu khi trang tải xong.
  */
-const initializeProductDetail = () => {
+const khoiTaoTrangChiTiet = () => {
     // Kiểm tra xem `productVariants` có tồn tại không
     if (typeof window.productVariants === 'undefined' || window.productVariants.length === 0) {
         console.error("Product variants data is not available.");
         // Có thể vô hiệu hóa toàn bộ form nếu không có data
-        const form = memoizedGetters.addToCartForm();
+        const form = boLayNhanh.addToCartForm();
         if(form) form.style.opacity = '0.5'; form.style.pointerEvents = 'none';
         return;
     }
 
-    const hasSizeSection = !!memoizedGetters.sizeSection();
+    const coPhanSize = !!boLayNhanh.sizeSection();
 
     // Thiết lập variant index ban đầu
-    currentVariantIndex = 0;
+    chiSoBienTheHienTai = 0;
     const initialVariantRadio = document.querySelector('input[name="bienthe_id"]:checked');
     if (initialVariantRadio) {
-        currentVariantIndex = parseInt(initialVariantRadio.dataset.variantIdx) || 0;
+        chiSoBienTheHienTai = parseInt(initialVariantRadio.dataset.variantIdx) || 0;
     }
     
     // Thiết lập size ban đầu (nếu có)
-    if (hasSizeSection) {
+    if (coPhanSize) {
         // Cập nhật trạng thái các nút size trước khi chọn
-        updateSizeOptionsState(currentVariantIndex);
+        capNhatTrangThaiSize(chiSoBienTheHienTai);
 
-        const initialSizeRadio = document.querySelector(`#sizePanel_${currentVariantIndex} input[name="kichco"]:checked`);
+        const initialSizeRadio = document.querySelector(`#sizePanel_${chiSoBienTheHienTai} input[name="kichco"]:checked`);
         if (initialSizeRadio) {
-            currentSize = initialSizeRadio.value;
+            kichCoHienTai = initialSizeRadio.value;
         } else {
             // Nếu không có size nào được check, chọn size đầu tiên còn hàng
-            const firstAvailableSize = document.querySelector(`#sizePanel_${currentVariantIndex} input.size-input:not(:disabled)`);
-             if (firstAvailableSize) {
-                firstAvailableSize.checked = true;
-                currentSize = firstAvailableSize.value;
+            const sizeConHangDau = document.querySelector(`#sizePanel_${chiSoBienTheHienTai} input.size-input:not(:disabled)`);
+             if (sizeConHangDau) {
+                sizeConHangDau.checked = true;
+                kichCoHienTai = sizeConHangDau.value;
             }
         }
-        const selectedSizeEl = memoizedGetters.selectedSize();
-        if (selectedSizeEl) selectedSizeEl.textContent = currentSize;
+        const selectedSizeEl = boLayNhanh.selectedSize();
+        if (selectedSizeEl) selectedSizeEl.textContent = kichCoHienTai;
     }
     
     // Cập nhật trạng thái input số lượng và các nút
-    updateQuantityInputState();
+    capNhatTrangThaiSoLuong();
     
     // Gắn event listener cho input số lượng
-    const qtyInput = memoizedGetters.qtyInput();
+    const qtyInput = boLayNhanh.qtyInput();
     if (qtyInput) {
-        qtyInput.addEventListener('input', handleQuantityInputChange);
+        qtyInput.addEventListener('input', xuLyNhapSoLuong);
     }
 
     // Hiển thị panel size/stock cho variant ban đầu
-    const initialSizePanel = getElement(`sizePanel_${currentVariantIndex}`);
-    const initialStockPanel = getElement(`stockPanel_${currentVariantIndex}`);
+    const initialSizePanel = layPhanTu(`sizePanel_${chiSoBienTheHienTai}`);
+    const initialStockPanel = layPhanTu(`stockPanel_${chiSoBienTheHienTai}`);
     if(initialSizePanel) initialSizePanel.style.display = 'flex';
     if(initialStockPanel) initialStockPanel.style.display = 'block';
 
 };
 
-document.addEventListener('DOMContentLoaded', initializeProductDetail);
+document.addEventListener('DOMContentLoaded', khoiTaoTrangChiTiet);

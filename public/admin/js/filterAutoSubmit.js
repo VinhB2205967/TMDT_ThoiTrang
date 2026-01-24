@@ -6,29 +6,29 @@
  */
 
 (function () {
-  function debounce(fn, wait) {
-    let t;
+  function chongDoi(fn, wait) {
+    let boHenGio;
     return function () {
-      clearTimeout(t);
-      const args = arguments;
-      const ctx = this;
-      t = setTimeout(function () {
-        fn.apply(ctx, args);
+      clearTimeout(boHenGio);
+      const thamSo = arguments;
+      const nguCanh = this;
+      boHenGio = setTimeout(function () {
+        fn.apply(nguCanh, thamSo);
       }, wait);
     };
   }
 
-  function resolveForm(formOrSelector) {
+  function layForm(formOrSelector) {
     if (!formOrSelector) return null;
     if (typeof formOrSelector === 'string') return document.querySelector(formOrSelector);
     return formOrSelector;
   }
 
-  function attach(formOrSelector, options) {
-    const form = resolveForm(formOrSelector);
+  function gan(formOrSelector, options) {
+    const form = layForm(formOrSelector);
     if (!form) return;
 
-    const opts = Object.assign(
+    const tuyChon = Object.assign(
       {
         selectSelector: 'select',
         keywordSelector: 'input[name="keyword"]',
@@ -41,9 +41,9 @@
       options || {}
     );
 
-    const submit = function () {
+    const guiForm = function () {
       // ensure page resets to 1 when filters change
-      if (opts.resetPageParam) {
+      if (tuyChon.resetPageParam) {
         const pageInput = form.querySelector('input[name="page"]');
         if (pageInput) pageInput.value = '';
       }
@@ -51,51 +51,51 @@
     };
 
     // Selects submit immediately
-    const selects = Array.from(form.querySelectorAll(opts.selectSelector || 'select'));
-    for (const sel of selects) {
-      sel.addEventListener('change', submit);
+    const danhSachSelect = Array.from(form.querySelectorAll(tuyChon.selectSelector || 'select'));
+    for (const sel of danhSachSelect) {
+      sel.addEventListener('change', guiForm);
     }
 
     // Keyword
-    const keywordInput = opts.keywordSelector ? form.querySelector(opts.keywordSelector) : null;
-    if (keywordInput) {
-      if (opts.keywordSubmitOnEnter) {
-        keywordInput.addEventListener('keypress', function (e) {
+    const oTuKhoa = tuyChon.keywordSelector ? form.querySelector(tuyChon.keywordSelector) : null;
+    if (oTuKhoa) {
+      if (tuyChon.keywordSubmitOnEnter) {
+        oTuKhoa.addEventListener('keypress', function (e) {
           if (e.key === 'Enter') {
             e.preventDefault();
-            submit();
+            guiForm();
           }
         });
       }
-      if (opts.keywordDebounceMs && Number(opts.keywordDebounceMs) > 0) {
-        keywordInput.addEventListener('input', debounce(submit, Number(opts.keywordDebounceMs)));
+      if (tuyChon.keywordDebounceMs && Number(tuyChon.keywordDebounceMs) > 0) {
+        oTuKhoa.addEventListener('input', chongDoi(guiForm, Number(tuyChon.keywordDebounceMs)));
       }
     }
 
     // Extra inputs (price/date/etc)
-    const extraSelectors = Array.isArray(opts.inputSelectors) ? opts.inputSelectors : [];
-    if (extraSelectors.length) {
-      const extraInputs = Array.from(form.querySelectorAll(extraSelectors.join(',')));
-      const debounced = debounce(submit, Number(opts.inputDebounceMs) || 800);
-      for (const el of extraInputs) {
-        el.addEventListener('input', debounced);
-        el.addEventListener('change', submit);
+    const boChonThem = Array.isArray(tuyChon.inputSelectors) ? tuyChon.inputSelectors : [];
+    if (boChonThem.length) {
+      const danhSachInput = Array.from(form.querySelectorAll(boChonThem.join(',')));
+      const choTre = chongDoi(guiForm, Number(tuyChon.inputDebounceMs) || 800);
+      for (const el of danhSachInput) {
+        el.addEventListener('input', choTre);
+        el.addEventListener('change', guiForm);
       }
     }
   }
 
-  function attachOnReady(formOrSelector, options) {
+  function ganKhiSanSang(formOrSelector, options) {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', function () {
-        attach(formOrSelector, options);
+        gan(formOrSelector, options);
       });
       return;
     }
-    attach(formOrSelector, options);
+    gan(formOrSelector, options);
   }
 
   window.FilterAutoSubmit = {
-    attach,
-    attachOnReady
+    attach: gan,
+    attachOnReady: ganKhiSanSang
   };
 })();

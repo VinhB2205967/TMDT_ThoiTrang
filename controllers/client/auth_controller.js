@@ -1,26 +1,26 @@
 const bcrypt = require('bcryptjs');
 const passport = require('passport');
-const Nguoidung = require('../../models/user_model');
+const nguoidung = require('../../models/user_model');
 const { redirectAfterLogin } = require('../../middlewares/auth');
 const { writeLoginLog } = require('../../services/loginLog');
-const { isValidEmail } = require('../../helpers/validators');
+const { laEmailHopLe } = require('../../helpers/validators');
 
 function chuanHoaEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
 
 function kiemTraMatKhau(password) {
-  const matKhau = String(password || '');
-  if (matKhau.length < 6) return 'Mật khẩu phải tối thiểu 6 ký tự';
+  const matkhau = String(password || '');
+  if (matkhau.length < 6) return 'Mật khẩu phải tối thiểu 6 ký tự';
   return null;
 }
 
 function kiemTraGoogle() {
-  const maClient = String(process.env.GOOGLE_CLIENT_ID || '').trim();
-  const biMatClient = String(process.env.GOOGLE_CLIENT_SECRET || '').trim();
-  if (!maClient || !biMatClient) return false;
+  const maclient = String(process.env.GOOGLE_CLIENT_ID || '').trim();
+  const bimatclient = String(process.env.GOOGLE_CLIENT_SECRET || '').trim();
+  if (!maclient || !bimatclient) return false;
   // Placeholder
-  if (biMatClient === 'NEW_SECRET_HERE' || biMatClient === 'YOUR_GOOGLE_CLIENT_SECRET') return false;
+  if (bimatclient === 'NEW_SECRET_HERE' || bimatclient === 'YOUR_GOOGLE_CLIENT_SECRET') return false;
   return true;
 }
 
@@ -39,46 +39,46 @@ module.exports.trang = async (req, res) => {
     return redirectAfterLogin(req.user, res);
   }
 
-  const cheDo = req.query.mode === 'register' ? 'register' : 'login';
-  const emailDaNho = String(req.cookies?.rememberEmail || '').trim();
+  const chedo = req.query.mode === 'register' ? 'register' : 'login';
+  const emaildanho = String(req.cookies?.rememberEmail || '').trim();
   res.render('client/pages/auth/index.pug', {
-    titlePage: cheDo === 'register' ? 'Đăng ký' : 'Đăng nhập',
-    mode: cheDo,
+    titlePage: chedo === 'register' ? 'Đăng ký' : 'Đăng nhập',
+    mode: chedo,
     googleEnabled: kiemTraGoogle(),
-    rememberedEmail: emailDaNho
+    rememberedEmail: emaildanho
   });
 };
 
 // Đăng ký
 module.exports.dangKy = async (req, res) => {
   try {
-    const hoTen = String(req.body.hoten || '').trim();
-    const emailDangKy = chuanHoaEmail(req.body.email);
-    const matKhau = String(req.body.password || '');
+    const hoten = String(req.body.hoten || '').trim();
+    const emaildangky = chuanHoaEmail(req.body.email);
+    const matkhau = String(req.body.password || '');
 
-    if (!emailDangKy || !isValidEmail(emailDangKy)) {
+    if (!emaildangky || !laEmailHopLe(emaildangky)) {
       req.flash('error', 'Email không đúng định dạng');
       return res.redirect('/auth?mode=register');
     }
 
-    const loiMatKhau = kiemTraMatKhau(matKhau);
-    if (loiMatKhau) {
-      req.flash('error', loiMatKhau);
+    const loimatkhau = kiemTraMatKhau(matkhau);
+    if (loimatkhau) {
+      req.flash('error', loimatkhau);
       return res.redirect('/auth?mode=register');
     }
 
-    const nguoiDungTonTai = await Nguoidung.findOne({ email: emailDangKy, daxoa: { $ne: true } });
-    if (nguoiDungTonTai) {
+    const nguoidungtontai = await nguoidung.findOne({ email: emaildangky, daxoa: { $ne: true } });
+    if (nguoidungtontai) {
       req.flash('error', 'Email đã tồn tại');
       return res.redirect('/auth?mode=register');
     }
 
-    const matkhau = await bcrypt.hash(matKhau, 10);
+    const matkhaumahoa = await bcrypt.hash(matkhau, 10);
 
-    const nguoiDung = await Nguoidung.create({
-      hoten: hoTen || emailDangKy.split('@')[0],
-      email: emailDangKy,
-      matkhau,
+    const taikhoan = await nguoidung.create({
+      hoten: hoten || emaildangky.split('@')[0],
+      email: emaildangky,
+      matkhau: matkhaumahoa,
       vaitro: 'user',
       trangthai: 'active',
       xacthuc: false,
@@ -86,12 +86,12 @@ module.exports.dangKy = async (req, res) => {
       ngaycapnhat: new Date()
     });
 
-    req.login(nguoiDung, function (loi) {
+    req.login(taikhoan, function (loi) {
       if (loi) {
         req.flash('error', 'Đăng nhập sau đăng ký thất bại');
         return res.redirect('/auth?mode=login');
       }
-      redirectAfterLogin(nguoiDung, res);
+      redirectAfterLogin(taikhoan, res);
     });
   } catch (loi) {
     console.error('Register error:', loi);
@@ -108,33 +108,33 @@ module.exports.dangKy = async (req, res) => {
 // Đăng nhập 
 module.exports.dangNhap = async (req, res) => {
   try {
-    const emailDangNhap = chuanHoaEmail(req.body.email);
-    const matKhau = String(req.body.password || '');
-    const ghiNho = req.body.remember === 'on' || req.body.remember === '1' || req.body.remember === true;
+    const emaildangnhap = chuanHoaEmail(req.body.email);
+    const matkhau = String(req.body.password || '');
+    const ghinho = req.body.remember === 'on' || req.body.remember === '1' || req.body.remember === true;
 
-    const nguoiDung = await Nguoidung.findOne({ email: emailDangNhap, daxoa: { $ne: true } });
-    if (!nguoiDung) {
-      await writeLoginLog({ req, email: emailDangNhap, provider: 'local', status: 'failed', message: 'user_not_found' });
+    const taikhoan = await nguoidung.findOne({ email: emaildangnhap, daxoa: { $ne: true } });
+    if (!taikhoan) {
+      await writeLoginLog({ req, email: emaildangnhap, provider: 'local', status: 'failed', message: 'user_not_found' });
       req.flash('error', 'Sai email hoặc mật khẩu');
       return res.redirect('/auth?mode=login');
     }
 
-    if (nguoiDung.trangthai !== 'active') {
-      await writeLoginLog({ req, user: nguoiDung, provider: 'local', status: 'failed', message: 'noactive' });
+    if (taikhoan.trangthai !== 'active') {
+      await writeLoginLog({ req, user: taikhoan, provider: 'local', status: 'failed', message: 'noactive' });
       req.flash('error', 'Tài khoản đang bị khóa');
       return res.redirect('/auth?mode=login');
     }
 
-    const hopLe = await bcrypt.compare(matKhau, nguoiDung.matkhau || '');
-    if (!hopLe) {
-      await writeLoginLog({ req, user: nguoiDung, provider: 'local', status: 'failed', message: 'wrong_password' });
+    const hople = await bcrypt.compare(matkhau, taikhoan.matkhau || '');
+    if (!hople) {
+      await writeLoginLog({ req, user: taikhoan, provider: 'local', status: 'failed', message: 'wrong_password' });
       req.flash('error', 'Sai email hoặc mật khẩu');
       return res.redirect('/auth?mode=login');
     }
 
     // cập nhật thông tin
-    await Nguoidung.updateOne(
-      { _id: nguoiDung._id },
+    await nguoidung.updateOne(
+      { _id: taikhoan._id },
       {
         $set: {
           lastLoginAt: new Date(),
@@ -146,22 +146,22 @@ module.exports.dangNhap = async (req, res) => {
       }
     );
 
-    req.login(nguoiDung, function (loi) {
+    req.login(taikhoan, function (loi) {
       if (loi) {
-        writeLoginLog({ req, user: nguoiDung, provider: 'local', status: 'failed', message: 'req_login_failed' });
+        writeLoginLog({ req, user: taikhoan, provider: 'local', status: 'failed', message: 'req_login_failed' });
         req.flash('error', 'Đăng nhập thất bại');
         return res.redirect('/auth?mode=login');
       }
 
-      writeLoginLog({ req, user: nguoiDung, provider: 'local', status: 'success' });
+      writeLoginLog({ req, user: taikhoan, provider: 'local', status: 'success' });
 
-      if (ghiNho) {
-        res.cookie('rememberEmail', emailDangNhap, { ...tuyChonCookie(), maxAge: 30 * 24 * 60 * 60 * 1000 });
+      if (ghinho) {
+        res.cookie('rememberEmail', emaildangnhap, { ...tuyChonCookie(), maxAge: 30 * 24 * 60 * 60 * 1000 });
       } else {
         res.clearCookie('rememberEmail', tuyChonCookie());
       }
 
-      redirectAfterLogin(nguoiDung, res);
+      redirectAfterLogin(taikhoan, res);
     });
   } catch (loi) {
     console.error('Login error:', loi);
@@ -173,15 +173,15 @@ module.exports.dangNhap = async (req, res) => {
 
 // Đăng xuất
 module.exports.dangXuat = async (req, res) => {
-  const idNguoiDung = req.user && req.user._id ? String(req.user._id) : null;
+  const idnguoidung = req.user && req.user._id ? String(req.user._id) : null;
 
   // cập nhật trạng thái offline
-  if (idNguoiDung) {
-    const ONLINE_WINDOW_MS = 5 * 60 * 1000;
-    const thoiDiemOffline = new Date(Date.now() - ONLINE_WINDOW_MS - 1000);
-    Nguoidung.updateOne(
-      { _id: idNguoiDung, daxoa: { $ne: true } },
-      { $set: { lastSeenAt: thoiDiemOffline } }
+  if (idnguoidung) {
+    const onlinewindowms = 5 * 60 * 1000;
+    const thoidiemoffline = new Date(Date.now() - onlinewindowms - 1000);
+    nguoidung.updateOne(
+      { _id: idnguoidung, daxoa: { $ne: true } },
+      { $set: { lastSeenAt: thoidiemoffline } }
     ).catch(() => {});
   }
 
@@ -192,23 +192,23 @@ module.exports.dangXuat = async (req, res) => {
 };
 
 function goiYGoogleAuth(err, req) {
-  const loiTruyVan = String(req?.query?.error || '').trim();
-  if (loiTruyVan) {
-    if (loiTruyVan === 'access_denied') return 'Bạn đã hủy/không cấp quyền cho Google.';
-    return `Google trả về lỗi: ${loiTruyVan}`;
+  const loitruyvan = String(req?.query?.error || '').trim();
+  if (loitruyvan) {
+    if (loitruyvan === 'access_denied') return 'Bạn đã hủy/không cấp quyền cho Google.';
+    return `Google trả về lỗi: ${loitruyvan}`;
   }
 
-  const noiDungLoi = String(err?.message || err || '').toLowerCase();
-  const duLieuOauth = String(err?.oauthError?.data || '').toLowerCase();
-  const tongHop = `${noiDungLoi} ${duLieuOauth}`;
+  const noidungloi = String(err?.message || err || '').toLowerCase();
+  const dulieuoauth = String(err?.oauthError?.data || '').toLowerCase();
+  const tonghop = `${noidungloi} ${dulieuoauth}`;
 
-  if (tongHop.includes('redirect_uri_mismatch')) {
+  if (tonghop.includes('redirect_uri_mismatch')) {
     return 'Sai Redirect URI. Hãy thêm đúng URL callback vào Google Console (Authorized redirect URIs).';
   }
-  if (tongHop.includes('invalid_client') || tongHop.includes('unauthorized_client')) {
+  if (tonghop.includes('invalid_client') || tonghop.includes('unauthorized_client')) {
     return 'Sai GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET hoặc OAuth Client chưa đúng loại (Web application).';
   }
-  if (tongHop.includes('invalid_grant')) {
+  if (tonghop.includes('invalid_grant')) {
     return 'Phiên đăng nhập Google hết hạn, thử lại.';
   }
 
@@ -232,35 +232,35 @@ module.exports.xuLyGoogleCallback = (req, res, next) => {
   }
 
   if (req.query && req.query.error) {
-    const goiY = goiYGoogleAuth(null, req);
-    writeLoginLog({ req, provider: 'google', status: 'failed', message: goiY || String(req.query.error || '') });
-    req.flash('error', goiY || 'Đăng nhập Google thất bại');
+    const goiy = goiYGoogleAuth(null, req);
+    writeLoginLog({ req, provider: 'google', status: 'failed', message: goiy || String(req.query.error || '') });
+    req.flash('error', goiy || 'Đăng nhập Google thất bại');
     return res.redirect('/auth?mode=login');
   }
 
-  passport.authenticate('google', function (loi, nguoiDung) {
+  passport.authenticate('google', function (loi, taikhoan) {
     if (loi) {
       console.error('Google callback error:', loi);
-      const goiY = goiYGoogleAuth(loi, req);
-      writeLoginLog({ req, provider: 'google', status: 'failed', message: goiY || 'passport_error' });
-      req.flash('error', goiY || 'Đăng nhập Google thất bại');
+      const goiy = goiYGoogleAuth(loi, req);
+      writeLoginLog({ req, provider: 'google', status: 'failed', message: goiy || 'passport_error' });
+      req.flash('error', goiy || 'Đăng nhập Google thất bại');
       return res.redirect('/auth?mode=login');
     }
 
-    if (!nguoiDung) {
+    if (!taikhoan) {
       writeLoginLog({ req, provider: 'google', status: 'failed', message: 'no_user' });
       req.flash('error', 'Không thể lấy thông tin Google');
       return res.redirect('/auth?mode=login');
     }
 
-    if (nguoiDung.trangthai !== 'active') {
-      writeLoginLog({ req, user: nguoiDung, provider: 'google', status: 'failed', message: 'noactive' });
+    if (taikhoan.trangthai !== 'active') {
+      writeLoginLog({ req, user: taikhoan, provider: 'google', status: 'failed', message: 'noactive' });
       req.flash('error', 'Tài khoản đang bị khóa');
       return res.redirect('/auth?mode=login');
     }
 
-    Nguoidung.updateOne(
-      { _id: nguoiDung._id },
+    nguoidung.updateOne(
+      { _id: taikhoan._id },
       {
         $set: {
           lastLoginAt: new Date(),
@@ -272,15 +272,15 @@ module.exports.xuLyGoogleCallback = (req, res, next) => {
       }
     ).catch(() => {});
 
-    req.login(nguoiDung, function (loiDangNhap) {
-      if (loiDangNhap) {
-        writeLoginLog({ req, user: nguoiDung, provider: 'google', status: 'failed', message: 'req_login_failed' });
+    req.login(taikhoan, function (loidangnhap) {
+      if (loidangnhap) {
+        writeLoginLog({ req, user: taikhoan, provider: 'google', status: 'failed', message: 'req_login_failed' });
         req.flash('error', 'Đăng nhập Google thất bại');
         return res.redirect('/auth?mode=login');
       }
 
-      writeLoginLog({ req, user: nguoiDung, provider: 'google', status: 'success' });
-      redirectAfterLogin(nguoiDung, res);
+      writeLoginLog({ req, user: taikhoan, provider: 'google', status: 'success' });
+      redirectAfterLogin(taikhoan, res);
     });
   })(req, res, next);
 };

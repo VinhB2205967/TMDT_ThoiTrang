@@ -1,24 +1,24 @@
 // helpers/search.js
-module.exports = (query, Search) => {
-    let keyword = (query[Search.keywordKey] || '').toString().trim();
+module.exports = (query, cauhinh) => {
+    let tukhoa = (query[cauhinh.keywordKey] || '').toString().trim();
 
     // Chuẩn hóa unicode (tiếng Việt)
-    keyword = keyword.normalize('NFC');
+    tukhoa = tukhoa.normalize('NFC');
 
     // Escape regex để tránh injection
-    const escapeRegex = (str) => {
+    const thoatBieuThuc = (str) => {
         return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     };
 
-    const safeKeyword = escapeRegex(keyword);
+    const tukhoaanToan = thoatBieuThuc(tukhoa);
 
     // Tạo regex an toàn
-    const regex = safeKeyword
-        ? new RegExp(safeKeyword, 'i')
+    const regex = tukhoaanToan
+        ? new RegExp(tukhoaanToan, 'i')
         : null;
 
     return {
-        keyword,
+        keyword: tukhoa,
         regex
     };
 };

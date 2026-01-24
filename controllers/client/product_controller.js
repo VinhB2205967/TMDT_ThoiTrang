@@ -1,6 +1,6 @@
 // Danh sách
-const Products = require("../../models/product_model");
-const Reviews = require("../../models/review_model");
+const sanpham = require("../../models/product_model");
+const danhgia = require("../../models/review_model");
 const searchHelper = require('../../helpers/search');
 const productHelper = require('../../helpers/product');
 const productViewHelper = require('../../helpers/productView');
@@ -9,21 +9,21 @@ function chuanHoaSanPhamDanhSach(item) {
     const p = productHelper(item);
 
     // Giữ tương thích với view hiện tại: dùng item.hinhanh
-    p.hinhanh = p.displayImage || productViewHelper.normalizeImage(p.hinhanh);
+    p.hinhanh = p.displayImage || productViewHelper.chuanHoaAnh(p.hinhanh);
 
     // Hỗ trợ cả 2 cấu trúc dữ liệu biến thể
     if (p.bienthe && p.bienthe.length > 0) {
         p.bienthe = p.bienthe.map((variant, idx) => ({
             ...variant,
             mausac: variant.mausac || `Màu ${idx + 1}`,
-            hinhanh: productViewHelper.normalizeImage(variant.hinhanh),
-            colorCode: productViewHelper.getColorCode(variant.mausac)
+            hinhanh: productViewHelper.chuanHoaAnh(variant.hinhanh),
+            colorCode: productViewHelper.layMaMau(variant.mausac)
         }));
     } else if (p.mausac && p.mausac.length > 0) {
         // Chuyển mausac array thành bienthe để view hiển thị được
         p.bienthe = p.mausac.map(color => ({
             mausac: color,
-            colorCode: productViewHelper.getColorCode(color),
+            colorCode: productViewHelper.layMaMau(color),
             hinhanh: null,
             gia: p.gia
         }));
@@ -35,48 +35,48 @@ function chuanHoaSanPhamDanhSach(item) {
 module.exports.danhSach = async (req, res) => {
     try {
         // Search
-        const doiTuongTimKiem = searchHelper(req.query, { keywordKey: 'keyword' });
+        const doituongtimkiem = searchHelper(req.query, { keywordKey: 'keyword' });
         
         // Build query
-        const boLoc = {
+        const boloc = {
             daxoa: { $ne: true },
             trangthai: 'dangban'
         };
         
         // Tìm kiếm theo từ khóa
-        if (doiTuongTimKiem.keyword) {
-            boLoc.tensanpham = doiTuongTimKiem.regex;
+        if (doituongtimkiem.keyword) {
+            boloc.tensanpham = doituongtimkiem.regex;
         }
         
         // Lọc theo loại sản phẩm
-        const tapLoaiChoPhep = new Set(['ao', 'quan', 'vay', 'phukien', 'giay', 'tui', 'aokhoac']);
-        if (req.query.loaisanpham && tapLoaiChoPhep.has(req.query.loaisanpham)) {
-            boLoc.loaisanpham = req.query.loaisanpham;
+        const taploaichophep = new Set(['ao', 'quan', 'vay', 'phukien', 'giay', 'tui', 'aokhoac']);
+        if (req.query.loaisanpham && taploaichophep.has(req.query.loaisanpham)) {
+            boloc.loaisanpham = req.query.loaisanpham;
         }
 
         // Lọc theo giới tính
-        const tapGioiTinhChoPhep = new Set(['nam', 'nu', 'unisex']);
-        if (req.query.gioitinh && tapGioiTinhChoPhep.has(req.query.gioitinh)) {
-            boLoc.gioitinh = req.query.gioitinh;
+        const tapgioitinhchophep = new Set(['nam', 'nu', 'unisex']);
+        if (req.query.gioitinh && tapgioitinhchophep.has(req.query.gioitinh)) {
+            boloc.gioitinh = req.query.gioitinh;
         }
         
         // Lọc theo khoảng giá (giá sau giảm)
         if (req.query.priceMin || req.query.priceMax) {
-            const giaTu = parseInt(req.query.priceMin) || 0;
-            const giaDen = parseInt(req.query.priceMax) || Number.MAX_SAFE_INTEGER;
+            const giatu = parseInt(req.query.priceMin) || 0;
+            const giaden = parseInt(req.query.priceMax) || Number.MAX_SAFE_INTEGER;
             
-            boLoc.$expr = {
+            boloc.$expr = {
                 $and: [
                     {
                         $gte: [
                             { $multiply: ['$gia', { $divide: [{ $subtract: [100, { $ifNull: ['$phantramgiamgia', 0] }] }, 100] }] },
-                            giaTu
+                            giatu
                         ]
                     },
                     {
                         $lte: [
                             { $multiply: ['$gia', { $divide: [{ $subtract: [100, { $ifNull: ['$phantramgiamgia', 0] }] }, 100] }] },
-                            giaDen
+                            giaden
                         ]
                     }
                 ]
@@ -84,23 +84,23 @@ module.exports.danhSach = async (req, res) => {
         }
         
         // Sắp xếp (whitelist)
-        let sapXep = { ngaytao: -1 };
+        let sapxep = { ngaytao: -1 };
         if (req.query.sort) {
             const [khoa, huong] = String(req.query.sort).split('-');
-            const tapKhoaSapXep = new Set(['gia', 'ngaytao', 'tensanpham']);
-            const tapChieuSapXep = new Set(['asc', 'desc']);
-            if (tapKhoaSapXep.has(khoa) && tapChieuSapXep.has(huong)) {
-                sapXep = { [khoa]: huong === 'asc' ? 1 : -1 };
+            const tapkhoasapxep = new Set(['gia', 'ngaytao', 'tensanpham']);
+            const tapchieusapxep = new Set(['asc', 'desc']);
+            if (tapkhoasapxep.has(khoa) && tapchieusapxep.has(huong)) {
+                sapxep = { [khoa]: huong === 'asc' ? 1 : -1 };
             }
         }
         
-        const danhSachSanPham = await Products.find(boLoc).sort(sapXep).lean();
-        const capNhatSP = (danhSachSanPham || []).map(chuanHoaSanPhamDanhSach);
+        const danhsachsanpham = await sanpham.find(boloc).sort(sapxep).lean();
+        const capnhatsp = (danhsachsanpham || []).map(chuanHoaSanPhamDanhSach);
 
         res.render("client/pages/products/index.pug", {
             titlePage: "Danh sách sản phẩm",
-            products: capNhatSP,
-            keyword: doiTuongTimKiem.keyword,
+            products: capnhatsp,
+            keyword: doituongtimkiem.keyword,
             currentSort: req.query.sort,
             currentLoai: req.query.loaisanpham,
             currentGioiTinh: req.query.gioitinh,
@@ -118,89 +118,89 @@ module.exports.danhSach = async (req, res) => {
 // Chi tiết
 module.exports.chiTiet = async (req, res) => {
     try {
-        const idSanPham = req.params.id;
-        const sanPham = await Products.findById(idSanPham).lean();
-        if (!sanPham) {
+        const idsanpham = req.params.id;
+        const sanphamdoc = await sanpham.findById(idsanpham).lean();
+        if (!sanphamdoc) {
             return res.status(404).render('client/pages/products/detail.pug', { titlePage: 'Sản phẩm không tồn tại' });
         }
 
-        const capNhatSP = productHelper(sanPham);
-        capNhatSP.hinhanh = capNhatSP.displayImage || productViewHelper.normalizeImage(capNhatSP.hinhanh);
+        const capnhatsp = productHelper(sanphamdoc);
+        capnhatsp.hinhanh = capnhatsp.displayImage || productViewHelper.chuanHoaAnh(capnhatsp.hinhanh);
 
         // Tạo danh sách tất cả các lựa chọn màu
-        let tatCaBienThe = [];
+        let tatcabienthe = [];
         
         // LUÔN thêm sản phẩm chính như biến thể đầu tiên
-        const mauChinh = capNhatSP.mausac_chinh || 'Mặc định';
-        const sizeChinh = capNhatSP.sizes || [];
-        tatCaBienThe.push({
+        const mauchinh = capnhatsp.mausac_chinh || 'Mặc định';
+        const sizechinh = capnhatsp.sizes || [];
+        tatcabienthe.push({
             _id: 'main',
-            mausac: mauChinh,
-            hinhanh: capNhatSP.hinhanh || '/images/shopping.png',
-            colorCode: productViewHelper.getColorCode(mauChinh),
-            gia: capNhatSP.gia,
-            phantramgiamgia: capNhatSP.phantramgiamgia,
-            sizes: sizeChinh,
-            soluong: capNhatSP.soluong_chinh || 0,
+            mausac: mauchinh,
+            hinhanh: capnhatsp.hinhanh || '/images/shopping.png',
+            colorCode: productViewHelper.layMaMau(mauchinh),
+            gia: capnhatsp.gia,
+            phantramgiamgia: capnhatsp.phantramgiamgia,
+            sizes: sizechinh,
+            soluong: capnhatsp.soluong_chinh || 0,
             isMain: true
         });
         
         // Thêm tất cả các biến thể
-        if (capNhatSP.bienthe && capNhatSP.bienthe.length > 0) {
-            capNhatSP.bienthe.forEach((bienThe, idx) => {
-                const hinhBienThe = productViewHelper.normalizeImage(bienThe.hinhanh);
-                const sizeBienThe = bienThe.sizes || [];
-                tatCaBienThe.push({
-                    ...bienThe,
-                    _id: bienThe._id || `variant_${idx}`,
-                    mausac: bienThe.mausac || `Màu ${tatCaBienThe.length + 1}`,
-                    hinhanh: (hinhBienThe && hinhBienThe !== '/images/shopping.png') ? hinhBienThe : capNhatSP.hinhanh,
-                    colorCode: productViewHelper.getColorCode(bienThe.mausac),
-                    gia: bienThe.gia || capNhatSP.gia,
-                    phantramgiamgia: bienThe.phantramgiamgia || capNhatSP.phantramgiamgia,
-                    sizes: sizeBienThe
+        if (capnhatsp.bienthe && capnhatsp.bienthe.length > 0) {
+            capnhatsp.bienthe.forEach((bienthe, idx) => {
+                const hinhbienthe = productViewHelper.chuanHoaAnh(bienthe.hinhanh);
+                const sizebienthe = bienthe.sizes || [];
+                tatcabienthe.push({
+                    ...bienthe,
+                    _id: bienthe._id || `variant_${idx}`,
+                    mausac: bienthe.mausac || `Màu ${tatcabienthe.length + 1}`,
+                    hinhanh: (hinhbienthe && hinhbienthe !== '/images/shopping.png') ? hinhbienthe : capnhatsp.hinhanh,
+                    colorCode: productViewHelper.layMaMau(bienthe.mausac),
+                    gia: bienthe.gia || capnhatsp.gia,
+                    phantramgiamgia: bienthe.phantramgiamgia || capnhatsp.phantramgiamgia,
+                    sizes: sizebienthe
                 });
             });
-        } else if (capNhatSP.mausac && capNhatSP.mausac.length > 0) {
-            capNhatSP.mausac.forEach(mau => {
-                tatCaBienThe.push({
+        } else if (capnhatsp.mausac && capnhatsp.mausac.length > 0) {
+            capnhatsp.mausac.forEach(mau => {
+                tatcabienthe.push({
                     mausac: mau,
-                    colorCode: productViewHelper.getColorCode(mau),
-                    hinhanh: capNhatSP.hinhanh,
-                    gia: capNhatSP.gia,
+                    colorCode: productViewHelper.layMaMau(mau),
+                    hinhanh: capnhatsp.hinhanh,
+                    gia: capnhatsp.gia,
                     sizes: []
                 });
             });
         }
 
         if (process.env.NODE_ENV !== 'production') {
-            console.log('Variants count:', tatCaBienThe.length);
+            console.log('Variants count:', tatcabienthe.length);
         }
         
         // Gán lại biến thể đã được xử lý
-        capNhatSP.bienthe = tatCaBienThe;
+        capnhatsp.bienthe = tatcabienthe;
 
         // Lấy đánh giá hiển thị
-        const danhGia = await Reviews.find({ sanpham_id: idSanPham, trangthai: 'approved', hienthi: true, daxoa: { $ne: true } }).lean();
-        let diemTrungBinh = 0;
-        if (danhGia && danhGia.length) {
-            diemTrungBinh = Math.round((danhGia.reduce((s, r) => s + (r.diem || 0), 0) / danhGia.length) * 10) / 10;
+        const danhsachdanhgia = await danhgia.find({ sanpham_id: idsanpham, trangthai: 'approved', hienthi: true, daxoa: { $ne: true } }).lean();
+        let diemtrungbinh = 0;
+        if (danhsachdanhgia && danhsachdanhgia.length) {
+            diemtrungbinh = Math.round((danhsachdanhgia.reduce((s, r) => s + (r.diem || 0), 0) / danhsachdanhgia.length) * 10) / 10;
         }
 
         // Sản phẩm tương tự (cùng loại)
-        const sanPhamLienQuan = await Products.find({ loaisanpham: sanPham.loaisanpham, _id: { $ne: sanPham._id }, daxoa: { $ne: true }, trangthai: 'dangban' }).limit(6).lean();
-        const sanPhamLienQuanXuLy = (sanPhamLienQuan || []).map(sp => {
+        const sanphamlienquan = await sanpham.find({ loaisanpham: sanphamdoc.loaisanpham, _id: { $ne: sanphamdoc._id }, daxoa: { $ne: true }, trangthai: 'dangban' }).limit(6).lean();
+        const sanphamlienquanxuly = (sanphamlienquan || []).map(sp => {
             const p = productHelper(sp);
-            p.hinhanh = p.displayImage || productViewHelper.normalizeImage(p.hinhanh);
+            p.hinhanh = p.displayImage || productViewHelper.chuanHoaAnh(p.hinhanh);
             return p;
         });
 
         res.render('client/pages/products/detail.pug', {
-            titlePage: capNhatSP.tensanpham || 'Chi tiết sản phẩm',
-            product: capNhatSP,
-            reviews: danhGia || [],
-            avgRating: diemTrungBinh,
-            related: sanPhamLienQuanXuLy
+            titlePage: capnhatsp.tensanpham || 'Chi tiết sản phẩm',
+            product: capnhatsp,
+            reviews: danhsachdanhgia || [],
+            avgRating: diemtrungbinh,
+            related: sanphamlienquanxuly
         });
     } catch (error) {
         console.error('Lỗi lấy chi tiết sản phẩm:', error);
@@ -212,49 +212,49 @@ module.exports.chiTiet = async (req, res) => {
 // Tùy chọn
 module.exports.tuyChon = async (req, res) => {
     try {
-        const idSanPham = req.params.id;
-        const sanPham = await Products.findOne({ _id: idSanPham, daxoa: { $ne: true }, trangthai: 'dangban' }).lean();
-        if (!sanPham) return res.status(404).json({ success: false, message: 'Sản phẩm không tồn tại' });
+        const idsanpham = req.params.id;
+        const sanphamdoc = await sanpham.findOne({ _id: idsanpham, daxoa: { $ne: true }, trangthai: 'dangban' }).lean();
+        if (!sanphamdoc) return res.status(404).json({ success: false, message: 'Sản phẩm không tồn tại' });
 
-        const capNhatSP = productHelper(sanPham);
-        capNhatSP.hinhanh = capNhatSP.displayImage || productViewHelper.normalizeImage(capNhatSP.hinhanh);
+        const capnhatsp = productHelper(sanphamdoc);
+        capnhatsp.hinhanh = capnhatsp.displayImage || productViewHelper.chuanHoaAnh(capnhatsp.hinhanh);
 
-        const khongSize = ['tui', 'phukien'];
-        const coSize = !khongSize.includes(String(capNhatSP.loaisanpham || '').toLowerCase());
+        const khongsize = ['tui', 'phukien'];
+        const cosize = !khongsize.includes(String(capnhatsp.loaisanpham || '').toLowerCase());
 
-        const giaGoc = capNhatSP.gia || 0;
-        const giamGoc = capNhatSP.phantramgiamgia || 0;
-        const giaMoiGoc = giamGoc > 0 ? Math.round(giaGoc * (100 - giamGoc) / 100) : giaGoc;
+        const giagoc = capnhatsp.gia || 0;
+        const giamgoc = capnhatsp.phantramgiamgia || 0;
+        const giamoigoc = giamgoc > 0 ? Math.round(giagoc * (100 - giamgoc) / 100) : giagoc;
 
-        const danhSachBienThe = [];
+        const danhsachbienthe = [];
 
         // Main variant
-        danhSachBienThe.push({
+        danhsachbienthe.push({
             id: 'main',
-            mausac: capNhatSP.mausac_chinh || 'Mặc định',
-            hinhanh: capNhatSP.hinhanh || '/images/shopping.png',
-            gia: giaGoc,
-            phantramgiamgia: giamGoc,
-            giamoi: giaMoiGoc,
-            soluong: capNhatSP.soluong_chinh || 0,
-            sizes: Array.isArray(capNhatSP.sizes) ? capNhatSP.sizes.map(s => ({ size: s.size, soluong: s.soluong || 0 })) : []
+            mausac: capnhatsp.mausac_chinh || 'Mặc định',
+            hinhanh: capnhatsp.hinhanh || '/images/shopping.png',
+            gia: giagoc,
+            phantramgiamgia: giamgoc,
+            giamoi: giamoigoc,
+            soluong: capnhatsp.soluong_chinh || 0,
+            sizes: Array.isArray(capnhatsp.sizes) ? capnhatsp.sizes.map(s => ({ size: s.size, soluong: s.soluong || 0 })) : []
         });
 
         // DB variants
-        if (capNhatSP.bienthe && capNhatSP.bienthe.length) {
-            capNhatSP.bienthe.forEach((bienThe) => {
-                const gia = bienThe.gia || giaGoc;
-                const giam = bienThe.phantramgiamgia != null ? bienThe.phantramgiamgia : giamGoc;
+        if (capnhatsp.bienthe && capnhatsp.bienthe.length) {
+            capnhatsp.bienthe.forEach((bienthe) => {
+                const gia = bienthe.gia || giagoc;
+                const giam = bienthe.phantramgiamgia != null ? bienthe.phantramgiamgia : giamgoc;
                 const giamoi = giam > 0 ? Math.round(gia * (100 - giam) / 100) : gia;
-                danhSachBienThe.push({
-                    id: String(bienThe._id),
-                    mausac: bienThe.mausac || 'Màu',
-                    hinhanh: (productViewHelper.normalizeImage(bienThe.hinhanh) || capNhatSP.hinhanh || '/images/shopping.png'),
+                danhsachbienthe.push({
+                    id: String(bienthe._id),
+                    mausac: bienthe.mausac || 'Màu',
+                    hinhanh: (productViewHelper.chuanHoaAnh(bienthe.hinhanh) || capnhatsp.hinhanh || '/images/shopping.png'),
                     gia,
                     phantramgiamgia: giam,
                     giamoi,
-                    soluong: bienThe.soluong || 0,
-                    sizes: Array.isArray(bienThe.sizes) ? bienThe.sizes.map(s => ({ size: s.size, soluong: s.soluong || 0 })) : []
+                    soluong: bienthe.soluong || 0,
+                    sizes: Array.isArray(bienthe.sizes) ? bienthe.sizes.map(s => ({ size: s.size, soluong: s.soluong || 0 })) : []
                 });
             });
         }
@@ -262,14 +262,14 @@ module.exports.tuyChon = async (req, res) => {
         return res.json({
             success: true,
             product: {
-                id: String(capNhatSP._id),
-                tensanpham: capNhatSP.tensanpham,
-                hinhanh: capNhatSP.hinhanh || '/images/shopping.png',
-                gia: giaGoc,
-                phantramgiamgia: giamGoc,
-                giamoi: giaMoiGoc,
-                hasSize: coSize,
-                variants: danhSachBienThe
+                id: String(capnhatsp._id),
+                tensanpham: capnhatsp.tensanpham,
+                hinhanh: capnhatsp.hinhanh || '/images/shopping.png',
+                gia: giagoc,
+                phantramgiamgia: giamgoc,
+                giamoi: giamoigoc,
+                hasSize: cosize,
+                variants: danhsachbienthe
             }
         });
     } catch (error) {

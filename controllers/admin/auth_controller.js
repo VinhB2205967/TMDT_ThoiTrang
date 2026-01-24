@@ -1,5 +1,5 @@
 const bcrypt = require('bcryptjs');
-const Nguoidung = require('../../models/user_model');
+const nguoidung = require('../../models/user_model');
 const systemConfig = require('../../config/system');
 const { writeLoginLog } = require('../../services/loginLog');
 // Chuẩn hóa email
@@ -20,43 +20,43 @@ module.exports.trangDangNhap = (req, res) => {
 // Đăng nhập
 module.exports.dangNhap = async (req, res) => {
   try {
-    const emailDangNhap = chuanHoaEmail(req.body.email);
-    const matKhau = String(req.body.password || '');
+    const emaildangnhap = chuanHoaEmail(req.body.email);
+    const matkhau = String(req.body.password || '');
 
-    if (!emailDangNhap || !matKhau) {
-      await writeLoginLog({ req, email: emailDangNhap, provider: 'admin', status: 'failed', message: 'missing_credentials' });
+    if (!emaildangnhap || !matkhau) {
+      await writeLoginLog({ req, email: emaildangnhap, provider: 'admin', status: 'failed', message: 'missing_credentials' });
       req.flash('error', 'Vui lòng nhập email và mật khẩu');
       return res.redirect(`${systemConfig.prefigAdmin}/login`);
     }
 
-    const nguoiDung = await Nguoidung.findOne({ email: emailDangNhap, daxoa: { $ne: true } });
-    if (!nguoiDung) {
-      await writeLoginLog({ req, email: emailDangNhap, provider: 'admin', status: 'failed', message: 'user_not_found' });
+    const taikhoan = await nguoidung.findOne({ email: emaildangnhap, daxoa: { $ne: true } });
+    if (!taikhoan) {
+      await writeLoginLog({ req, email: emaildangnhap, provider: 'admin', status: 'failed', message: 'user_not_found' });
       req.flash('error', 'Sai email hoặc mật khẩu');
       return res.redirect(`${systemConfig.prefigAdmin}/login`);
     }
 
-    if (nguoiDung.trangthai !== 'active') {
-      await writeLoginLog({ req, user: nguoiDung, provider: 'admin', status: 'failed', message: 'noactive' });
+    if (taikhoan.trangthai !== 'active') {
+      await writeLoginLog({ req, user: taikhoan, provider: 'admin', status: 'failed', message: 'noactive' });
       req.flash('error', 'Tài khoản đang bị khóa');
       return res.redirect(`${systemConfig.prefigAdmin}/login`);
     }
 
-    if (nguoiDung.vaitro !== 'admin') {
-      await writeLoginLog({ req, user: nguoiDung, provider: 'admin', status: 'failed', message: 'not_admin' });
+    if (taikhoan.vaitro !== 'admin') {
+      await writeLoginLog({ req, user: taikhoan, provider: 'admin', status: 'failed', message: 'not_admin' });
       req.flash('error', 'Tài khoản này không có quyền Admin');
       return res.redirect(`${systemConfig.prefigAdmin}/login`);
     }
 
-    const hopLe = await bcrypt.compare(matKhau, nguoiDung.matkhau || '');
-    if (!hopLe) {
-      await writeLoginLog({ req, user: nguoiDung, provider: 'admin', status: 'failed', message: 'wrong_password' });
+    const hople = await bcrypt.compare(matkhau, taikhoan.matkhau || '');
+    if (!hople) {
+      await writeLoginLog({ req, user: taikhoan, provider: 'admin', status: 'failed', message: 'wrong_password' });
       req.flash('error', 'Sai email hoặc mật khẩu');
       return res.redirect(`${systemConfig.prefigAdmin}/login`);
     }
 // cập nhật thông tin
-    await Nguoidung.updateOne(
-      { _id: nguoiDung._id },
+    await nguoidung.updateOne(
+      { _id: taikhoan._id },
       {
         $set: {
           lastLoginAt: new Date(),
@@ -68,8 +68,8 @@ module.exports.dangNhap = async (req, res) => {
       }
     );
 // lưu session
-    req.session.adminUserId = String(nguoiDung._id);
-    await writeLoginLog({ req, user: nguoiDung, provider: 'admin', status: 'success' });
+    req.session.adminUserId = String(taikhoan._id);
+    await writeLoginLog({ req, user: taikhoan, provider: 'admin', status: 'success' });
     req.flash('success', 'Đăng nhập Admin thành công');
     return res.redirect(systemConfig.prefigAdmin);
   } catch (err) {
@@ -82,15 +82,15 @@ module.exports.dangNhap = async (req, res) => {
 
 // Đăng xuất
 module.exports.dangXuat = (req, res) => {
-  const idAdmin = req.session && req.session.adminUserId;
+  const idadmin = req.session && req.session.adminUserId;
 
  // cập nhật trạng thái offline
-  if (idAdmin) {
-    const ONLINE_WINDOW_MS = 5 * 60 * 1000;
-    const thoiDiemOffline = new Date(Date.now() - ONLINE_WINDOW_MS - 1000);
-    Nguoidung.updateOne(
-      { _id: idAdmin, daxoa: { $ne: true } },
-      { $set: { lastSeenAt: thoiDiemOffline } }
+  if (idadmin) {
+    const onlinewindowms = 5 * 60 * 1000;
+    const thoidiemoffline = new Date(Date.now() - onlinewindowms - 1000);
+    nguoidung.updateOne(
+      { _id: idadmin, daxoa: { $ne: true } },
+      { $set: { lastSeenAt: thoidiemoffline } }
     ).catch(() => {});
   }
 

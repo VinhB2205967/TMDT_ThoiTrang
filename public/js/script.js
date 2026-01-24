@@ -1,7 +1,7 @@
 (() => {
 	const App = window.App || {};
 	const $ = App.qs || ((selector, root = document) => root.querySelector(selector));
-	const apiFetch = App.apiFetch || (async (url, options = {}, cfg = {}) => {
+	const goiApi = App.apiFetch || (async (url, options = {}, cfg = {}) => {
 		const { redirectOn401 = true } = cfg;
 		const opts = {
 			credentials: 'same-origin',
@@ -31,18 +31,18 @@
 
 		return { ok: res.ok, status: res.status, data };
 	});
-	const setCartBadge = App.setCartBadge || ((count) => {
+	const datHuyHieuGio = App.setCartBadge || ((count) => {
 		const badge = $('.cart-badge');
 		if (!badge) return;
 		badge.textContent = String(count ?? 0);
 	});
 
 	// ===== Favorites =====
-	async function hydrateFavoriteHearts() {
+	async function taiTrangYeuThich() {
 		const cards = document.querySelectorAll('[data-product-id]');
 		if (!cards.length) return;
 
-		const { ok, data } = await apiFetch('/favorites/ids', {}, { redirectOn401: false });
+		const { ok, data } = await goiApi('/favorites/ids', {}, { redirectOn401: false });
 		if (!ok || !data || !Array.isArray(data.ids)) return;
 
 		const set = new Set(data.ids);
@@ -62,8 +62,8 @@
 		});
 	}
 
-	async function toggleFavorite(productId, btn) {
-		const { ok, data } = await apiFetch(`/favorites/toggle/${productId}`, { method: 'POST' });
+	async function doiYeuThich(productId, btn) {
+	const { ok, data } = await goiApi(`/favorites/toggle/${productId}`, { method: 'POST' });
 		if (!ok || !data) return;
 
 		const active = Boolean(data.active);
@@ -87,25 +87,25 @@
 	}
 
 	// ===== Quick Add/Buy Modal =====
-	let modal;
-	let modalEl;
-	let currentProductId = null;
-	let currentIntent = 'add'; // add | buy
-	let currentOptions = null;
-	let selectedVariantId = 'main';
-	let selectedSize = '';
-	let maxStock = 0;
-	let editingCartItemId = null;
+	let hopThoai;
+	let phanTuHopThoai;
+	let maSanPhamHienTai = null;
+	let mucDichHienTai = 'add'; // add | buy
+	let tuyChonHienTai = null;
+	let idBienTheDaChon = 'main';
+	let sizeDaChon = '';
+	let tonToiDa = 0;
+	let idMucGioDangSua = null;
 
-	function ensureModal() {
-		modalEl = $('#quickAddModal');
-		if (!modalEl) return null;
+	function damBaoHopThoai() {
+		phanTuHopThoai = $('#quickAddModal');
+		if (!phanTuHopThoai) return null;
 		// eslint-disable-next-line no-undef
-		modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-		return modal;
+		hopThoai = bootstrap.Modal.getOrCreateInstance(phanTuHopThoai);
+		return hopThoai;
 	}
 
-	function formatVND(n) {
+	function dinhDangVND(n) {
 		if (App.formatVND) return App.formatVND(n).replace(/đ$/, '₫');
 		try {
 			return (n || 0).toLocaleString('vi-VN') + '₫';
@@ -114,20 +114,20 @@
 		}
 	}
 
-	function renderModalProduct() {
-		if (!currentOptions) return;
-		const p = currentOptions.product;
+	function hienThiSanPhamModal() {
+		if (!tuyChonHienTai) return;
+		const p = tuyChonHienTai.product;
 
 		const variants = Array.isArray(p.variants) ? p.variants : [];
-		let selectedVariant = variants.find(v => String(v.id) === String(selectedVariantId));
+		let selectedVariant = variants.find(v => String(v.id) === String(idBienTheDaChon));
 		if (!selectedVariant && variants.length) {
 			selectedVariant = variants[0];
-			selectedVariantId = String(selectedVariant.id);
+			idBienTheDaChon = String(selectedVariant.id);
 		}
 
 		$('#qamName').textContent = p.tensanpham || '—';
 		$('#qamImage').src = (selectedVariant?.hinhanh || p.hinhanh || '/images/shopping.png');
-		$('#qamPrice').textContent = formatVND((selectedVariant?.giamoi ?? selectedVariant?.gia) ?? (p.giamoi ?? p.gia ?? 0));
+		$('#qamPrice').textContent = dinhDangVND((selectedVariant?.giamoi ?? selectedVariant?.gia) ?? (p.giamoi ?? p.gia ?? 0));
 
 		const variantsWrap = $('#qamVariants');
 		variantsWrap.innerHTML = '';
@@ -135,18 +135,18 @@
 		variants.forEach((v) => {
 			const btn = document.createElement('button');
 			btn.type = 'button';
-			btn.className = 'btn btn-sm ' + (String(v.id) === String(selectedVariantId) ? 'btn-primary' : 'btn-outline-primary');
+			btn.className = 'btn btn-sm ' + (String(v.id) === String(idBienTheDaChon) ? 'btn-primary' : 'btn-outline-primary');
 			btn.textContent = v.mausac || 'Màu';
 			btn.dataset.variantId = String(v.id);
 			btn.addEventListener('click', () => {
-				selectedVariantId = String(v.id);
-				selectedSize = '';
-				renderModalProduct();
+				idBienTheDaChon = String(v.id);
+				sizeDaChon = '';
+				hienThiSanPhamModal();
 			});
 			variantsWrap.appendChild(btn);
 		});
 
-		selectedVariant = variants.find(v => String(v.id) === String(selectedVariantId)) || variants[0];
+		selectedVariant = variants.find(v => String(v.id) === String(idBienTheDaChon)) || variants[0];
 
 		const sizeWrap = $('#qamSizeWrap');
 		const sizesEl = $('#qamSizes');
@@ -164,36 +164,36 @@
 				const stock = row?.soluong || 0;
 				const b = document.createElement('button');
 				b.type = 'button';
-				const active = selectedSize === sz;
+				const active = sizeDaChon === sz;
 				b.className = 'btn btn-sm ' + (active ? 'btn-dark' : 'btn-outline-dark');
 				b.textContent = `${sz}${stock > 0 ? '' : ' (Hết)'}`;
 				b.disabled = stock <= 0;
 				b.addEventListener('click', () => {
-					selectedSize = sz;
-					renderModalProduct();
+					sizeDaChon = sz;
+					hienThiSanPhamModal();
 				});
 				sizesEl.appendChild(b);
 			});
 
-			if (selectedSize) {
-				const stock = bySize.get(selectedSize)?.soluong || 0;
-				maxStock = stock;
+			if (sizeDaChon) {
+				const stock = bySize.get(sizeDaChon)?.soluong || 0;
+				tonToiDa = stock;
 			} else {
-				maxStock = 0;
+				tonToiDa = 0;
 			}
 		} else {
 			sizeWrap.style.display = 'none';
-			maxStock = selectedVariant?.soluong || 0;
+			tonToiDa = selectedVariant?.soluong || 0;
 		}
 
 		const stockNote = $('#qamStockNote');
-		stockNote.textContent = maxStock > 0 ? `Còn ${maxStock} sản phẩm` : (p.hasSize ? 'Vui lòng chọn size' : 'Hết hàng');
+		stockNote.textContent = tonToiDa > 0 ? `Còn ${tonToiDa} sản phẩm` : (p.hasSize ? 'Vui lòng chọn size' : 'Hết hàng');
 
 		const qtyInput = $('#qamQty');
 		const currentQty = Math.max(1, parseInt(qtyInput.value, 10) || 1);
-		if (maxStock > 0) {
-			qtyInput.max = String(maxStock);
-			qtyInput.value = String(Math.min(currentQty, maxStock));
+		if (tonToiDa > 0) {
+			qtyInput.max = String(tonToiDa);
+			qtyInput.value = String(Math.min(currentQty, tonToiDa));
 			qtyInput.disabled = false;
 			$('#qamSubmit').disabled = false;
 		} else {
@@ -203,21 +203,21 @@
 		}
 	}
 
-	async function openEditCartOptions(btn) {
+	async function moSuaTuyChonGio(btn) {
 		const productId = btn.getAttribute('data-product-id');
 		const itemId = btn.getAttribute('data-item-id');
 		if (!productId || !itemId) return;
 
-		const m = ensureModal();
+		const m = damBaoHopThoai();
 		if (!m) return;
 
-		editingCartItemId = itemId;
-		currentProductId = productId;
-		currentIntent = 'edit';
-		currentOptions = null;
-		selectedVariantId = String(btn.getAttribute('data-variant-id') || 'main');
-		selectedSize = String(btn.getAttribute('data-size') || '');
-		maxStock = 0;
+		idMucGioDangSua = itemId;
+		maSanPhamHienTai = productId;
+		mucDichHienTai = 'edit';
+		tuyChonHienTai = null;
+		idBienTheDaChon = String(btn.getAttribute('data-variant-id') || 'main');
+		sizeDaChon = String(btn.getAttribute('data-size') || '');
+		tonToiDa = 0;
 
 		$('#qamName').textContent = 'Đang tải...';
 		$('#qamPrice').textContent = '';
@@ -231,30 +231,30 @@
 		$('#qamQty').value = String(qty);
 
 		m.show();
-		const { ok, data } = await apiFetch(`/products/${productId}/options`);
+		const { ok, data } = await goiApi(`/products/${productId}/options`);
 		if (!ok || !data || !data.success) {
 			$('#qamName').textContent = 'Không tải được sản phẩm';
 			return;
 		}
 
-		currentOptions = data;
+		tuyChonHienTai = data;
 		const variants = data.product?.variants || [];
-		if (variants.length && !variants.find(v => String(v.id) === String(selectedVariantId))) {
-			selectedVariantId = String(variants[0].id);
+		if (variants.length && !variants.find(v => String(v.id) === String(idBienTheDaChon))) {
+			idBienTheDaChon = String(variants[0].id);
 		}
-		renderModalProduct();
+		hienThiSanPhamModal();
 	}
 
-	async function openQuickModal(productId, intent) {
-		const m = ensureModal();
+	async function moModalNhanh(productId, intent) {
+		const m = damBaoHopThoai();
 		if (!m) return;
-		currentProductId = productId;
-		currentIntent = intent;
-		editingCartItemId = null;
-		currentOptions = null;
-		selectedVariantId = 'main';
-		selectedSize = '';
-		maxStock = 0;
+		maSanPhamHienTai = productId;
+		mucDichHienTai = intent;
+		idMucGioDangSua = null;
+		tuyChonHienTai = null;
+		idBienTheDaChon = 'main';
+		sizeDaChon = '';
+		tonToiDa = 0;
 
 		$('#qamName').textContent = 'Đang tải...';
 		$('#qamPrice').textContent = '';
@@ -267,15 +267,15 @@
 
 		m.show();
 
-		const { ok, data } = await apiFetch(`/products/${productId}/options`);
+		const { ok, data } = await goiApi(`/products/${productId}/options`);
 		if (!ok || !data || !data.success) {
 			$('#qamName').textContent = 'Không tải được sản phẩm';
 			return;
 		}
 
-		currentOptions = data;
-		if (data.product?.variants?.length) selectedVariantId = String(data.product.variants[0].id);
-		renderModalProduct();
+		tuyChonHienTai = data;
+		if (data.product?.variants?.length) idBienTheDaChon = String(data.product.variants[0].id);
+		hienThiSanPhamModal();
 	}
 
 	function initCartSubtotalBySelection() {
@@ -295,12 +295,12 @@
 				const unit = parseInt(unitRaw, 10) || 0;
 				const lineTotal = unit * qty;
 				const lineEl = row ? row.querySelector('.cart-line-total') : null;
-				if (lineEl) lineEl.textContent = formatVND(lineTotal);
+				if (lineEl) lineEl.textContent = dinhDangVND(lineTotal);
 
 				if (!cb.checked) return;
 				sum += lineTotal;
 			});
-			subtotalEl.textContent = formatVND(sum);
+			subtotalEl.textContent = dinhDangVND(sum);
 		};
 
 		compute();
@@ -386,7 +386,7 @@
 
 		const sendUpdate = async (itemId, qty) => {
 			pending.set(itemId, qty);
-			const { ok } = await apiFetch('/cart/update', {
+			const { ok } = await goiApi('/cart/update', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ itemId, soluong: qty }),
@@ -523,29 +523,29 @@
 		apply();
 	}
 
-	async function submitQuickModal() {
-		if (!currentOptions || !currentProductId) return;
-		const p = currentOptions.product;
+	async function guiModalNhanh() {
+		if (!tuyChonHienTai || !maSanPhamHienTai) return;
+		const p = tuyChonHienTai.product;
 
-		if (p.hasSize && !selectedSize) {
+		if (p.hasSize && !sizeDaChon) {
 			alert('Vui lòng chọn size');
 			return;
 		}
 
 		const qty = Math.max(1, parseInt($('#qamQty').value, 10) || 1);
 		const body = {
-			sanpham_id: currentProductId,
-			bienthe_id: selectedVariantId === 'main' ? null : selectedVariantId,
-			kichco: p.hasSize ? selectedSize : null,
+			sanpham_id: maSanPhamHienTai,
+			bienthe_id: idBienTheDaChon === 'main' ? null : idBienTheDaChon,
+			kichco: p.hasSize ? sizeDaChon : null,
 			soluong: qty
 		};
 
-		const endpoint = currentIntent === 'buy' ? '/cart/buy-now' : (currentIntent === 'edit' ? '/cart/update-options' : '/cart/add');
-		const payload = currentIntent === 'edit'
-			? { ...body, itemId: editingCartItemId }
+		const endpoint = mucDichHienTai === 'buy' ? '/cart/buy-now' : (mucDichHienTai === 'edit' ? '/cart/update-options' : '/cart/add');
+		const payload = mucDichHienTai === 'edit'
+			? { ...body, itemId: idMucGioDangSua }
 			: body;
 
-		const { ok, data } = await apiFetch(endpoint, {
+		const { ok, data } = await goiApi(endpoint, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(payload)
@@ -556,20 +556,20 @@
 			return;
 		}
 
-		if (typeof data.cartCount === 'number') setCartBadge(data.cartCount);
+		if (typeof data.cartCount === 'number') datHuyHieuGio(data.cartCount);
 
-		if (currentIntent === 'buy' && data.redirect) {
+		if (mucDichHienTai === 'buy' && data.redirect) {
 			window.location.href = data.redirect;
 			return;
 		}
 
 		// Editing cart options: refresh page to show new image/size/color
-		if (currentIntent === 'edit') {
+		if (mucDichHienTai === 'edit') {
 			window.location.reload();
 			return;
 		}
 
-		if (modal) modal.hide();
+		if (hopThoai) hopThoai.hide();
 	}
 
 	function getProductIdFromEventTarget(target) {
@@ -593,17 +593,17 @@
 			});
 			plus.addEventListener('click', () => {
 				const cur = Math.max(1, parseInt(qty.value, 10) || 1);
-				const next = maxStock > 0 ? Math.min(maxStock, cur + 1) : (cur + 1);
+				const next = tonToiDa > 0 ? Math.min(tonToiDa, cur + 1) : (cur + 1);
 				qty.value = String(next);
 			});
 			qty.addEventListener('input', () => {
 				const cur = Math.max(1, parseInt(qty.value, 10) || 1);
-				qty.value = String(maxStock > 0 ? Math.min(maxStock, cur) : cur);
+				qty.value = String(tonToiDa > 0 ? Math.min(tonToiDa, cur) : cur);
 			});
 		}
-		if (submit) submit.addEventListener('click', submitQuickModal);
+		if (submit) submit.addEventListener('click', guiModalNhanh);
 
-		hydrateFavoriteHearts();
+		taiTrangYeuThich();
 
 		// Apply persisted selection before any subtotal computation
 		initCartSelectionPersistence();
@@ -624,7 +624,7 @@
 			e.stopPropagation();
 			const productId = wishlistBtn.getAttribute('data-product-id') || getProductIdFromEventTarget(wishlistBtn);
 			if (!productId) return;
-			toggleFavorite(productId, wishlistBtn);
+			doiYeuThich(productId, wishlistBtn);
 			return;
 		}
 
@@ -633,7 +633,7 @@
 			e.preventDefault();
 			const productId = removeFavoriteBtn.getAttribute('data-id');
 			if (!productId) return;
-			apiFetch(`/favorites/remove/${productId}`, { method: 'POST' }).then(({ ok }) => {
+			goiApi(`/favorites/remove/${productId}`, { method: 'POST' }).then(({ ok }) => {
 				if (!ok) return;
 				const cardCol = removeFavoriteBtn.closest('.col-6, .col-md-4, .col-lg-3');
 				if (cardCol) cardCol.remove();
@@ -646,7 +646,7 @@
 			e.preventDefault();
 			e.stopPropagation();
 			const productId = getProductIdFromEventTarget(addBtn);
-			if (productId) openQuickModal(productId, 'add');
+			if (productId) moModalNhanh(productId, 'add');
 			return;
 		}
 
@@ -655,7 +655,7 @@
 			e.preventDefault();
 			e.stopPropagation();
 			const productId = getProductIdFromEventTarget(buyBtn);
-			if (productId) openQuickModal(productId, 'buy');
+			if (productId) moModalNhanh(productId, 'buy');
 			return;
 		}
 	});
@@ -667,20 +667,20 @@
 		const editBtn = target.closest('[data-action="edit-options"]');
 		if (!editBtn) return;
 		e.preventDefault();
-		openEditCartOptions(editBtn);
+		moSuaTuyChonGio(editBtn);
 	});
 
 	// ===== Compatibility with existing inline handlers (products page) =====
-	window.handleAddCartClick = (event) => {
+		window.xuLyThemGio = (event) => {
 		const el = event && event.currentTarget ? event.currentTarget : null;
 		const productId = el ? getProductIdFromEventTarget(el) : null;
-		if (productId) openQuickModal(productId, 'add');
+			if (productId) moModalNhanh(productId, 'add');
 	};
 
-	window.handleWishlistClick = (event) => {
+		window.xuLyYeuThich = (event) => {
 		const el = event && event.currentTarget ? event.currentTarget : null;
 		const productId = el ? getProductIdFromEventTarget(el) : null;
 		if (!productId) return;
-		toggleFavorite(productId, el);
+			doiYeuThich(productId, el);
 	};
 })();

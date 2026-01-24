@@ -69,10 +69,12 @@ block main
               if items && items.length
                 each it in items
                   .d-flex.justify-content-between.align-items-start.py-2.border-bottom
-                    .me-2
-                      .fw-semibold #{it.tensanpham}
-                      .small.text-muted
-                        | #{it.mausac || ''}#{it.kichco ? (' - ' + it.kichco) : ''} x#{it.soluong || 1}
+                    .d-flex.gap-2.flex-grow-1
+                      img.rounded.border(src=(it.hinhanh || '/images/shopping.png') alt=(it.tensanpham || 'Sản phẩm') width="56" height="56" style="object-fit: cover;")
+                      .me-2
+                        .fw-semibold #{it.tensanpham}
+                        .small.text-muted
+                          | #{it.mausac || ''}#{it.kichco ? (' - ' + it.kichco) : ''} x#{it.soluong || 1}
                     - const __lineTotal = (it.thanhtien || ((it.giaban || 0) * (it.soluong || 1)) || 0)
                     .fw-semibold #{__lineTotal.toLocaleString('vi-VN')}₫
               else

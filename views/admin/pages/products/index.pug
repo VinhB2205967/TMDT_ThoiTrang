@@ -111,7 +111,7 @@ block main
                                     span.input-group-text -
                                     input.form-control(type="number" name="priceMax" placeholder="Max" value=priceMax min="0")
                             .col-md-3
-                                label.form-label.small.fw-bold Ngày tạo
+                                label.form-label.small.fw-bold Ngày cập nhật
                                 .input-group.input-group-sm
                                     input.form-control(type="date" name="dateFrom" value=dateFrom)
                                     span.input-group-text -
@@ -137,7 +137,7 @@ block main
                             th(scope="col") Tiêu đề
                             th(scope="col" style="width: 180px") Giá
                             th(scope="col" style="width: 90px") Tồn kho
-                            th(scope="col" style="width: 110px") Ngày tạo
+                            th(scope="col" style="width: 110px") Ngày cập nhật
                             th(scope="col" style="width: 100px") Trạng thái
                             th(scope="col" style="width: 120px" class="text-end") Hành động
                     tbody
@@ -148,7 +148,7 @@ block main
                             - const status = (product.trangthai || '').toLowerCase();
                             - const isActive = status === 'dangban' || status === 'active' || status === 'đang bán';
                             - const imgSrc = product.displayImage || product.hinhanh || '/images/shopping.png';
-                            - const ngayTao = product.ngaytao ? new Date(product.ngaytao).toLocaleDateString('vi-VN') : '—';
+                            - const ngayCapNhat = (product.ngaycapnhat || product.ngaytao) ? new Date(product.ngaycapnhat || product.ngaytao).toLocaleDateString('vi-VN') : '—';
                             - const tonKho = (product.tonkho !== undefined && product.tonkho !== null) ? product.tonkho : (product.soluongton || 0);
                             tr
                                 td.text-muted #{idx + 1}
@@ -174,7 +174,7 @@ block main
                                 td
                                     small.text-muted
                                         i.bi.bi-calendar.me-1
-                                        | #{ngayTao}
+                                        | #{ngayCapNhat}
                                 td
                                     if isActive
                                         span.badge.bg-success.rounded-pill Đang bán
@@ -192,7 +192,7 @@ block main
                                                 button.btn.btn-danger(type="submit" title="Xóa vĩnh viễn")
                                                     i.bi.bi-x-octagon
                                         else
-                                            a.btn.btn-outline-danger(href=`${admin}/products/${product._id}/delete`, title="Xóa" onclick="return confirmDelete('Bạn có chắc chắn muốn xóa?')")
+                                            a.btn.btn-outline-danger(href=`${admin}/products/${product._id}/delete`, title="Xóa" onclick="return xacNhanXoa('Bạn có chắc chắn muốn xóa?')")
                                                 i.bi.bi-trash
             
             
@@ -232,7 +232,7 @@ block main
                                                 i.bi.bi-x-octagon.me-1
                                                 | Xóa vĩnh viễn
                                     else
-                                        a.btn.btn-sm.btn-danger.flex-fill(href=`${admin}/products/${product._id}/delete` onclick="return confirmDelete('Bạn có chắc chắn muốn xóa?')")
+                                        a.btn.btn-sm.btn-danger.flex-fill(href=`${admin}/products/${product._id}/delete` onclick="return xacNhanXoa('Bạn có chắc chắn muốn xóa?')")
                                             i.bi.bi-trash.me-1
                                             | Xóa
             

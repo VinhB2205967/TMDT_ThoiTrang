@@ -1,11 +1,11 @@
-module.exports = (Pagination, query, totalProducts) => {
+module.exports = (phanTrang, query, tongSanPham) => {
     if (query.page) {
-        Pagination.currentPage = parseInt(query.page);
+        phanTrang.currentPage = parseInt(query.page);
     }
 
-    Pagination.skip = (Pagination.currentPage - 1) * Pagination.limit;
-    Pagination.totalPages = Math.ceil(totalProducts / Pagination.limit);
-    Pagination.totalProducts = totalProducts;
+    phanTrang.skip = (phanTrang.currentPage - 1) * phanTrang.limit;
+    phanTrang.totalPages = Math.ceil(tongSanPham / phanTrang.limit);
+    phanTrang.totalProducts = tongSanPham;
 
-    return Pagination;
+    return phanTrang;
 };

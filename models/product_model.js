@@ -31,7 +31,8 @@ const productSchema = new mongoose.Schema({
   hinhanh: String,          // Hình ảnh đại diện chính
   trangthai: String,
   daxoa: Boolean,
-  ngaytao: Date
+  ngaytao: Date,
+  ngaycapnhat: Date
 });
 
 

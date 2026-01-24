@@ -1,4 +1,4 @@
-const colorMap = {
+const bangmamau = {
     'đỏ': '#e74c3c', 'do': '#e74c3c', 'red': '#e74c3c',
     'xanh': '#3498db', 'xanh dương': '#3498db', 'blue': '#3498db',
     'xanh lá': '#2ecc71', 'xanh la': '#2ecc71', 'green': '#2ecc71',
@@ -15,67 +15,67 @@ const colorMap = {
     'navy': '#1a237e', 'xanh navy': '#1a237e'
 };
 
-const getColorCode = (colorName) => {
-    if (!colorName) return '#ccc';
-    const lowerColor = colorName.toLowerCase().trim();
-    return colorMap[lowerColor] || colorName; 
+const layMaMau = (tenmau) => {
+    if (!tenmau) return '#ccc';
+    const mauthuong = tenmau.toLowerCase().trim();
+    return bangmamau[mauthuong] || tenmau; 
 };
 
-const normalizeImage = (img) => {
-    if (!img) return '/images/shopping.png';
-    if (img.startsWith('/public/')) {
-        return img.replace('/public', '');
+const chuanHoaAnh = (duongdan) => {
+    if (!duongdan) return '/images/shopping.png';
+    if (duongdan.startsWith('/public/')) {
+        return duongdan.replace('/public', '');
     }
-    if (img.startsWith('http')) return img;
-    if (img.startsWith('/')) return img;
-    return `/images/${img}`;
+    if (duongdan.startsWith('http')) return duongdan;
+    if (duongdan.startsWith('/')) return duongdan;
+    return `/images/${duongdan}`;
 };
 
-const formatProduct = (product) => {
-    const updated = { ...product };
+const dinhDangSanPham = (sanpham) => {
+    const ketqua = { ...sanpham };
 
     // Chuẩn hóa ảnh chính
-    updated.hinhanh = normalizeImage(updated.hinhanh);
+    ketqua.hinhanh = chuanHoaAnh(ketqua.hinhanh);
 
     // Tính giá mới (Logic này hỗ trợ khi dùng .lean() - vì virtuals không tự chạy trên plain object)
-    if (updated.gia) {
-        if (updated.phantramgiamgia && updated.phantramgiamgia > 0) {
-            updated.giaMoi = Math.round(updated.gia * (1 - updated.phantramgiamgia / 100));
+    if (ketqua.gia) {
+        if (ketqua.phantramgiamgia && ketqua.phantramgiamgia > 0) {
+            ketqua.giaMoi = Math.round(ketqua.gia * (1 - ketqua.phantramgiamgia / 100));
         } else {
-            updated.giaMoi = updated.gia;
+            ketqua.giaMoi = ketqua.gia;
         }
     }
 
     // Xử lý biến thể (Chuẩn hóa cấu trúc để View dễ render)
-    if (updated.bienthe && updated.bienthe.length > 0) {
-        updated.bienthe = updated.bienthe.map((variant, idx) => ({
+    if (ketqua.bienthe && ketqua.bienthe.length > 0) {
+        ketqua.bienthe = ketqua.bienthe.map((variant, idx) => ({
             ...variant,
             mausac: variant.mausac || `Màu ${idx + 1}`,
-            hinhanh: normalizeImage(variant.hinhanh),
-            colorCode: getColorCode(variant.mausac),
-            gia: variant.gia || updated.gia
+            hinhanh: chuanHoaAnh(variant.hinhanh),
+            colorCode: layMaMau(variant.mausac),
+            gia: variant.gia || ketqua.gia
         }));
-    } else if (updated.mausac && updated.mausac.length > 0) {
+    } else if (ketqua.mausac && ketqua.mausac.length > 0) {
         // Fallback cho cấu trúc dữ liệu cũ
-        updated.bienthe = updated.mausac.map(color => ({
+        ketqua.bienthe = ketqua.mausac.map(color => ({
             mausac: color,
-            colorCode: getColorCode(color),
+            colorCode: layMaMau(color),
             hinhanh: null,
-            gia: updated.gia
+            gia: ketqua.gia
         }));
     }
 
-    return updated;
+    return ketqua;
 };
 
-const formatMoney = (amount) => {
-    if (typeof amount !== 'number') return amount;
-    return amount.toLocaleString('vi-VN');
+const dinhDangTien = (sotien) => {
+    if (typeof sotien !== 'number') return sotien;
+    return sotien.toLocaleString('vi-VN');
 };
 
 module.exports = {
-    getColorCode,
-    normalizeImage,
-    formatProduct,
-    formatMoney
+    layMaMau,
+    chuanHoaAnh,
+    dinhDangSanPham,
+    dinhDangTien
 };

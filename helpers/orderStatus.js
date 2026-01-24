@@ -1,4 +1,4 @@
-const statusLabels = {
+const nhantrangthai = {
   all: 'Tất cả',
   choxacnhan: 'Chờ xác nhận',
   daxacnhan: 'Đã xác nhận',
@@ -9,11 +9,11 @@ const statusLabels = {
   hoanhang: 'Hoàn hàng'
 };
 
-function getAllowedStatuses() {
+function layTrangThaiChoPhep() {
   return ['all', 'choxacnhan', 'daxacnhan', 'dangchuanbi', 'danggiao', 'dagiao', 'dahuy', 'hoanhang'];
 }
 
 module.exports = {
-  statusLabels,
-  getAllowedStatuses
+  nhantrangthai,
+  layTrangThaiChoPhep
 };

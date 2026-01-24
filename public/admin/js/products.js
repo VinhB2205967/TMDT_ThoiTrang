@@ -4,52 +4,52 @@
  */
 
 // ===== LOẠI SẢN PHẨM KHÔNG CẦN SIZE =====
-const noSizeProductTypes = ['tui', 'phukien'];
+const loaiKhongSize = ['tui', 'phukien'];
 
 // ===== CHECK IF CURRENT PRODUCT NEEDS SIZE =====
-const isNoSizeProduct = () => {
-    const loaiSelect = document.getElementById('loaisanpham');
-    if (!loaiSelect) return false;
-    return noSizeProductTypes.includes(loaiSelect.value);
+const laSanPhamKhongSize = () => {
+    const chonLoai = document.getElementById('loaisanpham');
+    if (!chonLoai) return false;
+    return loaiKhongSize.includes(chonLoai.value);
 };
 
 // ===== TOGGLE SIZE FIELDS =====
-const toggleSizeFields = () => {
-    const isNoSize = isNoSizeProduct();
+const doiHienThiSize = () => {
+    const laKhongSize = laSanPhamKhongSize();
     
     // Toggle base size section
     const baseSizeSection = document.getElementById('baseSizeSection');
     if (baseSizeSection) {
-        baseSizeSection.style.display = isNoSize ? 'none' : 'block';
+        baseSizeSection.style.display = laKhongSize ? 'none' : 'block';
     }
     
     // Toggle base quantity section (cho sản phẩm không có size)
     const baseQtySection = document.getElementById('baseQtySection');
     if (baseQtySection) {
-        baseQtySection.style.display = isNoSize ? 'block' : 'none';
+        baseQtySection.style.display = laKhongSize ? 'block' : 'none';
     }
     
     // Toggle size fields in all variants
     document.querySelectorAll('.variant-size-section').forEach(el => {
-        el.style.display = isNoSize ? 'none' : 'block';
+        el.style.display = laKhongSize ? 'none' : 'block';
     });
     
     // Toggle quantity field in all variants
     document.querySelectorAll('.variant-qty-section').forEach(el => {
-        el.style.display = isNoSize ? 'block' : 'none';
+        el.style.display = laKhongSize ? 'block' : 'none';
     });
     
     // Update total stock
-    updateTotalStock();
+    capNhatTongTon();
 };
 
 // ===== CONFIRM DELETE =====
-window.confirmDelete = (message = 'Bạn có chắc muốn xóa sản phẩm này?') => {
-    return confirm(message);
+window.xacNhanXoa = (thongBao = 'Bạn có chắc muốn xóa sản phẩm này?') => {
+    return confirm(thongBao);
 };
 
 // ===== PREVIEW ẢNH =====
-const previewFile = (input) => {
+const xemTruocAnh = (input) => {
     const file = input.files[0];
     if (file) {
         const reader = new FileReader();
@@ -60,7 +60,7 @@ const previewFile = (input) => {
     }
 };
 
-const previewVariantImage = (input) => {
+const xemTruocAnhBienThe = (input) => {
     const file = input.files[0];
     if (file) {
         const reader = new FileReader();
@@ -73,7 +73,7 @@ const previewVariantImage = (input) => {
 };
 
 // Mark when a new image is selected for a variant
-const markNewImage = (input) => {
+const danhDauAnhMoi = (input) => {
     const file = input.files[0];
     if (file) {
         // Preview the image
@@ -91,23 +91,23 @@ const markNewImage = (input) => {
 };
 
 // ===== QUẢN LÝ BIẾN THỂ =====
-let variantIndex = 0;
+let chiSoBienThe = 0;
 
-const initVariantIndex = (initialIndex) => {
-    variantIndex = initialIndex || 0;
+const khoiTaoChiSoBienThe = (chiSoDau) => {
+    chiSoBienThe = chiSoDau || 0;
 };
 
-const addVariant = () => {
+const themBienThe = () => {
     const noMsg = document.getElementById('no-variant-msg');
     if (noMsg) noMsg.style.display = 'none';
     
-    const isNoSize = isNoSizeProduct();
+    const laKhongSize = laSanPhamKhongSize();
     const container = document.getElementById('variants-container');
     const variantHtml = `
-        <div class="variant-item border rounded p-3 mb-3" id="variant-${variantIndex}">
+        <div class="variant-item border rounded p-3 mb-3" id="variant-${chiSoBienThe}">
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="fw-bold text-secondary">Biến thể #${variantIndex + 1}</span>
-                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeVariant(${variantIndex})">
+                <span class="fw-bold text-secondary">Biến thể #${chiSoBienThe + 1}</span>
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="xoaBienThe(${chiSoBienThe})">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
@@ -130,41 +130,41 @@ const addVariant = () => {
                         <img class="variant-preview rounded" src="/images/shopping.png" alt="Preview" style="width: 50px; height: 50px; object-fit: cover;">
                         <input type="hidden" name="bienthe_hinhanh_cu" value="">
                         <input class="variant-has-new-image" type="hidden" name="bienthe_has_new_image" value="0">
-                        <input type="file" class="form-control form-control-sm" name="bienthe_hinhanh" accept="image/*" onchange="markNewImage(this)">
+                        <input type="file" class="form-control form-control-sm" name="bienthe_hinhanh" accept="image/*" onchange="danhDauAnhMoi(this)">
                     </div>
                 </div>
                 <!-- Số lượng (cho sản phẩm không có size) -->
-                <div class="col-12 variant-qty-section" style="display: ${isNoSize ? 'block' : 'none'}">
+                <div class="col-12 variant-qty-section" style="display: ${laKhongSize ? 'block' : 'none'}">
                     <label class="form-label small">Số lượng *</label>
-                    <input type="number" class="form-control form-control-sm variant-direct-qty" name="bienthe_soluong" min="0" value="0" oninput="updateTotalStock()">
+                    <input type="number" class="form-control form-control-sm variant-direct-qty" name="bienthe_soluong" min="0" value="0" oninput="capNhatTongTon()">
                 </div>
                 <!-- Size (cho sản phẩm có size) -->
-                <div class="col-12 variant-size-section" style="display: ${isNoSize ? 'none' : 'block'}">
+                <div class="col-12 variant-size-section" style="display: ${laKhongSize ? 'none' : 'block'}">
                     <label class="form-label small">Số lượng theo Size</label>
                     <div class="row g-2">
                         <div class="col-4 col-md-2">
                             <label class="form-label small text-muted">XS</label>
-                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${variantIndex}_size_XS" min="0" value="0" oninput="updateTotalStock()">
+                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${chiSoBienThe}_size_XS" min="0" value="0" oninput="capNhatTongTon()">
                         </div>
                         <div class="col-4 col-md-2">
                             <label class="form-label small text-muted">S</label>
-                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${variantIndex}_size_S" min="0" value="0" oninput="updateTotalStock()">
+                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${chiSoBienThe}_size_S" min="0" value="0" oninput="capNhatTongTon()">
                         </div>
                         <div class="col-4 col-md-2">
                             <label class="form-label small text-muted">M</label>
-                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${variantIndex}_size_M" min="0" value="0" oninput="updateTotalStock()">
+                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${chiSoBienThe}_size_M" min="0" value="0" oninput="capNhatTongTon()">
                         </div>
                         <div class="col-4 col-md-2">
                             <label class="form-label small text-muted">L</label>
-                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${variantIndex}_size_L" min="0" value="0" oninput="updateTotalStock()">
+                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${chiSoBienThe}_size_L" min="0" value="0" oninput="capNhatTongTon()">
                         </div>
                         <div class="col-4 col-md-2">
                             <label class="form-label small text-muted">XL</label>
-                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${variantIndex}_size_XL" min="0" value="0" oninput="updateTotalStock()">
+                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${chiSoBienThe}_size_XL" min="0" value="0" oninput="capNhatTongTon()">
                         </div>
                         <div class="col-4 col-md-2">
                             <label class="form-label small text-muted">XXL</label>
-                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${variantIndex}_size_XXL" min="0" value="0" oninput="updateTotalStock()">
+                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${chiSoBienThe}_size_XXL" min="0" value="0" oninput="capNhatTongTon()">
                         </div>
                     </div>
                 </div>
@@ -172,12 +172,12 @@ const addVariant = () => {
         </div>
     `;
     container.insertAdjacentHTML('beforeend', variantHtml);
-    variantIndex++;
-    updateTotalStock();
+    chiSoBienThe++;
+    capNhatTongTon();
 };
 
-const removeVariant = (index) => {
-    const el = document.getElementById('variant-' + index);
+const xoaBienThe = (chiSo) => {
+    const el = document.getElementById('variant-' + chiSo);
     if (el) el.remove();
     
     const container = document.getElementById('variants-container');
@@ -185,33 +185,33 @@ const removeVariant = (index) => {
         const noMsg = document.getElementById('no-variant-msg');
         if (noMsg) noMsg.style.display = 'block';
     }
-    updateTotalStock();
+    capNhatTongTon();
 };
 
 // ===== TÍNH TỔNG TỒN KHO =====
-const updateTotalStock = () => {
-    const isNoSize = isNoSizeProduct();
-    let total = 0;
+const capNhatTongTon = () => {
+    const laKhongSize = laSanPhamKhongSize();
+    let tong = 0;
     
-    if (isNoSize) {
+    if (laKhongSize) {
         // Tính tổng từ số lượng chính (base)
         document.querySelectorAll('.base-direct-qty').forEach(input => {
-            total += parseInt(input.value) || 0;
+            tong += parseInt(input.value) || 0;
         });
         
         // Tính tổng từ số lượng trực tiếp của biến thể
         document.querySelectorAll('.variant-direct-qty').forEach(input => {
-            total += parseInt(input.value) || 0;
+            tong += parseInt(input.value) || 0;
         });
     } else {
         // Tính tổng từ size gốc
         document.querySelectorAll('.base-size-qty').forEach(input => {
-            total += parseInt(input.value) || 0;
+            tong += parseInt(input.value) || 0;
         });
         
         // Tính tổng từ size của biến thể
         document.querySelectorAll('.variant-size-qty').forEach(input => {
-            total += parseInt(input.value) || 0;
+            tong += parseInt(input.value) || 0;
         });
     }
     
@@ -219,28 +219,28 @@ const updateTotalStock = () => {
     const soLuongTonEl = document.getElementById('soluongton');
     
     if (tongSoLuongEl) {
-        tongSoLuongEl.textContent = total.toLocaleString('vi-VN');
+        tongSoLuongEl.textContent = tong.toLocaleString('vi-VN');
     }
     if (soLuongTonEl) {
-        soLuongTonEl.value = total;
+        soLuongTonEl.value = tong;
     }
 };
 
 // ===== KHỞI TẠO =====
 document.addEventListener('DOMContentLoaded', () => {
-    updateTotalStock();
+    capNhatTongTon();
 
     // Tự động bắt sự kiện click vào nút xóa (hỗ trợ cả thẻ a và form)
     document.body.addEventListener('click', (e) => {
         // 1. Trường hợp thẻ <a> chứa link delete
         const deleteLink = e.target.closest('a[href*="delete"]');
         if (deleteLink) {
-            // Nếu thẻ a đã có onclick gọi confirmDelete thì bỏ qua để tránh hiện popup 2 lần
-            if (deleteLink.getAttribute('onclick') && deleteLink.getAttribute('onclick').includes('confirmDelete')) {
+            // Nếu thẻ a đã có onclick gọi xacNhanXoa thì bỏ qua để tránh hiện popup 2 lần
+            if (deleteLink.getAttribute('onclick') && deleteLink.getAttribute('onclick').includes('xacNhanXoa')) {
                 return;
             }
 
-            if (!window.confirmDelete()) {
+            if (!window.xacNhanXoa()) {
                 e.preventDefault(); // Ngăn không cho chuyển trang nếu chọn Cancel
             }
             return;
@@ -249,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 2. Trường hợp button trong form delete
         const deleteBtn = e.target.closest('button');
         if (deleteBtn && deleteBtn.form && deleteBtn.form.action.includes('delete')) {
-            if (!window.confirmDelete()) {
+            if (!window.xacNhanXoa()) {
                 e.preventDefault();
             }
         }

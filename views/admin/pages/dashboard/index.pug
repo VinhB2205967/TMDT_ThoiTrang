@@ -65,7 +65,7 @@ block main
                                         th Tên sản phẩm
                                         th Giá
                                         th Trạng thái
-                                        th Ngày tạo
+                                        th Ngày cập nhật
                                 tbody
                                     each product, idx in recentProducts
                                         tr
@@ -84,8 +84,8 @@ block main
                                                 else
                                                     span.badge.bg-secondary Ngừng bán
                                             td.text-muted
-                                                - const createdDate = product.ngaytao ? new Date(product.ngaytao).toLocaleDateString('vi-VN') : '—'
-                                                | #{createdDate}
+                                                - const updatedDate = (product.ngaycapnhat || product.ngaytao) ? new Date(product.ngaycapnhat || product.ngaytao).toLocaleDateString('vi-VN') : '—'
+                                                | #{updatedDate}
                         else
                             .empty-state
                                 i.bi.bi-inbox.fs-1.text-muted

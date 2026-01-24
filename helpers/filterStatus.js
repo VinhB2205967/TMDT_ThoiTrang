@@ -1,5 +1,5 @@
 module.exports = (query) => {
-    let filterStatus = [
+    let loctrangthai = [
         {
             name: "Tất cả",
             status: "",
@@ -23,12 +23,12 @@ module.exports = (query) => {
     ];
 
     if (query.trangthai) {
-        const index = filterStatus.findIndex(item => item.status === query.trangthai);
-        filterStatus[index].class = "active";
+        const index = loctrangthai.findIndex(item => item.status === query.trangthai);
+        loctrangthai[index].class = "active";
     } else {
-        const index = filterStatus.findIndex(item => item.status === "");
-        filterStatus[index].class = "active";
+        const index = loctrangthai.findIndex(item => item.status === "");
+        loctrangthai[index].class = "active";
     }
 
-    return filterStatus;
+    return loctrangthai;
 };

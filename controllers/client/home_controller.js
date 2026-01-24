@@ -1,9 +1,9 @@
-const Product = require('../../models/product_model');
+const sanpham = require('../../models/product_model');
 const productHelper = require('../../helpers/product');
 
 // Trang chủ
 module.exports.trangChu = async (req, res) => {
-    const sanPhamMoi = await Product.find({ 
+    const sanphammoi = await sanpham.find({ 
         trangthai: 'dangban',
         daxoa: false
     })
@@ -12,7 +12,7 @@ module.exports.trangChu = async (req, res) => {
     .lean();
 
     // Sản phẩm giảm giá (8 sản phẩm có giảm giá cao nhất)
-    const sanPhamGiamGia = await Product.find({ 
+    const sanphamgiamgia = await sanpham.find({ 
         trangthai: 'dangban',
         daxoa: false,
         phantramgiamgia: { $gt: 0 }
@@ -22,7 +22,7 @@ module.exports.trangChu = async (req, res) => {
     .lean();
 
     // Flash sale (sản phẩm giảm giá từ 30% trở lên)
-    const sanPhamFlashSale = await Product.find({ 
+    const sanphamflashsale = await sanpham.find({ 
         trangthai: 'dangban',
         daxoa: false,
         phantramgiamgia: { $gte: 30 }
@@ -31,7 +31,7 @@ module.exports.trangChu = async (req, res) => {
     .limit(8)
     .lean();
     // Best seller
-    const sanPhamBanChay = await Product.find({ 
+    const sanphambanchay = await sanpham.find({ 
         trangthai: 'dangban',
         daxoa: false
     })
@@ -40,15 +40,15 @@ module.exports.trangChu = async (req, res) => {
     .lean();
 
     if (process.env.NODE_ENV !== 'production') {
-        console.log('Home - New products:', sanPhamMoi.length);
-        console.log('Home - Discount products:', sanPhamGiamGia.length);
+        console.log('Home - New products:', sanphammoi.length);
+        console.log('Home - Discount products:', sanphamgiamgia.length);
     }
 
     res.render("client/pages/home/index.pug", {
         titlePage: "Fashion Store - Thời trang chất lượng",
-        newProducts: sanPhamMoi.map(productHelper),
-        discountProducts: sanPhamGiamGia.map(productHelper),
-        flashSaleProducts: sanPhamFlashSale.map(productHelper),
-        bestSellerProducts: sanPhamBanChay.map(productHelper)
+        newProducts: sanphammoi.map(productHelper),
+        discountProducts: sanphamgiamgia.map(productHelper),
+        flashSaleProducts: sanphamflashsale.map(productHelper),
+        bestSellerProducts: sanphambanchay.map(productHelper)
     });
 }

@@ -62,7 +62,7 @@ block main
                                 
                                 .col-md-4
                                     label.form-label.fw-bold Loại sản phẩm
-                                    select#loaisanpham.form-select(name="loaisanpham" onchange="toggleSizeFields()")
+                                    select#loaisanpham.form-select(name="loaisanpham" onchange="doiHienThiSize()")
                                         option(value="ao" selected=(product.loaisanpham === 'ao')) Áo
                                         option(value="quan" selected=(product.loaisanpham === 'quan')) Quần
                                         option(value="vay" selected=(product.loaisanpham === 'vay')) Váy
@@ -91,27 +91,27 @@ block main
                                 .row.g-2
                                     .col-4.col-md-2
                                         label.form-label.small XS
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XS" min="0" value=getSizeQty('XS') oninput="updateTotalStock()")
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XS" min="0" value=getSizeQty('XS') oninput="capNhatTongTon()")
                                     .col-4.col-md-2
                                         label.form-label.small S
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_S" min="0" value=getSizeQty('S') oninput="updateTotalStock()")
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_S" min="0" value=getSizeQty('S') oninput="capNhatTongTon()")
                                     .col-4.col-md-2
                                         label.form-label.small M
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_M" min="0" value=getSizeQty('M') oninput="updateTotalStock()")
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_M" min="0" value=getSizeQty('M') oninput="capNhatTongTon()")
                                     .col-4.col-md-2
                                         label.form-label.small L
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_L" min="0" value=getSizeQty('L') oninput="updateTotalStock()")
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_L" min="0" value=getSizeQty('L') oninput="capNhatTongTon()")
                                     .col-4.col-md-2
                                         label.form-label.small XL
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XL" min="0" value=getSizeQty('XL') oninput="updateTotalStock()")
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XL" min="0" value=getSizeQty('XL') oninput="capNhatTongTon()")
                                     .col-4.col-md-2
                                         label.form-label.small XXL
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XXL" min="0" value=getSizeQty('XXL') oninput="updateTotalStock()")
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XXL" min="0" value=getSizeQty('XXL') oninput="capNhatTongTon()")
                             
                             //- Số lượng chung (cho sản phẩm không có size như Túi, Phụ kiện)
                             #baseQtySection.mt-3(style=(isNoSizeProduct ? '' : 'display:none'))
                                 label.form-label.fw-bold Số lượng sản phẩm
-                                input.form-control.base-direct-qty(type="number" name="soluong_chinh" min="0" value=product.soluong_chinh || 0 oninput="updateTotalStock()")
+                                input.form-control.base-direct-qty(type="number" name="soluong_chinh" min="0" value=product.soluong_chinh || 0 oninput="capNhatTongTon()")
                                 small.text-muted Số lượng cho sản phẩm chính (không theo biến thể)
                     
                     //- Card biến thể
@@ -123,7 +123,7 @@ block main
                                 | Biến thể màu sắc
                                 if bientheList.length
                                     span.badge.bg-light.text-dark.ms-2 #{bientheList.length}
-                            button.btn.btn-sm.btn-light(type="button" onclick="addVariant()")
+                            button.btn.btn-sm.btn-light(type="button" onclick="themBienThe()")
                                 i.bi.bi-plus.me-1
                                 | Thêm
                         .card-body
@@ -134,7 +134,7 @@ block main
                                     .variant-item.border.rounded.p-3.mb-3(id=`variant-${idx}`)
                                         .d-flex.justify-content-between.align-items-center.mb-2
                                             span.fw-bold.text-secondary Biến thể ##{idx + 1}
-                                            button.btn.btn-sm.btn-outline-danger(type="button" onclick=`removeVariant(${idx})`)
+                                            button.btn.btn-sm.btn-outline-danger(type="button" onclick=`xoaBienThe(${idx})`)
                                                 i.bi.bi-trash
                                         .row.g-2
                                             .col-md-4
@@ -153,34 +153,34 @@ block main
                                                     img.variant-preview.rounded(src=btImage alt="Preview" style="width: 50px; height: 50px; object-fit: cover;")
                                                     input(type="hidden" name="bienthe_hinhanh_cu" value=bt.hinhanh || '')
                                                     input.variant-has-new-image(type="hidden" name="bienthe_has_new_image" value="0")
-                                                    input.form-control.form-control-sm(type="file" name="bienthe_hinhanh" accept="image/*" onchange="markNewImage(this)")
+                                                    input.form-control.form-control-sm(type="file" name="bienthe_hinhanh" accept="image/*" onchange="danhDauAnhMoi(this)")
                                                 small.text-muted Để trống nếu không đổi ảnh
                                             //- Số lượng trực tiếp (cho sản phẩm không có size)
                                             .col-12.variant-qty-section(style=(isNoSizeProduct ? '' : 'display:none'))
                                                 label.form-label.small Số lượng *
-                                                input.form-control.form-control-sm.variant-direct-qty(type="number" name="bienthe_soluong" min="0" value=bt.soluong || 0 oninput="updateTotalStock()")
+                                                input.form-control.form-control-sm.variant-direct-qty(type="number" name="bienthe_soluong" min="0" value=bt.soluong || 0 oninput="capNhatTongTon()")
                                             //- Số lượng theo Size (cho sản phẩm có size)
                                             .col-12.variant-size-section(style=(isNoSizeProduct ? 'display:none' : ''))
                                                 label.form-label.small Số lượng theo Size
                                                 .row.g-2
                                                     .col-4.col-md-2
                                                         label.form-label.small.text-muted XS
-                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_XS` min="0" value=getBtSizeQty('XS') oninput="updateTotalStock()")
+                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_XS` min="0" value=getBtSizeQty('XS') oninput="capNhatTongTon()")
                                                     .col-4.col-md-2
                                                         label.form-label.small.text-muted S
-                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_S` min="0" value=getBtSizeQty('S') oninput="updateTotalStock()")
+                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_S` min="0" value=getBtSizeQty('S') oninput="capNhatTongTon()")
                                                     .col-4.col-md-2
                                                         label.form-label.small.text-muted M
-                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_M` min="0" value=getBtSizeQty('M') oninput="updateTotalStock()")
+                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_M` min="0" value=getBtSizeQty('M') oninput="capNhatTongTon()")
                                                     .col-4.col-md-2
                                                         label.form-label.small.text-muted L
-                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_L` min="0" value=getBtSizeQty('L') oninput="updateTotalStock()")
+                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_L` min="0" value=getBtSizeQty('L') oninput="capNhatTongTon()")
                                                     .col-4.col-md-2
                                                         label.form-label.small.text-muted XL
-                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_XL` min="0" value=getBtSizeQty('XL') oninput="updateTotalStock()")
+                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_XL` min="0" value=getBtSizeQty('XL') oninput="capNhatTongTon()")
                                                     .col-4.col-md-2
                                                         label.form-label.small.text-muted XXL
-                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_XXL` min="0" value=getBtSizeQty('XXL') oninput="updateTotalStock()")
+                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_XXL` min="0" value=getBtSizeQty('XXL') oninput="capNhatTongTon()")
                             if !bientheList.length
                                 .text-muted.small.text-center#no-variant-msg
                                     i.bi.bi-info-circle.me-1
@@ -197,7 +197,7 @@ block main
                                 - const currentImage = product.displayImage || product.hinhanh || '/images/shopping.png';
                                 img#preview-image.img-fluid.rounded.mb-3(src=currentImage alt="Preview" style="max-height: 250px; object-fit: cover;")
                             
-                            input.form-control(type="file" name="hinhanh" accept="image/*" onchange="previewFile(this)")
+                            input.form-control(type="file" name="hinhanh" accept="image/*" onchange="xemTruocAnh(this)")
                             small.text-muted.d-block.mt-2 Để trống nếu không thay đổi ảnh
                     
                     .card.mt-4
@@ -206,9 +206,9 @@ block main
                             | Thông tin khác
                         .card-body
                             p.mb-2
-                                strong Ngày tạo: 
-                                if product.ngaytao
-                                    | #{new Date(product.ngaytao).toLocaleDateString('vi-VN')}
+                                strong Ngày cập nhật: 
+                                if product.ngaycapnhat || product.ngaytao
+                                    | #{new Date(product.ngaycapnhat || product.ngaytao).toLocaleDateString('vi-VN')}
                                 else
                                     | —
                             p.mb-0
@@ -224,7 +224,7 @@ block main
                                 a.btn.btn-outline-secondary(href=`${admin}/products`)
                                     i.bi.bi-x-lg.me-1
                                     | Hủy bỏ
-                                a.btn.btn-outline-danger(href=`${admin}/products/${product._id}/delete` onclick="return confirmDelete()")
+                                a.btn.btn-outline-danger(href=`${admin}/products/${product._id}/delete` onclick="return xacNhanXoa()")
                                     i.bi.bi-trash.me-1
                                     | Xóa sản phẩm
 
@@ -232,8 +232,8 @@ block scripts
     script(src="/admin/js/products.js")
     script.
         // Khởi tạo variantIndex cho trang edit (số biến thể hiện có)
-        initVariantIndex(#{(product.bienthe || []).length});
+        khoiTaoChiSoBienThe(#{(product.bienthe || []).length});
         // Kiểm tra loại sản phẩm khi load trang
         document.addEventListener('DOMContentLoaded', function() {
-            toggleSizeFields();
+            doiHienThiSize();
         });
