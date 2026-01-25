@@ -46,12 +46,7 @@ function sanitizeInPlace(target, options, seen) {
   }
 }
 
-/**
- * Express middleware to mitigate MongoDB operator injection.
- *
- * Express 5 makes req.query read-only (getter), so we must sanitize in-place
- * and MUST NOT assign back to req.query.
- */
+
 module.exports = function mongoSanitize(options = {}) {
   const normalizedOptions = {
     allowDots: false,

@@ -2,7 +2,10 @@ const donhang = require('../../models/order_model');
 const chitietdonhang = require('../../models/order_item_model');
 const sanpham = require('../../models/product_model');
 const { getOrCreateCart, normalizeImage } = require('../../services/cart.service');
+const { taoHoanTienMoMo, taoThanhToanMoMo } = require('../../services/momo.service');
+const { taoThanhToanVnpay } = require('../../services/vnpay.service');
 const { nhantrangthai, layTrangThaiChoPhep } = require('../../helpers/orderStatus');
+const phanTrangHelper = require('../../helpers/pagination');
 
 function laLoaiKhongSize(loaisanpham) {
   return ['tui', 'phukien'].includes(String(loaisanpham || '').toLowerCase());
@@ -84,8 +87,14 @@ module.exports.danhSach = async (req, res) => {
   const boloc = { nguoidung_id: req.user._id, daxoa: { $ne: true } };
   if (trangthaihientai !== 'all') boloc.trangthai = trangthaihientai;
 
+  const tongDon = await donhang.countDocuments(boloc);
+  let phanTrang = { currentPage: 1, limit: 10 };
+  phanTrang = phanTrangHelper(phanTrang, req.query, tongDon);
+
   const danhsachdon = await donhang.find(boloc)
     .sort({ ngaytao: -1 })
+    .skip(phanTrang.skip)
+    .limit(phanTrang.limit)
     .lean();
 
   // Preview
@@ -126,7 +135,8 @@ module.exports.danhSach = async (req, res) => {
     orders: danhsachdon || [],
     currentStatus: trangthaihientai,
     statusOptions: layTrangThaiChoPhep(),
-    statusLabels: nhantrangthai
+    statusLabels: nhantrangthai,
+    pagination: phanTrang
   });
 };
 
@@ -195,6 +205,33 @@ module.exports.huyDon = async (req, res) => {
     return res.redirect(`/orders/${donhangdoc._id}`);
   }
 
+  if (donhangdoc.phuongthucthanhtoan === 'momo' && donhangdoc.dathanhtoan && donhangdoc.momoTransId && !donhangdoc.momoRefunded) {
+    try {
+      const ketqua = await taoHoanTienMoMo({
+        orderId: String(donhangdoc._id),
+        requestId: String(donhangdoc._id) + '-refund',
+        amount: String(Math.max(0, Math.round(donhangdoc.tongtien || donhangdoc.tamtinh || 0))),
+        transId: String(donhangdoc.momoTransId),
+        description: `Hoàn tiền đơn hàng ${donhangdoc.madonhang || String(donhangdoc._id)}`
+      });
+
+      if (ketqua && (ketqua.resultCode === 0 || ketqua.message === 'Success')) {
+        await donhang.updateOne(
+          { _id: donhangdoc._id },
+          { $set: { momoRefunded: true, momoRefundAt: new Date() } }
+        );
+        req.flash?.('success', 'Đã hủy đơn hàng, hoàn tiền MoMo thành công.');
+        return res.redirect('/orders');
+      }
+
+      req.flash?.('error', ketqua?.message || 'Đã hủy đơn nhưng hoàn tiền MoMo thất bại.');
+      return res.redirect(`/orders/${donhangdoc._id}`);
+    } catch (e) {
+      req.flash?.('error', 'Đã hủy đơn nhưng hoàn tiền MoMo lỗi.');
+      return res.redirect(`/orders/${donhangdoc._id}`);
+    }
+  }
+
   req.flash?.('success', 'Đã hủy đơn hàng và hoàn lại số lượng sản phẩm.');
   return res.redirect('/orders');
 };
@@ -255,4 +292,123 @@ module.exports.muaLai = async (req, res) => {
   await giohang.save();
   req.flash('success', `Đã thêm ${sodathem} sản phẩm vào giỏ hàng${soboqua ? ` (bỏ qua ${soboqua} sản phẩm đã ngừng bán)` : ''}.`);
   return res.redirect('/cart');
+};
+
+module.exports.thanhToanLai = async (req, res) => {
+  try {
+    const donhangdoc = await donhang.findOne({ _id: req.params.id, nguoidung_id: req.user._id, daxoa: { $ne: true } }).lean();
+    if (!donhangdoc) {
+      req.flash?.('error', 'Không tìm thấy đơn hàng.');
+      return res.redirect('/orders');
+    }
+
+    const dangcho = donhangdoc.trangthai === 'choxacnhan';
+    const chuathanhtoan = !donhangdoc.dathanhtoan;
+    const phuongthuc = String(donhangdoc.phuongthucthanhtoan || 'cod');
+
+    if (!dangcho || !chuathanhtoan || (phuongthuc !== 'momo' && phuongthuc !== 'vnpay')) {
+      req.flash?.('error', 'Đơn hàng không thể thanh toán lại.');
+      return res.redirect(`/orders/${donhangdoc._id}`);
+    }
+
+    const tongtien = Math.max(0, Math.round(donhangdoc.tongtien || donhangdoc.tamtinh || 0));
+
+    if (phuongthuc === 'momo') {
+      const redirectUrl = String(process.env.MOMO_REDIRECT_URL || `${req.protocol}://${req.get('host')}/cart/momo/return`);
+      const ipnUrl = String(process.env.MOMO_IPN_URL || `${req.protocol}://${req.get('host')}/cart/momo/ipn`);
+      const orderInfo = `Thanh toán đơn hàng ${donhangdoc.madonhang || String(donhangdoc._id)}`;
+      const maMoMo = `${donhangdoc._id}-${Date.now()}`;
+      const extraData = Buffer.from(JSON.stringify({ orderId: String(donhangdoc._id) })).toString('base64');
+
+      const ketqua = await taoThanhToanMoMo({
+        orderId: maMoMo,
+        requestId: maMoMo,
+        amount: String(tongtien),
+        orderInfo,
+        redirectUrl,
+        ipnUrl,
+        extraData
+      });
+
+      if (ketqua && ketqua.payUrl) {
+        return res.redirect(ketqua.payUrl);
+      }
+
+      req.flash?.('error', ketqua?.message || 'Không thể tạo thanh toán MoMo');
+      return res.redirect(`/orders/${donhangdoc._id}`);
+    }
+
+    const returnUrl = String(process.env.VNPAY_RETURN_URL || `${req.protocol}://${req.get('host')}/cart/vnpay/return`);
+    const ipnUrl = String(process.env.VNPAY_IPN_URL || `${req.protocol}://${req.get('host')}/cart/vnpay/ipn`);
+    const now = new Date();
+    const txnRef = `${now.getDate().toString().padStart(2, '0')}${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}`;
+    const orderInfo = `Thanh toan cho ma GD:${txnRef}`;
+    const ipAddr = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || req.ip || '127.0.0.1').split(',')[0].trim();
+
+    await donhang.updateOne(
+      { _id: donhangdoc._id },
+      { $set: { vnpayTxnRef: txnRef } }
+    );
+
+    const payUrl = taoThanhToanVnpay({
+      orderId: txnRef,
+      amount: tongtien,
+      orderInfo,
+      returnUrl,
+      ipnUrl,
+      ipAddr,
+      locale: 'vn',
+      orderType: 'other'
+    });
+
+    return res.redirect(payUrl);
+  } catch (e) {
+    req.flash?.('error', 'Có lỗi khi tạo thanh toán lại.');
+    return res.redirect(`/orders/${req.params.id}`);
+  }
+};
+
+module.exports.doiPhuongThucThanhToan = async (req, res) => {
+  try {
+    const phuongthucMoi = String(req.body.phuongthucthanhtoan || '').trim();
+    const hopLe = ['cod', 'momo', 'vnpay'];
+
+    if (!hopLe.includes(phuongthucMoi)) {
+      req.flash?.('error', 'Phương thức thanh toán không hợp lệ.');
+      return res.redirect(`/orders/${req.params.id}`);
+    }
+
+    const donhangdoc = await donhang.findOne({ _id: req.params.id, nguoidung_id: req.user._id, daxoa: { $ne: true } });
+    if (!donhangdoc) {
+      req.flash?.('error', 'Không tìm thấy đơn hàng.');
+      return res.redirect('/orders');
+    }
+
+    if (donhangdoc.trangthai !== 'choxacnhan' || donhangdoc.dathanhtoan) {
+      req.flash?.('error', 'Đơn hàng không thể đổi phương thức thanh toán.');
+      return res.redirect(`/orders/${donhangdoc._id}`);
+    }
+
+    if (String(donhangdoc.phuongthucthanhtoan || 'cod') === phuongthucMoi) {
+      req.flash?.('success', 'Phương thức thanh toán không thay đổi.');
+      return res.redirect(`/orders/${donhangdoc._id}`);
+    }
+
+    const capnhat = {
+      phuongthucthanhtoan: phuongthucMoi,
+      vnpayTxnRef: undefined,
+      vnpayTransId: undefined,
+      vnpayBankCode: undefined,
+      momoTransId: undefined
+    };
+
+    await donhang.updateOne({ _id: donhangdoc._id }, { $set: capnhat });
+    req.flash?.('success', 'Đã cập nhật phương thức thanh toán.');
+
+    const referer = req.get('referer');
+    return res.redirect(referer || `/orders/${donhangdoc._id}`);
+  } catch (e) {
+    req.flash?.('error', 'Không thể đổi phương thức thanh toán.');
+    return res.redirect(`/orders/${req.params.id}`);
+  }
 };

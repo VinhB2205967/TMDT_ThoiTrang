@@ -8,7 +8,8 @@ block main
       a.btn.btn-primary(href='/orders') Quay lại danh sách đơn hàng
     else
       - const statusLabels = locals.statusLabels || { all: 'Tất cả', choxacnhan: 'Chờ xác nhận', daxacnhan: 'Đã xác nhận', dangchuanbi: 'Đang chuẩn bị', danggiao: 'Đang giao', dagiao: 'Đã giao', dahuy: 'Đã hủy', hoanhang: 'Hoàn hàng' }
-      - const label = statusLabels[order.trangthai] || order.trangthai || '—'
+      - const isChoThanhToan = order.trangthai === 'choxacnhan' && (order.phuongthucthanhtoan === 'momo' || order.phuongthucthanhtoan === 'vnpay') && !order.dathanhtoan
+      - const label = isChoThanhToan ? 'Chờ thanh toán' : (statusLabels[order.trangthai] || order.trangthai || '—')
 
       .d-flex.flex-wrap.justify-content-between.align-items-center.gap-2.mb-3
         div
@@ -19,6 +20,9 @@ block main
           a.btn.btn-sm.btn-outline-secondary(href='/orders') Quay lại
 
       .d-flex.flex-wrap.gap-2.mb-3
+        if isChoThanhToan
+          form(method='POST', action=`/orders/${order._id}/pay`)
+            button.btn.btn-sm.btn-primary(type='submit') Thanh toán ngay
         if order.trangthai === 'choxacnhan'
           form(method='POST', action=`/orders/${order._id}/cancel`)
             button.btn.btn-sm.btn-outline-danger(type='submit' onclick="return confirm('Bạn muốn hủy đơn hàng này?')")
@@ -57,6 +61,19 @@ block main
               .d-flex.justify-content-between
                 span.text-muted Phương thức
                 span.fw-semibold #{order.phuongthucthanhtoan || '—'}
+              if order.trangthai === 'choxacnhan' && !order.dathanhtoan
+                .mt-2
+                  form.order-payment-form(method='POST', action=`/orders/${order._id}/change-payment` data-auto-submit='payment-method')
+                    .order-payment-controls
+                      span.text-muted Đổi phương thức
+                      select.form-select.form-select-sm.order-payment-select(name='phuongthucthanhtoan')
+                        option(value='cod' selected=(order.phuongthucthanhtoan === 'cod')) COD
+                        option(value='momo' selected=(order.phuongthucthanhtoan === 'momo')) MoMo
+                        option(value='vnpay' selected=(order.phuongthucthanhtoan === 'vnpay')) VNPAY
+              if isChoThanhToan
+                .d-flex.justify-content-between
+                  span.text-muted Trạng thái thanh toán
+                  span.fw-semibold Chờ thanh toán
               if order.ngaytao
                 .d-flex.justify-content-between
                   span.text-muted Ngày đặt
@@ -84,3 +101,6 @@ block main
               .d-flex.justify-content-between.fw-semibold
                 span Tổng
                 span #{(order.tongtien || order.tamtinh || 0).toLocaleString('vi-VN')}₫
+
+block scripts
+  script(src='/js/orders.js')

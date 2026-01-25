@@ -3,6 +3,8 @@ const donhang = require('../../models/order_model');
 const chitietdonhang = require('../../models/order_item_model');
 const nguoidung = require('../../models/user_model');
 const { getOrCreateCart, normalizeImage } = require('../../services/cart.service');
+const { taoThanhToanMoMo } = require('../../services/momo.service');
+const { taoThanhToanVnpay, kiemTraChuKyVnpay } = require('../../services/vnpay.service');
 
 function muonJSON(req) {
   const chapnhan = String(req.headers.accept || '');
@@ -78,6 +80,32 @@ function layBienTheVaTon(productdoc, bientheid, kichco) {
 
 module.exports.danhSach = async (req, res) => {
   const giohang = await getOrCreateCart(req.user._id);
+
+  let dacapnhat = false;
+  const danhsachsanpham = giohang.sanpham || [];
+  for (const item of danhsachsanpham) {
+    let tonkho = 0;
+    try {
+      const sanphamdoc = await sanpham.findOne({ _id: item.sanpham_id, daxoa: { $ne: true }, trangthai: 'dangban' });
+      if (sanphamdoc) {
+        const ketqua = layBienTheVaTon(sanphamdoc, item.bienthe_id, item.kichco);
+        tonkho = ketqua?.error ? 0 : Math.max(0, Number(ketqua.stock || 0));
+      }
+    } catch {
+      tonkho = 0;
+    }
+
+    item.tonkho = tonkho;
+    if (tonkho > 0 && (item.soluong || 0) > tonkho) {
+      item.soluong = tonkho;
+      dacapnhat = true;
+    }
+  }
+
+  if (dacapnhat) {
+    await giohang.save();
+  }
+
   res.render('client/pages/cart/index.pug', {
     titlePage: 'Giỏ hàng',
     cart: giohang
@@ -210,15 +238,42 @@ module.exports.muaNgay = async (req, res) => {
 };
 
 module.exports.capNhatSoLuong = async (req, res) => {
-  const iditem = req.body.itemId;
+  const iditem = String(req.body.itemId || '').trim();
   const soluong = Math.max(1, parseInt(req.body.soluong, 10) || 1);
 
   const giohang = await getOrCreateCart(req.user._id);
   const dongitem = giohang.sanpham.id(iditem);
-  if (dongitem) dongitem.soluong = soluong;
+  if (!dongitem) {
+    return muonJSON(req) ? res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm trong giỏ' }) : res.redirect('/cart');
+  }
+
+  let soluongcapnhat = soluong;
+  let tonkho = null;
+
+  try {
+    const sanphamdoc = await sanpham.findOne({ _id: dongitem.sanpham_id, daxoa: { $ne: true }, trangthai: 'dangban' });
+    if (sanphamdoc) {
+      const ketqua = layBienTheVaTon(sanphamdoc, dongitem.bienthe_id, dongitem.kichco);
+      if (!ketqua?.error) {
+        tonkho = Math.max(0, Number(ketqua.stock || 0));
+        if (tonkho > 0) {
+          soluongcapnhat = Math.min(soluongcapnhat, tonkho);
+        } else {
+          soluongcapnhat = Math.min(soluongcapnhat, Number(dongitem.soluong || 1));
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  soluongcapnhat = Math.max(1, soluongcapnhat);
+  dongitem.soluong = soluongcapnhat;
   await giohang.save();
 
-  return muonJSON(req) ? res.json({ success: true, cartCount: giohang.sanpham.length }) : res.redirect('/cart');
+  return muonJSON(req)
+    ? res.json({ success: true, cartCount: giohang.sanpham.length, quantity: soluongcapnhat, maxStock: tonkho })
+    : res.redirect('/cart');
 };
 
 module.exports.capNhatTuyChon = async (req, res) => {
@@ -496,6 +551,59 @@ module.exports.xuLyThanhToan = async (req, res) => {
     giohang.sanpham = giohang.sanpham.filter(it => !tapdathanhtoan.has(String(it._id)));
     await giohang.save();
 
+    if (phuongthucthanhtoan === 'momo') {
+      const redirectUrl = String(process.env.MOMO_REDIRECT_URL || `${req.protocol}://${req.get('host')}/cart/momo/return`);
+      const ipnUrl = String(process.env.MOMO_IPN_URL || `${req.protocol}://${req.get('host')}/cart/momo/ipn`);
+      const orderInfo = `Thanh toán đơn hàng ${donhangdoc.madonhang || String(donhangdoc._id)}`;
+      const maMoMo = `${donhangdoc._id}-${Date.now()}`;
+      const extraData = Buffer.from(JSON.stringify({ orderId: String(donhangdoc._id) })).toString('base64');
+
+      const ketqua = await taoThanhToanMoMo({
+        orderId: maMoMo,
+        requestId: maMoMo,
+        amount: String(Math.max(0, Math.round(tamtinh))),
+        orderInfo,
+        redirectUrl,
+        ipnUrl,
+        extraData
+      });
+
+      if (ketqua && ketqua.payUrl) {
+        return res.redirect(ketqua.payUrl);
+      }
+
+      req.flash?.('error', ketqua?.message || 'Không thể tạo thanh toán MoMo');
+      return res.redirect(`/orders/${donhangdoc._id}`);
+    }
+
+    if (phuongthucthanhtoan === 'vnpay') {
+      const returnUrl = String(process.env.VNPAY_RETURN_URL || `${req.protocol}://${req.get('host')}/cart/vnpay/return`);
+      const ipnUrl = String(process.env.VNPAY_IPN_URL || `${req.protocol}://${req.get('host')}/cart/vnpay/ipn`);
+      const now = new Date();
+      const txnRef = `${now.getDate().toString().padStart(2, '0')}${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}`;
+      const orderInfo = `Thanh toan cho ma GD:${txnRef}`;
+      const ipAddr = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || req.ip || '127.0.0.1').split(',')[0].trim();
+
+      await donhang.updateOne(
+        { _id: donhangdoc._id },
+        { $set: { vnpayTxnRef: txnRef } }
+      );
+
+      const payUrl = taoThanhToanVnpay({
+        orderId: txnRef,
+        amount: tamtinh,
+        orderInfo,
+        returnUrl,
+        ipnUrl,
+        ipAddr,
+        locale: 'vn',
+        orderType: 'other'
+      });
+
+      return res.redirect(payUrl);
+    }
+
+
     if (phuongthucthanhtoan === 'cod') {
       req.flash?.('success', 'Đặt hàng thành công!');
     }
@@ -507,3 +615,158 @@ module.exports.xuLyThanhToan = async (req, res) => {
     return res.redirect('/cart/checkout');
   }
 };
+
+module.exports.momoReturn = async (req, res) => {
+  try {
+    const orderId = String(req.query.orderId || '').trim();
+    const extraData = String(req.query.extraData || '').trim();
+    let idDon = '';
+
+    if (extraData) {
+      try {
+        const json = JSON.parse(Buffer.from(extraData, 'base64').toString('utf8'));
+        idDon = json?.orderId ? String(json.orderId) : '';
+      } catch {
+        idDon = '';
+      }
+    }
+
+    if (!idDon && orderId) {
+      idDon = String(orderId).split('-')[0];
+    }
+
+    const resultCode = Number(req.query.resultCode || -1);
+
+    if (idDon) {
+      const transId = req.query.transId ? String(req.query.transId) : '';
+      if (resultCode === 0) {
+        await donhang.updateOne(
+          { _id: idDon },
+          { $set: { dathanhtoan: true, ngaythanhtoan: new Date(), momoTransId: transId || undefined } }
+        );
+        req.flash?.('success', 'Thanh toán MoMo thành công!');
+      } else {
+        req.flash?.('error', 'Thanh toán MoMo thất bại hoặc bị hủy.');
+      }
+      return res.redirect(`/orders/${idDon}`);
+    }
+
+    req.flash?.('error', 'Không tìm thấy đơn hàng.');
+    return res.redirect('/orders');
+  } catch (e) {
+    req.flash?.('error', 'Có lỗi khi xử lý thanh toán MoMo');
+    return res.redirect('/orders');
+  }
+};
+
+module.exports.momoIpn = async (req, res) => {
+  try {
+    const orderId = String(req.body?.orderId || '').trim();
+    const extraData = String(req.body?.extraData || '').trim();
+    let idDon = '';
+
+    if (extraData) {
+      try {
+        const json = JSON.parse(Buffer.from(extraData, 'base64').toString('utf8'));
+        idDon = json?.orderId ? String(json.orderId) : '';
+      } catch {
+        idDon = '';
+      }
+    }
+
+    if (!idDon && orderId) {
+      idDon = String(orderId).split('-')[0];
+    }
+
+    const resultCode = Number(req.body?.resultCode || -1);
+    const transId = req.body?.transId ? String(req.body.transId) : '';
+    if (idDon && resultCode === 0) {
+      await donhang.updateOne(
+        { _id: idDon },
+        { $set: { dathanhtoan: true, ngaythanhtoan: new Date(), momoTransId: transId || undefined } }
+      );
+    }
+    return res.json({ success: true });
+  } catch (e) {
+    return res.status(200).json({ success: false });
+  }
+};
+
+module.exports.vnpayReturn = async (req, res) => {
+  try {
+    if (!kiemTraChuKyVnpay(req.query || {})) {
+      req.flash?.('error', 'Chữ ký VNPAY không hợp lệ.');
+      return res.redirect('/orders');
+    }
+
+    const txnRef = String(req.query.vnp_TxnRef || '').trim();
+    const responseCode = String(req.query.vnp_ResponseCode || '').trim();
+    const transNo = String(req.query.vnp_TransactionNo || '').trim();
+    const bankCode = String(req.query.vnp_BankCode || '').trim();
+
+    let idDon = '';
+    if (txnRef) {
+      const found = await donhang.findOne({ vnpayTxnRef: txnRef }).select('_id').lean();
+      idDon = found ? String(found._id) : '';
+    }
+
+    if (!idDon && txnRef) {
+      idDon = txnRef.split('-')[0];
+    }
+
+    if (idDon) {
+      if (responseCode === '00') {
+        await donhang.updateOne(
+          { _id: idDon },
+          { $set: { dathanhtoan: true, ngaythanhtoan: new Date(), vnpayTransId: transNo || undefined, vnpayBankCode: bankCode || undefined } }
+        );
+        req.flash?.('success', 'Thanh toán VNPAY thành công!');
+      } else {
+        req.flash?.('error', 'Thanh toán VNPAY thất bại hoặc bị hủy.');
+      }
+      return res.redirect(`/orders/${idDon}`);
+    }
+
+    req.flash?.('error', 'Không tìm thấy đơn hàng.');
+    return res.redirect('/orders');
+  } catch (e) {
+    req.flash?.('error', 'Có lỗi khi xử lý thanh toán VNPAY');
+    return res.redirect('/orders');
+  }
+};
+
+module.exports.vnpayIpn = async (req, res) => {
+  try {
+    const payload = Object.keys(req.query || {}).length ? req.query : req.body || {};
+    if (!kiemTraChuKyVnpay(payload)) {
+      return res.status(200).json({ RspCode: '97', Message: 'Invalid signature' });
+    }
+
+    const txnRef = String(payload.vnp_TxnRef || '').trim();
+    const responseCode = String(payload.vnp_ResponseCode || '').trim();
+    const transNo = String(payload.vnp_TransactionNo || '').trim();
+    const bankCode = String(payload.vnp_BankCode || '').trim();
+
+    let idDon = '';
+    if (txnRef) {
+      const found = await donhang.findOne({ vnpayTxnRef: txnRef }).select('_id').lean();
+      idDon = found ? String(found._id) : '';
+    }
+
+    if (!idDon && txnRef) {
+      idDon = txnRef.split('-')[0];
+    }
+
+    if (idDon && responseCode === '00') {
+      await donhang.updateOne(
+        { _id: idDon },
+        { $set: { dathanhtoan: true, ngaythanhtoan: new Date(), vnpayTransId: transNo || undefined, vnpayBankCode: bankCode || undefined } }
+      );
+    }
+
+    return res.status(200).json({ RspCode: '00', Message: 'Success' });
+  } catch (e) {
+    return res.status(200).json({ RspCode: '99', Message: 'Unknown error' });
+  }
+};
+

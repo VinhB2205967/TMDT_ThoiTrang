@@ -47,15 +47,19 @@ block main
                       i.bi.bi-truck.me-2
                       | Thanh toán khi nhận hàng (COD)
                   label.form-check
+                    input.form-check-input(type='radio' name='phuongthucthanhtoan' value='vnpay')
+                    span.form-check-label
+                      span.payment-badge.payment-badge--vnpay.me-2
+                        img.payment-logo(src='/images/logo/vnpay.jpg' alt='VNPAY')
+                        span VNPAY
+                      | VNPAY
+                  label.form-check
                     input.form-check-input(type='radio' name='phuongthucthanhtoan' value='momo')
                     span.form-check-label
-                      span.payment-badge.payment-badge--momo.me-2 MoMo
+                      span.payment-badge.payment-badge--momo.me-2
+                        img.payment-logo(src='/images/MOMO.png' alt='MoMo')
+                        span MoMo
                       | Ví MoMo
-                  label.form-check
-                    input.form-check-input(type='radio' name='phuongthucthanhtoan' value='zalopay')
-                    span.form-check-label
-                      span.payment-badge.payment-badge--zalopay.me-2 ZaloPay
-                      | ZaloPay
 
           .col-lg-5
             .card

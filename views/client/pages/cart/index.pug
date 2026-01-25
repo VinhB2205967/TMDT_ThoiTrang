@@ -16,19 +16,22 @@ block main
             .d-flex.align-items-center.gap-3.border-bottom.cart-item-row
               - const __unitPrice = (item.giagiam || item.gia || 0)
               - const __lineTotal = (__unitPrice * (item.soluong || 1))
+              - const __stock = (typeof item.tonkho !== 'undefined' && item.tonkho !== null) ? Number(item.tonkho) : 0
               input.form-check-input.cart-select(type='checkbox' value=item._id checked style='margin-right:6px;' data-unit-price=__unitPrice)
               img(src=(item.hinhanh || '/images/shopping.png') alt=item.tensanpham style='width:64px;height:64px;object-fit:cover;border-radius:10px;')
               .flex-grow-1
                 .fw-semibold #{item.tensanpham}
                 .small.text-muted
                   | #{item.mausac || ''}#{item.kichco ? (' - ' + item.kichco) : ''}
+                .small.text-muted
+                  | #{__stock > 0 ? `Còn ${__stock} sản phẩm` : 'Hết hàng'}
                 .fw-semibold.mt-1.cart-line-total(data-item-id=item._id) #{__lineTotal.toLocaleString('vi-VN')}₫
                 button.btn.btn-sm.btn-outline-secondary.mt-2(type='button' data-action='edit-options' data-item-id=item._id data-product-id=item.sanpham_id data-variant-id=(item.bienthe_id || 'main') data-size=(item.kichco || '') data-qty=(item.soluong || 1)) Sửa lựa chọn
 
               form.d-flex.align-items-center.gap-2(method='POST' action='/cart/update')
                 input(type='hidden' name='itemId' value=item._id)
-                input.form-control.form-control-sm(type='number' name='soluong' min='1' value=item.soluong style='width:90px;' data-item-id=item._id)
-                button.btn.btn-sm.btn-outline-primary(type='submit') Cập nhật
+                input.form-control.form-control-sm(type='number' name='soluong' min='1' max=(__stock > 0 ? __stock : 1) value=item.soluong style='width:90px;' data-item-id=item._id data-max=__stock disabled=(__stock <= 0))
+                button.btn.btn-sm.btn-outline-primary(type='submit' disabled=(__stock <= 0)) Cập nhật
 
               form(method='POST' action='/cart/remove')
                 input(type='hidden' name='itemId' value=item._id)

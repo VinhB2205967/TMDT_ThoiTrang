@@ -30,6 +30,15 @@ const orderSchema = new mongoose.Schema({
     default: false
   },
   ngaythanhtoan: Date,
+  vnpayTransId: String,
+  vnpayBankCode: String,
+  vnpayTxnRef: String,
+  momoTransId: String,
+  momoRefunded: {
+    type: Boolean,
+    default: false
+  },
+  momoRefundAt: Date,
 
   // Thông tin vận chuyển
   phuongthucvanchuyen: {            // standard, express

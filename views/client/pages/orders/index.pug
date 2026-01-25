@@ -33,8 +33,20 @@ block main
                     .small.text-muted +#{preview.count - 1} sản phẩm khác
 
               .d-flex.align-items-center.gap-2
-                - const label = statusLabels[o.trangthai] || o.trangthai
+                - const isChoThanhToan = o.trangthai === 'choxacnhan' && (o.phuongthucthanhtoan === 'momo' || o.phuongthucthanhtoan === 'vnpay') && !o.dathanhtoan
+                - const coTheDoiThanhToan = o.trangthai === 'choxacnhan' && !o.dathanhtoan
+                - const label = isChoThanhToan ? 'Chờ thanh toán' : (statusLabels[o.trangthai] || o.trangthai)
                 span.badge.order-status(data-status=o.trangthai) #{label}
+                if coTheDoiThanhToan
+                  form.order-payment-form(method='POST', action=`/orders/${o._id}/change-payment` data-auto-submit='payment-method')
+                    .order-payment-controls.order-payment-controls--compact
+                      select.form-select.form-select-sm.order-payment-select(name='phuongthucthanhtoan')
+                        option(value='cod' selected=(o.phuongthucthanhtoan === 'cod')) COD
+                        option(value='momo' selected=(o.phuongthucthanhtoan === 'momo')) MoMo
+                        option(value='vnpay' selected=(o.phuongthucthanhtoan === 'vnpay')) VNPAY
+                if isChoThanhToan
+                  form(method='POST', action=`/orders/${o._id}/pay`)
+                    button.btn.btn-sm.btn-outline-primary(type='submit') Thanh toán
 
                 if o.trangthai === 'choxacnhan'
                   form(method='POST', action=`/orders/${o._id}/cancel`)
@@ -47,8 +59,39 @@ block main
                     button.btn.btn-sm.btn-outline-success(type='submit')
                       i.bi.bi-arrow-repeat.me-1
                       | Mua lại
+      if pagination && pagination.totalPages > 1
+        - const statusParam = current && current !== 'all' ? `&status=${current}` : ''
+        nav.mt-3
+          ul.pagination.justify-content-center
+            li.page-item(class=pagination.currentPage === 1 ? 'disabled' : '')
+              a.page-link(href=`/orders?page=${pagination.currentPage - 1}${statusParam}` aria-label="Trang trước")
+                span(aria-hidden='true') &laquo;
+            - const startPage = Math.max(1, pagination.currentPage - 2)
+            - const endPage = Math.min(pagination.totalPages, pagination.currentPage + 2)
+            if startPage > 1
+              li.page-item
+                a.page-link(href=`/orders?page=1${statusParam}`) 1
+              if startPage > 2
+                li.page-item.disabled
+                  span.page-link ...
+            each i in Array.from({ length: endPage - startPage + 1 }, (_, idx) => startPage + idx)
+              li.page-item(class=i === pagination.currentPage ? 'active' : '')
+                a.page-link(href=`/orders?page=${i}${statusParam}`) #{i}
+            if endPage < pagination.totalPages
+              if endPage < pagination.totalPages - 1
+                li.page-item.disabled
+                  span.page-link ...
+              li.page-item
+                a.page-link(href=`/orders?page=${pagination.totalPages}${statusParam}`) #{pagination.totalPages}
+            li.page-item(class=pagination.currentPage === pagination.totalPages ? 'disabled' : '')
+              a.page-link(href=`/orders?page=${pagination.currentPage + 1}${statusParam}` aria-label="Trang sau")
+                span(aria-hidden='true') &raquo;
+        .text-center.text-muted.small.mt-2 Hiển thị #{orders.length} trên #{pagination.totalProducts} đơn hàng
     else
       .text-center.py-5.text-muted
         i.bi.bi-bag-x.fs-1.d-block.mb-3
         p Bạn chưa có đơn hàng nào.
         a.btn.btn-primary(href='/products') Mua sắm ngay
+
+block scripts
+  script(src='/js/orders.js')

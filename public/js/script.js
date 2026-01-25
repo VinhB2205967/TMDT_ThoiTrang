@@ -384,41 +384,59 @@
 		const timers = new Map();
 		const pending = new Map();
 
-		const sendUpdate = async (itemId, qty) => {
+		const sendUpdate = async (itemId, qty, inputEl) => {
 			pending.set(itemId, qty);
-			const { ok } = await goiApi('/cart/update', {
+			const { ok, data } = await goiApi('/cart/update', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ itemId, soluong: qty }),
 				keepalive: true
 			});
 			pending.delete(itemId);
+			if (ok && data && inputEl instanceof HTMLInputElement) {
+				if (typeof data.maxStock === 'number' && data.maxStock > 0) {
+					inputEl.max = String(data.maxStock);
+					inputEl.dataset.max = String(data.maxStock);
+				}
+				if (typeof data.quantity === 'number') {
+					inputEl.value = String(Math.max(1, data.quantity));
+				}
+			}
 			return ok;
 		};
 
-		const schedule = (itemId, qty) => {
+		const schedule = (itemId, qty, inputEl) => {
 			if (timers.has(itemId)) clearTimeout(timers.get(itemId));
 			timers.set(itemId, setTimeout(() => {
 				timers.delete(itemId);
-				sendUpdate(itemId, qty);
+				sendUpdate(itemId, qty, inputEl);
 			}, 400));
+		};
+
+		const clampQty = (inputEl, qty) => {
+			const maxRaw = inputEl.getAttribute('data-max') || inputEl.getAttribute('max') || '';
+			const max = parseInt(maxRaw, 10);
+			if (Number.isFinite(max) && max > 0) return Math.min(qty, max);
+			return qty;
 		};
 
 		qtyInputs.forEach((inp) => {
 			if (!(inp instanceof HTMLInputElement)) return;
 			inp.addEventListener('input', () => {
 				const itemId = String(inp.getAttribute('data-item-id') || '');
-				const qty = Math.max(1, parseInt(inp.value || '1', 10) || 1);
+				let qty = Math.max(1, parseInt(inp.value || '1', 10) || 1);
+				qty = clampQty(inp, qty);
 				inp.value = String(qty);
 				if (!itemId) return;
-				schedule(itemId, qty);
+				schedule(itemId, qty, inp);
 			});
 			inp.addEventListener('change', () => {
 				const itemId = String(inp.getAttribute('data-item-id') || '');
-				const qty = Math.max(1, parseInt(inp.value || '1', 10) || 1);
+				let qty = Math.max(1, parseInt(inp.value || '1', 10) || 1);
+				qty = clampQty(inp, qty);
 				inp.value = String(qty);
 				if (!itemId) return;
-				schedule(itemId, qty);
+				schedule(itemId, qty, inp);
 			});
 		});
 
@@ -440,8 +458,14 @@
 				const tasks = selected.map((id) => {
 					// ObjectId is safe for attribute selector; avoid CSS.escape for compatibility
 					const input = document.querySelector(`input[name="soluong"][data-item-id="${id}"]`);
-					const qty = Math.max(1, parseInt(input && input.value ? input.value : '1', 10) || 1);
-					return sendUpdate(id, qty);
+					let qty = Math.max(1, parseInt(input && input.value ? input.value : '1', 10) || 1);
+					if (input instanceof HTMLInputElement) {
+						const maxRaw = input.getAttribute('data-max') || input.getAttribute('max') || '';
+						const max = parseInt(maxRaw, 10);
+						if (Number.isFinite(max) && max > 0) qty = Math.min(qty, max);
+						input.value = String(qty);
+					}
+					return sendUpdate(id, qty, input);
 				});
 				try {
 					await Promise.race([

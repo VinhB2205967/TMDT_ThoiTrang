@@ -5,10 +5,10 @@ const couponSchema = new mongoose.Schema({
     type: String,
     required: true,
     unique: true,
-    uppercase: true, // Tự động viết hoa: SALE50
+    uppercase: true,
     trim: true
   },
-  mota: String, // Mô tả ngắn về mã
+  mota: String, 
   
   loai: {
     type: String,
