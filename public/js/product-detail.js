@@ -387,6 +387,17 @@ const khoiTaoTrangChiTiet = () => {
     if(initialSizePanel) initialSizePanel.style.display = 'flex';
     if(initialStockPanel) initialStockPanel.style.display = 'block';
 
+    // Fly-to-cart animation on submit
+    const addForm = boLayNhanh.addToCartForm();
+    if (addForm) {
+        addForm.addEventListener('submit', () => {
+            if (window.App && typeof window.App.flyToCart === 'function') {
+                const img = boLayNhanh.mainImage();
+                if (img) window.App.flyToCart(img);
+            }
+        });
+    }
+
 };
 
 document.addEventListener('DOMContentLoaded', khoiTaoTrangChiTiet);

@@ -32,6 +32,7 @@ header.header
                         li: a(href="/favorites")
                             i.bi.bi-heart
                             span Yêu thích
+                            span.favorite-badge #{favoriteCount || 0}
                         li: a(href="/cart")
                             i.bi.bi-cart3
                             span Giỏ hàng

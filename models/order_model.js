@@ -52,8 +52,8 @@ const orderSchema = new mongoose.Schema({
   mavanchuyen: String,              // Mã tracking vận chuyển
 
   // Tổng tiền
-  tamtinh: Number,                  // Tạm tính (tổng sản phẩm)
-  giamgia: {                        // Số tiền giảm (voucher)
+  tamtinh: Number,                  
+  giamgia: {                        
     type: Number,
     default: 0
   },

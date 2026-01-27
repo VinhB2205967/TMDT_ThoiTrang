@@ -82,12 +82,13 @@ function taoBoLocNguoiDung({ keyword: tukhoa, vaitro, trangthai, online, deleted
   return boloc;
 }
 
-function taoChuoiBoLoc({ vaitro, trangthai, online, deleted }) {
+function taoChuoiBoLoc({ vaitro, trangthai, online, deleted, limit }) {
   let s = '';
   if (vaitro) s += `&vaitro=${encodeURIComponent(vaitro)}`;
   if (trangthai) s += `&trangthai=${encodeURIComponent(trangthai)}`;
   if (online) s += `&online=${encodeURIComponent(online)}`;
   if (deleted) s += `&deleted=${encodeURIComponent(deleted)}`;
+  if (limit) s += `&limit=${encodeURIComponent(limit)}`;
   return s;
 }
 
@@ -99,10 +100,12 @@ module.exports.danhSach = async (req, res) => {
     const trangthai = String(req.query.trangthai || '').trim();
     const online = String(req.query.online || '').trim();
     const daxoa = String(req.query.deleted || '').trim();
+    const limitRaw = parseInt(req.query.limit, 10);
+    const limit = Number.isFinite(limitRaw) ? Math.min(100, Math.max(5, limitRaw)) : 10;
 
     let phantrang = {
       currentPage: 1,
-      limit: 10
+      limit
     };
 
     const dieukien = taoBoLocNguoiDung({ keyword: tukhoa, vaitro, trangthai, online, deleted: daxoa });
@@ -120,12 +123,12 @@ module.exports.danhSach = async (req, res) => {
       isOnline: dangOnline(u.lastSeenAt, onlinewindowms)
     }));
 
-    const chuoiboloc = taoChuoiBoLoc({ vaitro, trangthai, online, deleted: daxoa });
+    const chuoiboloc = taoChuoiBoLoc({ vaitro, trangthai, online, deleted: daxoa, limit });
 
     return res.render('admin/pages/users/index.pug', {
       titlePage: 'Quản lý người dùng',
       users: nguoidungdaxuly,
-      filters: { keyword: tukhoa, vaitro, trangthai, online, deleted: daxoa },
+      filters: { keyword: tukhoa, vaitro, trangthai, online, deleted: daxoa, limit },
       pagination: phantrang,
       filterString: chuoiboloc
     });
@@ -135,7 +138,7 @@ module.exports.danhSach = async (req, res) => {
     return res.render('admin/pages/users/index.pug', {
       titlePage: 'Quản lý người dùng',
       users: [],
-      filters: { keyword: '', vaitro: '', trangthai: '', online: '', deleted: '' },
+      filters: { keyword: '', vaitro: '', trangthai: '', online: '', deleted: '', limit: 10 },
       pagination: { currentPage: 1, limit: 10, skip: 0, totalPages: 0, totalProducts: 0 },
       filterString: ''
     });

@@ -1186,3 +1186,101 @@ body {
     flex-direction: column;
   }
 }
+
+/* ==================== ADMIN POLISH (GLOBAL) ==================== */
+:root {
+  --admin-shadow: 0 12px 30px rgba(15, 23, 42, 0.10);
+  --admin-shadow-sm: 0 6px 16px rgba(15, 23, 42, 0.08);
+  --admin-ring: 0 0 0 .2rem rgba(99, 102, 241, 0.20);
+}
+
+.page-header-section {
+  background: linear-gradient(135deg, rgba(108, 130, 247, 0.98), rgba(99, 102, 241, 0.98));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: saturate(140%) blur(10px);
+}
+
+.card,
+.dashboard-card,
+.stat-card,
+.table,
+.box,
+.panel {
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: var(--admin-shadow-sm);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .card:hover,
+  .dashboard-card:hover,
+  .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--admin-shadow);
+  }
+}
+
+.table thead th {
+  background: rgba(99, 102, 241, 0.08);
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+
+.table tbody tr:hover,
+.recent-products-table tbody tr:hover {
+  background: rgba(99, 102, 241, 0.06);
+}
+
+.btn,
+.form-control,
+.form-select {
+  border-radius: 12px;
+  transition: box-shadow 160ms ease, transform 160ms ease, border-color 160ms ease;
+}
+
+.btn:focus,
+.form-control:focus,
+.form-select:focus {
+  box-shadow: var(--admin-ring);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea, #6c82f7);
+  border-color: transparent;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.03);
+}
+
+.sider .inner-menu a.active,
+.sider .inner-menu .sider-menu-btn.active {
+  background: rgba(99, 102, 241, 0.18);
+  color: #ffffff;
+  border-color: rgba(99, 102, 241, 0.45);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.18);
+}
+
+.sider .inner-menu a.active i,
+.sider .inner-menu .sider-menu-btn.active i {
+  color: #c7d2fe;
+}
+
+/* Scrollbar subtle (desktop) */
+@media (min-width: 992px) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(99, 102, 241, 0.35) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.35);
+    border-radius: 999px;
+  }
+}

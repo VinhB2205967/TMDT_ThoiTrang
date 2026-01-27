@@ -171,13 +171,23 @@
     min-width: 20px;
     text-align: center;
     box-shadow: 0 2px 8px rgba(255,71,87,0.4);
-    animation: badgePulse 2s ease-in-out infinite;
 }
 
-@keyframes badgePulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.1); }
+.favorite-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: linear-gradient(135deg, #ff7a45, #ff9f1a);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 7px;
+    border-radius: 12px;
+    min-width: 20px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(255,122,69,0.35);
 }
+
 
 /* Auth Buttons */
 .auth-buttons {
@@ -316,7 +326,6 @@
     margin: 0;
 }
 
-.footer-links li {
     margin-bottom: 10px;
 }
 

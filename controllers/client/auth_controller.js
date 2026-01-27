@@ -190,7 +190,7 @@ module.exports.dangXuat = async (req, res) => {
     res.redirect('/');
   });
 };
-
+// Gợi ý lỗi Google Auth
 function goiYGoogleAuth(err, req) {
   const loitruyvan = String(req?.query?.error || '').trim();
   if (loitruyvan) {

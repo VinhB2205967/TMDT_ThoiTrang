@@ -36,6 +36,16 @@
 		if (!badge) return;
 		badge.textContent = String(count ?? 0);
 	});
+	let nutThemGioGanNhat = null;
+
+	function timAnhSanPhamTuNut(btn) {
+		if (!btn || !(btn instanceof Element)) return document.getElementById('mainImage');
+		const card = btn.closest('.product-card, [data-product-id]');
+		if (card) {
+			return card.querySelector('.product-image img, img');
+		}
+		return document.getElementById('mainImage');
+	}
 
 	// ===== Favorites =====
 	async function taiTrangYeuThich() {
@@ -46,6 +56,7 @@
 		if (!ok || !data || !Array.isArray(data.ids)) return;
 
 		const set = new Set(data.ids);
+		if (App.setFavoriteBadge) App.setFavoriteBadge(set.size);
 		cards.forEach((card) => {
 			const pid = card.getAttribute('data-product-id');
 			if (!pid) return;
@@ -74,6 +85,12 @@
 				icon.classList.toggle('bi-heart-fill', active);
 				icon.classList.toggle('bi-heart', !active);
 			}
+		}
+
+		if (App.setFavoriteBadge) {
+			const current = parseInt((App.qs && App.qs('.favorite-badge') ? App.qs('.favorite-badge').textContent : '0'), 10) || 0;
+			const next = active ? current + 1 : Math.max(0, current - 1);
+			App.setFavoriteBadge(next);
 		}
 
 		// On favorites page, unfavoriting should remove the item from the list
@@ -581,6 +598,12 @@
 		}
 
 		if (typeof data.cartCount === 'number') datHuyHieuGio(data.cartCount);
+		if (mucDichHienTai === 'add') {
+			if (App.flyToCart) {
+				const img = timAnhSanPhamTuNut(nutThemGioGanNhat || $('#qamSubmit'));
+				if (img) App.flyToCart(img);
+			}
+		}
 
 		if (mucDichHienTai === 'buy' && data.redirect) {
 			window.location.href = data.redirect;
@@ -669,6 +692,7 @@
 		if (addBtn) {
 			e.preventDefault();
 			e.stopPropagation();
+			nutThemGioGanNhat = addBtn;
 			const productId = getProductIdFromEventTarget(addBtn);
 			if (productId) moModalNhanh(productId, 'add');
 			return;
@@ -697,6 +721,7 @@
 	// ===== Compatibility with existing inline handlers (products page) =====
 		window.xuLyThemGio = (event) => {
 		const el = event && event.currentTarget ? event.currentTarget : null;
+		nutThemGioGanNhat = el;
 		const productId = el ? getProductIdFromEventTarget(el) : null;
 			if (productId) moModalNhanh(productId, 'add');
 	};

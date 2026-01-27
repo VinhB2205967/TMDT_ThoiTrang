@@ -27,6 +27,48 @@
     huyHieu.textContent = String(count ?? 0);
   };
 
+  App.setFavoriteBadge = App.setFavoriteBadge || function setFavoriteBadge(count) {
+    const huyHieu = App.qs('.favorite-badge');
+    if (!huyHieu) return;
+    huyHieu.textContent = String(count ?? 0);
+  };
+
+  App.flyToCart = App.flyToCart || function flyToCart(sourceEl, targetEl) {
+    if (!sourceEl || !(sourceEl instanceof Element)) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const target = targetEl || App.qs('.header-nav a[href="/cart"], .cart-badge');
+    if (!target) return;
+
+    const img = sourceEl instanceof HTMLImageElement ? sourceEl : sourceEl.querySelector('img');
+    if (!img) return;
+
+    const start = img.getBoundingClientRect();
+    const end = target.getBoundingClientRect();
+    if (!start || !end) return;
+
+    const ghost = img.cloneNode(true);
+    ghost.classList.add('fly-to-cart');
+    ghost.style.left = `${start.left}px`;
+    ghost.style.top = `${start.top}px`;
+    ghost.style.width = `${start.width}px`;
+    ghost.style.height = `${start.height}px`;
+
+    document.body.appendChild(ghost);
+
+    const deltaX = (end.left + end.width / 2) - (start.left + start.width / 2);
+    const deltaY = (end.top + end.height / 2) - (start.top + start.height / 2);
+
+    requestAnimationFrame(() => {
+      ghost.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(0.15)`;
+      ghost.style.opacity = '0.2';
+    });
+
+    setTimeout(() => {
+      ghost.remove();
+    }, 700);
+  };
+
   App.wantsJsonResponse = App.wantsJsonResponse || function wantsJsonResponse(res) {
     const kieuNoiDung = String(res.headers.get('content-type') || '');
     return kieuNoiDung.includes('application/json');

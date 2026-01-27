@@ -11,6 +11,12 @@ block main
           .col-12.col-md-4
             input.form-control(type="text" name="keyword" placeholder="Tìm theo email hoặc họ tên" value=(filters && filters.keyword) || '')
           .col-6.col-md-2
+            select.form-select(name="limit" onchange="this.form.submit()")
+              option(value="5" selected=(filters && filters.limit == 5)) 5 / trang
+              option(value="10" selected=(!filters || !filters.limit || filters.limit == 10)) 10 / trang
+              option(value="20" selected=(filters && filters.limit == 20)) 20 / trang
+              option(value="50" selected=(filters && filters.limit == 50)) 50 / trang
+          .col-6.col-md-2
             select.form-select(name="vaitro" onchange="this.form.submit()")
               option(value="") Tất cả vai trò
               option(value="user" selected=(filters && filters.vaitro === 'user')) User
@@ -134,6 +140,7 @@ block scripts
     (function () {
       const filters = {
         keyword: #{JSON.stringify((filters && filters.keyword) || '')},
+        limit: #{JSON.stringify((filters && filters.limit) || 10)},
         vaitro: #{JSON.stringify((filters && filters.vaitro) || '')},
         trangthai: #{JSON.stringify((filters && filters.trangthai) || '')},
         online: #{JSON.stringify((filters && filters.online) || '')},

@@ -1,7 +1,7 @@
 /* ==================== FILTER BAR ==================== */
 .filter-bar {
     background: #f8f9fa;
-    padding: 20px;
+    padding: 16px;
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
@@ -9,8 +9,8 @@
 .filter-bar .form-select {
     border-radius: 8px;
     border: 1px solid #dee2e6;
-    padding: 10px 15px;
-    font-size: 14px;
+    padding: 8px 12px;
+    font-size: 13px;
 }
 .filter-bar .form-control:focus,
 .filter-bar .form-select:focus {
@@ -20,17 +20,35 @@
 .filter-bar .btn-primary {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border: none;
-    padding: 10px 24px;
+    padding: 8px 18px;
     border-radius: 8px;
     font-weight: 600;
 }
 .filter-bar .btn-secondary {
     background: #6c757d;
     border: none;
-    padding: 10px 24px;
+    padding: 8px 18px;
     border-radius: 8px;
 }
 .filter-info {
     padding: 10px 0;
     font-size: 14px;
+}
+
+@media (max-width: 768px) {
+    .filter-bar {
+        padding: 12px;
+    }
+
+    .filter-bar .form-control,
+    .filter-bar .form-select {
+        padding: 7px 10px;
+        font-size: 12px;
+    }
+
+    .filter-bar .btn-primary,
+    .filter-bar .btn-secondary {
+        padding: 7px 14px;
+        font-size: 12px;
+    }
 }

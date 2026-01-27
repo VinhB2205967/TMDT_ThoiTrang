@@ -376,3 +376,239 @@ body {
 .btn-group .btn {
   border-radius: 999px;
 }
+
+/* ==================== MOBILE UI (CLIENT) ==================== */
+@media (max-width: 992px) {
+  .header .container {
+    padding: 0 16px;
+  }
+
+  .header-inner {
+    gap: 14px;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .header-nav {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .header-nav .nav-list {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 6px;
+    padding-bottom: 4px;
+  }
+
+  .header-nav .nav-list::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .header-nav .nav-list::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.35);
+    border-radius: 10px;
+  }
+
+  .header-nav .nav-list li {
+    flex: 0 0 auto;
+  }
+
+  .header-nav .nav-list a {
+    white-space: nowrap;
+  }
+
+  .auth-buttons {
+    margin-left: auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 768px) {
+  .header-inner {
+    align-items: stretch;
+  }
+
+  .header-logo {
+    align-self: center;
+  }
+
+  .header-search .input-group {
+    border-radius: 18px;
+  }
+
+  .header-search .form-control,
+  .header-search .btn-search {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+
+  .main-content {
+    padding-top: 8px;
+  }
+
+  .footer-main {
+    padding: 32px 0 20px;
+  }
+
+  .footer-widget,
+  .footer-widget .footer-desc {
+    text-align: center;
+  }
+
+  .footer-logo,
+  .footer-social,
+  .footer-contact,
+  .payment-methods {
+    justify-content: center;
+  }
+
+  .footer-contact li {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 576px) {
+  .header {
+    padding: 10px 0;
+  }
+
+  .header-logo .logo-text {
+    display: none;
+  }
+
+  .header-nav .nav-list a {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .header-nav .nav-list a span {
+    display: none;
+  }
+
+  .auth-buttons .btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}
+
+/* ==================== CLIENT POLISH (GLOBAL) ==================== */
+.page-title,
+.section-title,
+.products-title {
+  letter-spacing: -0.2px;
+}
+
+.card,
+.product-card,
+.cart-item-row,
+.filter-bar,
+.order-list .order-item {
+  backdrop-filter: saturate(120%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .card:hover,
+  .product-card:hover,
+  .cart-item-row:hover,
+  .order-list .order-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+  }
+
+  .product-card img,
+  .product-card .product-image img {
+    transition: transform 200ms ease;
+  }
+
+  .product-card:hover img,
+  .product-card:hover .product-image img {
+    transform: scale(1.03);
+  }
+}
+
+.table {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--ui-shadow-sm);
+}
+
+.table thead th {
+  background: rgba(102, 126, 234, 0.08);
+  border-bottom: 1px solid rgba(17, 24, 39, 0.08);
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+
+.table tbody tr:hover {
+  background: rgba(99, 102, 241, 0.06);
+}
+
+.badge,
+.btn,
+.form-control,
+.form-select {
+  transition: box-shadow 160ms ease, transform 160ms ease, border-color 160ms ease;
+}
+
+.btn:focus,
+.form-control:focus,
+.form-select:focus {
+  outline: none;
+  box-shadow: var(--ui-ring);
+}
+
+.btn-outline-secondary:hover {
+  background: rgba(17, 24, 39, 0.04);
+}
+
+.pagination .page-link {
+  border-radius: 10px;
+  border-color: rgba(17, 24, 39, 0.12);
+}
+
+.pagination .page-item.active .page-link {
+  background: linear-gradient(135deg, #667eea, #6c82f7);
+  border-color: transparent;
+  box-shadow: 0 10px 24px rgba(99, 102, 241, 0.25);
+}
+
+/* Scrollbar subtle (desktop) */
+@media (min-width: 992px) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(99, 102, 241, 0.35) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.35);
+    border-radius: 999px;
+  }
+}
+
+/* ==================== CART ANIMATIONS ==================== */
+
+.fly-to-cart {
+  position: fixed;
+  z-index: 2000;
+  border-radius: 12px;
+  object-fit: cover;
+  pointer-events: none;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
+  transition: transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1),
+              opacity 700ms ease;
+  will-change: transform, opacity;
+}
