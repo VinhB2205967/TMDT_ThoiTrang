@@ -14,10 +14,18 @@
   --ui-radius: 16px;
   --ui-radius-sm: 12px;
   --ui-ring: 0 0 0 .2rem rgba(102, 126, 234, 0.22);
+
+  /* Fixed header offsets (tuned for current header layout) */
+  --header-offset: 92px;
+  --header-offset-mobile: 156px;
 }
 
 html, body {
   height: 100%;
+}
+
+html {
+  scroll-padding-top: var(--header-offset);
 }
 
 body {
@@ -25,6 +33,14 @@ body {
   background: radial-gradient(1200px 600px at 15% 0%, rgba(108,130,247,0.12), transparent 60%),
               radial-gradient(900px 500px at 90% 10%, rgba(255, 71, 87, 0.08), transparent 55%),
               var(--ui-bg);
+
+  /* Chừa chỗ cho header fixed */
+  padding-top: var(--header-offset);
+}
+
+@media (max-width: 992px) {
+  html { scroll-padding-top: var(--header-offset-mobile); }
+  body { padding-top: var(--header-offset-mobile); }
 }
 
 .main-content {
@@ -107,13 +123,53 @@ body {
   box-shadow: var(--ui-shadow-sm);
 }
 
+.flash-alert {
+  font-weight: 650;
+  letter-spacing: -0.1px;
+}
+
+.flash-alert i {
+  font-size: 1.1rem;
+}
+
+.flash-alert.alert-danger {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(254, 242, 242, 0.95));
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.flash-alert.alert-success {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.14), rgba(240, 253, 244, 0.95));
+  border-color: rgba(34, 197, 94, 0.25);
+}
+
+.flash-alert.alert-info {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(239, 246, 255, 0.95));
+  border-color: rgba(59, 130, 246, 0.22);
+}
+
+/* Form validation (Bootstrap) */
+.invalid-feedback {
+  font-weight: 650;
+}
+
 /* Header polish (client) */
 .header {
-  background: linear-gradient(135deg, rgba(108,130,247,0.92), rgba(102,126,234,0.92));
-  border-bottom: 1px solid rgba(255,255,255,0.18);
-  backdrop-filter: saturate(120%) blur(10px);
-  -webkit-backdrop-filter: saturate(120%) blur(10px);
+  /* Không dùng glass/blur: nền đặc, rõ ràng */
+  background: linear-gradient(135deg, #6c82f7, #667eea);
+  border-bottom: 1px solid rgba(255,255,255,0.14);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+
+  /* Giữ yên khi cuộn */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 1050;
 }
+
+/* Mobile header layout: handled in MOBILE UI section below */
 
 .header-nav .nav-list a {
   border: 1px solid transparent;
@@ -124,7 +180,54 @@ body {
 }
 
 .header-search .input-group {
-  backdrop-filter: blur(8px);
+  /* Search gọn + không bóng/óng quá */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(255,255,255,0.92) !important;
+  border: 1px solid rgba(15, 23, 42, 0.10) !important;
+  box-shadow: none !important;
+  border-radius: 16px;
+}
+
+.header-search .input-group:focus-within {
+  transform: none !important;
+  box-shadow: none !important;
+  background: rgba(255,255,255,0.92) !important;
+  border-color: rgba(15, 23, 42, 0.10) !important;
+}
+
+/* Bỏ toàn bộ hiệu ứng của ô tìm kiếm */
+.header-search .input-group,
+.header-search .form-control,
+.header-search .btn-search {
+  transition: none !important;
+}
+
+.header-search .form-control:focus,
+.header-search .btn-search:focus {
+  box-shadow: none !important;
+}
+
+.header-search .form-control {
+  color: #0f172a;
+}
+
+.header-search .form-control::placeholder {
+  color: #64748b;
+}
+
+.header-search .btn-search {
+  background: rgba(99, 102, 241, 0.10) !important;
+  color: #3730a3;
+}
+
+.header-search .btn-search:hover {
+  transform: none !important;
+  background: rgba(99, 102, 241, 0.10) !important;
+}
+
+.header-search .btn-search:active {
+  background: rgba(99, 102, 241, 0.10) !important;
 }
 
 .dropdown-menu {
@@ -385,13 +488,22 @@ body {
 
   .header-inner {
     gap: 14px;
+    flex-wrap: nowrap;
   }
 
   .header-actions {
-    width: 100%;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: nowrap;
+  }
+
+  .header-search {
+    flex: 1 1 auto;
+    max-width: none;
+    min-width: 220px;
   }
 
   .header-nav {
@@ -402,7 +514,6 @@ body {
   .header-nav .nav-list {
     flex-wrap: nowrap;
     overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
     gap: 6px;
     padding-bottom: 4px;
   }
@@ -429,6 +540,11 @@ body {
     flex-wrap: wrap;
     justify-content: flex-end;
   }
+
+  /* Search hàng dưới: gọn hơn */
+  .header-search {
+    margin-top: 6px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -441,13 +557,13 @@ body {
   }
 
   .header-search .input-group {
-    border-radius: 18px;
+    border-radius: 14px;
   }
 
   .header-search .form-control,
   .header-search .btn-search {
-    padding: 10px 14px;
-    font-size: 14px;
+    padding: 7px 10px;
+    font-size: 13px;
   }
 
   .main-content {
@@ -477,7 +593,73 @@ body {
 
 @media (max-width: 576px) {
   .header {
-    padding: 10px 0;
+    padding: 6px 0;
+  }
+
+  .header-inner {
+    gap: 10px;
+  }
+
+  .header-logo .logo-icon {
+    font-size: 28px;
+    filter: none;
+    animation: none;
+  }
+
+  .header-search {
+    max-width: 100%;
+  }
+
+  /* Layout mobile: nav (hàng 1), search giữa + avatar góc phải (hàng 2) */
+  .header-actions {
+    display: grid;
+    grid-template-columns: 1fr minmax(0, 420px) auto;
+    grid-template-areas:
+      "nav nav nav"
+      ". search user";
+    gap: 8px;
+    align-items: center;
+  }
+
+  .header-nav { grid-area: nav; }
+  .header-search { grid-area: search; min-width: 0; margin: 0; }
+  .auth-buttons { grid-area: user; margin-left: 0; justify-self: end; }
+
+  /* Nav hiển thị đủ nút, không cần kéo */
+  .header-nav .nav-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(48px, 1fr));
+    overflow-x: visible;
+    gap: 6px;
+    padding-bottom: 0;
+  }
+
+  .header-nav .nav-list li {
+    min-width: 0;
+  }
+
+  .header-search .input-group {
+    border-radius: 12px;
+  }
+
+  .header-search .form-control,
+  .header-search .btn-search {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  .header-search .input-group {
+    border-radius: 12px;
+  }
+
+  .header-search .btn-search {
+    min-width: 44px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .header-search {
+    min-width: 160px;
   }
 
   .header-logo .logo-text {
@@ -485,17 +667,59 @@ body {
   }
 
   .header-nav .nav-list a {
-    padding: 6px 10px;
-    font-size: 12px;
+    padding: 8px 10px;
+    font-size: 13px;
+    min-width: 48px;
+    height: 36px;
+    border-radius: 16px;
   }
 
-  .header-nav .nav-list a span {
+  /* Chỉ ẩn label, giữ badge */
+  .header-nav .nav-list a > span:not(.favorite-badge):not(.cart-badge) {
     display: none;
   }
 
+  .header-nav .nav-list a {
+    justify-content: center;
+    gap: 0;
+  }
+
+  .header-nav .nav-list a i {
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  /* Badge canh lại cho nút lớn */
+  .cart-badge,
+  .favorite-badge {
+    top: -6px;
+    right: -6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+  }
+
+  /* Dropdown user: ưu tiên avatar */
+  #userMenu span {
+    display: none;
+  }
+
+  #userMenu {
+    padding: 7px 10px;
+    border-radius: 999px;
+  }
+
+  #userMenu img {
+    width: 24px !important;
+    height: 24px !important;
+  }
+
   .auth-buttons .btn {
-    padding: 6px 10px;
-    font-size: 12px;
+    padding: 7px 10px;
+    font-size: 13px;
   }
 }
 
@@ -504,6 +728,33 @@ body {
 .section-title,
 .products-title {
   letter-spacing: -0.2px;
+}
+
+/* ==================== FOOTER POLISH ==================== */
+.footer-links a {
+  position: relative;
+  text-decoration: none;
+}
+
+.footer-links a::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.55);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 160ms ease;
+}
+
+.footer-links a:hover {
+  padding-left: 0;
+}
+
+.footer-links a:hover::after {
+  transform: scaleX(1);
 }
 
 .card,
@@ -583,11 +834,6 @@ body {
 
 /* Scrollbar subtle (desktop) */
 @media (min-width: 992px) {
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(99, 102, 241, 0.35) transparent;
-  }
-
   *::-webkit-scrollbar {
     width: 8px;
     height: 8px;

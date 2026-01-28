@@ -38,6 +38,35 @@
 	});
 	let nutThemGioGanNhat = null;
 
+	// ===== Fixed header: auto offset =====
+	function capNhatKhoangCachHeader() {
+		const header = document.querySelector('header.header');
+		if (!header) return;
+		const h = Math.ceil(header.getBoundingClientRect().height || 0);
+		if (!h) return;
+		document.documentElement.style.setProperty('--header-offset', `${h}px`);
+		document.documentElement.style.setProperty('--header-offset-mobile', `${h}px`);
+	}
+
+	function ganSuKienCapNhatHeaderOffset() {
+		let raf = 0;
+		const schedule = () => {
+			if (raf) cancelAnimationFrame(raf);
+			raf = requestAnimationFrame(() => {
+				raf = 0;
+				capNhatKhoangCachHeader();
+			});
+		};
+
+		// Lần đầu
+		schedule();
+		window.addEventListener('resize', schedule, { passive: true });
+		window.addEventListener('orientationchange', schedule, { passive: true });
+		window.addEventListener('load', schedule, { passive: true });
+	}
+
+	ganSuKienCapNhatHeaderOffset();
+
 	function timAnhSanPhamTuNut(btn) {
 		if (!btn || !(btn instanceof Element)) return document.getElementById('mainImage');
 		const card = btn.closest('.product-card, [data-product-id]');

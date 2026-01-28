@@ -1,11 +1,7 @@
 const sanpham = require("../../models/product_model");
 const productHelper = require("../../helpers/product");
 const yeuthich = require("../../models/favorite_model");
-
-function muonJSON(req) {
-  const chapnhan = String(req.headers.accept || '');
-  return req.xhr || chapnhan.includes('application/json') || String(req.headers['x-requested-with'] || '').toLowerCase() === 'xmlhttprequest';
-}
+const { muonJSON } = require('../../helpers/http');
 
 // Danh sách
 module.exports.danhSach = async (req, res) => {

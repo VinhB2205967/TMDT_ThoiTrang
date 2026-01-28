@@ -2,81 +2,13 @@ const sanpham = require('../../models/product_model');
 const donhang = require('../../models/order_model');
 const chitietdonhang = require('../../models/order_item_model');
 const nguoidung = require('../../models/user_model');
-const { getOrCreateCart, normalizeImage } = require('../../services/cart.service');
+const { getOrCreateCart } = require('../../services/cart.service');
+const { laLoaiKhongSize, tinhTongTon, layBienTheVaTon } = require('../../services/productStock.service');
+const { muonJSON } = require('../../helpers/http');
 const { taoThanhToanMoMo } = require('../../services/momo.service');
 const { taoThanhToanVnpay, kiemTraChuKyVnpay } = require('../../services/vnpay.service');
 
-function muonJSON(req) {
-  const chapnhan = String(req.headers.accept || '');
-  return req.xhr || chapnhan.includes('application/json') || String(req.headers['x-requested-with'] || '').toLowerCase() === 'xmlhttprequest';
-}
-
-function laLoaiKhongSize(loaisanpham) {
-  return ['tui', 'phukien'].includes(String(loaisanpham || '').toLowerCase());
-}
-
-function tinhTongTon(productdoc) {
-  if (!productdoc) return 0;
-
-  const cosize = !laLoaiKhongSize(productdoc.loaisanpham);
-  let tong = 0;
-
-  if (cosize) {
-    (productdoc.sizes || []).forEach(s => { tong += (s && s.soluong) ? Number(s.soluong) : 0; });
-    (productdoc.bienthe || []).forEach(v => {
-      (v.sizes || []).forEach(s => { tong += (s && s.soluong) ? Number(s.soluong) : 0; });
-    });
-    return tong;
-  }
-
-  tong += Number(productdoc.soluong_chinh || 0);
-  (productdoc.bienthe || []).forEach(v => { tong += Number(v.soluong || 0); });
-  return tong;
-}
-
-// Dùng chung service
-
-function layBienTheVaTon(productdoc, bientheid, kichco) {
-  const cosize = !laLoaiKhongSize(productdoc.loaisanpham);
-  const lachinh = !bientheid || bientheid === 'main';
-
-  if (lachinh) {
-    const mausac = productdoc.mausac_chinh || 'Mặc định';
-    const hinhanh = normalizeImage(productdoc.hinhanh);
-    const gia = productdoc.gia || 0;
-    const giamgia = productdoc.phantramgiamgia || 0;
-    const giagiam = giamgia > 0 ? Math.round(gia * (100 - giamgia) / 100) : gia;
-
-    if (cosize) {
-      const sizes = Array.isArray(productdoc.sizes) ? productdoc.sizes : [];
-      const dongsize = sizes.find(s => s.size === kichco);
-      const tonkho = dongsize ? (dongsize.soluong || 0) : 0;
-      return { hasSize: cosize, stock: tonkho, bienTheObjId: null, mausac, hinhanh, gia, giagiam };
-    }
-
-    const tonkho = productdoc.soluong_chinh || 0;
-    return { hasSize: cosize, stock: tonkho, bienTheObjId: null, mausac, hinhanh, gia, giagiam };
-  }
-
-  const bienthe = (productdoc.bienthe || []).find(v => String(v._id) === String(bientheid));
-  if (!bienthe) return { error: 'Biến thể không tồn tại' };
-
-  const mausac = bienthe.mausac || 'Màu';
-  const hinhanh = normalizeImage(bienthe.hinhanh) || normalizeImage(productdoc.hinhanh);
-  const gia = bienthe.gia || productdoc.gia || 0;
-  const giamgia = bienthe.phantramgiamgia != null ? bienthe.phantramgiamgia : (productdoc.phantramgiamgia || 0);
-  const giagiam = giamgia > 0 ? Math.round(gia * (100 - giamgia) / 100) : gia;
-
-  if (cosize) {
-    const sizes = Array.isArray(bienthe.sizes) ? bienthe.sizes : [];
-    const dongsize = sizes.find(s => s.size === kichco);
-    const tonkho = dongsize ? (dongsize.soluong || 0) : 0;
-    return { hasSize: cosize, stock: tonkho, bienTheObjId: bienthe._id, mausac, hinhanh, gia, giagiam };
-  }
-
-  const tonkho = bienthe.soluong || 0;
-  return { hasSize: cosize, stock: tonkho, bienTheObjId: bienthe._id, mausac, hinhanh, gia, giagiam };
-}
+// laLoaiKhongSize / tinhTongTon / layBienTheVaTon đã được tách sang services/productStock.service
 
 module.exports.danhSach = async (req, res) => {
   const giohang = await getOrCreateCart(req.user._id);
@@ -527,7 +459,8 @@ module.exports.xuLyThanhToan = async (req, res) => {
       phuongthucthanhtoan: phuongthucthanhtoan,
       tamtinh: tamtinh,
       tongtien: tamtinh,
-      trangthai: 'choxacnhan'
+      trangthai: 'choxacnhan',
+      ngaycapnhat: new Date()
     });
 
     for (const it of danhsachitem) {
@@ -567,6 +500,12 @@ module.exports.xuLyThanhToan = async (req, res) => {
         ipnUrl,
         extraData
       });
+
+      // Lưu lại mã giao dịch để có thể truy vấn trạng thái khi user rời trang QR/quay về bằng nút Back.
+      await donhang.updateOne(
+        { _id: donhangdoc._id },
+        { $set: { momoOrderId: maMoMo, momoRequestId: maMoMo, momoPayUrl: ketqua?.payUrl || undefined, ngaycapnhat: new Date() } }
+      );
 
       if (ketqua && ketqua.payUrl) {
         return res.redirect(ketqua.payUrl);
@@ -642,11 +581,16 @@ module.exports.momoReturn = async (req, res) => {
       if (resultCode === 0) {
         await donhang.updateOne(
           { _id: idDon },
-          { $set: { dathanhtoan: true, ngaythanhtoan: new Date(), momoTransId: transId || undefined } }
+          { $set: { dathanhtoan: true, ngaythanhtoan: new Date(), momoTransId: transId || undefined, momoOrderId: orderId || undefined, momoRequestId: (req.query.requestId ? String(req.query.requestId) : orderId) || undefined, ngaycapnhat: new Date() } }
         );
         req.flash?.('success', 'Thanh toán MoMo thành công!');
       } else {
-        req.flash?.('error', 'Thanh toán MoMo thất bại hoặc bị hủy.');
+        // User có thể bấm Back/Quay về trước khi IPN cập nhật; chuyển sang trạng thái chờ xác nhận.
+        await donhang.updateOne(
+          { _id: idDon },
+          { $set: { momoOrderId: orderId || undefined, momoRequestId: (req.query.requestId ? String(req.query.requestId) : orderId) || undefined, ngaycapnhat: new Date() } }
+        );
+        req.flash?.('info', 'Đang chờ xác nhận thanh toán MoMo...');
       }
       return res.redirect(`/orders/${idDon}`);
     }
@@ -683,7 +627,7 @@ module.exports.momoIpn = async (req, res) => {
     if (idDon && resultCode === 0) {
       await donhang.updateOne(
         { _id: idDon },
-        { $set: { dathanhtoan: true, ngaythanhtoan: new Date(), momoTransId: transId || undefined } }
+        { $set: { dathanhtoan: true, ngaythanhtoan: new Date(), momoTransId: transId || undefined, momoOrderId: orderId || undefined, momoRequestId: (req.body?.requestId ? String(req.body.requestId) : orderId) || undefined, ngaycapnhat: new Date() } }
       );
     }
     return res.json({ success: true });

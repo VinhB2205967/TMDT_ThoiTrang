@@ -7,16 +7,15 @@ header.header
                     i.bi.bi-bag-heart-fill.logo-icon
                     span.logo-text Fashion Store
 
-            //- Search bar
-            .header-search
-                form.search-form(method="GET" action="/products")
-                    .input-group
-                        input.form-control(type="text" name="keyword" placeholder="Tìm kiếm sản phẩm..." value=keyword || '')
-                        button.btn.btn-search(type="submit")
-                            i.bi.bi-search
-
             //- Navigation & Actions
             .header-actions
+                //- Search bar
+                .header-search
+                    form.search-form(method="GET" action="/products")
+                        .input-group
+                            input.form-control(type="text" name="keyword" placeholder="Tìm kiếm sản phẩm..." value=keyword || '')
+                            button.btn.btn-search(type="submit")
+                                i.bi.bi-search
                 nav.header-nav
                     ul.nav-list
                         li: a(href="/") 

@@ -326,6 +326,7 @@
     margin: 0;
 }
 
+.footer-links li {
     margin-bottom: 10px;
 }
 
@@ -339,7 +340,6 @@
 
 .footer-links a:hover {
     color: #fff;
-    padding-left: 6px;
 }
 
 .footer-contact {

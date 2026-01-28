@@ -34,6 +34,9 @@ const orderSchema = new mongoose.Schema({
   vnpayBankCode: String,
   vnpayTxnRef: String,
   momoTransId: String,
+  momoOrderId: String,
+  momoRequestId: String,
+  momoPayUrl: String,
   momoRefunded: {
     type: Boolean,
     default: false

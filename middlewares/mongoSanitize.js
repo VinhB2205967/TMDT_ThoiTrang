@@ -1,27 +1,27 @@
-function isPlainObject(value) {
+function laDoiTuongThuan(value) {
   if (!value || typeof value !== 'object') return false;
   const proto = Object.getPrototypeOf(value);
   return proto === Object.prototype || proto === null;
 }
 
-function shouldStripKey(key, { allowDots, allowDollars }) {
+function nenLoaiBoKhoa(key, { allowDots, allowDollars }) {
   if (key === '__proto__' || key === 'prototype' || key === 'constructor') return true;
   if (!allowDollars && key.includes('$')) return true;
   if (!allowDots && key.includes('.')) return true;
   return false;
 }
 
-function sanitizeInPlace(target, options, seen) {
+function lamSachTaiCho(target, options, daGap) {
   if (!target || typeof target !== 'object') return;
-  if (seen.has(target)) return;
-  seen.add(target);
+  if (daGap.has(target)) return;
+  daGap.add(target);
 
   if (Array.isArray(target)) {
-    for (const item of target) sanitizeInPlace(item, options, seen);
+    for (const item of target) lamSachTaiCho(item, options, daGap);
     return;
   }
 
-  if (!isPlainObject(target)) {
+  if (!laDoiTuongThuan(target)) {
     // Don't touch class instances / special objects
     return;
   }
@@ -30,7 +30,7 @@ function sanitizeInPlace(target, options, seen) {
   for (const key of keys) {
     const value = target[key];
 
-    if (shouldStripKey(key, options)) {
+    if (nenLoaiBoKhoa(key, options)) {
       if (!options.dryRun) {
         delete target[key];
       }
@@ -42,13 +42,13 @@ function sanitizeInPlace(target, options, seen) {
       continue;
     }
 
-    sanitizeInPlace(value, options, seen);
+    lamSachTaiCho(value, options, daGap);
   }
 }
 
 
 module.exports = function mongoSanitize(options = {}) {
-  const normalizedOptions = {
+  const tuyChonChuanHoa = {
     allowDots: false,
     allowDollars: false,
     dryRun: false,
@@ -58,12 +58,12 @@ module.exports = function mongoSanitize(options = {}) {
 
   return function (req, res, next) {
     try {
-      if (req.body) sanitizeInPlace(req.body, normalizedOptions, new WeakSet());
-      if (req.params) sanitizeInPlace(req.params, normalizedOptions, new WeakSet());
+      if (req.body) lamSachTaiCho(req.body, tuyChonChuanHoa, new WeakSet());
+      if (req.params) lamSachTaiCho(req.params, tuyChonChuanHoa, new WeakSet());
 
       // req.query is a getter in Express 5; mutate returned object in-place.
       const query = req.query;
-      if (query) sanitizeInPlace(query, normalizedOptions, new WeakSet());
+      if (query) lamSachTaiCho(query, tuyChonChuanHoa, new WeakSet());
     } catch (err) {
       // Fail-open to avoid taking down the app.
       if (process.env.NODE_ENV !== 'production') {

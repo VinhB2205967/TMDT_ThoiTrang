@@ -4,86 +4,7 @@ const filterStatusHelper = require('../../helpers/filterStatus');
 const searchHelper = require('../../helpers/search');
 const paginationHelper = require('../../helpers/pagination');
 const productHelper = require('../../helpers/product');
-// Loại không size
-const loaikhongsize = ['tui', 'phukien'];
-const danhsachsize = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-// Kiểm tra size
-function laLoaiKhongSize(loaisanpham) {
-    return loaikhongsize.includes(loaisanpham);
-}
-// Size gốc
-function taoSizeGoc(reqbody, isnosizeproduct) {
-    const basesizes = [];
-    let tongsizegoc = 0;
-    let soluong_chinh = 0;
-// không có size
-    if (isnosizeproduct) {
-        soluong_chinh = parseInt(reqbody.soluong_chinh) || 0;
-        tongsizegoc = soluong_chinh;
-        return { baseSizes: basesizes, tongSizeGoc: tongsizegoc, soluong_chinh };
-    }
-// có size
-    danhsachsize.forEach(size => {
-        const qty = parseInt(reqbody[`size_${size}`]) || 0;
-        if (qty > 0) {
-            basesizes.push({ size: size, soluong: qty });
-            tongsizegoc += qty;
-        }
-    });
-
-    return { baseSizes: basesizes, tongSizeGoc: tongsizegoc, soluong_chinh };
-}
-// Biến thể
-function bienThe({ reqBody: reqbody, reqFiles: reqfiles, isNoSizeProduct: isnosizeproduct, oldImageArr: oldimagearr = [], hasNewImageArr: hasnewimagearr = [] }) {
-    if (!reqbody.bienthe_mausac) {
-        return { variants: [], tongBienThe: 0 };
-    }
-
-    const mausacarr = Array.isArray(reqbody.bienthe_mausac) ? reqbody.bienthe_mausac : [reqbody.bienthe_mausac];
-    const giaarr = Array.isArray(reqbody.bienthe_gia) ? reqbody.bienthe_gia : [reqbody.bienthe_gia];
-    const giamgiaarr = Array.isArray(reqbody.bienthe_giamgia) ? reqbody.bienthe_giamgia : [reqbody.bienthe_giamgia];
-    const soluongarr = Array.isArray(reqbody.bienthe_soluong) ? reqbody.bienthe_soluong : [reqbody.bienthe_soluong];
-
-    const bientheimages = reqfiles && reqfiles['bienthe_hinhanh'] ? reqfiles['bienthe_hinhanh'] : [];
-    let imageindex = 0;
-    let tongbienthe = 0;
-
-    const variants = mausacarr.map((mausac, i) => {
-        let hinhanh = oldimagearr[i] || null;
-
-        if (hasnewimagearr[i] === '1' && bientheimages[imageindex]) {
-            hinhanh = '/uploads/products/' + bientheimages[imageindex].filename;
-            imageindex++;
-        }
-
-        let variantqty = 0;
-        const variantsizes = [];
-
-        if (isnosizeproduct) {
-            variantqty = parseInt(soluongarr[i]) || 0;
-            tongbienthe += variantqty;
-        } else {
-            danhsachsize.forEach(size => {
-                const qty = parseInt(reqbody[`bienthe_${i}_size_${size}`]) || 0;
-                if (qty > 0) {
-                    variantsizes.push({ size: size, soluong: qty });
-                    tongbienthe += qty;
-                }
-            });
-        }
-
-        return {
-            mausac: mausac,
-            gia: parseInt(giaarr[i]) || null,
-            phantramgiamgia: parseInt(giamgiaarr[i]) || 0,
-            hinhanh: hinhanh,
-            soluong: variantqty,
-            sizes: variantsizes
-        };
-    }).filter(bt => bt.mausac && bt.mausac.trim() !== '');
-
-    return { variants, tongBienThe: tongbienthe };
-}
+const { prepareProductData } = require('../../services/product.service');
 
 // Danh sách
 const danhSach = async (req, res) => {
@@ -254,16 +175,19 @@ const khoiPhuc = async (req, res) => {
         const id = String(req.params.id || '');
         if (!mongoose.Types.ObjectId.isValid(id)) {
             req.flash('error', 'ID không hợp lệ');
-            return res.redirect('back');
+            const fallbackUrl = (req.app.locals.admin || '/admin') + '/products?deleted=1';
+            return res.redirect(req.get('Referrer') || fallbackUrl);
         }
 
-        await sanpham.findByIdAndUpdate(id, { daxoa: false });
+        await sanpham.findByIdAndUpdate(id, { daxoa: false, ngaycapnhat: new Date() });
         req.flash('success', 'Đã khôi phục sản phẩm!');
-        return res.redirect('back');
+        const fallbackUrl = (req.app.locals.admin || '/admin') + '/products?deleted=1';
+        return res.redirect(req.get('Referrer') || fallbackUrl);
     } catch (error) {
         console.error('Restore product error:', error);
         req.flash('error', 'Không thể khôi phục sản phẩm');
-        return res.redirect('back');
+        const fallbackUrl = (req.app.locals.admin || '/admin') + '/products?deleted=1';
+        return res.redirect(req.get('Referrer') || fallbackUrl);
     }
 };
 
@@ -306,47 +230,10 @@ const taoMoi = async (req, res) => {
 // Tạo mới
 const taoMoiPost = async (req, res) => {
     try {
-        const lakhongsize = laLoaiKhongSize(req.body.loaisanpham);
-        const { baseSizes: sizesgoc, tongSizeGoc: tongsizegoc, soluong_chinh: soluongchinh } = taoSizeGoc(req.body, lakhongsize);
-        
-        
-        const dulieusanpham = {
-            tensanpham: req.body.tensanpham,
-            mota: req.body.mota,
-            gia: parseInt(req.body.gia) || 0,
-            phantramgiamgia: parseInt(req.body.phantramgiamgia) || 0,
-            mausac_chinh: req.body.mausac_chinh || '',
-            sizes: sizesgoc,
-            soluong_chinh: soluongchinh,
-            soluongton: tongsizegoc,
-            gioitinh: req.body.gioitinh,
-            loaisanpham: req.body.loaisanpham,
-            trangthai: req.body.trangthai || 'dangban',
-            daxoa: false,
-            ngaytao: new Date(),
-            ngaycapnhat: new Date()
-        };
-
-        const { variants: danhsachbienthe, tongBienThe: tongbienthe } = bienThe({
-            reqBody: req.body,
-            reqFiles: req.files,
-            isNoSizeProduct: lakhongsize
-        });
-
-        if (danhsachbienthe.length) {
-            // Với create: ảnh biến thể được lấy theo đúng index upload
-            const anhbienthe = req.files && req.files['bienthe_hinhanh'] ? req.files['bienthe_hinhanh'] : [];
-            dulieusanpham.bienthe = danhsachbienthe.map((v, idx) => ({
-                ...v,
-                hinhanh: anhbienthe[idx] ? '/uploads/products/' + anhbienthe[idx].filename : v.hinhanh
-            }));
-            dulieusanpham.soluongton = tongsizegoc + tongbienthe;
-        }
-
-        // Xử lý upload ảnh chính
-        if (req.files && req.files['hinhanh'] && req.files['hinhanh'][0]) {
-            dulieusanpham.hinhanh = '/uploads/products/' + req.files['hinhanh'][0].filename;
-        }
+        const dulieusanpham = prepareProductData(req.body, req.files);
+        dulieusanpham.daxoa = false;
+        dulieusanpham.ngaytao = new Date();
+        dulieusanpham.ngaycapnhat = new Date();
 
         // Tạo sản phẩm mới
         const sanphammoi = new sanpham(dulieusanpham);
@@ -383,49 +270,8 @@ const chinhSua = async (req, res) => {
 // Chỉnh sửa
 const chinhSuaPost = async (req, res) => {
     try {
-        // Lấy sản phẩm hiện tại để giữ lại ảnh cũ nếu không upload mới
-        const sanphamhientai = await sanpham.findById(req.params.id).lean();
-        
-        const lakhongsize = laLoaiKhongSize(req.body.loaisanpham);
-        const { baseSizes: sizesgoc, tongSizeGoc: tongsizegoc, soluong_chinh: soluongchinh } = taoSizeGoc(req.body, lakhongsize);
-        
-        const dulieusanpham = {
-            tensanpham: req.body.tensanpham,
-            mota: req.body.mota,
-            gia: parseInt(req.body.gia) || 0,
-            phantramgiamgia: parseInt(req.body.phantramgiamgia) || 0,
-            mausac_chinh: req.body.mausac_chinh || '',
-            sizes: sizesgoc,
-            soluong_chinh: soluongchinh,
-            soluongton: tongsizegoc,
-            gioitinh: req.body.gioitinh,
-            loaisanpham: req.body.loaisanpham,
-            trangthai: req.body.trangthai,
-            ngaycapnhat: new Date()
-        };
-
-        const anhcuarr = Array.isArray(req.body.bienthe_hinhanh_cu) ? req.body.bienthe_hinhanh_cu : [req.body.bienthe_hinhanh_cu];
-        const coanhmoiarr = Array.isArray(req.body.bienthe_has_new_image) ? req.body.bienthe_has_new_image : [req.body.bienthe_has_new_image];
-
-        const { variants: bienthechinhsua, tongBienThe: tongbientheedit } = bienThe({
-            reqBody: req.body,
-            reqFiles: req.files,
-            isNoSizeProduct: lakhongsize,
-            oldImageArr: anhcuarr,
-            hasNewImageArr: coanhmoiarr
-        });
-
-        if (bienthechinhsua.length) {
-            dulieusanpham.bienthe = bienthechinhsua;
-            dulieusanpham.soluongton = tongsizegoc + tongbientheedit;
-        } else {
-            dulieusanpham.bienthe = [];
-        }
-
-        // Xử lý upload ảnh chính mới
-        if (req.files && req.files['hinhanh'] && req.files['hinhanh'][0]) {
-            dulieusanpham.hinhanh = '/uploads/products/' + req.files['hinhanh'][0].filename;
-        }
+        const dulieusanpham = prepareProductData(req.body, req.files);
+        dulieusanpham.ngaycapnhat = new Date();
 
         await sanpham.findByIdAndUpdate(req.params.id, dulieusanpham);
 
@@ -441,7 +287,7 @@ const chinhSuaPost = async (req, res) => {
 // Xóa mềm
 const xoaMem = async (req, res) => {
     try {
-        await sanpham.findByIdAndUpdate(req.params.id, { daxoa: true });
+        await sanpham.findByIdAndUpdate(req.params.id, { daxoa: true, ngaycapnhat: new Date() });
         req.flash('success', 'Xóa sản phẩm thành công!');
         res.redirect(req.app.locals.admin + '/products');
     } catch (error) {
@@ -455,7 +301,7 @@ const xoaMem = async (req, res) => {
 const doiTrangThai = async (req, res) => {
     try {
         const { status } = req.body;
-        await sanpham.findByIdAndUpdate(req.params.id, { trangthai: status });
+        await sanpham.findByIdAndUpdate(req.params.id, { trangthai: status, ngaycapnhat: new Date() });
         res.json({ success: true });
     } catch (error) {
         console.error('Change status error:', error);

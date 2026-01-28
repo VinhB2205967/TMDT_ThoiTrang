@@ -23,6 +23,12 @@ block main
         if isChoThanhToan
           form(method='POST', action=`/orders/${order._id}/pay`)
             button.btn.btn-sm.btn-primary(type='submit') Thanh toán ngay
+          if order.phuongthucthanhtoan === 'momo'
+            .text-muted.small.ms-1(data-payment-pending='1' data-order-id=`${order._id}` data-payment-method='momo')
+              | Đang kiểm tra thanh toán MoMo...
+          if (order.phuongthucthanhtoan === 'momo' || order.phuongthucthanhtoan === 'vnpay') && order.paymentDeadline
+            .text-muted.small.ms-1(data-payment-deadline=order.paymentDeadline data-payment-countdown='1')
+              | Còn: --:--:-- (hạn 24h)
         if order.trangthai === 'choxacnhan'
           form(method='POST', action=`/orders/${order._id}/cancel`)
             button.btn.btn-sm.btn-outline-danger(type='submit' onclick="return confirm('Bạn muốn hủy đơn hàng này?')")

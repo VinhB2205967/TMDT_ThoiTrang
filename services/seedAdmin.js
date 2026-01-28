@@ -10,8 +10,7 @@ async function ensureAdminUser() {
   const email = normalizeEmail(process.env.ADMIN_EMAIL || 'admin@fashion.local');
   const password = String(process.env.ADMIN_PASSWORD || 'Admin@123');
 
-  // Normalize legacy status values to the new set: active/noactive
-  // (keeps DB consistent with code expectations)
+ // Cập nhật trạng thái người dùng từ các giá trị cũ sang mới
   await Nguoidung.updateMany(
     { trangthai: { $in: ['hoatdong', 'hoạt động'] } },
     { $set: { trangthai: 'active' } }

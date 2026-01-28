@@ -29,6 +29,9 @@ block main
                   .fw-semibold.order-title #{(preview && preview.name) ? preview.name : (o.madonhang || 'Đơn hàng')}
                   .small.text-muted.d-block
                     | #{o.madonhang || ''}#{o.ngaytao ? (' • ' + new Date(o.ngaytao).toLocaleString('vi-VN')) : ''}
+                  if o.phuongthucthanhtoan === 'momo' || o.phuongthucthanhtoan === 'vnpay'
+                    .small.text-muted.d-block
+                      | #{(o.tongtien || o.tamtinh || 0).toLocaleString('vi-VN')}₫ • #{String(o.phuongthucthanhtoan).toUpperCase()}
                   if preview && preview.count && preview.count > 1
                     .small.text-muted +#{preview.count - 1} sản phẩm khác
 
@@ -37,6 +40,12 @@ block main
                 - const coTheDoiThanhToan = o.trangthai === 'choxacnhan' && !o.dathanhtoan
                 - const label = isChoThanhToan ? 'Chờ thanh toán' : (statusLabels[o.trangthai] || o.trangthai)
                 span.badge.order-status(data-status=o.trangthai) #{label}
+                if isChoThanhToan && o.phuongthucthanhtoan === 'momo'
+                  span.text-muted.small(data-payment-pending='1' data-order-id=`${o._id}` data-payment-method='momo')
+                    | Đang kiểm tra thanh toán...
+                if isChoThanhToan && (o.phuongthucthanhtoan === 'momo' || o.phuongthucthanhtoan === 'vnpay') && o.paymentDeadline
+                  span.text-muted.small(data-payment-deadline=o.paymentDeadline data-payment-countdown='1')
+                    | Còn: --:--:--
                 if coTheDoiThanhToan
                   form.order-payment-form(method='POST', action=`/orders/${o._id}/change-payment` data-auto-submit='payment-method')
                     .order-payment-controls.order-payment-controls--compact

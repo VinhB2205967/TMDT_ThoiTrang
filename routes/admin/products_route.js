@@ -38,6 +38,8 @@ const uploadFields = upload.fields([
 router.get('/', controller.danhSach);
 router.get('/create', controller.taoMoi);
 router.post('/create', uploadFields, controller.taoMoiPost);
+// Alias để hỗ trợ link cũ/nhầm: /admin/products/:id/back
+router.get('/:id/back', controller.khoiPhuc);
 router.get('/:id/edit', controller.chinhSua);
 router.post('/:id/edit', uploadFields, controller.chinhSuaPost);
 router.get('/:id/delete', controller.xoaMem);

@@ -2,33 +2,60 @@ const donhang = require('../../models/order_model');
 const chitietdonhang = require('../../models/order_item_model');
 const sanpham = require('../../models/product_model');
 const { getOrCreateCart, normalizeImage } = require('../../services/cart.service');
-const { taoHoanTienMoMo, taoThanhToanMoMo } = require('../../services/momo.service');
+const { laLoaiKhongSize, tinhTongTon } = require('../../services/productStock.service');
+const { taoHoanTienMoMo, taoThanhToanMoMo, truyVanGiaoDichMoMo } = require('../../services/momo.service');
 const { taoThanhToanVnpay } = require('../../services/vnpay.service');
 const { nhantrangthai, layTrangThaiChoPhep } = require('../../helpers/orderStatus');
 const phanTrangHelper = require('../../helpers/pagination');
 
-function laLoaiKhongSize(loaisanpham) {
-  return ['tui', 'phukien'].includes(String(loaisanpham || '').toLowerCase());
+const THOI_GIAN_CHO_THANH_TOAN_MS = 24 * 60 * 60 * 1000;
+
+function laDonChoThanhToanOnline(don) {
+  return don
+    && String(don.trangthai || '') === 'choxacnhan'
+    && !don.dathanhtoan
+    && (String(don.phuongthucthanhtoan || '') === 'momo' || String(don.phuongthucthanhtoan || '') === 'vnpay');
 }
 
-function tinhTongTon(productdoc) {
-  if (!productdoc) return 0;
+function tinhHanThanhToanMs(don) {
+  if (!don || !don.ngaytao) return null;
+  const t = new Date(don.ngaytao).getTime();
+  if (!Number.isFinite(t)) return null;
+  return t + THOI_GIAN_CHO_THANH_TOAN_MS;
+}
 
-  const hassize = !laLoaiKhongSize(productdoc.loaisanpham);
-  let total = 0;
+async function tuDongHuyDonQuaHan(userId) {
+  const cutoff = new Date(Date.now() - THOI_GIAN_CHO_THANH_TOAN_MS);
+  const danhsach = await donhang.find({
+    nguoidung_id: userId,
+    daxoa: { $ne: true },
+    trangthai: 'choxacnhan',
+    dathanhtoan: false,
+    phuongthucthanhtoan: { $in: ['momo', 'vnpay'] },
+    ngaytao: { $lt: cutoff }
+  }).select('_id').limit(30).lean();
 
-  if (hassize) {
-    (productdoc.sizes || []).forEach(s => { total += (s && s.soluong) ? Number(s.soluong) : 0; });
-    (productdoc.bienthe || []).forEach(v => {
-      (v.sizes || []).forEach(s => { total += (s && s.soluong) ? Number(s.soluong) : 0; });
-    });
-    return total;
+  for (const row of (danhsach || [])) {
+    const updated = await donhang.findOneAndUpdate(
+      { _id: row._id, trangthai: 'choxacnhan', dathanhtoan: false, daxoa: { $ne: true } },
+      { $set: { trangthai: 'dahuy', lydohuy: 'Hết hạn thanh toán (24h)', ngaycapnhat: new Date() } },
+      { new: false }
+    );
+
+    if (!updated) continue;
+
+    const danhsachitem = await chitietdonhang.find({ donhang_id: row._id });
+    for (const it of (danhsachitem || [])) {
+      try {
+        await congTonChoChiTietDon(it);
+      } catch {
+        // best-effort
+      }
+    }
   }
-
-  total += Number(productdoc.soluong_chinh || 0);
-  (productdoc.bienthe || []).forEach(v => { total += Number(v.soluong || 0); });
-  return total;
 }
+
+
 
 async function congTonChoChiTietDon(orderitemdoc) {
   const productid = orderitemdoc.sanpham_id;
@@ -80,6 +107,8 @@ async function congTonChoChiTietDon(orderitemdoc) {
 }
 
 module.exports.danhSach = async (req, res) => {
+  await tuDongHuyDonQuaHan(req.user._id);
+
   const trangthai = String(req.query.status || 'all');
   const tapchophep = new Set(layTrangThaiChoPhep());
   const trangthaihientai = tapchophep.has(trangthai) ? trangthai : 'all';
@@ -92,10 +121,20 @@ module.exports.danhSach = async (req, res) => {
   phanTrang = phanTrangHelper(phanTrang, req.query, tongDon);
 
   const danhsachdon = await donhang.find(boloc)
-    .sort({ ngaytao: -1 })
+    .sort({ ngaycapnhat: -1, ngaytao: -1 })
     .skip(phanTrang.skip)
     .limit(phanTrang.limit)
     .lean();
+
+  // Thêm hạn thanh toán cho MoMo/VNPAY để UI đếm ngược
+  const nowMs = Date.now();
+  for (const o of (danhsachdon || [])) {
+    if (!laDonChoThanhToanOnline(o)) continue;
+    const deadline = tinhHanThanhToanMs(o);
+    if (!deadline) continue;
+    o.paymentDeadline = deadline;
+    o.paymentRemainingMs = Math.max(0, deadline - nowMs);
+  }
 
   // Preview
   if (danhsachdon && danhsachdon.length) {
@@ -141,6 +180,12 @@ module.exports.danhSach = async (req, res) => {
 };
 
 module.exports.chiTiet = async (req, res) => {
+  // Cho phép JS redirect về ?paid=1 để hiện flash "thành công"
+  if (String(req.query.paid || '') === '1') {
+    req.flash?.('success', 'Thanh toán thành công!');
+    return res.redirect(`/orders/${req.params.id}`);
+  }
+
   const donhangdoc = await donhang.findOne({ _id: req.params.id, nguoidung_id: req.user._id, daxoa: { $ne: true } }).lean();
   if (!donhangdoc) {
     return res.status(404).render('client/pages/orders/detail.pug', {
@@ -149,6 +194,17 @@ module.exports.chiTiet = async (req, res) => {
       items: [],
       statusLabels: nhantrangthai
     });
+  }
+
+  // Nếu đã quá hạn 24h thì tự hủy và hoàn tồn kho
+  if (laDonChoThanhToanOnline(donhangdoc)) {
+    const deadline = tinhHanThanhToanMs(donhangdoc);
+    if (deadline && Date.now() > deadline) {
+      await tuDongHuyDonQuaHan(req.user._id);
+      return res.redirect(`/orders/${req.params.id}`);
+    }
+    donhangdoc.paymentDeadline = deadline;
+    donhangdoc.paymentRemainingMs = deadline ? Math.max(0, deadline - Date.now()) : null;
   }
 
   const danhsachitem = await chitietdonhang.find({ donhang_id: donhangdoc._id }).lean();
@@ -330,6 +386,11 @@ module.exports.thanhToanLai = async (req, res) => {
         extraData
       });
 
+      await donhang.updateOne(
+        { _id: donhangdoc._id },
+        { $set: { momoOrderId: maMoMo, momoRequestId: maMoMo, momoPayUrl: ketqua?.payUrl || undefined, ngaycapnhat: new Date() } }
+      );
+
       if (ketqua && ketqua.payUrl) {
         return res.redirect(ketqua.payUrl);
       }
@@ -365,6 +426,51 @@ module.exports.thanhToanLai = async (req, res) => {
   } catch (e) {
     req.flash?.('error', 'Có lỗi khi tạo thanh toán lại.');
     return res.redirect(`/orders/${req.params.id}`);
+  }
+};
+
+// API: dùng để polling (khi user bấm Back/Quay về từ QR) để tự cập nhật đơn hàng đã thanh toán.
+module.exports.kiemTraThanhToan = async (req, res) => {
+  try {
+    const donhangdoc = await donhang.findOne({ _id: req.params.id, nguoidung_id: req.user._id, daxoa: { $ne: true } })
+      .select('_id dathanhtoan phuongthucthanhtoan momoOrderId momoRequestId momoTransId')
+      .lean();
+
+    if (!donhangdoc) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy đơn hàng' });
+    }
+
+    if (donhangdoc.dathanhtoan) {
+      return res.json({ success: true, paid: true });
+    }
+
+    const method = String(donhangdoc.phuongthucthanhtoan || '');
+    if (method !== 'momo') {
+      // VNPAY/COD: chỉ chờ IPN/return update DB
+      return res.json({ success: true, paid: false });
+    }
+
+    const momoOrderId = String(donhangdoc.momoOrderId || '').trim();
+    const momoRequestId = String(donhangdoc.momoRequestId || momoOrderId || '').trim();
+    if (!momoOrderId) {
+      return res.json({ success: true, paid: false });
+    }
+
+    const ketqua = await truyVanGiaoDichMoMo({ orderId: momoOrderId, requestId: momoRequestId });
+    const resultCode = Number(ketqua?.resultCode ?? -1);
+    const transId = ketqua?.transId ? String(ketqua.transId) : '';
+
+    if (resultCode === 0) {
+      await donhang.updateOne(
+        { _id: donhangdoc._id },
+        { $set: { dathanhtoan: true, ngaythanhtoan: new Date(), momoTransId: transId || undefined, ngaycapnhat: new Date() } }
+      );
+      return res.json({ success: true, paid: true });
+    }
+
+    return res.json({ success: true, paid: false, resultCode, message: ketqua?.message || '' });
+  } catch {
+    return res.status(200).json({ success: false, paid: false });
   }
 };
 
