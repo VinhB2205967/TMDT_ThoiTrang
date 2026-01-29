@@ -12,7 +12,7 @@ const bienTheSchema = new mongoose.Schema({
   hinhanh: String,          
   gia: Number,              
   phantramgiamgia: Number,  
-  soluong: Number,          // Số lượng (dùng cho sản phẩm không có size như túi, phụ kiện)
+  soluong: Number,          
   sizes: [sizeSchema]       
 }, { _id: true });
 

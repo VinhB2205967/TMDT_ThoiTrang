@@ -1,7 +1,7 @@
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const bcrypt = require('bcryptjs');
 const Nguoidung = require('../models/user_model');
+const { ensureAccountFromUser, getAccountByUserId } = require('../services/account.service');
 
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
@@ -15,7 +15,20 @@ function configurePassport() {
   passport.deserializeUser(async function (id, done) {
     try {
       const user = await Nguoidung.findOne({ _id: id, daxoa: { $ne: true } });
-      done(null, user || false);
+
+      if (!user) return done(null, false);
+
+      // Attach account info so later code can read role/status from accounts
+      // without refactoring every usage of req.user.vaitro/trangthai.
+      const account = await getAccountByUserId({ userId: user._id }).catch(() => null);
+      if (account) {
+        user.account = account;
+        if (account.vaitro) user.vaitro = account.vaitro;
+        if (account.trangthai) user.trangthai = account.trangthai;
+        if (typeof account.xacthuc === 'boolean') user.xacthuc = account.xacthuc;
+      }
+
+      done(null, user);
     } catch (err) {
       done(err);
     }
@@ -46,20 +59,16 @@ function configurePassport() {
 
             if (!user) {
               // Create user for Google login.
-              // matkhau is optional here; set random hash to avoid null issues.
-              const randomPassword = Math.random().toString(36).slice(2) + Date.now();
-              const matkhau = await bcrypt.hash(randomPassword, 10);
-
               user = await Nguoidung.create({
                 hoten: hoten || email.split('@')[0],
                 email,
-                matkhau,
                 avatar,
-                vaitro: 'user',
-                trangthai: 'active',
-                xacthuc: true,
                 ngaytao: new Date(),
                 ngaycapnhat: new Date()
+              });
+              await ensureAccountFromUser(user, {
+                provider: 'google',
+                overrides: { vaitro: 'user', trangthai: 'active', xacthuc: true }
               });
             } else {
               // Update profile fields if missing
@@ -72,14 +81,15 @@ function configurePassport() {
                 user.hoten = hoten;
                 changed = true;
               }
-              if (!user.xacthuc) {
-                user.xacthuc = true;
-                changed = true;
-              }
               if (changed) {
                 user.ngaycapnhat = new Date();
                 await user.save();
               }
+
+              await ensureAccountFromUser(user, {
+                provider: 'google',
+                overrides: { vaitro: 'user', trangthai: 'active', xacthuc: true }
+              });
             }
 
             return done(null, user);

@@ -1,5 +1,6 @@
 const systemConfig = require('../config/system');
 const Nguoidung = require('../models/user_model');
+const { getAccountByUserId } = require('../services/account.service');
 
 function muonJSON(req) {
   const chapNhan = String(req.headers.accept || '');
@@ -40,13 +41,32 @@ function yeuCauAdmin(req, res, next) {
   if (idNguoiDungAdmin) {
     return Nguoidung.findOne({ _id: idNguoiDungAdmin, daxoa: { $ne: true } })
       .then((nguoiDungAdmin) => {
-        if (nguoiDungAdmin && nguoiDungAdmin.vaitro === 'admin' && nguoiDungAdmin.trangthai === 'active') {
-          req.adminUser = nguoiDungAdmin;
-          res.locals.adminUser = nguoiDungAdmin;
-          return next();
+        if (!nguoiDungAdmin) {
+          if (req.session) delete req.session.adminUserId;
+          return res.redirect(`${duongDanAdmin}/login`);
         }
-        if (req.session) delete req.session.adminUserId;
-        return res.redirect(`${duongDanAdmin}/login`);
+
+        return getAccountByUserId({ userId: nguoiDungAdmin._id })
+          .then((account) => {
+            if (account) {
+              nguoiDungAdmin.account = account;
+              if (account.vaitro) nguoiDungAdmin.vaitro = account.vaitro;
+              if (account.trangthai) nguoiDungAdmin.trangthai = account.trangthai;
+            }
+
+            if (nguoiDungAdmin.vaitro === 'admin' && nguoiDungAdmin.trangthai === 'active') {
+              req.adminUser = nguoiDungAdmin;
+              res.locals.adminUser = nguoiDungAdmin;
+              return next();
+            }
+
+            if (req.session) delete req.session.adminUserId;
+            return res.redirect(`${duongDanAdmin}/login`);
+          })
+          .catch(() => {
+            if (req.session) delete req.session.adminUserId;
+            return res.redirect(`${duongDanAdmin}/login`);
+          });
       })
       .catch(() => res.redirect(`${duongDanAdmin}/login`));
   }
@@ -113,12 +133,31 @@ function batBuocPhienHoatDong(req, res, next) {
       return Nguoidung.findOne({ _id: idNguoiDungAdmin, daxoa: { $ne: true } })
         .lean()
         .then((u) => {
-          if (!u || u.vaitro !== 'admin' || u.trangthai !== 'active') {
+          if (!u) {
             delete req.session.adminUserId;
             req.flash?.('error', 'Tài khoản Admin đang bị khóa');
             return res.redirect(`${duongDanAdmin}/login`);
           }
-          return next();
+
+          return getAccountByUserId({ userId: u._id })
+            .then((account) => {
+              if (account) {
+                u.account = account;
+                if (account.vaitro) u.vaitro = account.vaitro;
+                if (account.trangthai) u.trangthai = account.trangthai;
+              }
+
+              if (u.vaitro !== 'admin' || u.trangthai !== 'active') {
+                delete req.session.adminUserId;
+                req.flash?.('error', 'Tài khoản Admin đang bị khóa');
+                return res.redirect(`${duongDanAdmin}/login`);
+              }
+              return next();
+            })
+            .catch(() => {
+              delete req.session.adminUserId;
+              return res.redirect(`${duongDanAdmin}/login`);
+            });
         })
         .catch(() => {
           delete req.session.adminUserId;

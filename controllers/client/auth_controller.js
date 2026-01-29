@@ -1,9 +1,9 @@
-const bcrypt = require('bcryptjs');
 const passport = require('passport');
 const nguoidung = require('../../models/user_model');
 const { redirectAfterLogin } = require('../../middlewares/auth');
 const { writeLoginLog } = require('../../services/loginLog');
 const { laEmailHopLe } = require('../../helpers/validators');
+const { createLocalAccountForUser, verifyPasswordWithLegacy, getAccountByUserId } = require('../../services/account.service');
 
 function chuanHoaEmail(email) {
   return String(email || '').trim().toLowerCase();
@@ -73,17 +73,17 @@ module.exports.dangKy = async (req, res) => {
       return res.redirect('/auth?mode=register');
     }
 
-    const matkhaumahoa = await bcrypt.hash(matkhau, 10);
-
     const taikhoan = await nguoidung.create({
       hoten: hoten || emaildangky.split('@')[0],
       email: emaildangky,
-      matkhau: matkhaumahoa,
-      vaitro: 'user',
-      trangthai: 'active',
-      xacthuc: false,
       ngaytao: new Date(),
       ngaycapnhat: new Date()
+    });
+
+    await createLocalAccountForUser({
+      userDoc: taikhoan,
+      passwordPlain: matkhau,
+      overrides: { vaitro: 'user', trangthai: 'active', xacthuc: false }
     });
 
     req.login(taikhoan, function (loi) {
@@ -119,16 +119,17 @@ module.exports.dangNhap = async (req, res) => {
       return res.redirect('/auth?mode=login');
     }
 
-    if (taikhoan.trangthai !== 'active') {
-      await writeLoginLog({ req, user: taikhoan, provider: 'local', status: 'failed', message: 'noactive' });
-      req.flash('error', 'Tài khoản đang bị khóa');
-      return res.redirect('/auth?mode=login');
-    }
-
-    const hople = await bcrypt.compare(matkhau, taikhoan.matkhau || '');
+    const hople = await verifyPasswordWithLegacy({ userDoc: taikhoan, passwordPlain: matkhau });
     if (!hople) {
       await writeLoginLog({ req, user: taikhoan, provider: 'local', status: 'failed', message: 'wrong_password' });
       req.flash('error', 'Sai email hoặc mật khẩu');
+      return res.redirect('/auth?mode=login');
+    }
+
+    const acc = await getAccountByUserId({ userId: taikhoan._id }).catch(() => null);
+    if (!acc || acc.trangthai !== 'active') {
+      await writeLoginLog({ req, user: taikhoan, provider: 'local', status: 'failed', message: 'noactive' });
+      req.flash('error', 'Tài khoản đang bị khóa');
       return res.redirect('/auth?mode=login');
     }
 
@@ -253,34 +254,41 @@ module.exports.xuLyGoogleCallback = (req, res, next) => {
       return res.redirect('/auth?mode=login');
     }
 
-    if (taikhoan.trangthai !== 'active') {
-      writeLoginLog({ req, user: taikhoan, provider: 'google', status: 'failed', message: 'noactive' });
-      req.flash('error', 'Tài khoản đang bị khóa');
-      return res.redirect('/auth?mode=login');
-    }
-
-    nguoidung.updateOne(
-      { _id: taikhoan._id },
-      {
-        $set: {
-          lastLoginAt: new Date(),
-          lastLoginProvider: 'google',
-          lastLoginIp: req.ip,
-          lastLoginUserAgent: String(req.headers['user-agent'] || ''),
-          lastSeenAt: new Date()
+    getAccountByUserId({ userId: taikhoan._id })
+      .then((acc) => {
+        if (!acc || acc.trangthai !== 'active') {
+          writeLoginLog({ req, user: taikhoan, provider: 'google', status: 'failed', message: 'noactive' });
+          req.flash('error', 'Tài khoản đang bị khóa');
+          return res.redirect('/auth?mode=login');
         }
-      }
-    ).catch(() => {});
 
-    req.login(taikhoan, function (loidangnhap) {
-      if (loidangnhap) {
-        writeLoginLog({ req, user: taikhoan, provider: 'google', status: 'failed', message: 'req_login_failed' });
+        nguoidung.updateOne(
+          { _id: taikhoan._id },
+          {
+            $set: {
+              lastLoginAt: new Date(),
+              lastLoginProvider: 'google',
+              lastLoginIp: req.ip,
+              lastLoginUserAgent: String(req.headers['user-agent'] || ''),
+              lastSeenAt: new Date()
+            }
+          }
+        ).catch(() => {});
+
+        req.login(taikhoan, function (loidangnhap) {
+          if (loidangnhap) {
+            writeLoginLog({ req, user: taikhoan, provider: 'google', status: 'failed', message: 'req_login_failed' });
+            req.flash('error', 'Đăng nhập Google thất bại');
+            return res.redirect('/auth?mode=login');
+          }
+
+          writeLoginLog({ req, user: taikhoan, provider: 'google', status: 'success' });
+          redirectAfterLogin(taikhoan, res);
+        });
+      })
+      .catch(() => {
         req.flash('error', 'Đăng nhập Google thất bại');
         return res.redirect('/auth?mode=login');
-      }
-
-      writeLoginLog({ req, user: taikhoan, provider: 'google', status: 'success' });
-      redirectAfterLogin(taikhoan, res);
-    });
+      });
   })(req, res, next);
 };

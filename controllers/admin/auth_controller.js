@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const nguoidung = require('../../models/user_model');
 const systemConfig = require('../../config/system');
 const { writeLoginLog } = require('../../services/loginLog');
+const { verifyPasswordWithLegacy, getAccountByUserId } = require('../../services/account.service');
 // Chuẩn hóa email
 function chuanHoaEmail(email) {
   return String(email || '').trim().toLowerCase();
@@ -36,22 +37,22 @@ module.exports.dangNhap = async (req, res) => {
       return res.redirect(`${systemConfig.prefigAdmin}/login`);
     }
 
-    if (taikhoan.trangthai !== 'active') {
+    const hople = await verifyPasswordWithLegacy({ userDoc: taikhoan, passwordPlain: matkhau });
+    if (!hople) {
+      await writeLoginLog({ req, user: taikhoan, provider: 'admin', status: 'failed', message: 'wrong_password' });
+      req.flash('error', 'Sai email hoặc mật khẩu');
+      return res.redirect(`${systemConfig.prefigAdmin}/login`);
+    }
+
+    const acc = await getAccountByUserId({ userId: taikhoan._id }).catch(() => null);
+    if (!acc || acc.trangthai !== 'active') {
       await writeLoginLog({ req, user: taikhoan, provider: 'admin', status: 'failed', message: 'noactive' });
       req.flash('error', 'Tài khoản đang bị khóa');
       return res.redirect(`${systemConfig.prefigAdmin}/login`);
     }
-
-    if (taikhoan.vaitro !== 'admin') {
+    if (acc.vaitro !== 'admin') {
       await writeLoginLog({ req, user: taikhoan, provider: 'admin', status: 'failed', message: 'not_admin' });
       req.flash('error', 'Tài khoản này không có quyền Admin');
-      return res.redirect(`${systemConfig.prefigAdmin}/login`);
-    }
-
-    const hople = await bcrypt.compare(matkhau, taikhoan.matkhau || '');
-    if (!hople) {
-      await writeLoginLog({ req, user: taikhoan, provider: 'admin', status: 'failed', message: 'wrong_password' });
-      req.flash('error', 'Sai email hoặc mật khẩu');
       return res.redirect(`${systemConfig.prefigAdmin}/login`);
     }
 // cập nhật thông tin

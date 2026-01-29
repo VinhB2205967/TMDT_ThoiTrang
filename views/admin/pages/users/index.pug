@@ -233,6 +233,17 @@ block scripts
             lastSeen.textContent = formatVi(u.lastSeenAt);
           }
         }
+
+        // Keep Online users at the top (no filter mode)
+        if (filters.online !== '1' && filters.online !== '0') {
+          const tbody = document.querySelector('table tbody');
+          if (tbody) {
+            for (const u of data.users) {
+              const row = document.querySelector('tr[data-user-id="' + u.id + '"]');
+              if (row) tbody.appendChild(row);
+            }
+          }
+        }
       }
 
       // Poll every 5 seconds

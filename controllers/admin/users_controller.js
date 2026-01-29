@@ -1,8 +1,10 @@
 const nguoidung = require('../../models/user_model');
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
+const Taikhoan = require('../../models/accounts_model');
 const paginationHelper = require('../../helpers/pagination');
 const { thoatBieuThuc, chuanHoaSoDienThoai, laSoDienThoaiVN, laUrlAnhAnToan } = require('../../helpers/validators');
+const { setPasswordByUserId, syncRoleStatusFromUser } = require('../../services/account.service');
 
 const onlinewindowms = 5 * 60 * 1000;
 
@@ -18,6 +20,24 @@ function dangOnline(lastseenat, windowms) {
   const t = new Date(lastseenat).getTime();
   if (!Number.isFinite(t)) return false;
   return Date.now() - t <= windowms;
+}
+
+function sapXepOnlineTruoc(a, b) {
+  const ao = a && a.isOnline ? 1 : 0;
+  const bo = b && b.isOnline ? 1 : 0;
+  if (ao !== bo) return bo - ao;
+
+  const at = a && a.lastSeenAt ? new Date(a.lastSeenAt).getTime() : 0;
+  const bt = b && b.lastSeenAt ? new Date(b.lastSeenAt).getTime() : 0;
+  const atn = Number.isFinite(at) ? at : 0;
+  const btn = Number.isFinite(bt) ? bt : 0;
+  if (atn !== btn) return btn - atn;
+
+  const ac = a && (a.ngaytao || a.createdAt) ? new Date(a.ngaytao || a.createdAt).getTime() : 0;
+  const bc = b && (b.ngaytao || b.createdAt) ? new Date(b.ngaytao || b.createdAt).getTime() : 0;
+  const acn = Number.isFinite(ac) ? ac : 0;
+  const bcn = Number.isFinite(bc) ? bc : 0;
+  return bcn - acn;
 }
 
 function chuanHoaChuoi(value) {
@@ -41,7 +61,7 @@ function quayLaiChiTietHoacDanhSach(req, userid) {
 async function taoDanhSachNguoiDung({ keyword: tukhoa, vaitro, trangthai, deleted }) {
   // Danh sách (deprecated)
   const boloc = taoBoLocNguoiDung({ keyword: tukhoa, vaitro, trangthai, online: '', deleted });
-  return nguoidung.find(boloc).sort({ ngaytao: -1 }).lean();
+  return nguoidung.find(boloc).sort({ lastSeenAt: -1, ngaytao: -1 }).lean();
 }
 
 function taoBoLocNguoiDung({ keyword: tukhoa, vaitro, trangthai, online, deleted }) {
@@ -50,9 +70,6 @@ function taoBoLocNguoiDung({ keyword: tukhoa, vaitro, trangthai, online, deleted
     deleted === '1' ? { daxoa: true }
       : deleted === 'all' ? {}
         : { daxoa: { $ne: true } };
-
-  if (vaitro === 'admin' || vaitro === 'user') boloc.vaitro = vaitro;
-  if (trangthai === 'active' || trangthai === 'noactive') boloc.trangthai = trangthai;
 
   const dieukienva = [];
   if (tukhoa) {
@@ -82,6 +99,42 @@ function taoBoLocNguoiDung({ keyword: tukhoa, vaitro, trangthai, online, deleted
   return boloc;
 }
 
+async function taoBoLocNguoiDungTheoAccount({ vaitro, trangthai }) {
+  const boloc = {};
+  if (vaitro === 'admin' || vaitro === 'user') boloc.vaitro = vaitro;
+  if (trangthai === 'active' || trangthai === 'noactive') boloc.trangthai = trangthai;
+  if (!Object.keys(boloc).length) return null;
+
+  const ids = await Taikhoan.find(boloc).select('nguoidung_id').lean();
+  const userIds = ids.map(r => r.nguoidung_id).filter(Boolean);
+  if (!userIds.length) {
+    // impossible filter to return empty list
+    return { _id: { $in: [] } };
+  }
+  return { _id: { $in: userIds } };
+}
+
+async function ganThongTinAccount(users) {
+  const userIds = users.map(u => u && u._id).filter(Boolean);
+  if (!userIds.length) return users;
+
+  const accounts = await Taikhoan.find({ nguoidung_id: { $in: userIds } })
+    .select('nguoidung_id email provider vaitro trangthai xacthuc')
+    .lean();
+
+  const map = new Map(accounts.map(a => [String(a.nguoidung_id), a]));
+  return users.map(u => {
+    const acc = map.get(String(u._id));
+    return {
+      ...u,
+      account: acc || null,
+      vaitro: acc?.vaitro || u.vaitro,
+      trangthai: acc?.trangthai || u.trangthai,
+      xacthuc: typeof acc?.xacthuc === 'boolean' ? acc.xacthuc : u.xacthuc
+    };
+  });
+}
+
 function taoChuoiBoLoc({ vaitro, trangthai, online, deleted, limit }) {
   let s = '';
   if (vaitro) s += `&vaitro=${encodeURIComponent(vaitro)}`;
@@ -109,19 +162,25 @@ module.exports.danhSach = async (req, res) => {
     };
 
     const dieukien = taoBoLocNguoiDung({ keyword: tukhoa, vaitro, trangthai, online, deleted: daxoa });
+    const themDieuKienTheoAccount = await taoBoLocNguoiDungTheoAccount({ vaitro, trangthai });
+    if (themDieuKienTheoAccount) {
+      if (dieukien.$and) dieukien.$and.push(themDieuKienTheoAccount);
+      else dieukien.$and = [themDieuKienTheoAccount];
+    }
     const tongnguoidung = await nguoidung.countDocuments(dieukien);
     phantrang = paginationHelper(phantrang, req.query, tongnguoidung);
 
     const danhsachnguoidung = await nguoidung.find(dieukien)
-      .sort({ ngaytao: -1 })
+      .sort({ lastSeenAt: -1, ngaytao: -1 })
       .skip(phantrang.skip)
       .limit(phantrang.limit)
       .lean();
 
-    const nguoidungdaxuly = danhsachnguoidung.map(u => ({
+    const daGanAccount = await ganThongTinAccount(danhsachnguoidung);
+    const nguoidungdaxuly = daGanAccount.map(u => ({
       ...u,
       isOnline: dangOnline(u.lastSeenAt, onlinewindowms)
-    }));
+    })).sort(sapXepOnlineTruoc);
 
     const chuoiboloc = taoChuoiBoLoc({ vaitro, trangthai, online, deleted: daxoa, limit });
 
@@ -160,9 +219,11 @@ module.exports.chiTiet = async (req, res) => {
       return res.redirect('/admin/users');
     }
 
+    const [taikhoandagan] = await ganThongTinAccount([taikhoan]);
+
     const taikhoandaxuly = {
-      ...taikhoan,
-      isOnline: dangOnline(taikhoan.lastSeenAt, onlinewindowms)
+      ...taikhoandagan,
+      isOnline: dangOnline(taikhoandagan.lastSeenAt, onlinewindowms)
     };
 
     return res.render('admin/pages/users/detail.pug', {
@@ -191,12 +252,17 @@ module.exports.anhChupOnline = async (req, res) => {
     };
 
     const dieukien = taoBoLocNguoiDung({ keyword: tukhoa, vaitro, trangthai, online, deleted: daxoa });
+    const themDieuKienTheoAccount = await taoBoLocNguoiDungTheoAccount({ vaitro, trangthai });
+    if (themDieuKienTheoAccount) {
+      if (dieukien.$and) dieukien.$and.push(themDieuKienTheoAccount);
+      else dieukien.$and = [themDieuKienTheoAccount];
+    }
     const tongnguoidung = await nguoidung.countDocuments(dieukien);
     phantrang = paginationHelper(phantrang, req.query, tongnguoidung);
 
     const danhsachnguoidung = await nguoidung.find(dieukien)
       .select({ _id: 1, lastSeenAt: 1 })
-      .sort({ ngaytao: -1 })
+      .sort({ lastSeenAt: -1, ngaytao: -1 })
       .skip(phantrang.skip)
       .limit(phantrang.limit)
       .lean();
@@ -208,7 +274,7 @@ module.exports.anhChupOnline = async (req, res) => {
         isOnline: onlinenow,
         lastSeenAt: u.lastSeenAt ? new Date(u.lastSeenAt).toISOString() : null
       };
-    });
+    }).sort(sapXepOnlineTruoc);
     return res.json({
       now: new Date().toISOString(),
       users: anhchup
@@ -234,10 +300,8 @@ module.exports.capNhatVaiTro = async (req, res) => {
       return res.redirect('/admin/users');
     }
 
-    await nguoidung.updateOne(
-      { _id: id, daxoa: { $ne: true } },
-      { $set: { vaitro, ngaycapnhat: new Date() } }
-    );
+    await syncRoleStatusFromUser({ userId: id, vaitro });
+    await nguoidung.updateOne({ _id: id, daxoa: { $ne: true } }, { $set: { ngaycapnhat: new Date() } }).catch(() => {});
     req.flash('success', 'Cập nhật vai trò thành công');
     return res.redirect('/admin/users');
   } catch (err) {
@@ -262,10 +326,8 @@ module.exports.capNhatTrangThai = async (req, res) => {
       return res.redirect('/admin/users');
     }
 
-    await nguoidung.updateOne(
-      { _id: id, daxoa: { $ne: true } },
-      { $set: { trangthai, ngaycapnhat: new Date() } }
-    );
+    await syncRoleStatusFromUser({ userId: id, trangthai });
+    await nguoidung.updateOne({ _id: id, daxoa: { $ne: true } }, { $set: { ngaycapnhat: new Date() } }).catch(() => {});
     req.flash('success', 'Cập nhật trạng thái thành công');
     return res.redirect('/admin/users');
   } catch (err) {
@@ -346,10 +408,11 @@ module.exports.capNhatTuChiTiet = async (req, res) => {
       ngaysinh,
       ngaycapnhat: new Date()
     };
-    if (vaitro) $set.vaitro = vaitro;
-    if (trangthai) $set.trangthai = trangthai;
 
     await nguoidung.updateOne({ _id: id }, { $set });
+    if (vaitro || trangthai) {
+      await syncRoleStatusFromUser({ userId: id, vaitro: vaitro || undefined, trangthai: trangthai || undefined });
+    }
     req.flash('success', 'Cập nhật tài khoản thành công');
     return res.redirect(quayLaiChiTietHoacDanhSach(req, id));
   } catch (err) {
@@ -380,11 +443,9 @@ module.exports.datMatKhauTuChiTiet = async (req, res) => {
       return res.redirect(quayLaiChiTietHoacDanhSach(req, id));
     }
 
-    const hashed = await bcrypt.hash(newpassword, 10);
-    await nguoidung.updateOne(
-      { _id: id },
-      { $set: { matkhau: hashed, ngaycapnhat: new Date() } }
-    );
+    await setPasswordByUserId({ userId: id, newPasswordPlain: newpassword });
+    await nguoidung.updateOne({ _id: id }, { $set: { ngaycapnhat: new Date() } }).catch(() => {});
+    await syncRoleStatusFromUser({ userId: id });
 
     req.flash('success', 'Đã đặt lại mật khẩu');
     return res.redirect(quayLaiChiTietHoacDanhSach(req, id));

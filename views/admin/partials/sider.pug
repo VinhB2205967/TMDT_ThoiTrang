@@ -27,7 +27,20 @@
                     span Báo cáo
 
     .sider-footer
+        - const au = typeof adminUser !== 'undefined' ? adminUser : null
+        - const adminName = (au && au.hoten) ? au.hoten : 'Admin'
+        - const adminEmail = (au && au.email) ? au.email : ''
+        - const adminAvatar = (au && au.avatar) ? au.avatar : '/images/download.jpg'
+
+        .sider-profile
+            img.sider-profile__avatar(src=adminAvatar alt="avatar")
+            .sider-profile__meta
+                .sider-profile__name #{adminName}
+                if adminEmail
+                    .sider-profile__email #{adminEmail}
+            span.sider-profile__badge ADMIN
+
         form(method="POST" action=`${admin}/logout`)
-            button.sider-menu-btn(type="submit")
+            button.sider-logout-btn(type="submit")
                 i.bi.bi-box-arrow-right
                 span Đăng xuất

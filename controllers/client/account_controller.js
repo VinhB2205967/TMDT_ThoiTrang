@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const nguoidung = require('../../models/user_model');
 const { chuanHoaSoDienThoai, laSoDienThoaiVN, laUrlAnhAnToan } = require('../../helpers/validators');
+const { hasLocalPassword, verifyPasswordWithLegacy, setPasswordByUserId } = require('../../services/account.service');
 
 function chuanHoaChuoi(value) {
   return String(value || '').trim();
@@ -31,6 +32,12 @@ function kiemTraMatKhauMoi(password) {
 // Thông tin
 module.exports.trang = async (req, res) => {
   const taikhoan = req.user;
+  let coMatKhau = Boolean(taikhoan?.matkhau);
+  try {
+    coMatKhau = await hasLocalPassword({ userId: taikhoan?._id });
+  } catch {
+    // ignore
+  }
   res.render('client/pages/account/index.pug', {
     titlePage: 'Thông tin tài khoản',
     profile: {
@@ -42,7 +49,7 @@ module.exports.trang = async (req, res) => {
       ngaysinh: dinhDangNgayInput(taikhoan?.ngaysinh),
       avatar: taikhoan?.avatar || ''
     },
-    hasPassword: Boolean(taikhoan?.matkhau)
+    hasPassword: coMatKhau
   });
 };
 
@@ -144,18 +151,19 @@ module.exports.doiMatKhau = async (req, res) => {
       return res.redirect('/auth?mode=login');
     }
 
-    if (taikhoan.matkhau) {
-      const hople = await bcrypt.compare(matkhaucu, taikhoan.matkhau);
+    const daCoMatKhau = await hasLocalPassword({ userId: idnguoidung }) || Boolean(taikhoan.matkhau);
+    if (daCoMatKhau) {
+      const hople = await verifyPasswordWithLegacy({ userDoc: taikhoan, passwordPlain: matkhaucu });
       if (!hople) {
         req.flash?.('error', 'Mật khẩu hiện tại không đúng');
         return res.redirect('/account');
       }
     }
 
-    const matkhaumahoa = await bcrypt.hash(matkhaumoi, 10);
+    await setPasswordByUserId({ userId: idnguoidung, newPasswordPlain: matkhaumoi });
     await nguoidung.updateOne(
       { _id: idnguoidung, daxoa: { $ne: true } },
-      { $set: { matkhau: matkhaumahoa, ngaycapnhat: new Date() } }
+      { $set: { ngaycapnhat: new Date() } }
     );
 
     req.flash?.('success', 'Đổi mật khẩu thành công');

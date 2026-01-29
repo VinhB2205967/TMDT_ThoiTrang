@@ -14,8 +14,7 @@ const userSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
-  matkhau: String,                  // Mật khẩu (đã hash)
-  sodienthoai: String,              // Số điện thoại
+  sodienthoai: String,              
   diachi: String,                   // Địa chỉ mặc định
   diachiList: {                     // Nhiều địa chỉ, chọn 1 khi thanh toán
     type: [addressSchema],
@@ -24,22 +23,6 @@ const userSchema = new mongoose.Schema({
   gioitinh: String,                 // Nam/Nữ/Khác
   ngaysinh: Date,
   avatar: String,                   // URL ảnh đại diện
-  vaitro: {                         // Vai trò: user, admin
-    type: String,
-    default: "user"
-  },
-  trangthai: {                      // Trạng thái: active, noactive
-    type: String,
-    enum: ['active', 'noactive'],
-    default: "active"
-  },
-  xacthuc: {                        // Email đã xác thực chưa
-    type: Boolean,
-    default: false
-  },
-  tokenxacthuc: String,             // Token xác thực email
-  tokenquenmatkhau: String,         // Token reset mật khẩu
-  thoigianhethan: Date,             // Thời gian hết hạn token
   daxoa: {
     type: Boolean,
     default: false
