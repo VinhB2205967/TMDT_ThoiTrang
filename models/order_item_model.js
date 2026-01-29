@@ -11,7 +11,7 @@ const orderItemSchema = new mongoose.Schema({
     ref: "Sanpham",
     required: true
   },
-  bienthe_id: {                     // ID biến thể nếu có
+  bienthe_id: {                     // ID biến thể
     type: mongoose.Schema.Types.ObjectId,
     default: null
   },
@@ -21,21 +21,24 @@ const orderItemSchema = new mongoose.Schema({
   mausac: String,
   kichco: String,
   
-  giagoc: Number,                   // Giá gốc
-  giaban: Number,                   // Giá bán (sau giảm)
+  giagoc: Number,               
+  giaban: Number,                   
   soluong: {
     type: Number,
     required: true,
     min: 1
   },
-  thanhtien: Number,                // giaban * soluong
+  thanhtien: Number,               
 
   // Trạng thái sản phẩm trong đơn
-  trangthai: {                      // pending, confirmed, shipping, delivered, returned
+  trangthai: {                      
     type: String,
-    default: "pending"
+    // Legacy values: 'pending', 'cancelled'
+    // New values (Vietnamese tokens): 'choxuly', 'dahuy'
+    enum: ['pending', 'cancelled', 'choxuly', 'dahuy'],
+    default: "choxuly"
   },
-  danhgia: {                        // Đã đánh giá chưa
+  danhgia: {                        
     type: Boolean,
     default: false
   },
@@ -51,5 +54,5 @@ orderItemSchema.pre('save', function() {
   this.thanhtien = (this.giaban || this.giagoc) * this.soluong;
 });
 
-const Chitietdonhang = mongoose.model("Chitietdonhang", orderItemSchema, "order_item");
+const Chitietdonhang = mongoose.model("Chitietdonhang", orderItemSchema, "order_items");
 module.exports = Chitietdonhang;

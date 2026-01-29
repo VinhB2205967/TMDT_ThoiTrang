@@ -11,8 +11,8 @@ const paySchema = new mongoose.Schema({
     ref: "Nguoidung",
     required: true
   },
-  magiaodich: String,               // Mã giao dịch từ cổng thanh toán
-  phuongthuc: {                     // cod, banking, momo, vnpay, zalopay
+  magiaodich: String,               
+  phuongthuc: {                    
     type: String,
     required: true
   },
@@ -20,18 +20,18 @@ const paySchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  trangthai: {                      // pending, success, failed, refunded
+  trangthai: {                      
     type: String,
-    enum: ['pending', 'success', 'failed', 'refunded'],
-    default: 'pending'
+    enum: ['pending', 'success', 'failed', 'refunded', 'choduyet', 'thanhcong', 'thatbai', 'hoantien'],
+    default: 'choduyet'
   },
   // Thông tin chi tiết thanh toán
   chitiet: {
-    nganhang: String,               // Tên ngân hàng (nếu banking)
+    nganhang: String,               
     sotaikhoan: String,
     tennguoichuyen: String,
-    noidung: String,                // Nội dung chuyển khoản
-    anhchungtu: String              // Ảnh chứng từ (nếu có)
+    noidung: String,                
+    anhchungtu: String              
   },
   // Response từ cổng thanh toán
   response: {

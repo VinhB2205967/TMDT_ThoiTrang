@@ -7,6 +7,7 @@ const { laLoaiKhongSize, tinhTongTon, layBienTheVaTon } = require('../../service
 const { muonJSON } = require('../../helpers/http');
 const { taoThanhToanMoMo } = require('../../services/momo.service');
 const { taoThanhToanVnpay, kiemTraChuKyVnpay } = require('../../services/vnpay.service');
+const { taoGiaoDichThanhToan, capNhatGiaoDichThanhToan, danhDauThanhCongTheoDonHang } = require('../../services/payment.service');
 
 // laLoaiKhongSize / tinhTongTon / layBienTheVaTon đã được tách sang services/productStock.service
 
@@ -507,6 +508,21 @@ module.exports.xuLyThanhToan = async (req, res) => {
         { $set: { momoOrderId: maMoMo, momoRequestId: maMoMo, momoPayUrl: ketqua?.payUrl || undefined, ngaycapnhat: new Date() } }
       );
 
+      try {
+        await taoGiaoDichThanhToan({
+          donhangId: donhangdoc._id,
+          nguoidungId: req.user._id,
+          phuongthuc: 'momo',
+          sotien: Math.max(0, Math.round(tamtinh)),
+          magiaodich: maMoMo,
+          trangthai: ketqua?.payUrl ? 'choduyet' : 'thatbai',
+          response: ketqua,
+          ghichu: ketqua?.payUrl ? 'Tạo thanh toán MoMo' : (ketqua?.message || 'Không thể tạo thanh toán MoMo')
+        });
+      } catch {
+        // best-effort
+      }
+
       if (ketqua && ketqua.payUrl) {
         return res.redirect(ketqua.payUrl);
       }
@@ -538,6 +554,21 @@ module.exports.xuLyThanhToan = async (req, res) => {
         locale: 'vn',
         orderType: 'other'
       });
+
+      try {
+        await taoGiaoDichThanhToan({
+          donhangId: donhangdoc._id,
+          nguoidungId: req.user._id,
+          phuongthuc: 'vnpay',
+          sotien: Math.max(0, Math.round(tamtinh)),
+          magiaodich: txnRef,
+          trangthai: 'choduyet',
+          response: { txnRef, payUrl },
+          ghichu: 'Tạo thanh toán VNPAY'
+        });
+      } catch {
+        // best-effort
+      }
 
       return res.redirect(payUrl);
     }
@@ -577,12 +608,30 @@ module.exports.momoReturn = async (req, res) => {
     const resultCode = Number(req.query.resultCode || -1);
 
     if (idDon) {
+      const orderDoc = await donhang.findById(idDon).select('_id nguoidung_id tongtien tamtinh').lean();
       const transId = req.query.transId ? String(req.query.transId) : '';
       if (resultCode === 0) {
         await donhang.updateOne(
           { _id: idDon },
           { $set: { dathanhtoan: true, ngaythanhtoan: new Date(), momoTransId: transId || undefined, momoOrderId: orderId || undefined, momoRequestId: (req.query.requestId ? String(req.query.requestId) : orderId) || undefined, ngaycapnhat: new Date() } }
         );
+
+        if (orderDoc) {
+          try {
+            await danhDauThanhCongTheoDonHang({
+              donhangId: orderDoc._id,
+              nguoidungId: orderDoc.nguoidung_id,
+              phuongthuc: 'momo',
+              sotien: Math.max(0, Math.round(orderDoc.tongtien || orderDoc.tamtinh || 0)),
+              magiaodich: orderId || undefined,
+              successResponse: req.query,
+              ghichu: 'MoMo return: success'
+            });
+          } catch {
+            // best-effort
+          }
+        }
+
         req.flash?.('success', 'Thanh toán MoMo thành công!');
       } else {
         // User có thể bấm Back/Quay về trước khi IPN cập nhật; chuyển sang trạng thái chờ xác nhận.
@@ -590,6 +639,24 @@ module.exports.momoReturn = async (req, res) => {
           { _id: idDon },
           { $set: { momoOrderId: orderId || undefined, momoRequestId: (req.query.requestId ? String(req.query.requestId) : orderId) || undefined, ngaycapnhat: new Date() } }
         );
+
+        if (orderDoc) {
+          try {
+            await capNhatGiaoDichThanhToan({
+              donhangId: orderDoc._id,
+              nguoidungId: orderDoc.nguoidung_id,
+              phuongthuc: 'momo',
+              sotien: Math.max(0, Math.round(orderDoc.tongtien || orderDoc.tamtinh || 0)),
+              magiaodich: orderId || undefined,
+              trangthai: 'choduyet',
+              response: req.query,
+              ghichu: `MoMo return: resultCode=${resultCode}`
+            });
+          } catch {
+            // best-effort
+          }
+        }
+
         req.flash?.('info', 'Đang chờ xác nhận thanh toán MoMo...');
       }
       return res.redirect(`/orders/${idDon}`);
@@ -624,12 +691,46 @@ module.exports.momoIpn = async (req, res) => {
 
     const resultCode = Number(req.body?.resultCode || -1);
     const transId = req.body?.transId ? String(req.body.transId) : '';
-    if (idDon && resultCode === 0) {
-      await donhang.updateOne(
-        { _id: idDon },
-        { $set: { dathanhtoan: true, ngaythanhtoan: new Date(), momoTransId: transId || undefined, momoOrderId: orderId || undefined, momoRequestId: (req.body?.requestId ? String(req.body.requestId) : orderId) || undefined, ngaycapnhat: new Date() } }
-      );
+
+    if (idDon) {
+      if (resultCode === 0) {
+        await donhang.updateOne(
+          { _id: idDon },
+          { $set: { dathanhtoan: true, ngaythanhtoan: new Date(), momoTransId: transId || undefined, momoOrderId: orderId || undefined, momoRequestId: (req.body?.requestId ? String(req.body.requestId) : orderId) || undefined, ngaycapnhat: new Date() } }
+        );
+      }
+
+      const orderDoc = await donhang.findById(idDon).select('_id nguoidung_id tongtien tamtinh').lean();
+      if (orderDoc) {
+        try {
+          if (resultCode === 0) {
+            await danhDauThanhCongTheoDonHang({
+              donhangId: orderDoc._id,
+              nguoidungId: orderDoc.nguoidung_id,
+              phuongthuc: 'momo',
+              sotien: Math.max(0, Math.round(orderDoc.tongtien || orderDoc.tamtinh || 0)),
+              magiaodich: orderId || undefined,
+              successResponse: req.body,
+              ghichu: 'MoMo IPN: success'
+            });
+          } else {
+            await capNhatGiaoDichThanhToan({
+              donhangId: orderDoc._id,
+              nguoidungId: orderDoc.nguoidung_id,
+              phuongthuc: 'momo',
+              sotien: Math.max(0, Math.round(orderDoc.tongtien || orderDoc.tamtinh || 0)),
+              magiaodich: orderId || undefined,
+              trangthai: 'thatbai',
+              response: req.body,
+              ghichu: `MoMo IPN: resultCode=${resultCode}`
+            });
+          }
+        } catch {
+          // best-effort
+        }
+      }
     }
+
     return res.json({ success: true });
   } catch (e) {
     return res.status(200).json({ success: false });
@@ -659,13 +760,50 @@ module.exports.vnpayReturn = async (req, res) => {
     }
 
     if (idDon) {
+      const orderDoc = await donhang.findById(idDon).select('_id nguoidung_id tongtien tamtinh').lean();
       if (responseCode === '00') {
         await donhang.updateOne(
           { _id: idDon },
           { $set: { dathanhtoan: true, ngaythanhtoan: new Date(), vnpayTransId: transNo || undefined, vnpayBankCode: bankCode || undefined } }
         );
+
+        if (orderDoc) {
+          try {
+            await danhDauThanhCongTheoDonHang({
+              donhangId: orderDoc._id,
+              nguoidungId: orderDoc.nguoidung_id,
+              phuongthuc: 'vnpay',
+              sotien: Math.max(0, Math.round(orderDoc.tongtien || orderDoc.tamtinh || 0)),
+              magiaodich: txnRef || undefined,
+              chitiet: { nganhang: bankCode || undefined },
+              successResponse: req.query,
+              ghichu: 'VNPAY return: success'
+            });
+          } catch {
+            // best-effort
+          }
+        }
+
         req.flash?.('success', 'Thanh toán VNPAY thành công!');
       } else {
+        if (orderDoc) {
+          try {
+            await capNhatGiaoDichThanhToan({
+              donhangId: orderDoc._id,
+              nguoidungId: orderDoc.nguoidung_id,
+              phuongthuc: 'vnpay',
+              sotien: Math.max(0, Math.round(orderDoc.tongtien || orderDoc.tamtinh || 0)),
+              magiaodich: txnRef || undefined,
+              trangthai: 'thatbai',
+              chitiet: { nganhang: bankCode || undefined },
+              response: req.query,
+              ghichu: `VNPAY return: responseCode=${responseCode}`
+            });
+          } catch {
+            // best-effort
+          }
+        }
+
         req.flash?.('error', 'Thanh toán VNPAY thất bại hoặc bị hủy.');
       }
       return res.redirect(`/orders/${idDon}`);
@@ -701,11 +839,44 @@ module.exports.vnpayIpn = async (req, res) => {
       idDon = txnRef.split('-')[0];
     }
 
-    if (idDon && responseCode === '00') {
-      await donhang.updateOne(
-        { _id: idDon },
-        { $set: { dathanhtoan: true, ngaythanhtoan: new Date(), vnpayTransId: transNo || undefined, vnpayBankCode: bankCode || undefined } }
-      );
+    if (idDon) {
+      if (responseCode === '00') {
+        await donhang.updateOne(
+          { _id: idDon },
+          { $set: { dathanhtoan: true, ngaythanhtoan: new Date(), vnpayTransId: transNo || undefined, vnpayBankCode: bankCode || undefined } }
+        );
+      }
+
+      const orderDoc = await donhang.findById(idDon).select('_id nguoidung_id tongtien tamtinh').lean();
+      if (orderDoc) {
+        try {
+          if (responseCode === '00') {
+            await danhDauThanhCongTheoDonHang({
+              donhangId: orderDoc._id,
+              nguoidungId: orderDoc.nguoidung_id,
+              phuongthuc: 'vnpay',
+              sotien: Math.max(0, Math.round(orderDoc.tongtien || orderDoc.tamtinh || 0)),
+              magiaodich: txnRef || undefined,
+              successResponse: payload,
+              ghichu: 'VNPAY IPN: success'
+            });
+          } else {
+            await capNhatGiaoDichThanhToan({
+              donhangId: orderDoc._id,
+              nguoidungId: orderDoc.nguoidung_id,
+              phuongthuc: 'vnpay',
+              sotien: Math.max(0, Math.round(orderDoc.tongtien || orderDoc.tamtinh || 0)),
+              magiaodich: txnRef || undefined,
+              trangthai: 'thatbai',
+              chitiet: { nganhang: bankCode || undefined },
+              response: payload,
+              ghichu: `VNPAY IPN: responseCode=${responseCode}`
+            });
+          }
+        } catch {
+          // best-effort
+        }
+      }
     }
 
     return res.status(200).json({ RspCode: '00', Message: 'Success' });

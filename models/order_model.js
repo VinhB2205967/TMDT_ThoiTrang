@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const orderSchema = new mongoose.Schema({
-  madonhang: {                      // Mã đơn hàng: DH20261101001
+  madonhang: {                      
     type: String,
     unique: true
   },
@@ -14,11 +14,11 @@ const orderSchema = new mongoose.Schema({
   tennguoinhan: String,
   sodienthoai: String,
   email: String,
-  diachigiao: String,               // Địa chỉ giao hàng đầy đủ
+  diachigiao: String,               
   tinh: String,
   quan: String,
   phuong: String,
-  ghichu: String,                   // Ghi chú của khách
+  ghichu: String,                   
 
   // Thông tin thanh toán
   phuongthucthanhtoan: {            // cod, banking, momo, vnpay...
@@ -44,7 +44,7 @@ const orderSchema = new mongoose.Schema({
   momoRefundAt: Date,
 
   // Thông tin vận chuyển
-  phuongthucvanchuyen: {            // standard, express
+  phuongthucvanchuyen: {           
     type: String,
     default: "standard"
   },

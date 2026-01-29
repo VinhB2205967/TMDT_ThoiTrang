@@ -26,10 +26,9 @@ async function ensureAdminUser() {
   };
 
   let user = await Nguoidung.findOne(existing);
-  const matkhau = await bcrypt.hash(password, 10);
-
   if (!user) {
-    await Nguoidung.create({
+    const matkhau = await bcrypt.hash(password, 10);
+    const created = await Nguoidung.create({
       hoten: 'Admin',
       email,
       matkhau,
@@ -39,6 +38,8 @@ async function ensureAdminUser() {
       ngaytao: new Date(),
       ngaycapnhat: new Date()
     });
+
+    void created;
 
     if (process.env.NODE_ENV !== 'production') {
       console.log(`[seedAdmin] Created admin user: ${email}`);
@@ -54,6 +55,7 @@ async function ensureAdminUser() {
     changed = true;
   }
   if (password) {
+    const matkhau = await bcrypt.hash(password, 10);
     user.matkhau = matkhau;
     changed = true;
   }

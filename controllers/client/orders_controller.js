@@ -5,6 +5,7 @@ const { getOrCreateCart, normalizeImage } = require('../../services/cart.service
 const { laLoaiKhongSize, tinhTongTon } = require('../../services/productStock.service');
 const { taoHoanTienMoMo, taoThanhToanMoMo, truyVanGiaoDichMoMo } = require('../../services/momo.service');
 const { taoThanhToanVnpay } = require('../../services/vnpay.service');
+const { taoGiaoDichThanhToan, capNhatGiaoDichThanhToan, danhDauThatBaiTheoDonHang, danhDauThatBaiTatCaPendingTheoDonHang, danhDauHoanTienMoMoTheoDonHang, danhDauThanhCongTheoDonHang } = require('../../services/payment.service');
 const { nhantrangthai, layTrangThaiChoPhep } = require('../../helpers/orderStatus');
 const phanTrangHelper = require('../../helpers/pagination');
 
@@ -43,6 +44,27 @@ async function tuDongHuyDonQuaHan(userId) {
     );
 
     if (!updated) continue;
+
+    // Đồng bộ trạng thái item theo đơn hủy
+    try {
+      await chitietdonhang.updateMany(
+        { donhang_id: updated._id },
+        { $set: { trangthai: 'dahuy' } }
+      );
+    } catch {
+      // best-effort
+    }
+
+    // Đánh dấu giao dịch thanh toán (nếu có) là thất bại do quá hạn.
+    try {
+      await danhDauThatBaiTatCaPendingTheoDonHang({
+        donhangId: updated._id,
+        response: { autoCancel: true, reason: 'Hết hạn thanh toán (24h)' },
+        ghichu: 'Đơn bị hủy do quá hạn thanh toán'
+      });
+    } catch {
+      // best-effort
+    }
 
     const danhsachitem = await chitietdonhang.find({ donhang_id: row._id });
     for (const it of (danhsachitem || [])) {
@@ -261,6 +283,29 @@ module.exports.huyDon = async (req, res) => {
     return res.redirect(`/orders/${donhangdoc._id}`);
   }
 
+  // Đồng bộ trạng thái item theo đơn hủy
+  try {
+    await chitietdonhang.updateMany(
+      { donhang_id: donhangdoc._id },
+      { $set: { trangthai: 'dahuy' } }
+    );
+  } catch {
+    // best-effort
+  }
+
+  // Nếu hủy đơn khi chưa thanh toán, đánh dấu tất cả giao dịch pending là failed.
+  if (!donhangdoc.dathanhtoan) {
+    try {
+      await danhDauThatBaiTatCaPendingTheoDonHang({
+        donhangId: donhangdoc._id,
+        response: { cancel: true, reason: lydo },
+        ghichu: 'Hủy đơn trước khi thanh toán'
+      });
+    } catch {
+      // best-effort
+    }
+  }
+
   if (donhangdoc.phuongthucthanhtoan === 'momo' && donhangdoc.dathanhtoan && donhangdoc.momoTransId && !donhangdoc.momoRefunded) {
     try {
       const ketqua = await taoHoanTienMoMo({
@@ -276,6 +321,20 @@ module.exports.huyDon = async (req, res) => {
           { _id: donhangdoc._id },
           { $set: { momoRefunded: true, momoRefundAt: new Date() } }
         );
+
+        try {
+          await danhDauHoanTienMoMoTheoDonHang({
+            donhangId: donhangdoc._id,
+            nguoidungId: donhangdoc.nguoidung_id,
+            sotien: Math.max(0, Math.round(donhangdoc.tongtien || donhangdoc.tamtinh || 0)),
+            magiaodich: donhangdoc.momoOrderId || undefined,
+            refundResponse: ketqua,
+            ghichu: 'Hoàn tiền MoMo thành công'
+          });
+        } catch {
+          // best-effort
+        }
+
         req.flash?.('success', 'Đã hủy đơn hàng, hoàn tiền MoMo thành công.');
         return res.redirect('/orders');
       }
@@ -391,6 +450,21 @@ module.exports.thanhToanLai = async (req, res) => {
         { $set: { momoOrderId: maMoMo, momoRequestId: maMoMo, momoPayUrl: ketqua?.payUrl || undefined, ngaycapnhat: new Date() } }
       );
 
+      try {
+        await taoGiaoDichThanhToan({
+          donhangId: donhangdoc._id,
+          nguoidungId: donhangdoc.nguoidung_id,
+          phuongthuc: 'momo',
+          sotien: tongtien,
+          magiaodich: maMoMo,
+          trangthai: ketqua?.payUrl ? 'choduyet' : 'thatbai',
+          response: ketqua,
+          ghichu: ketqua?.payUrl ? 'Thanh toán lại MoMo' : (ketqua?.message || 'Không thể tạo thanh toán MoMo')
+        });
+      } catch {
+        // best-effort
+      }
+
       if (ketqua && ketqua.payUrl) {
         return res.redirect(ketqua.payUrl);
       }
@@ -422,6 +496,21 @@ module.exports.thanhToanLai = async (req, res) => {
       orderType: 'other'
     });
 
+    try {
+      await taoGiaoDichThanhToan({
+        donhangId: donhangdoc._id,
+        nguoidungId: donhangdoc.nguoidung_id,
+        phuongthuc: 'vnpay',
+        sotien: tongtien,
+        magiaodich: txnRef,
+        trangthai: 'choduyet',
+        response: { txnRef, payUrl },
+        ghichu: 'Thanh toán lại VNPAY'
+      });
+    } catch {
+      // best-effort
+    }
+
     return res.redirect(payUrl);
   } catch (e) {
     req.flash?.('error', 'Có lỗi khi tạo thanh toán lại.');
@@ -433,7 +522,7 @@ module.exports.thanhToanLai = async (req, res) => {
 module.exports.kiemTraThanhToan = async (req, res) => {
   try {
     const donhangdoc = await donhang.findOne({ _id: req.params.id, nguoidung_id: req.user._id, daxoa: { $ne: true } })
-      .select('_id dathanhtoan phuongthucthanhtoan momoOrderId momoRequestId momoTransId')
+      .select('_id nguoidung_id tongtien tamtinh dathanhtoan phuongthucthanhtoan momoOrderId momoRequestId momoTransId')
       .lean();
 
     if (!donhangdoc) {
@@ -465,7 +554,37 @@ module.exports.kiemTraThanhToan = async (req, res) => {
         { _id: donhangdoc._id },
         { $set: { dathanhtoan: true, ngaythanhtoan: new Date(), momoTransId: transId || undefined, ngaycapnhat: new Date() } }
       );
+
+      try {
+        await danhDauThanhCongTheoDonHang({
+          donhangId: donhangdoc._id,
+          nguoidungId: donhangdoc.nguoidung_id,
+          phuongthuc: 'momo',
+          sotien: Math.max(0, Math.round(donhangdoc.tongtien || donhangdoc.tamtinh || 0)),
+          magiaodich: momoOrderId || undefined,
+          successResponse: ketqua,
+          ghichu: 'Polling MoMo: success'
+        });
+      } catch {
+        // best-effort
+      }
+
       return res.json({ success: true, paid: true });
+    }
+
+    try {
+      await capNhatGiaoDichThanhToan({
+        donhangId: donhangdoc._id,
+        nguoidungId: donhangdoc.nguoidung_id,
+        phuongthuc: 'momo',
+        sotien: Math.max(0, Math.round(donhangdoc.tongtien || donhangdoc.tamtinh || 0)),
+        magiaodich: momoOrderId || undefined,
+        trangthai: 'choduyet',
+        response: ketqua,
+        ghichu: `Polling MoMo: resultCode=${resultCode}`
+      });
+    } catch {
+      // best-effort
     }
 
     return res.json({ success: true, paid: false, resultCode, message: ketqua?.message || '' });
