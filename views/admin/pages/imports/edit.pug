@@ -1,0 +1,120 @@
+extends ../../layouts/default.pug
+
+block main
+  .container-fluid.p-3
+    .d-flex.justify-content-between.align-items-center.mb-3
+      h3.mb-0 Chỉnh sửa phiếu nhập
+      .d-flex.gap-2
+        a.btn.btn-outline-secondary(href=`${admin}/imports/${receipt._id}`)
+          i.bi.bi-arrow-left
+          |  Chi tiết
+        a.btn.btn-outline-secondary(href=`${admin}/imports`)
+          i.bi.bi-list
+          |  Danh sách
+
+    form(method='POST', action=`${admin}/imports/${receipt._id}/edit` enctype='multipart/form-data')
+      .card.mb-3
+        .card-header Thông tin chung
+        .card-body
+          .row.g-3
+            .col-md-4
+              label.form-label Mã phiếu
+              input.form-control(value=(receipt.maphieu || receipt.ma_phieu) readonly)
+            .col-md-4
+              label.form-label Ngày nhập kho
+              - const dt = (receipt.ngaynhap || receipt.ngay_nhap) ? new Date(receipt.ngaynhap || receipt.ngay_nhap) : new Date()
+              - const pad2 = (n) => String(n).padStart(2, '0')
+              - const localVal = `${dt.getFullYear()}-${pad2(dt.getMonth()+1)}-${pad2(dt.getDate())}T${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`
+              input.form-control(type='datetime-local', name='ngaynhap', value=localVal, required)
+            .col-md-4
+              label.form-label Nhà cung cấp
+              input.form-control(name='nhacungcap', value=(receipt.nhacungcap || receipt.nha_cung_cap || ''))
+            .col-12
+              label.form-label Ghi chú
+              textarea.form-control(name='ghichu', rows='2') #{receipt.ghichu || receipt.ghi_chu || ''}
+
+      .card
+        .card-header.d-flex.justify-content-between.align-items-center
+          span Dòng nhập
+          button#btn-add-line.btn.btn-sm.btn-primary(type='button')
+            i.bi.bi-plus-lg
+            |  Thêm dòng
+        .card-body
+          .table-responsive
+            table.table.table-bordered.table-sm.align-middle
+              thead.table-light
+                tr
+                  th Sản phẩm
+                  th Biến thể
+                  th Size
+                  th Số lượng
+                  th Giá nhập
+                  th Giá bán
+                  th Chi tiết
+                  th
+              tbody#import-edit-items-body
+                if (receipt.chitiet || receipt.chi_tiet) && (receipt.chitiet || receipt.chi_tiet).length
+                  each it, idx in (receipt.chitiet || receipt.chi_tiet)
+                    tr(data-index=idx)
+                      td(style='min-width:240px')
+                        input.form-control.form-control-sm.mb-1.js-product-search(type='search' placeholder='Tìm sản phẩm...')
+                        select.form-select.form-select-sm.js-product(name=`chitiet[${idx}][sanphamid]`)
+                          option(value='') -- Chọn sản phẩm --
+                          each p in (products || [])
+                            option(value=p._id selected=(String(p._id)===String(it.sanphamid || it.san_pham_id))) #{p.tensanpham}
+                        input(type='hidden' class='js-product-name' name=`chitiet[${idx}][tensanpham]` value=(it.tensanpham || it.ten_san_pham || ''))
+                      td(style='min-width:180px')
+                        select.form-select.form-select-sm.js-variant(name=`chitiet[${idx}][bientheid]`)
+                          option(value=(it.bientheid ? String(it.bientheid) : (it.bien_the_id ? String(it.bien_the_id) : 'main')))
+                            | #{it.bientheid ? String(it.bientheid) : (it.bien_the_id ? String(it.bien_the_id) : 'main')}
+                      td(style='min-width:120px')
+                        select.form-select.form-select-sm.js-size(name=`chitiet[${idx}][kichco]`)
+                          option(value='') -- Size --
+                          each s in (sizeList || [])
+                            option(value=s selected=(String(it.kichco || it.kich_co || '')===String(s))) #{s}
+                      td(style='min-width:110px')
+                        input.form-control.form-control-sm(type='number' min='1' step='1' name=`chitiet[${idx}][soluong]` value=(it.soluong || it.so_luong || 1) required)
+                      td(style='min-width:140px')
+                        input.form-control.form-control-sm(type='number' min='0' step='1000' name=`chitiet[${idx}][gianhap]` value=(it.gianhap != null ? it.gianhap : (it.gia_nhap || 0)))
+                      td(style='min-width:160px')
+                        input.form-control.form-control-sm(type='number' min='0' step='1000' name=`chitiet[${idx}][giabandexuat]` value=(it.giabandexuat != null ? it.giabandexuat : (it.gia_ban_de_xuat || 0)))
+                      td(style='min-width:260px')
+                        details.js-details(open)
+                          summary Chi tiết
+                          .mt-2
+                            .mb-2
+                              label.form-label.small.mb-1 Màu sắc
+                              input.form-control.form-control-sm.js-color(name=`chitiet[${idx}][mausac]` value=(it.mausac || it.mau_sac || '') placeholder='Màu')
+                            .mb-2
+                              label.form-label.small.mb-1 Chất liệu
+                              input.form-control.form-control-sm.js-material(name=`chitiet[${idx}][chatlieu]` value=(it.chatlieu || it.chat_lieu || '') placeholder='Chất liệu')
+                            .mb-2
+                              label.form-label.small.mb-1 Danh mục
+                              input.form-control.form-control-sm.js-category(name=`chitiet[${idx}][danhmuc]` value=(it.danhmuc || it.danh_muc || '') placeholder='Danh mục')
+                            .d-flex.align-items-center.gap-2
+                              if it.hinhanh
+                                img.js-image-preview(src=it.hinhanh alt='' style='width:44px;height:44px;object-fit:cover;border-radius:6px')
+                              else
+                                img.js-image-preview(src='' alt='' style='width:44px;height:44px;object-fit:cover;border-radius:6px;display:none')
+                              span.form-text.mb-0 Ảnh tự lấy từ sản phẩm/biến thể.
+                            input(type='hidden' class='js-image' name=`chitiet[${idx}][hinhanh]` value=(it.hinhanh || ''))
+                      td(style='min-width:60px' class='text-center')
+                        button.btn.btn-sm.btn-outline-danger.js-remove(type='button')
+                          i.bi.bi-x
+
+          .d-flex.justify-content-between.align-items-center.mt-3
+            .fw-semibold
+              | Tổng tiền nhập: 
+              span#import-total-money #{((receipt.tongtiennhap != null ? receipt.tongtiennhap : ((receipt.chitiet || receipt.chi_tiet || []).reduce((s,it)=>s+((it&&(it.soluong||it.so_luong||0))*((it.gianhap!=null?it.gianhap:(it.gia_nhap||0))||0)),0))) ) || 0).toLocaleString('vi-VN')}
+              |  đ
+            button.btn.btn-success(type='submit')
+              i.bi.bi-check2-circle
+              |  Lưu thay đổi
+
+block scripts
+  script(type='application/json' id='products-json')
+    != JSON.stringify(products || [])
+  script(type='application/json' id='sizes-json')
+    != JSON.stringify(sizeList || [])
+  script(src='/admin/js/shared/imports-shared.js')
+  script(src='/admin/js/imports-edit.js')

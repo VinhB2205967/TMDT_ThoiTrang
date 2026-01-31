@@ -1,0 +1,76 @@
+extends ../../layouts/default.pug
+
+block main
+  .container-fluid.p-3
+    .d-flex.justify-content-between.align-items-center.mb-3
+      h3.mb-0 Chi tiết phiếu nhập
+      .d-flex.gap-2
+        a.btn.btn-outline-secondary(href=`${admin}/imports`)
+          i.bi.bi-arrow-left
+          |  Danh sách
+        a.btn.btn-primary(href=`${admin}/imports/${receipt._id}/edit`)
+          i.bi.bi-pencil
+          |  Chỉnh sửa
+
+    .card.mb-3
+      .card-header Thông tin phiếu nhập
+      .card-body
+        .row.g-3
+          .col-md-4
+            .fw-semibold Mã phiếu
+            div #{receipt.maphieu || receipt.ma_phieu || receipt.code}
+          .col-md-4
+            .fw-semibold Ngày nhập
+            - const _ngayNhap = receipt.ngaynhap || receipt.ngay_nhap || receipt.import_date
+            div #{_ngayNhap ? new Date(_ngayNhap).toLocaleString('vi-VN') : ''}
+          .col-md-4
+            .fw-semibold Nhà cung cấp
+            div #{receipt.nhacungcap || receipt.nha_cung_cap || receipt.supplier || ''}
+          .col-12
+            .fw-semibold Ghi chú
+            div #{receipt.ghichu || receipt.ghi_chu || receipt.note || ''}
+
+          .col-12
+            .fw-semibold Tổng tiền nhập
+            - const __ct = receipt.chitiet || receipt.chi_tiet || receipt.items || []
+            - const __tong = (receipt.tongtiennhap != null) ? receipt.tongtiennhap : (__ct.reduce((s,it)=>s+((it&&(it.soluong||it.so_luong||0))*(((it.gianhap!=null?it.gianhap:(it.gia_nhap!=null?it.gia_nhap:it.import_price)) )||0)),0),0))
+            div #{(__tong || 0).toLocaleString('vi-VN')}đ
+
+    .card
+      .card-header Danh sách sản phẩm nhập
+      .card-body
+        - const _chiTiet = receipt.chitiet || receipt.chi_tiet || receipt.items
+        if !_chiTiet || _chiTiet.length === 0
+          .alert.alert-info.mb-0 Không có dòng nhập.
+        else
+          .table-responsive
+            table.table.table-bordered.table-sm.align-middle
+              thead.table-light
+                tr
+                  th Sản phẩm
+                  th Biến thể
+                  th Size
+                  th Màu
+                  th Số lượng
+                  th Giá nhập
+                  th Giá bán
+                  th Danh mục
+                  th Ảnh
+              tbody
+                each it in _chiTiet
+                  - const v = it.bientheid ? String(it.bientheid) : (it.bien_the_id ? String(it.bien_the_id) : (it.variant_id ? String(it.variant_id) : 'main'))
+                  tr
+                    td #{it.tensanpham || it.ten_san_pham || it.product_name || it.sanphamid || it.san_pham_id || it.product_id}
+                    td #{v}
+                    td #{it.kichco || it.kich_co || it.size || ''}
+                    td #{it.mausac || it.mau_sac || it.color || ''}
+                    td #{it.soluong || it.so_luong || it.quantity || 0}
+                    td #{((it.gianhap != null ? it.gianhap : (it.gia_nhap != null ? it.gia_nhap : it.import_price)) || 0).toLocaleString('vi-VN')}
+                    td #{((it.giabandexuat != null ? it.giabandexuat : (it.gia_ban_de_xuat != null ? it.gia_ban_de_xuat : it.suggested_price)) || 0).toLocaleString('vi-VN')}
+                    td #{it.danhmuc || it.danh_muc || it.category || ''}
+                    td
+                      - const _img = it.hinhanh || it.image
+                      if _img
+                        img(src=_img style='width:44px;height:44px;object-fit:cover;border-radius:6px')
+                      else
+                        span.text-muted -

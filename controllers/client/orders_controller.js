@@ -202,7 +202,7 @@ module.exports.danhSach = async (req, res) => {
 };
 
 module.exports.chiTiet = async (req, res) => {
-  // Cho phép JS redirect về ?paid=1 để hiện flash "thành công"
+
   if (String(req.query.paid || '') === '1') {
     req.flash?.('success', 'Thanh toán thành công!');
     return res.redirect(`/orders/${req.params.id}`);

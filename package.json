@@ -8,6 +8,7 @@
   "main": "index.js",
   "scripts": {
     "start": "nodemon --inspect=0 index.js",
+    "migrate:imports:vn": "node scripts/migrate-import-receipts-vn.js",
     "postinstall": "patch-package",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

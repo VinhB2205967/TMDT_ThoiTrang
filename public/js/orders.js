@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
           }
         } catch {
-          // ignore
+          
         }
       }
     }
@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(tick, 4000);
   }
 
-  // Countdown 24h for MoMo/VNPAY pending
+ // Xử lý đếm ngược thời gian thanh toán 24h
   const deadlineEls = Array.from(document.querySelectorAll('[data-payment-deadline][data-payment-countdown="1"]'));
   function formatMs(ms) {
     const total = Math.max(0, Math.floor(ms / 1000));
@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const ss = String(s).padStart(2, '0');
     return `${hh}:${mm}:${ss}`;
   }
-
+// Cập nhật hiển thị đếm ngược
   function updateCountdown() {
     const now = Date.now();
     let shouldReload = false;
@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
         el.textContent = 'Hết hạn thanh toán (tự hủy)';
         shouldReload = true;
       } else {
-        // Giữ prefix nếu có ("Còn: ")
+        
         const prefix = String(el.textContent || '').includes('Còn:') ? 'Còn: ' : '';
         el.textContent = `${prefix}${formatMs(remain)}`;
       }

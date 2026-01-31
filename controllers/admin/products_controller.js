@@ -5,6 +5,7 @@ const searchHelper = require('../../helpers/search');
 const paginationHelper = require('../../helpers/pagination');
 const productHelper = require('../../helpers/product');
 const { prepareProductData } = require('../../services/product.service');
+const orderItemModel = require('../../models/order_item_model');
 
 // Danh sách
 const danhSach = async (req, res) => {
@@ -30,7 +31,7 @@ const danhSach = async (req, res) => {
         
         // Lọc theo trạng thái
         if (req.query.trangthai === 'dahet') {
-            // Đã hết: soluongton = 0 hoặc không có
+            
             dieukien.soluongton = { $lte: 0 };
         } else if (req.query.trangthai) {
             dieukien.trangthai = req.query.trangthai;
@@ -86,17 +87,20 @@ const danhSach = async (req, res) => {
         }
 
         // Sắp xếp (whitelist)
-        let sapxep = { ngaytao: -1 };
-        let khoasapxep = 'ngaytao';
+        // Default: ngày cập nhật giảm dần
+        let sapxep = { ngaycapnhat: -1, ngaytao: -1 };
+        let khoasapxep = 'ngaycapnhat';
         let chieusapxep = -1;
         if (req.query.sort) {
             const [khoa, huong] = String(req.query.sort).split('-');
-            const tapkhoasapxep = new Set(['gia', 'ngaytao', 'tensanpham']);
+            const tapkhoasapxep = new Set(['gia', 'ngaytao', 'ngaycapnhat', 'tensanpham']);
             const tapchieusapxep = new Set(['asc', 'desc']);
             if (tapkhoasapxep.has(khoa) && tapchieusapxep.has(huong)) {
                 khoasapxep = khoa;
                 chieusapxep = huong === 'asc' ? 1 : -1;
-                sapxep = { [khoa]: chieusapxep };
+                if (khoa === 'ngaycapnhat') sapxep = { ngaycapnhat: chieusapxep, ngaytao: -1 };
+                else if (khoa === 'ngaytao') sapxep = { ngaytao: chieusapxep };
+                else sapxep = { [khoa]: chieusapxep, ngaycapnhat: -1, ngaytao: -1 };
             }
         }
 
@@ -123,7 +127,7 @@ const danhSach = async (req, res) => {
             danhsachsanpham = await sanpham.aggregate([
                 { $match: dieukien },
                 { $addFields: { __giaSauGiam: bieuthucgiagiam } },
-                { $sort: { __giaSauGiam: chieusapxep, ngaytao: -1 } },
+                { $sort: { __giaSauGiam: chieusapxep, ngaycapnhat: -1, ngaytao: -1 } },
                 { $skip: phantrang.skip },
                 { $limit: phantrang.limit }
             ]);
@@ -133,6 +137,17 @@ const danhSach = async (req, res) => {
                 .skip(phantrang.skip)
                 .limit(phantrang.limit)
                 .lean();
+        }
+
+        // Mark products that were already purchased (appear in non-cancelled order items)
+        const pageProductIds = (danhsachsanpham || []).map((p) => String(p?._id || '')).filter(Boolean);
+        let daMuaSet = new Set();
+        if (pageProductIds.length) {
+            const daMuaIds = await orderItemModel.distinct('sanpham_id', {
+                sanpham_id: { $in: pageProductIds },
+                trangthai: { $nin: ['cancelled', 'dahuy'] }
+            });
+            daMuaSet = new Set((daMuaIds || []).map((id) => String(id)));
         }
 
         let chuoiboloc = '';
@@ -147,7 +162,10 @@ const danhSach = async (req, res) => {
 
         res.render("admin/pages/products/index.pug", {
             titlePage: "Danh sách sản phẩm",
-            products: danhsachsanpham.map(productHelper),
+            products: danhsachsanpham.map(productHelper).map((p) => ({
+                ...p,
+                daDuocMua: daMuaSet.has(String(p._id))
+            })),
             filterStatus: boloctrangthai,
             keyword: doituongtimkiem.keyword,
             pagination: phantrang,
@@ -197,6 +215,15 @@ const xoaVinhVien = async (req, res) => {
         const id = String(req.params.id || '');
         if (!mongoose.Types.ObjectId.isValid(id)) {
             req.flash('error', 'ID không hợp lệ');
+            return res.redirect('back');
+        }
+
+        const daDuocMua = await orderItemModel.exists({
+            sanpham_id: id,
+            trangthai: { $nin: ['cancelled', 'dahuy'] }
+        });
+        if (daDuocMua) {
+            req.flash('error', 'Sản phẩm đã có đơn hàng, không thể xóa');
             return res.redirect('back');
         }
 
@@ -287,9 +314,24 @@ const chinhSuaPost = async (req, res) => {
 // Xóa mềm
 const xoaMem = async (req, res) => {
     try {
-        await sanpham.findByIdAndUpdate(req.params.id, { daxoa: true, ngaycapnhat: new Date() });
+        const id = String(req.params.id || '');
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            req.flash('error', 'ID không hợp lệ');
+            return res.redirect('back');
+        }
+
+        const daDuocMua = await orderItemModel.exists({
+            sanpham_id: id,
+            trangthai: { $nin: ['cancelled', 'dahuy'] }
+        });
+        if (daDuocMua) {
+            req.flash('error', 'Sản phẩm đã có đơn hàng, không thể xóa');
+            return res.redirect('back');
+        }
+
+        await sanpham.findByIdAndUpdate(id, { daxoa: true, ngaycapnhat: new Date() });
         req.flash('success', 'Xóa sản phẩm thành công!');
-        res.redirect(req.app.locals.admin + '/products');
+        return res.redirect(req.app.locals.admin + '/products');
     } catch (error) {
         console.error('Delete product error:', error);
         req.flash('error', 'Không thể xóa sản phẩm');

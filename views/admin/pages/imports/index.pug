@@ -1,0 +1,43 @@
+extends ../../layouts/default.pug
+
+block main
+  .container-fluid.p-3
+    .d-flex.justify-content-between.align-items-center.mb-3
+      h3.mb-0 Phiếu nhập kho
+      a.btn.btn-primary(href=`${admin}/imports/create`)
+        i.bi.bi-plus-lg
+        |  Tạo phiếu nhập
+
+    if !receipts || receipts.length === 0
+      .alert.alert-info.mb-0 Chưa có phiếu nhập nào.
+    else
+      .table-responsive
+        table.table.table-hover.table-bordered.align-middle
+          thead.table-light
+            tr
+              th Mã phiếu
+              th Ngày nhập
+              th Nhà cung cấp
+              th Số dòng
+              th Tổng tiền
+              th Tạo lúc
+              th
+            tbody
+              each r in receipts
+                tr
+                  td
+                    a(href=`${admin}/imports/${r._id}`) #{r.maphieu || r.ma_phieu || r.code}
+                  td #{((r.ngaynhap || r.ngay_nhap || r.import_date) ? new Date(r.ngaynhap || r.ngay_nhap || r.import_date).toLocaleString('vi-VN') : '')}
+                  td #{r.nhacungcap || r.nha_cung_cap || r.supplier || ''}
+                  - const _ct = r.chitiet || r.chi_tiet || r.items
+                  td #{(_ct && _ct.length) ? _ct.length : 0}
+                  - const _tong = (r.tongtiennhap != null) ? r.tongtiennhap : ((_ct || []).reduce((s,it)=>s+((it&&(it.soluong||it.so_luong||0))*(((it.gianhap!=null?it.gianhap:(it.gia_nhap!=null?it.gia_nhap:it.import_price)) )||0)),0),0))
+                  td #{(_tong || 0).toLocaleString('vi-VN')}đ
+                  td #{((r.ngaytao || r.ngay_tao || r.created_at) ? new Date(r.ngaytao || r.ngay_tao || r.created_at).toLocaleString('vi-VN') : '')}
+                  td.text-nowrap
+                    a.btn.btn-sm.btn-outline-primary.me-1(href=`${admin}/imports/${r._id}`)
+                      i.bi.bi-eye
+                      |  Xem
+                    a.btn.btn-sm.btn-outline-secondary(href=`${admin}/imports/${r._id}/edit`)
+                      i.bi.bi-pencil
+                      |  Sửa

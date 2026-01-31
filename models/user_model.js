@@ -8,21 +8,21 @@ const addressSchema = new mongoose.Schema({
 }, { _id: true });
 
 const userSchema = new mongoose.Schema({
-  hoten: String,                    // Họ tên đầy đủ
+  hoten: String,                    
   email: {
     type: String,
     required: true,
     unique: true
   },
   sodienthoai: String,              
-  diachi: String,                   // Địa chỉ mặc định
-  diachiList: {                     // Nhiều địa chỉ, chọn 1 khi thanh toán
+  diachi: String,                   
+  diachiList: {                    
     type: [addressSchema],
     default: []
   },
-  gioitinh: String,                 // Nam/Nữ/Khác
+  gioitinh: String,                 
   ngaysinh: Date,
-  avatar: String,                   // URL ảnh đại diện
+  avatar: String,                   
   daxoa: {
     type: Boolean,
     default: false
@@ -33,7 +33,7 @@ const userSchema = new mongoose.Schema({
   },
   ngaycapnhat: Date
   ,
-  // Activity tracking
+ 
   lastSeenAt: Date,
   lastLoginAt: Date,
   lastLoginProvider: String,

@@ -81,8 +81,10 @@ block main
                             .col-md-2
                                 label.form-label.small.fw-bold Sắp xếp
                                 select.form-select.form-select-sm(name="sort" onchange="this.form.submit()")
-                                    option(value="ngaytao-desc" selected=(currentSort=='ngaytao-desc')) Mới nhất
-                                    option(value="ngaytao-asc" selected=(currentSort=='ngaytao-asc')) Cũ nhất
+                                    option(value="ngaycapnhat-desc" selected=(!currentSort || currentSort=='ngaycapnhat-desc')) Cập nhật mới nhất
+                                    option(value="ngaycapnhat-asc" selected=(currentSort=='ngaycapnhat-asc')) Cập nhật cũ nhất
+                                    option(value="ngaytao-desc" selected=(currentSort=='ngaytao-desc')) Tạo mới nhất
+                                    option(value="ngaytao-asc" selected=(currentSort=='ngaytao-asc')) Tạo cũ nhất
                                     option(value="gia-desc" selected=(currentSort=='gia-desc')) Giá giảm dần
                                     option(value="gia-asc" selected=(currentSort=='gia-asc')) Giá tăng dần
                                     option(value="tensanpham-asc" selected=(currentSort=='tensanpham-asc')) Tên A-Z
@@ -150,6 +152,9 @@ block main
                             - const imgSrc = product.displayImage || product.hinhanh || '/images/shopping.png';
                             - const ngayCapNhat = (product.ngaycapnhat || product.ngaytao) ? new Date(product.ngaycapnhat || product.ngaytao).toLocaleDateString('vi-VN') : '—';
                             - const tonKho = (product.tonkho !== undefined && product.tonkho !== null) ? product.tonkho : (product.soluongton || 0);
+                            - const __noSizeTypes = ['tui','phukien'];
+                            - const __isNoSize = __noSizeTypes.includes(String(product.loaisanpham || '').toLowerCase());
+                            - const __tonChinh = __isNoSize ? (product.soluong_chinh || 0) : ((product.sizes || []).reduce((sum, s) => sum + Number(s?.soluong || 0), 0));
                             tr
                                 td.text-muted #{idx + 1}
                                 td
@@ -169,6 +174,7 @@ block main
                                 td
                                     if tonKho > 0
                                         span.fw-semibold #{tonKho}
+                                        small.text-muted.d-block Chính: #{__tonChinh}
                                     else
                                         span.badge.bg-secondary.rounded-pill Hết
                                 td
@@ -188,12 +194,74 @@ block main
                                             form(method="POST" action=`${admin}/products/${product._id}/restore` onsubmit="return confirm('Khôi phục sản phẩm này?')")
                                                 button.btn.btn-outline-success(type="submit" title="Khôi phục")
                                                     i.bi.bi-arrow-counterclockwise
-                                            form(method="POST" action=`${admin}/products/${product._id}/hard-delete` onsubmit="return confirm('Xóa vĩnh viễn sản phẩm này? Hành động không thể hoàn tác!')")
-                                                button.btn.btn-danger(type="submit" title="Xóa vĩnh viễn")
+                                            form(method="POST" action=`${admin}/products/${product._id}/hard-delete` onsubmit=product.daDuocMua ? null : "return confirm('Xóa vĩnh viễn sản phẩm này? Hành động không thể hoàn tác!')")
+                                                button.btn.btn-danger(type="submit" title=product.daDuocMua ? 'Sản phẩm đã có đơn hàng, không thể xóa' : 'Xóa vĩnh viễn' disabled=product.daDuocMua)
                                                     i.bi.bi-x-octagon
                                         else
-                                            a.btn.btn-outline-danger(href=`${admin}/products/${product._id}/delete`, title="Xóa" onclick="return xacNhanXoa('Bạn có chắc chắn muốn xóa?')")
-                                                i.bi.bi-trash
+                                            if product.daDuocMua
+                                                button.btn.btn-outline-danger(type='button' title='Sản phẩm đã có đơn hàng, không thể xóa' disabled)
+                                                    i.bi.bi-trash
+                                            else
+                                                a.btn.btn-outline-danger(href=`${admin}/products/${product._id}/delete`, title="Xóa" onclick="return xacNhanXoa('Bạn có chắc chắn muốn xóa?')")
+                                                    i.bi.bi-trash
+
+                            if product.bienthe && product.bienthe.length
+                                each v, vIdx in product.bienthe
+                                    - const vGia = (v.gia !== undefined && v.gia !== null) ? v.gia : product.gia;
+                                    - const vGiam = (v.phantramgiamgia !== undefined && v.phantramgiamgia !== null) ? v.phantramgiamgia : giamGia;
+                                    - const vGiaGoc = vGia ? vGia.toLocaleString('vi-VN') + '₫' : '—';
+                                    - const vGiaKM = vGiam > 0 && vGia ? Math.round(vGia * (100 - vGiam) / 100).toLocaleString('vi-VN') + '₫' : null;
+                                    - const vImg = v.hinhanh || imgSrc;
+                                    - const vTon = __isNoSize ? (v.soluong || 0) : ((v.sizes || []).reduce((sum, s) => sum + Number(s.soluong || 0), 0));
+                                    - const vTitle = `${product.tensanpham || '—'} - ${v.mausac || 'Biến thể'}`;
+                                    tr.table-light
+                                        td.text-muted #{idx + 1}.#{vIdx + 1}
+                                        td
+                                            img.product-img(src=vImg, alt=vTitle)
+                                        td
+                                            .fw-semibold #{vTitle}
+                                            if v.mausac
+                                                small.text-muted #{v.mausac}
+                                        td
+                                            if vGiam > 0
+                                                .d-flex.flex-column
+                                                    span.text-decoration-line-through.text-muted.small #{vGiaGoc}
+                                                    span.fw-bold.text-danger #{vGiaKM}
+                                                    span.badge.bg-warning.text-dark.mt-1(style="width: fit-content") -#{vGiam}%
+                                            else
+                                                span.fw-semibold.text-primary #{vGiaGoc}
+                                        td
+                                            if vTon > 0
+                                                span.fw-semibold #{vTon}
+                                            else
+                                                span.badge.bg-secondary.rounded-pill Hết
+                                        td
+                                            small.text-muted
+                                                i.bi.bi-calendar.me-1
+                                                | #{ngayCapNhat}
+                                        td
+                                            if isActive
+                                                span.badge.bg-success.rounded-pill Đang bán
+                                            else
+                                                span.badge.bg-danger.rounded-pill Ngừng bán
+                                        td.text-end
+                                            .btn-group.btn-group-sm
+                                                a.btn.btn-outline-warning(href=`${admin}/products/${product._id}/edit`, title="Sửa")
+                                                    i.bi.bi-pencil
+                                                if product.daxoa
+                                                    form(method="POST" action=`${admin}/products/${product._id}/restore` onsubmit="return confirm('Khôi phục sản phẩm này?')")
+                                                        button.btn.btn-outline-success(type="submit" title="Khôi phục")
+                                                            i.bi.bi-arrow-counterclockwise
+                                                    form(method="POST" action=`${admin}/products/${product._id}/hard-delete` onsubmit=product.daDuocMua ? null : "return confirm('Xóa vĩnh viễn sản phẩm này? Hành động không thể hoàn tác!')")
+                                                        button.btn.btn-danger(type="submit" title=product.daDuocMua ? 'Sản phẩm đã có đơn hàng, không thể xóa' : 'Xóa vĩnh viễn' disabled=product.daDuocMua)
+                                                            i.bi.bi-x-octagon
+                                                else
+                                                    if product.daDuocMua
+                                                        button.btn.btn-outline-danger(type='button' title='Sản phẩm đã có đơn hàng, không thể xóa' disabled)
+                                                            i.bi.bi-trash
+                                                    else
+                                                        a.btn.btn-outline-danger(href=`${admin}/products/${product._id}/delete`, title="Xóa" onclick="return xacNhanXoa('Bạn có chắc chắn muốn xóa?')")
+                                                            i.bi.bi-trash
             
             
             .row.g-3.d-lg-none
@@ -202,6 +270,8 @@ block main
                     - const status = (product.trangthai || '').toLowerCase();
                     - const isActive = status === 'dangban' || status === 'active' || status === 'đang bán';
                     - const imgSrc = product.displayImage || product.hinhanh || '/images/shopping.png';
+                    - const __noSizeTypes = ['tui','phukien'];
+                    - const __isNoSize = __noSizeTypes.includes(String(product.loaisanpham || '').toLowerCase());
                     .col-12.col-sm-6.col-md-4
                         .card.product-card.h-100
                             img.card-img-top.product-card-img(src=imgSrc, alt=product.tensanpham || 'Hình sản phẩm')
@@ -216,7 +286,11 @@ block main
                                     else
                                         span.badge.bg-danger.rounded-pill Ngừng
                                 - const tonKhoMobile = (product.tonkho !== undefined && product.tonkho !== null) ? product.tonkho : (product.soluongton || 0);
+                                - const __noSizeTypesMobile = ['tui','phukien'];
+                                - const __isNoSizeMobile = __noSizeTypesMobile.includes(String(product.loaisanpham || '').toLowerCase());
+                                - const __tonChinhMobile = __isNoSizeMobile ? (product.soluong_chinh || 0) : ((product.sizes || []).reduce((sum, s) => sum + Number(s?.soluong || 0), 0));
                                 small.text-muted.d-block Tồn kho: #{tonKhoMobile}
+                                small.text-muted.d-block Chính: #{__tonChinhMobile}
                             .card-footer.bg-transparent.border-0.pt-0
                                 .d-flex.gap-2
                                     a.btn.btn-sm.btn-warning.flex-fill(href=`${admin}/products/${product._id}/edit`)
@@ -227,14 +301,62 @@ block main
                                             button.btn.btn-sm.btn-success.w-100(type="submit")
                                                 i.bi.bi-arrow-counterclockwise.me-1
                                                 | Khôi phục
-                                        form.flex-fill(method="POST" action=`${admin}/products/${product._id}/hard-delete` onsubmit="return confirm('Xóa vĩnh viễn sản phẩm này? Hành động không thể hoàn tác!')")
-                                            button.btn.btn-sm.btn-danger.w-100(type="submit")
+                                        form.flex-fill(method="POST" action=`${admin}/products/${product._id}/hard-delete` onsubmit=product.daDuocMua ? null : "return confirm('Xóa vĩnh viễn sản phẩm này? Hành động không thể hoàn tác!')")
+                                            button.btn.btn-sm.btn-danger.w-100(type="submit" disabled=product.daDuocMua title=product.daDuocMua ? 'Sản phẩm đã có đơn hàng, không thể xóa' : null)
                                                 i.bi.bi-x-octagon.me-1
                                                 | Xóa vĩnh viễn
                                     else
-                                        a.btn.btn-sm.btn-danger.flex-fill(href=`${admin}/products/${product._id}/delete` onclick="return xacNhanXoa('Bạn có chắc chắn muốn xóa?')")
-                                            i.bi.bi-trash.me-1
-                                            | Xóa
+                                        if product.daDuocMua
+                                            button.btn.btn-sm.btn-danger.flex-fill(type='button' disabled title='Sản phẩm đã có đơn hàng, không thể xóa')
+                                                i.bi.bi-trash.me-1
+                                                | Xóa
+                                        else
+                                            a.btn.btn-sm.btn-danger.flex-fill(href=`${admin}/products/${product._id}/delete` onclick="return xacNhanXoa('Bạn có chắc chắn muốn xóa?')")
+                                                i.bi.bi-trash.me-1
+                                                | Xóa
+
+                    if product.bienthe && product.bienthe.length
+                        each v, vIdx in product.bienthe
+                            - const vGia = (v.gia !== undefined && v.gia !== null) ? v.gia : product.gia;
+                            - const vGiam = (v.phantramgiamgia !== undefined && v.phantramgiamgia !== null) ? v.phantramgiamgia : (product.phantramgiamgia || 0);
+                            - const vPrice = vGia ? (vGiam > 0 ? Math.round(vGia * (100 - vGiam) / 100).toLocaleString('vi-VN') + '₫' : vGia.toLocaleString('vi-VN') + '₫') : '—';
+                            - const vImg = v.hinhanh || imgSrc;
+                            - const vTon = __isNoSize ? (v.soluong || 0) : ((v.sizes || []).reduce((sum, s) => sum + Number(s.soluong || 0), 0));
+                            .col-12.col-sm-6.col-md-4
+                                .card.product-card.h-100.border
+                                    img.card-img-top.product-card-img(src=vImg, alt=`${product.tensanpham || '—'} - ${v.mausac || 'Biến thể'}`)
+                                    .card-body
+                                        h6.card-title.mb-1 #{product.tensanpham || '—'} - #{v.mausac || 'Biến thể'}
+                                        .d-flex.justify-content-between.align-items-center.mb-2
+                                            span.fw-bold.text-primary #{vPrice}
+                                            if isActive
+                                                span.badge.bg-success.rounded-pill Đang bán
+                                            else
+                                                span.badge.bg-danger.rounded-pill Ngừng
+                                        small.text-muted.d-block Tồn kho: #{vTon}
+                                    .card-footer.bg-transparent.border-0.pt-0
+                                        .d-flex.gap-2
+                                            a.btn.btn-sm.btn-warning.flex-fill(href=`${admin}/products/${product._id}/edit`)
+                                                i.bi.bi-pencil.me-1
+                                                | Sửa
+                                            if product.daxoa
+                                                form.flex-fill(method="POST" action=`${admin}/products/${product._id}/restore` onsubmit="return confirm('Khôi phục sản phẩm này?')")
+                                                    button.btn.btn-sm.btn-success.w-100(type="submit")
+                                                        i.bi.bi-arrow-counterclockwise.me-1
+                                                        | Khôi phục
+                                                form.flex-fill(method="POST" action=`${admin}/products/${product._id}/hard-delete` onsubmit=product.daDuocMua ? null : "return confirm('Xóa vĩnh viễn sản phẩm này? Hành động không thể hoàn tác!')")
+                                                    button.btn.btn-sm.btn-danger.w-100(type="submit" disabled=product.daDuocMua title=product.daDuocMua ? 'Sản phẩm đã có đơn hàng, không thể xóa' : null)
+                                                        i.bi.bi-x-octagon.me-1
+                                                        | Xóa vĩnh viễn
+                                            else
+                                                if product.daDuocMua
+                                                    button.btn.btn-sm.btn-danger.flex-fill(type='button' disabled title='Sản phẩm đã có đơn hàng, không thể xóa')
+                                                        i.bi.bi-trash.me-1
+                                                        | Xóa
+                                                else
+                                                    a.btn.btn-sm.btn-danger.flex-fill(href=`${admin}/products/${product._id}/delete` onclick="return xacNhanXoa('Bạn có chắc chắn muốn xóa?')")
+                                                        i.bi.bi-trash.me-1
+                                                        | Xóa
             
            
             +page()

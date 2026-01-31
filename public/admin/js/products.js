@@ -230,13 +230,24 @@ const capNhatTongTon = () => {
 document.addEventListener('DOMContentLoaded', () => {
     capNhatTongTon();
 
+    const isDeleteActionUrl = (rawUrl) => {
+        if (!rawUrl) return false;
+        try {
+            const u = new URL(rawUrl, window.location.href);
+            const p = u.pathname || '';
+            return /\/delete$/.test(p) || /\/hard-delete$/.test(p);
+        } catch {
+            return false;
+        }
+    };
+
     // Tự động bắt sự kiện click vào nút xóa (hỗ trợ cả thẻ a và form)
     document.body.addEventListener('click', (e) => {
         // 1. Trường hợp thẻ <a> chứa link delete
-        const deleteLink = e.target.closest('a[href*="delete"]');
-        if (deleteLink) {
+        const anyLink = e.target.closest('a[href]');
+        if (anyLink && isDeleteActionUrl(anyLink.getAttribute('href'))) {
             // Nếu thẻ a đã có onclick gọi xacNhanXoa thì bỏ qua để tránh hiện popup 2 lần
-            if (deleteLink.getAttribute('onclick') && deleteLink.getAttribute('onclick').includes('xacNhanXoa')) {
+            if (anyLink.getAttribute('onclick') && anyLink.getAttribute('onclick').includes('xacNhanXoa')) {
                 return;
             }
 
@@ -248,7 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 2. Trường hợp button trong form delete
         const deleteBtn = e.target.closest('button');
-        if (deleteBtn && deleteBtn.form && deleteBtn.form.action.includes('delete')) {
+        if (deleteBtn && deleteBtn.form && isDeleteActionUrl(deleteBtn.form.getAttribute('action') || deleteBtn.form.action)) {
             if (!window.xacNhanXoa()) {
                 e.preventDefault();
             }
