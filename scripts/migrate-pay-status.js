@@ -1,11 +1,7 @@
-require('dotenv').config();
-const mongoose = require('mongoose');
-const database = require('../config/database');
+const { runDbScript } = require('./_lib/run-with-db');
 const Thanhtoan = require('../models/pay_model');
 
-async function main() {
-  await database.connect();
-
+runDbScript(async () => {
   const pending = await Thanhtoan.updateMany(
     { trangthai: 'pending' },
     { $set: { trangthai: 'choduyet', ngaycapnhat: new Date() } }
@@ -31,16 +27,4 @@ async function main() {
   console.log('[migrate-pay-status] success -> thanhcong:', c(success));
   console.log('[migrate-pay-status] failed -> thatbai:', c(failed));
   console.log('[migrate-pay-status] refunded -> hoantien:', c(refunded));
-
-  await mongoose.connection.close();
-}
-
-main().catch(async (err) => {
-  console.error(err);
-  try {
-    await mongoose.connection.close();
-  } catch {
-    // ignore
-  }
-  process.exitCode = 1;
 });

@@ -1,12 +1,8 @@
-require('dotenv').config();
-const mongoose = require('mongoose');
-const database = require('../config/database');
+const { runDbScript } = require('./_lib/run-with-db');
 const Sanpham = require('../models/product_model');
 const { tinhTongTon } = require('../services/productStock.service');
 
-async function main() {
-  await database.connect();
-
+runDbScript(async () => {
   let total = 0;
   let updated = 0;
 
@@ -27,16 +23,4 @@ async function main() {
 
   console.log('[sync-product-stock] total:', total);
   console.log('[sync-product-stock] updated soluongton:', updated);
-
-  await mongoose.connection.close();
-}
-
-main().catch(async (err) => {
-  console.error(err);
-  try {
-    await mongoose.connection.close();
-  } catch {
-    // ignore
-  }
-  process.exitCode = 1;
 });

@@ -218,7 +218,7 @@ mixin productCard(product)
                     span.price-sale #{product.giaText || (product.gia ? product.gia.toLocaleString('vi-VN') + '₫' : '—')}
             .product-footer
                 .product-rating
-                    - const rating = product.danhgia || 4.5
+                    - const rating = product.avgRating || 0
                     - const fullStars = Math.floor(rating)
                     - const halfStar = rating % 1 >= 0.5
                     each val in Array(fullStars)
@@ -227,4 +227,10 @@ mixin productCard(product)
                         i.bi.bi-star-half
                     each val in Array(5 - fullStars - (halfStar ? 1 : 0))
                         i.bi.bi-star
-                span.sold-count (đã bán)
+                span.sold-count.sold-count--highlight
+                    if rating
+                        span.fw-semibold #{rating.toFixed(1)}
+                        span.text-muted.small  /5
+                        span.text-muted.small &nbsp;•&nbsp;
+                    span.text-muted.small #{product.reviewCount || 0} đánh giá
+                    span.text-muted.small &nbsp;•&nbsp;đã bán #{product.soldCount || 0}

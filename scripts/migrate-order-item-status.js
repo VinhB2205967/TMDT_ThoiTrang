@@ -1,11 +1,7 @@
-require('dotenv').config();
-const mongoose = require('mongoose');
-const database = require('../config/database');
+const { runDbScript } = require('./_lib/run-with-db');
 const Chitietdonhang = require('../models/order_item_model');
 
-async function main() {
-  await database.connect();
-
+runDbScript(async () => {
   const pending = await Chitietdonhang.updateMany(
     { trangthai: 'pending' },
     { $set: { trangthai: 'choxuly' } }
@@ -21,16 +17,4 @@ async function main() {
 
   console.log('[migrate-order-item-status] updated pending -> choxuly:', pendingCount);
   console.log('[migrate-order-item-status] updated cancelled -> dahuy:', cancelledCount);
-
-  await mongoose.connection.close();
-}
-
-main().catch(async (err) => {
-  console.error(err);
-  try {
-    await mongoose.connection.close();
-  } catch {
-    // ignore
-  }
-  process.exitCode = 1;
 });

@@ -44,9 +44,9 @@ const doiHienThiSize = () => {
 };
 
 // ===== CONFIRM DELETE =====
-window.xacNhanXoa = (thongBao = 'Bạn có chắc muốn xóa sản phẩm này?') => {
+window.xacNhanXoa = window.xacNhanXoa || ((thongBao = 'Bạn có chắc muốn xóa sản phẩm này?') => {
     return confirm(thongBao);
-};
+});
 
 // ===== PREVIEW ẢNH =====
 const xemTruocAnh = (input) => {
@@ -219,7 +219,10 @@ const capNhatTongTon = () => {
     const soLuongTonEl = document.getElementById('soluongton');
     
     if (tongSoLuongEl) {
-        tongSoLuongEl.textContent = tong.toLocaleString('vi-VN');
+        const fmt = window.App && typeof window.App.formatNumberVI === 'function'
+            ? window.App.formatNumberVI
+            : (n) => Number(n || 0).toLocaleString('vi-VN');
+        tongSoLuongEl.textContent = fmt(tong);
     }
     if (soLuongTonEl) {
         soLuongTonEl.value = tong;
@@ -230,39 +233,11 @@ const capNhatTongTon = () => {
 document.addEventListener('DOMContentLoaded', () => {
     capNhatTongTon();
 
-    const isDeleteActionUrl = (rawUrl) => {
-        if (!rawUrl) return false;
-        try {
-            const u = new URL(rawUrl, window.location.href);
-            const p = u.pathname || '';
-            return /\/delete$/.test(p) || /\/hard-delete$/.test(p);
-        } catch {
-            return false;
-        }
-    };
-
-    // Tự động bắt sự kiện click vào nút xóa (hỗ trợ cả thẻ a và form)
-    document.body.addEventListener('click', (e) => {
-        // 1. Trường hợp thẻ <a> chứa link delete
-        const anyLink = e.target.closest('a[href]');
-        if (anyLink && isDeleteActionUrl(anyLink.getAttribute('href'))) {
-            // Nếu thẻ a đã có onclick gọi xacNhanXoa thì bỏ qua để tránh hiện popup 2 lần
-            if (anyLink.getAttribute('onclick') && anyLink.getAttribute('onclick').includes('xacNhanXoa')) {
-                return;
-            }
-
-            if (!window.xacNhanXoa()) {
-                e.preventDefault(); // Ngăn không cho chuyển trang nếu chọn Cancel
-            }
-            return;
-        }
-
-        // 2. Trường hợp button trong form delete
-        const deleteBtn = e.target.closest('button');
-        if (deleteBtn && deleteBtn.form && isDeleteActionUrl(deleteBtn.form.getAttribute('action') || deleteBtn.form.action)) {
-            if (!window.xacNhanXoa()) {
-                e.preventDefault();
-            }
-        }
-    });
+    // Shared auto-confirm for delete actions
+    if (window.App && typeof window.App.installAutoDeleteConfirm === 'function') {
+        window.App.installAutoDeleteConfirm({
+            root: document.body,
+            defaultMessage: 'Bạn có chắc muốn xóa sản phẩm này?'
+        });
+    }
 });

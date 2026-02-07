@@ -99,7 +99,13 @@ block main
                         .small.text-muted
                           | #{it.mausac || ''}#{it.kichco ? (' - ' + it.kichco) : ''} x#{it.soluong || 1}
                     - const __lineTotal = (it.thanhtien || ((it.giaban || 0) * (it.soluong || 1)) || 0)
-                    .fw-semibold #{__lineTotal.toLocaleString('vi-VN')}₫
+                    .text-end
+                      .fw-semibold #{__lineTotal.toLocaleString('vi-VN')}₫
+                      if order.trangthai === 'dagiao'
+                        if it.daDanhGia
+                          a.review-link.review-link--edit.mt-1(href=`/reviews/${it.reviewId}/edit#review-form`) Đã đánh giá • Sửa
+                        else
+                          a.review-link.review-link--new.mt-1(href=`/reviews/new?orderId=${order._id}&itemId=${it._id}&productId=${it.sanpham_id}#review-form`) Đánh giá
               else
                 p.text-muted.small Không có sản phẩm.
 

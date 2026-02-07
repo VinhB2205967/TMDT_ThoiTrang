@@ -1,5 +1,6 @@
 const donhang = require('../../models/order_model');
 const chitietdonhang = require('../../models/order_item_model');
+const danhgia = require('../../models/review_model');
 const sanpham = require('../../models/product_model');
 const { getOrCreateCart, normalizeImage } = require('../../services/cart.service');
 const { laLoaiKhongSize, tinhTongTon } = require('../../services/productStock.service');
@@ -162,7 +163,7 @@ module.exports.danhSach = async (req, res) => {
   if (danhsachdon && danhsachdon.length) {
     const danhsachiddon = danhsachdon.map(o => o._id);
     const danhsachchitiet = await chitietdonhang.find({ donhang_id: { $in: danhsachiddon } })
-      .select('donhang_id tensanpham hinhanh')
+      .select('donhang_id tensanpham hinhanh sanpham_id')
       .sort({ ngaytao: 1 })
       .lean();
 
@@ -186,7 +187,9 @@ module.exports.danhSach = async (req, res) => {
       don.preview = {
         name: thongtin.first && thongtin.first.tensanpham ? String(thongtin.first.tensanpham) : 'Sản phẩm',
         image: normalizeImage(thongtin.first && thongtin.first.hinhanh ? String(thongtin.first.hinhanh) : ''),
-        count: thongtin.count || 1
+        count: thongtin.count || 1,
+        itemId: thongtin.first ? String(thongtin.first._id) : null,
+        productId: thongtin.first && thongtin.first.sanpham_id ? String(thongtin.first.sanpham_id) : null
       };
     }
   }
@@ -230,9 +233,18 @@ module.exports.chiTiet = async (req, res) => {
   }
 
   const danhsachitem = await chitietdonhang.find({ donhang_id: donhangdoc._id }).lean();
+  const reviewed = await danhgia.find({
+    nguoidung_id: req.user._id,
+    donhang_id: donhangdoc._id,
+    daxoa: { $ne: true }
+  }).select('chitietdonhang_id').lean();
+  const reviewMap = new Map((reviewed || []).map(r => [String(r.chitietdonhang_id), r]));
+
   const danhsachdaxuly = (danhsachitem || []).map((it) => ({
     ...it,
-    hinhanh: normalizeImage(it.hinhanh)
+    hinhanh: normalizeImage(it.hinhanh),
+    daDanhGia: reviewMap.has(String(it._id)),
+    reviewId: reviewMap.get(String(it._id)) ? String(reviewMap.get(String(it._id))._id) : null
   }));
 
   return res.render('client/pages/orders/detail.pug', {

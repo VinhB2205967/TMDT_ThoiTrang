@@ -1,5 +1,6 @@
 const sanpham = require('../../models/product_model');
 const productHelper = require('../../helpers/product');
+const { buildProductStats, applyProductStats } = require('../../helpers/productStats');
 
 // Trang chủ
 module.exports.trangChu = async (req, res) => {
@@ -44,11 +45,19 @@ module.exports.trangChu = async (req, res) => {
         console.log('Home - Discount products:', sanphamgiamgia.length);
     }
 
+    const allIds = [
+        ...sanphammoi,
+        ...sanphamgiamgia,
+        ...sanphamflashsale,
+        ...sanphambanchay
+    ].map(p => p && p._id).filter(Boolean);
+    const { ratingMap, soldMap } = await buildProductStats(allIds);
+
     res.render("client/pages/home/index.pug", {
         titlePage: "Fashion Store - Thời trang chất lượng",
-        newProducts: sanphammoi.map(productHelper),
-        discountProducts: sanphamgiamgia.map(productHelper),
-        flashSaleProducts: sanphamflashsale.map(productHelper),
-        bestSellerProducts: sanphambanchay.map(productHelper)
+        newProducts: applyProductStats(sanphammoi.map(productHelper), ratingMap, soldMap),
+        discountProducts: applyProductStats(sanphamgiamgia.map(productHelper), ratingMap, soldMap),
+        flashSaleProducts: applyProductStats(sanphamflashsale.map(productHelper), ratingMap, soldMap),
+        bestSellerProducts: applyProductStats(sanphambanchay.map(productHelper), ratingMap, soldMap)
     });
 }

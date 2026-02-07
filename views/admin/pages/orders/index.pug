@@ -1,0 +1,155 @@
+extends ../../layouts/default.pug
+
+block main
+  .page-header-section.orders-header
+    .d-flex.justify-content-between.align-items-center.flex-wrap.gap-2
+      h1.page-title.mb-0
+        i.bi.bi-receipt.me-2
+        | Quản lý đơn hàng
+      .d-flex.align-items-center.gap-2.orders-actions
+        a.btn.btn-header.btn-header-outline(href=`${admin}/orders/export`)
+          i.bi.bi-file-earmark-spreadsheet.me-1
+          | Xuất Excel
+        button.btn.btn-header.btn-header-primary(type='button' disabled)
+          i.bi.bi-plus-lg.me-1
+          | Tạo đơn thủ công
+
+  .container-fluid.p-4
+    .card.border-0.shadow-sm.mb-3
+      .card-body
+        form#orderFilterForm.row.g-2(method='GET', action=`${admin}/orders`)
+          .col-12.col-lg-4
+            input.form-control(type='text' name='search' placeholder='Mã đơn / Tên khách / SĐT' value=(filters && filters.search) || '')
+          .col-6.col-lg-2
+            select.form-select(name='status')
+              option(value='all' selected=(!filters || !filters.status || filters.status === 'all')) Tất cả trạng thái
+              each st in (statusOptions || [])
+                option(value=st selected=(filters && filters.status === st)) #{(statusLabels && statusLabels[st]) || st}
+          .col-6.col-lg-2
+            select.form-select(name='paymentMethod')
+              option(value='' selected=(!filters || !filters.paymentMethod)) Tất cả thanh toán
+              option(value='cod' selected=(filters && filters.paymentMethod === 'cod')) COD
+              option(value='vnpay' selected=(filters && filters.paymentMethod === 'vnpay')) VNPAY
+              option(value='momo' selected=(filters && filters.paymentMethod === 'momo')) MOMO
+              option(value='zalopay' selected=(filters && filters.paymentMethod === 'zalopay')) ZALOPAY
+              option(value='banking' selected=(filters && filters.paymentMethod === 'banking')) BANKING
+          .col-6.col-lg-2
+            input.form-control(type='date' name='fromDate' value=(filters && filters.fromDate) || '')
+          .col-6.col-lg-2
+            input.form-control(type='date' name='toDate' value=(filters && filters.toDate) || '')
+          .col-6.col-lg-2
+            select.form-select(name='sort')
+              option(value='newest' selected=(!filters || !filters.sort || filters.sort === 'newest')) Mới nhất
+              option(value='oldest' selected=(filters && filters.sort === 'oldest')) Cũ nhất
+              option(value='total-desc' selected=(filters && filters.sort === 'total-desc')) Tổng tiền cao
+              option(value='total-asc' selected=(filters && filters.sort === 'total-asc')) Tổng tiền thấp
+          .col-6.col-lg-2
+            select.form-select(name='limit')
+              option(value='10' selected=(!filters || !filters.limit || filters.limit == 10)) 10 / trang
+              option(value='20' selected=(filters && filters.limit == 20)) 20 / trang
+              option(value='50' selected=(filters && filters.limit == 50)) 50 / trang
+          .col-12.col-lg-2.d-flex.gap-2
+            a.btn.btn-outline-secondary.flex-fill(href=`${admin}/orders`) Reset
+            button.btn.btn-primary.flex-fill(type='submit') Lọc
+
+    .card.border-0.shadow-sm
+      .card-body
+        if !orders || orders.length === 0
+          .text-muted Không có đơn hàng.
+        else
+          .table-responsive
+            table.table.align-middle
+              thead
+                tr
+                  th Mã đơn
+                  th Khách hàng
+                  th Tổng tiền
+                  th Thanh toán
+                  th Trạng thái
+                  th Ngày tạo
+                  th Hành động
+              tbody
+                each o in orders
+                  - const badge = (badgeClass && typeof badgeClass === 'function') ? badgeClass(o.trangthai) : 'bg-secondary'
+                  - const label = (statusLabels && statusLabels[o.trangthai]) || o.trangthai || '—'
+                  tr
+                    td
+                      a.fw-semibold(href=`${admin}/orders/${o._id}`) #{o.madonhang || o._id}
+                    td
+                      .fw-semibold #{o.tennguoinhan || '—'}
+                      .text-muted.small #{o.sodienthoai || ''}
+                    td.text-end #{(o.tongtien || o.tamtinh || 0).toLocaleString('vi-VN')}₫
+                    td
+                      span.badge.bg-light.text-dark.text-uppercase #{(o.phuongthucthanhtoan || 'cod')}
+                    td
+                      span.badge(class=badge) #{label}
+                    td #{o.ngaytao ? new Date(o.ngaytao).toLocaleString('vi-VN') : ''}
+                    td.text-nowrap
+                      a.btn.btn-sm.btn-outline-primary.me-1(href=`${admin}/orders/${o._id}`)
+                        i.bi.bi-eye
+                        |  Xem
+                      if o.trangthai === 'choxacnhan'
+                        form.d-inline(method='POST', action=`${admin}/orders/${o._id}/status`)
+                          input(type='hidden' name='status' value='daxacnhan')
+                          button.btn.btn-sm.btn-success.me-1(type='submit' onclick="return confirm('Xác nhận đơn hàng này?')")
+                            i.bi.bi-check2-circle
+                            |  Xác nhận
+                      if o.allowedNext && o.allowedNext.length
+                        .btn-group
+                          button.btn.btn-sm.btn-outline-secondary.dropdown-toggle(type='button' data-bs-toggle='dropdown' aria-expanded='false') Cập nhật
+                          ul.dropdown-menu
+                            each st in o.allowedNext
+                              li
+                                form(method='POST', action=`${admin}/orders/${o._id}/status`)
+                                  input(type='hidden' name='status' value=st)
+                                  button.dropdown-item(type='submit' onclick="return confirm('Xác nhận cập nhật trạng thái?')") #{(statusLabels && statusLabels[st]) || st}
+                      else
+                        span.text-muted.small —
+
+        if pagination && pagination.totalPages > 1
+          nav.mt-4(aria-label='Phân trang đơn hàng')
+            ul.pagination.justify-content-center
+              li.page-item(class=pagination.currentPage === 1 ? 'disabled' : '')
+                a.page-link(href=`${admin}/orders?page=${pagination.currentPage - 1}${filterString || ''}` aria-label='Trang trước')
+                  span(aria-hidden='true') «
+
+              - const startPage = Math.max(1, pagination.currentPage - 2)
+              - const endPage = Math.min(pagination.totalPages, pagination.currentPage + 2)
+
+              if startPage > 1
+                li.page-item
+                  a.page-link(href=`${admin}/orders?page=1${filterString || ''}`) 1
+                if startPage > 2
+                  li.page-item.disabled
+                    span.page-link ...
+
+              - for (let i = startPage; i <= endPage; i++)
+                li.page-item(class=i === pagination.currentPage ? 'active' : '')
+                  a.page-link(href=`${admin}/orders?page=${i}${filterString || ''}`) #{i}
+
+              if endPage < pagination.totalPages
+                if endPage < pagination.totalPages - 1
+                  li.page-item.disabled
+                    span.page-link ...
+                li.page-item
+                  a.page-link(href=`${admin}/orders?page=${pagination.totalPages}${filterString || ''}`) #{pagination.totalPages}
+
+              li.page-item(class=pagination.currentPage === pagination.totalPages ? 'disabled' : '')
+                a.page-link(href=`${admin}/orders?page=${pagination.currentPage + 1}${filterString || ''}` aria-label='Trang sau')
+                  span(aria-hidden='true') »
+
+          .text-center.text-muted.mt-2
+            small Hiển thị #{orders.length} trên #{pagination.totalProducts} đơn hàng
+
+block scripts
+  script.
+    (function () {
+      if (window.FilterAutoSubmit && typeof window.FilterAutoSubmit.attachOnReady === 'function') {
+        window.FilterAutoSubmit.attachOnReady('#orderFilterForm', {
+          keywordSelector: 'input[name="search"]',
+          keywordSubmitOnEnter: true,
+          keywordDebounceMs: 600,
+          inputSelectors: ['input[type="date"]']
+        });
+      }
+    })();

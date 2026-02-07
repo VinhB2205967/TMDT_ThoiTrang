@@ -4,6 +4,7 @@ const danhgia = require("../../models/review_model");
 const searchHelper = require('../../helpers/search');
 const productHelper = require('../../helpers/product');
 const productViewHelper = require('../../helpers/productView');
+const { buildProductStats, applyProductStats } = require('../../helpers/productStats');
 
 function chuanHoaSanPhamDanhSach(item) {
     const p = productHelper(item);
@@ -96,10 +97,13 @@ module.exports.danhSach = async (req, res) => {
         
         const danhsachsanpham = await sanpham.find(boloc).sort(sapxep).lean();
         const capnhatsp = (danhsachsanpham || []).map(chuanHoaSanPhamDanhSach);
+        const ids = (danhsachsanpham || []).map(p => p && p._id).filter(Boolean);
+        const { ratingMap, soldMap } = await buildProductStats(ids);
+        const capnhatspDayDu = applyProductStats(capnhatsp, ratingMap, soldMap);
 
         res.render("client/pages/products/index.pug", {
             titlePage: "Danh sách sản phẩm",
-            products: capnhatsp,
+            products: capnhatspDayDu,
             keyword: doituongtimkiem.keyword,
             currentSort: req.query.sort,
             currentLoai: req.query.loaisanpham,
@@ -180,12 +184,37 @@ module.exports.chiTiet = async (req, res) => {
         // Gán lại biến thể đã được xử lý
         capnhatsp.bienthe = tatcabienthe;
 
-        // Lấy đánh giá hiển thị
-        const danhsachdanhgia = await danhgia.find({ sanpham_id: idsanpham, trangthai: 'approved', hienthi: true, daxoa: { $ne: true } }).lean();
+        // Lấy đánh giá hiển thị + filter/sort
+        const reviewBase = { sanpham_id: idsanpham, trangthai: 'approved', hienthi: true, daxoa: { $ne: true } };
+        const allReviews = await danhgia.find(reviewBase).lean();
+
         let diemtrungbinh = 0;
-        if (danhsachdanhgia && danhsachdanhgia.length) {
-            diemtrungbinh = Math.round((danhsachdanhgia.reduce((s, r) => s + (r.diem || 0), 0) / danhsachdanhgia.length) * 10) / 10;
+        const thongkeSao = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+        if (allReviews && allReviews.length) {
+            const sum = allReviews.reduce((s, r) => {
+                const d = Number(r.diem || 0);
+                if (thongkeSao[d] != null) thongkeSao[d] += 1;
+                return s + d;
+            }, 0);
+            diemtrungbinh = Math.round((sum / allReviews.length) * 10) / 10;
         }
+
+        const ratingFilter = Number(req.query.rating || 0);
+        const hasImage = String(req.query.hasImage || '') === '1';
+        const sort = String(req.query.sort || 'newest');
+
+        let filtered = allReviews || [];
+        if (ratingFilter >= 1 && ratingFilter <= 5) {
+            filtered = filtered.filter(r => Number(r.diem || 0) === ratingFilter);
+        }
+        if (hasImage) {
+            filtered = filtered.filter(r => Array.isArray(r.hinhanh) && r.hinhanh.length);
+        }
+
+        if (sort === 'highest') filtered = filtered.sort((a, b) => (b.diem || 0) - (a.diem || 0));
+        else if (sort === 'lowest') filtered = filtered.sort((a, b) => (a.diem || 0) - (b.diem || 0));
+        else if (sort === 'helpful') filtered = filtered.sort((a, b) => (b.thich || 0) - (a.thich || 0));
+        else filtered = filtered.sort((a, b) => new Date(b.ngaytao || 0) - new Date(a.ngaytao || 0));
 
         // Sản phẩm tương tự (cùng loại)
         const sanphamlienquan = await sanpham.find({ loaisanpham: sanphamdoc.loaisanpham, _id: { $ne: sanphamdoc._id }, daxoa: { $ne: true }, trangthai: 'dangban' }).limit(6).lean();
@@ -198,8 +227,17 @@ module.exports.chiTiet = async (req, res) => {
         res.render('client/pages/products/detail.pug', {
             titlePage: capnhatsp.tensanpham || 'Chi tiết sản phẩm',
             product: capnhatsp,
-            reviews: danhsachdanhgia || [],
+            reviews: filtered || [],
             avgRating: diemtrungbinh,
+            reviewStats: {
+                total: (allReviews || []).length,
+                byStar: thongkeSao
+            },
+            reviewFilters: {
+                rating: ratingFilter || '',
+                hasImage: hasImage ? '1' : '',
+                sort
+            },
             related: sanphamlienquanxuly
         });
     } catch (error) {

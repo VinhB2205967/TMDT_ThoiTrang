@@ -39,12 +39,15 @@ block main
                                             span.sale-price #{product.giamoiText}
                                         .product-rating
                                             .stars
-                                                i.fas.fa-star
-                                                i.fas.fa-star
-                                                i.fas.fa-star
-                                                i.fas.fa-star
-                                                i.fas.fa-star-half-alt
-                                            span.review-count (đã bán)
+                                                - const avg = product.avgRating || 0
+                                                - for (let i = 1; i <= 5; i++)
+                                                    if avg >= i
+                                                        i.fas.fa-star
+                                                    else if avg >= (i - 0.5)
+                                                        i.fas.fa-star-half-alt
+                                                    else
+                                                        i.far.fa-star
+                                            span.review-count #{avg ? (avg.toFixed(1) + ' • ') : ''}#{product.reviewCount || 0} đánh giá • đã bán #{product.soldCount || 0}
 
                                 .product-actions
                                     a.btn-buy-now(href=`/products/${product._id}`)

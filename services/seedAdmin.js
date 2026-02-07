@@ -6,6 +6,18 @@ function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
 
+function isSeedAdminVerbose() {
+  return String(process.env.SEED_ADMIN_VERBOSE || '').trim() === '1';
+}
+
+function canLogSeedAdmin() {
+  return process.env.NODE_ENV !== 'production' && isSeedAdminVerbose();
+}
+
+function canLogSeedAdminCredentials() {
+  return canLogSeedAdmin() && String(process.env.SEED_ADMIN_LOG_CREDENTIALS || '').trim() === '1';
+}
+
 async function ensureAdminUser() {
   const email = normalizeEmail(process.env.ADMIN_EMAIL || 'admin@fashion.local');
   const password = String(process.env.ADMIN_PASSWORD || 'Admin@123');
@@ -32,10 +44,8 @@ async function ensureAdminUser() {
 
     void created;
 
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[seedAdmin] Created admin user: ${email}`);
-      console.log(`[seedAdmin] Admin password: ${password}`);
-    }
+    if (canLogSeedAdmin()) console.log('[seedAdmin] Created admin user');
+    if (canLogSeedAdminCredentials()) console.log(`[seedAdmin] Admin password: ${password}`);
     return;
   }
 
@@ -50,9 +60,8 @@ async function ensureAdminUser() {
   }
   await Nguoidung.updateOne({ _id: user._id }, { $set: { ngaycapnhat: new Date() } }).catch(() => {});
 
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`[seedAdmin] Ensured admin role for: ${email}`);
-  }
+  // Intentionally avoid logging emails by default.
+  if (canLogSeedAdmin()) console.log('[seedAdmin] Ensured admin role');
 }
 
 function seedAdminOnConnect() {

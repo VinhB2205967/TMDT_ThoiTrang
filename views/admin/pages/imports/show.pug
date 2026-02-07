@@ -33,7 +33,9 @@ block main
           .col-12
             .fw-semibold Tổng tiền nhập
             - const __ct = receipt.chitiet || receipt.chi_tiet || receipt.items || []
-            - const __tong = (receipt.tongtiennhap != null) ? receipt.tongtiennhap : (__ct.reduce((s,it)=>s+((it&&(it.soluong||it.so_luong||0))*(((it.gianhap!=null?it.gianhap:(it.gia_nhap!=null?it.gia_nhap:it.import_price)) )||0)),0),0))
+            - function __toNum(v) { const n = Number(v); return Number.isFinite(n) ? n : 0; }
+            - function __calcTong(items) { return (items || []).reduce(function (sum, it) { const qty = __toNum(it && (it.soluong || it.so_luong || it.quantity || 0)); const price = __toNum(it && (it.gianhap != null ? it.gianhap : (it.gia_nhap != null ? it.gia_nhap : (it.import_price || 0)))); return sum + (qty * price); }, 0); }
+            - const __tong = (receipt.tongtiennhap != null) ? receipt.tongtiennhap : __calcTong(__ct)
             div #{(__tong || 0).toLocaleString('vi-VN')}đ
 
     .card

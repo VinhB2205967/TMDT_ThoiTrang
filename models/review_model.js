@@ -29,6 +29,7 @@ const reviewSchema = new mongoose.Schema({
   tieude: String,                   // Tiêu đề đánh giá
   noidung: String,                  // Nội dung đánh giá chi tiết
   hinhanh: [String],                // Danh sách ảnh đánh giá
+  tags: [String],                   // Tag nhanh
   
   // Thông tin sản phẩm đã mua
   mausac: String,
@@ -54,6 +55,25 @@ const reviewSchema = new mongoose.Schema({
   hienthi: {                        // Hiển thị công khai
     type: Boolean,
     default: true
+  },
+  lydoan: String,                   // Lý do ẩn (admin)
+  anboi: {                          // Admin ẩn
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Nguoidung"
+  },
+  ngayan: Date,
+  xoaBoi: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Nguoidung"
+  },
+  ngayxoa: Date,
+  biBaoCao: {
+    type: Boolean,
+    default: false
+  },
+  soBaoCao: {
+    type: Number,
+    default: 0
   },
   daxoa: {
     type: Boolean,

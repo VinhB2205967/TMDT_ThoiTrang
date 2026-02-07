@@ -84,9 +84,8 @@
       if (!price) return;
       let qtySum = 0;
       tr.querySelectorAll('.js-qty').forEach((inp) => {
-        const desired = toNumber(inp.value, 0);
-        const cur = toNumber(inp.dataset.stock, 0);
-        qtySum += Math.max(0, desired - cur);
+        const qty = toNumber(inp.value, 0);
+        qtySum += Math.max(0, qty);
       });
       total += qtySum * price;
     });
@@ -99,9 +98,8 @@
     blockEl.querySelectorAll('tr.js-accessory-variant-row').forEach((tr) => {
       const price = toNumber(tr.querySelector('.js-import')?.value, 0);
       const qtyEl = tr.querySelector('.js-qty-one');
-      const desired = toNumber(qtyEl?.value, 0);
-      const cur = toNumber(qtyEl?.dataset.stock, 0);
-      total += Math.max(0, desired - cur) * price;
+      const qty = toNumber(qtyEl?.value, 0);
+      total += Math.max(0, qty) * price;
     });
     return total;
   }
@@ -137,16 +135,6 @@
     container.addEventListener('input', (e) => {
       const el = e.target;
       if (!(el instanceof HTMLElement)) return;
-      // Enforce: desired stock cannot be less than current stock.
-      if (el.classList.contains('js-qty') || el.classList.contains('js-qty-one')) {
-        const cur = toNumber(el.dataset.stock, NaN);
-        if (!Number.isNaN(cur)) {
-          const desired = toNumber(el.value, cur);
-          if (desired < cur) el.value = String(cur);
-          if (!el.min || toNumber(el.min, 0) !== cur) el.min = String(cur);
-        }
-      }
-
       if (el.classList.contains('js-qty') || el.classList.contains('js-qty-one') || el.classList.contains('js-import')) {
         calcTotalImportMoney();
       }
@@ -267,20 +255,6 @@
         }
       }
 
-      const ton = stockNoSize(product, v.id);
-      const qtyEl = tr.querySelector('.js-qty-one');
-      if (qtyEl) {
-        qtyEl.dataset.stock = String(ton);
-        qtyEl.min = String(ton);
-        const currentVal = toNumber(qtyEl.value, 0);
-        if (!String(qtyEl.value || '').trim() || currentVal < ton) {
-          qtyEl.value = String(ton);
-        }
-      }
-
-      const stockEl = tr.querySelector('.js-stock-one');
-      if (stockEl) stockEl.textContent = `Tồn: ${ton}`;
-
       // Show current stock per size (from product / variant)
       const stockMap = stockBySize(product, v.id);
       tr.querySelectorAll('.js-stock').forEach((el) => {
@@ -289,17 +263,10 @@
         el.textContent = `Tồn: ${ton}`;
       });
 
-      // Qty input represents desired stock AFTER importing.
+      // Qty input represents IMPORT quantity.
       tr.querySelectorAll('.js-qty').forEach((inp) => {
-        const size = String(inp.getAttribute('data-size') || '').trim();
-        const ton = Number(stockMap.get(size) || 0);
-        inp.dataset.stock = String(ton);
-        inp.min = String(ton);
-
-        const currentVal = toNumber(inp.value, 0);
-        if (!String(inp.value || '').trim() || currentVal < ton) {
-          inp.value = String(ton);
-        }
+        inp.min = '0';
+        if (!String(inp.value || '').trim()) inp.value = '0';
       });
 
       // Default suggested price from product / variant price (still editable)
@@ -371,6 +338,18 @@
           imgEl.removeAttribute('src');
           imgEl.style.display = 'none';
         }
+      }
+
+      // Show current stock (no size)
+      const tonNoSize = stockNoSize(product, v.id);
+      const stockElNoSize = tr.querySelector('.js-stock-one');
+      if (stockElNoSize) stockElNoSize.textContent = `Tồn: ${tonNoSize}`;
+
+      // Qty input represents IMPORT quantity.
+      const qtyElOne = tr.querySelector('.js-qty-one');
+      if (qtyElOne) {
+        qtyElOne.min = '0';
+        if (!String(qtyElOne.value || '').trim()) qtyElOne.value = '0';
       }
 
       const suggestedEl = tr.querySelector('.js-suggested');
@@ -770,9 +749,7 @@
           const qtyInputs = Array.from(row.querySelectorAll('.js-qty'));
           qtyInputs.forEach((qEl) => {
             const size = qEl.getAttribute('data-size') || '';
-            const desired = Number(qEl.value || 0);
-            const cur = Number(qEl.dataset.stock || 0);
-            const qty = desired - cur;
+            const qty = Number(qEl.value || 0);
             if (!qty || qty <= 0) return;
 
             const img = pickImageFor(product, variantId);
@@ -815,9 +792,7 @@
           const importPrice = row.querySelector('.js-import')?.value || '';
           const suggested = row.querySelector('.js-suggested')?.value || '';
           const qtyEl = row.querySelector('.js-qty-one');
-          const desired = Number(qtyEl?.value || 0);
-          const cur = Number(qtyEl?.dataset.stock || 0);
-          const qty = desired - cur;
+          const qty = Number(qtyEl?.value || 0);
           if (!qty || qty <= 0) return;
 
           const img = pickImageFor(product, variantId);

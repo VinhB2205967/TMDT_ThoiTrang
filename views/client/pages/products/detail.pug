@@ -249,9 +249,49 @@ block main
                 .section-block
                     .section-header
                         i.bi.bi-star
-                        h3 Đánh giá sản phẩm 
-                        span.review-badge #{reviews.length}
+                        h3 Đánh giá sản phẩm
+                        span.review-badge #{(reviewStats && reviewStats.total) || 0}
                     .section-content
+                        - const totalReviews = (reviewStats && reviewStats.total) || 0
+                        - const byStar = (reviewStats && reviewStats.byStar) ? reviewStats.byStar : {1:0,2:0,3:0,4:0,5:0}
+                        .row.g-3.mb-3
+                            .col-lg-4
+                                .card.border-0.shadow-sm
+                                    .card-body
+                                        .fw-semibold.mb-1 Điểm trung bình
+                                        .fs-3.fw-bold #{avgRating || 0}/5
+                                        .text-muted.small Tổng #{totalReviews} đánh giá
+                            .col-lg-8
+                                .card.border-0.shadow-sm
+                                    .card-body
+                                        - const maxCount = Math.max(byStar[1], byStar[2], byStar[3], byStar[4], byStar[5], 1)
+                                        each s in [5,4,3,2,1]
+                                            .d-flex.align-items-center.gap-2.mb-1
+                                                span.small #{s}⭐
+                                                .progress.flex-grow-1(style='height:8px;')
+                                                    .progress-bar(style=`width:${Math.round((byStar[s] || 0) * 100 / maxCount)}%`)
+                                                span.small.text-muted #{byStar[s] || 0}
+
+                        form#reviewFilterForm.row.g-2.mb-3(method='GET' action=`/products/${product._id}`)
+                            .col-6.col-lg-2
+                                select.form-select(name='rating')
+                                    option(value='' selected=(!reviewFilters || !reviewFilters.rating)) Tất cả sao
+                                    each i in [5,4,3,2,1]
+                                        option(value=i selected=(reviewFilters && String(reviewFilters.rating) === String(i))) #{i} sao
+                            .col-6.col-lg-3
+                                select.form-select(name='sort')
+                                    option(value='newest' selected=(!reviewFilters || !reviewFilters.sort || reviewFilters.sort === 'newest')) Mới nhất
+                                    option(value='highest' selected=(reviewFilters && reviewFilters.sort === 'highest')) Sao cao nhất
+                                    option(value='lowest' selected=(reviewFilters && reviewFilters.sort === 'lowest')) Sao thấp nhất
+                                    option(value='helpful' selected=(reviewFilters && reviewFilters.sort === 'helpful')) Hữu ích nhất
+                            .col-6.col-lg-3
+                                select.form-select(name='hasImage')
+                                    option(value='' selected=(!reviewFilters || !reviewFilters.hasImage)) Có ảnh?
+                                    option(value='1' selected=(reviewFilters && reviewFilters.hasImage === '1')) Có ảnh
+                            .col-6.col-lg-2.d-flex.gap-2
+                                button.btn.btn-primary.flex-fill(type='submit') Lọc
+                                a.btn.btn-outline-secondary.flex-fill(href=`/products/${product._id}`) Reset
+
                         if reviews && reviews.length
                             .reviews-list
                                 each r in reviews
@@ -267,6 +307,14 @@ block main
                                         .review-title= r.tieude || 'Đánh giá sản phẩm'
                                         if r.noidung
                                             .review-content= r.noidung
+                                        if r.tags && r.tags.length
+                                            .review-meta
+                                                each t in r.tags
+                                                    span.meta-tag #{t}
+                                        if r.hinhanh && r.hinhanh.length
+                                            .d-flex.flex-wrap.gap-2.mt-2
+                                                each img in r.hinhanh
+                                                    img.rounded.border(src=img alt='review' width='72' height='72' style='object-fit:cover;')
                                         if r.mausac || r.kichco
                                             .review-meta
                                                 if r.mausac

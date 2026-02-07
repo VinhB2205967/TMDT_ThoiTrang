@@ -1,0 +1,54 @@
+extends ../../layouts/default.pug
+
+block main
+  .container.py-4
+    if !item || !order
+      h1.mb-3 Không thể đánh giá
+      p.text-muted Đơn hàng hoặc sản phẩm không hợp lệ.
+      a.btn.btn-outline-secondary(href='/orders') Quay lại đơn hàng
+    else
+      - const isEdit = !!review
+      h1.mb-2 #{isEdit ? 'Sửa đánh giá' : 'Đánh giá sản phẩm'}
+      p.text-muted.small Đơn #{order.madonhang || order._id} • #{item.tensanpham || 'Sản phẩm'}
+
+      if !canEdit
+        .alert.alert-warning Bạn đã quá hạn sửa đánh giá (#{editWindowDays} ngày).
+      else
+        form(method='POST' action=(isEdit ? `/reviews/${review._id}/update` : '/reviews') enctype='multipart/form-data')
+          input(type='hidden' name='orderId' value=order._id)
+          input(type='hidden' name='itemId' value=item._id)
+          input(type='hidden' name='productId' value=productId)
+
+          .card.border-0.shadow-sm.review-form#review-form
+            .card-body
+              .mb-3
+                label.form-label.fw-semibold Số sao
+                .d-flex.gap-2.flex-wrap.rating-options
+                  each i in [1,2,3,4,5]
+                    - const rateId = `rate-${i}`
+                    input.btn-check(type='radio' id=rateId name='diem' value=i required checked=(review && review.diem === i))
+                    label.btn.btn-outline-warning(for=rateId) #{i} ⭐
+
+              .mb-3
+                label.form-label.fw-semibold Nội dung đánh giá
+                textarea.form-control(name='noidung' rows='4' minlength='10' required placeholder='Hãy chia sẻ trải nghiệm của bạn') #{review ? review.noidung : ''}
+
+              .mb-3
+                label.form-label.fw-semibold Tag nhanh (tuỳ chọn)
+                .d-flex.flex-wrap.gap-2.tag-options
+                  each t, idx in (tags || [])
+                    - const tagId = `tag-${idx}`
+                    input.btn-check(type='checkbox' id=tagId name='tags' value=t checked=(review && review.tags && review.tags.includes(t)))
+                    label.btn.btn-outline-secondary.btn-sm(for=tagId) #{t}
+
+              .mb-3
+                label.form-label.fw-semibold Ảnh đánh giá (tối đa 5 ảnh)
+                input.form-control(type='file' name='hinhanh' accept='image/*' multiple)
+                if review && review.hinhanh && review.hinhanh.length
+                  .d-flex.flex-wrap.gap-2.mt-2
+                    each img in review.hinhanh
+                      img.rounded.border(src=img alt='review' width='64' height='64' style='object-fit:cover;')
+
+              .d-flex.gap-2
+                button.btn.btn-primary(type='submit') #{isEdit ? 'Cập nhật đánh giá' : 'Gửi đánh giá'}
+                a.btn.btn-outline-secondary(href=`/orders/${order._id}`) Hủy

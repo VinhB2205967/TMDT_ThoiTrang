@@ -23,6 +23,8 @@ block main
               th Tạo lúc
               th
             tbody
+              - function __toNum(v) { const n = Number(v); return Number.isFinite(n) ? n : 0; }
+              - function __calcTong(items) { return (items || []).reduce(function (sum, it) { const qty = __toNum(it && (it.soluong || it.so_luong || it.quantity || 0)); const price = __toNum(it && (it.gianhap != null ? it.gianhap : (it.gia_nhap != null ? it.gia_nhap : (it.import_price || 0)))); return sum + (qty * price); }, 0); }
               each r in receipts
                 tr
                   td
@@ -31,7 +33,7 @@ block main
                   td #{r.nhacungcap || r.nha_cung_cap || r.supplier || ''}
                   - const _ct = r.chitiet || r.chi_tiet || r.items
                   td #{(_ct && _ct.length) ? _ct.length : 0}
-                  - const _tong = (r.tongtiennhap != null) ? r.tongtiennhap : ((_ct || []).reduce((s,it)=>s+((it&&(it.soluong||it.so_luong||0))*(((it.gianhap!=null?it.gianhap:(it.gia_nhap!=null?it.gia_nhap:it.import_price)) )||0)),0),0))
+                  - const _tong = (r.tongtiennhap != null) ? r.tongtiennhap : __calcTong(_ct)
                   td #{(_tong || 0).toLocaleString('vi-VN')}đ
                   td #{((r.ngaytao || r.ngay_tao || r.created_at) ? new Date(r.ngaytao || r.ngay_tao || r.created_at).toLocaleString('vi-VN') : '')}
                   td.text-nowrap

@@ -1,6 +1,7 @@
 const sanpham = require("../../models/product_model");
 const productHelper = require("../../helpers/product");
 const yeuthich = require("../../models/favorite_model");
+const { buildProductStats, applyProductStats } = require('../../helpers/productStats');
 const { muonJSON } = require('../../helpers/http');
 
 // Danh sách
@@ -20,7 +21,12 @@ module.exports.danhSach = async (req, res) => {
       trangthai: 'dangban'
     }).lean();
 
-    const maptheoid = new Map((danhsachtimthay || []).map(p => [String(p._id), productHelper(p)]));
+    const ids = (danhsachtimthay || []).map(p => p && p._id).filter(Boolean);
+    const { ratingMap, soldMap } = await buildProductStats(ids);
+    const maptheoid = new Map((danhsachtimthay || []).map(p => [
+      String(p._id),
+      applyProductStats([productHelper(p)], ratingMap, soldMap)[0]
+    ]));
     danhsachsanpham = danhsachidyeuthich.map(id => maptheoid.get(id)).filter(Boolean);
   }
 

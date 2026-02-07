@@ -1,0 +1,151 @@
+extends ../../layouts/default.pug
+
+block main
+  .container-fluid.p-4
+    if !order
+      h1.mb-3 Không tìm thấy đơn hàng
+      a.btn.btn-outline-secondary(href=`${admin}/orders`) Quay lại danh sách
+    else
+      - const label = (statusLabels && statusLabels[order.trangthai]) || order.trangthai || '—'
+      - const badge = (badgeClass && typeof badgeClass === 'function') ? badgeClass(order.trangthai) : 'bg-secondary'
+      - const flowList = (locals.flow && locals.flow.length) ? locals.flow : ['choxacnhan','daxacnhan','dangchuanbi','danggiao','dagiao']
+      - const currentIndex = flowList.indexOf(order.trangthai)
+
+      .d-flex.flex-wrap.justify-content-between.align-items-center.gap-2.mb-3
+        div
+          h1.mb-1 Chi tiết đơn hàng
+          .text-muted.small #{order.madonhang || order._id}
+        .d-flex.align-items-center.gap-2
+          span.badge(class=badge) #{label}
+          a.btn.btn-sm.btn-outline-secondary(href=`${admin}/orders`) Quay lại
+
+      .row.g-3
+        .col-lg-7
+          .card.border-0.shadow-sm
+            .card-body
+              .fw-semibold.mb-2 Thông tin khách hàng
+              .row.g-2
+                .col-md-6
+                  .text-muted.small Người nhận
+                  .fw-semibold #{order.tennguoinhan || '—'}
+                .col-md-6
+                  .text-muted.small Số điện thoại
+                  .fw-semibold #{order.sodienthoai || '—'}
+                .col-md-6
+                  .text-muted.small Email
+                  .fw-semibold #{order.email || '—'}
+                .col-12
+                  .text-muted.small Địa chỉ giao hàng
+                  .fw-semibold #{order.diachigiao || '—'}
+              if order.ghichu
+                .mt-2
+                  .text-muted.small Ghi chú
+                  .fw-semibold #{order.ghichu}
+
+              hr
+              .fw-semibold.mb-2 Thanh toán
+              .d-flex.justify-content-between
+                span.text-muted Phương thức
+                span.fw-semibold #{order.phuongthucthanhtoan || '—'}
+              if order.ngaytao
+                .d-flex.justify-content-between
+                  span.text-muted Ngày tạo
+                  span.fw-semibold #{new Date(order.ngaytao).toLocaleString('vi-VN')}
+              if order.ngaycapnhat
+                .d-flex.justify-content-between
+                  span.text-muted Cập nhật
+                  span.fw-semibold #{new Date(order.ngaycapnhat).toLocaleString('vi-VN')}
+
+        .col-lg-5
+          .card.border-0.shadow-sm.mb-3
+            .card-body
+              .fw-semibold.mb-2 Trạng thái & thao tác
+              if order.trangthai === 'choxacnhan'
+                form.mb-2(method='POST', action=`${admin}/orders/${order._id}/status`)
+                  input(type='hidden' name='status' value='daxacnhan')
+                  button.btn.btn-success(type='submit' onclick="return confirm('Xác nhận đơn hàng này?')")
+                    i.bi.bi-check2-circle.me-1
+                    | Xác nhận đơn
+              if allowedNext && allowedNext.length
+                form(method='POST', action=`${admin}/orders/${order._id}/status`)
+                  select.form-select.mb-2(name='status' required)
+                    option(value='' selected) -- Chọn trạng thái --
+                    each st in allowedNext
+                      option(value=st) #{(statusLabels && statusLabels[st]) || st}
+                  button.btn.btn-primary(type='submit' onclick="return confirm('Xác nhận cập nhật trạng thái?')") Cập nhật trạng thái
+              else
+                .text-muted.small Không có thao tác trạng thái tiếp theo.
+
+              if ['choxacnhan', 'daxacnhan'].includes(order.trangthai) && !order.dathanhtoan
+                hr
+                form(method='POST', action=`${admin}/orders/${order._id}/cancel` onsubmit="return confirm('Bạn chắc chắn muốn hủy đơn này?')")
+                  label.form-label.small Lý do hủy
+                  textarea.form-control.mb-2(name='reason' rows='2' placeholder='Nhập lý do hủy' required)
+                  button.btn.btn-outline-danger(type='submit') Hủy đơn
+
+              hr
+              .fw-semibold.mb-2 Timeline trạng thái
+              ul.list-group.list-group-flush
+                each st, idx in flowList
+                  - const isDone = currentIndex >= 0 && idx <= currentIndex
+                  li.list-group-item.d-flex.justify-content-between.align-items-center
+                    span #{(statusLabels && statusLabels[st]) || st}
+                    if isDone
+                      span.badge.bg-success Hoàn tất
+                    else
+                      span.badge.bg-light.text-dark Chưa tới
+                if order.trangthai === 'dahuy'
+                  li.list-group-item.d-flex.justify-content-between.align-items-center
+                    span #{(statusLabels && statusLabels.dahuy) || 'Đã hủy'}
+                    span.badge.bg-danger Đã hủy
+                  if order.lydohuy
+                    li.list-group-item.text-muted.small Lý do: #{order.lydohuy}
+
+          .card.border-0.shadow-sm
+            .card-body
+              .fw-semibold.mb-2 Tính tiền
+              .d-flex.justify-content-between
+                span.text-muted Tổng tiền hàng
+                span.fw-semibold #{(order.tamtinh || 0).toLocaleString('vi-VN')}₫
+              .d-flex.justify-content-between
+                span.text-muted Phí ship
+                span.fw-semibold #{(order.phivanchuyen || 0).toLocaleString('vi-VN')}₫
+              .d-flex.justify-content-between
+                span.text-muted Giảm giá
+                span.fw-semibold #{(order.giamgia || 0).toLocaleString('vi-VN')}₫
+              hr
+              .d-flex.justify-content-between.fw-semibold
+                span Tổng thanh toán
+                span #{(order.tongtien || order.tamtinh || 0).toLocaleString('vi-VN')}₫
+
+      .card.border-0.shadow-sm.mt-3
+        .card-body
+          .fw-semibold.mb-2 Sản phẩm
+          if items && items.length
+            .table-responsive
+              table.table.align-middle
+                thead
+                  tr
+                    th Ảnh
+                    th Tên sản phẩm
+                    th SKU
+                    th Size / Màu
+                    th SL
+                    th Giá gốc
+                    th Giá giảm
+                    th Thành tiền
+                tbody
+                  each it in items
+                    - const _line = (it.thanhtien || ((it.giaban || it.giagoc || 0) * (it.soluong || 1)) || 0)
+                    tr
+                      td
+                        img.rounded.border(src=(it.hinhanh || '/images/shopping.png') alt=(it.tensanpham || 'Sản phẩm') width='56' height='56' style='object-fit:cover;')
+                      td #{it.tensanpham || '—'}
+                      td #{it.masku || it.ma_sku || '—'}
+                      td #{(it.kichco || '') + (it.mausac ? ' / ' + it.mausac : '')}
+                      td #{it.soluong || 1}
+                      td #{(it.giagoc || 0).toLocaleString('vi-VN')}₫
+                      td #{(it.giaban || 0).toLocaleString('vi-VN')}₫
+                      td #{_line.toLocaleString('vi-VN')}₫
+          else
+            .text-muted Không có sản phẩm.

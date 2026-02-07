@@ -1,7 +1,5 @@
-require('dotenv').config();
-const mongoose = require('mongoose');
-const database = require('../config/database');
-
+const { runDbScript } = require('./_lib/run-with-db');
+// hàm chuẩn hóa biến thể id (nếu là 'main' hoặc rỗng thì trả về null) để đồng bộ với hệ thống mới 
 function normalizeBienTheId(raw) {
   const v = String(raw || '').trim();
   if (!v || v === 'main') return null;
@@ -23,9 +21,7 @@ function tinhTongTienNhap(items) {
   }, 0);
 }
 
-async function main() {
-  await database.connect();
-
+runDbScript(async ({ mongoose }) => {
   const col = mongoose.connection.collection('import_receipts');
 
   const query = {
@@ -225,7 +221,7 @@ async function main() {
       }
     }
 
-    // If we have nothing to set, skip
+    // nếu không có gì để cập nhật thì bỏ qua
     if (Object.keys(set).length === 0) {
       continue;
     }
@@ -237,15 +233,4 @@ async function main() {
   console.log('[migrate-import-receipts-vn] scanned:', scanned);
   console.log('[migrate-import-receipts-vn] updated:', updated);
 
-  await mongoose.connection.close();
-}
-
-main().catch(async (err) => {
-  console.error(err);
-  try {
-    await mongoose.connection.close();
-  } catch {
-    // ignore
-  }
-  process.exitCode = 1;
 });

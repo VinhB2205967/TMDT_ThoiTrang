@@ -68,6 +68,13 @@ block main
                     button.btn.btn-sm.btn-outline-success(type='submit')
                       i.bi.bi-arrow-repeat.me-1
                       | Mua lại
+                if o.trangthai === 'dagiao'
+                  - let reviewHref = `/orders/${o._id}`
+                  if o.preview && o.preview.itemId && o.preview.productId
+                    - reviewHref = `/reviews/new?orderId=${o._id}&itemId=${o.preview.itemId}&productId=${o.preview.productId}#review-form`
+                  a.btn.btn-sm.btn-review(href=reviewHref)
+                    i.bi.bi-star-fill.me-1
+                    | Đánh giá
       if pagination && pagination.totalPages > 1
         - const statusParam = current && current !== 'all' ? `&status=${current}` : ''
         nav.mt-3

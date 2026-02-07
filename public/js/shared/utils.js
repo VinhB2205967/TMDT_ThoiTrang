@@ -108,6 +108,68 @@
     return { ok: phanHoi.ok, status: phanHoi.status, data: duLieu };
   };
 
+  App.confirmDelete = App.confirmDelete || function confirmDelete(message = 'Bạn có chắc muốn xóa mục này?') {
+    return window.confirm(message);
+  };
+
+  App.isDeleteActionUrl = App.isDeleteActionUrl || function isDeleteActionUrl(rawUrl) {
+    if (!rawUrl) return false;
+    try {
+      const u = new URL(String(rawUrl), window.location.href);
+      const p = u.pathname || '';
+      return /\/(delete|hard-delete)$/.test(p);
+    } catch {
+      return false;
+    }
+  };
+
+  App.installAutoDeleteConfirm = App.installAutoDeleteConfirm || function installAutoDeleteConfirm(options = {}) {
+    const cfg = {
+      root: document.body,
+      defaultMessage: 'Bạn có chắc muốn xóa mục này?',
+      ...options
+    };
+
+    const root = cfg.root || document.body;
+    if (!root || !(root instanceof Element)) return;
+
+    // Prevent installing multiple times on the same root.
+    if (root.__autoDeleteConfirmInstalled) return;
+    root.__autoDeleteConfirmInstalled = true;
+
+    const getMessage = (el) => {
+      if (!el || !(el instanceof Element)) return cfg.defaultMessage;
+      return el.getAttribute('data-confirm')
+        || el.getAttribute('data-confirm-message')
+        || el.getAttribute('data-confirm-delete')
+        || cfg.defaultMessage;
+    };
+
+    root.addEventListener('click', (e) => {
+      const target = e.target;
+      if (!(target instanceof Element)) return;
+
+      // 1) <a href=".../delete">...</a>
+      const link = target.closest('a[href]');
+      if (link && App.isDeleteActionUrl(link.getAttribute('href'))) {
+        // If inline onclick already calls xacNhanXoa, skip to avoid double popup.
+        const onClick = link.getAttribute('onclick') || '';
+        if (onClick.includes('xacNhanXoa')) return;
+
+        if (!App.confirmDelete(getMessage(link))) e.preventDefault();
+        return;
+      }
+
+      // 2) <button> inside a form[action=".../delete"]
+      const btn = target.closest('button');
+      const form = btn && btn.form ? btn.form : null;
+      const action = form ? (form.getAttribute('action') || form.action) : '';
+      if (form && App.isDeleteActionUrl(action)) {
+        if (!App.confirmDelete(getMessage(btn))) e.preventDefault();
+      }
+    });
+  };
+
   const boHenGio = (App.__debounceTimers = App.__debounceTimers || new Map());
   App.debounce = App.debounce || function debounce(callback, delay, key = 'default') {
     const khoa = String(key);
@@ -141,5 +203,10 @@
         el.remove();
       }, thoiGian);
     });
+  };
+
+  // Backward-compatible alias used by some admin templates/scripts
+  window.xacNhanXoa = window.xacNhanXoa || function xacNhanXoa(thongBao) {
+    return App.confirmDelete(thongBao || 'Bạn có chắc muốn xóa mục này?');
   };
 })();
