@@ -6,6 +6,8 @@ const ordersRoutes = require('./orders_route');
 const reviewsRoutes = require('./reviews_route');
 const authRoutes = require('./auth_route');
 const usersRoutes = require('./users_route');
+const reportsRoutes = require('./reports_route');
+const vouchersRoutes = require('./vouchers_route');
 const { requireAdmin } = require('../../middlewares/auth');
 module.exports =(app)=>{
     const PATH_ADMIN = systemConfig.prefigAdmin;
@@ -21,4 +23,6 @@ module.exports =(app)=>{
     app.use(PATH_ADMIN + '/orders', ordersRoutes);
     app.use(PATH_ADMIN + '/reviews', reviewsRoutes);
     app.use(PATH_ADMIN + '/users', usersRoutes);
+    app.use(PATH_ADMIN + '/reports', reportsRoutes);
+    app.use(PATH_ADMIN + '/vouchers', vouchersRoutes);
 }

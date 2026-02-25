@@ -8,7 +8,9 @@ const couponSchema = new mongoose.Schema({
     uppercase: true,
     trim: true
   },
+  ten: String,
   mota: String, 
+  banner: String,
   
   loai: {
     type: String,
@@ -67,9 +69,8 @@ const couponSchema = new mongoose.Schema({
 couponSchema.index({ code: 1 }, { unique: true });
 couponSchema.index({ daxoa: 1, trangthai: 1, ngay_ketthuc: 1 });
 
-couponSchema.pre('save', function (next) {
+couponSchema.pre('save', function () {
   this.ngaycapnhat = new Date();
-  next();
 });
 
 couponSchema.path('ngay_ketthuc').validate(function (value) {

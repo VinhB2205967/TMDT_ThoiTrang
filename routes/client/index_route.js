@@ -6,12 +6,14 @@ const accountRoutes = require('./account_route');
 const cartRoutes = require('./cart_route');
 const ordersRoutes = require('./orders_route');
 const reviewsRoutes = require('./reviews_route');
+const voucherRoutes = require('./voucher_route');
 
 module.exports = (app) => {
     app.use('/', homeRoutes);
     app.use('/products', productsRoutes);
     app.use('/favorites', favoritesRoutes);
     app.use('/cart', cartRoutes);
+    app.use('/vouchers', voucherRoutes);
     app.use('/orders', ordersRoutes);
     app.use('/reviews', reviewsRoutes);
     app.use('/', authRoutes);

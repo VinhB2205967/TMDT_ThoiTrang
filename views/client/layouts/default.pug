@@ -17,6 +17,8 @@ html(lang="vi")
     link(rel="stylesheet", href="/css/product-detail.css")
     link(rel="stylesheet", href="/css/filter-bar.css")
     link(rel="stylesheet", href="/css/ui-enhancements.css")
+    meta(name="csrf-token" content=csrfToken)
+    block styles
   body
     include ../partials/header.pug
     include ../../partials/flash.pug
@@ -25,6 +27,7 @@ html(lang="vi")
     include ../partials/quick_add_modal.pug
     include ../partials/footer.pug
     script(src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js")
+    script(src="/js/shared/csrf.js")
     script(src="/js/shared/utils.js")
     script(src="/js/shared/flash.js")
     script(src="/js/script.js")

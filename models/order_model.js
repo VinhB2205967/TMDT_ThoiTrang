@@ -61,6 +61,14 @@ const orderSchema = new mongoose.Schema({
     default: 0
   },
   tongtien: Number,                 // Tổng thanh toán
+  voucher_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Coupon"
+  },
+  voucher_code: String,
+  voucher_type: String,
+  voucher_value: Number,
+  voucher_discount: Number,
 
   // Trạng thái đơn hàng
   trangthai: {

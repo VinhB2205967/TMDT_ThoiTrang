@@ -52,25 +52,51 @@ module.exports = function mongoSanitize(options = {}) {
     allowDots: false,
     allowDollars: false,
     dryRun: false,
+    strict: false,
     onSanitize: null,
     ...options
   };
 
   return function (req, res, next) {
+    let daSanitize = false;
+    const onSanitize = ({ key }) => {
+      daSanitize = true;
+      if (typeof tuyChonChuanHoa.onSanitize === 'function') {
+        tuyChonChuanHoa.onSanitize({ key });
+      }
+    };
+
     try {
-      if (req.body) lamSachTaiCho(req.body, tuyChonChuanHoa, new WeakSet());
-      if (req.params) lamSachTaiCho(req.params, tuyChonChuanHoa, new WeakSet());
+      const opts = { ...tuyChonChuanHoa, onSanitize };
+
+      if (req.body) lamSachTaiCho(req.body, opts, new WeakSet());
+      if (req.params) lamSachTaiCho(req.params, opts, new WeakSet());
 
       // req.query is a getter in Express 5; mutate returned object in-place.
       const query = req.query;
-      if (query) lamSachTaiCho(query, tuyChonChuanHoa, new WeakSet());
+      if (query) lamSachTaiCho(query, opts, new WeakSet());
+
+      if (req.headers) lamSachTaiCho(req.headers, opts, new WeakSet());
+
+      if (daSanitize && tuyChonChuanHoa.strict) {
+        return res.status(400).json({
+          success: false,
+          message: 'Dữ liệu không hợp lệ'
+        });
+      }
     } catch (err) {
-      // Fail-open to avoid taking down the app.
       if (process.env.NODE_ENV !== 'production') {
         console.error('mongoSanitize error:', err);
       }
+
+      if (tuyChonChuanHoa.strict || process.env.NODE_ENV === 'production') {
+        return res.status(400).json({
+          success: false,
+          message: 'Dữ liệu không hợp lệ'
+        });
+      }
     }
 
-    next();
+    return next();
   };
 };

@@ -1,0 +1,68 @@
+extends ../../layouts/default.pug
+
+block styles
+  link(rel='stylesheet' href='/css/vouchers.css')
+
+block main
+  .voucher-page
+    section.voucher-hero
+      .container
+        .hero-grid
+          .hero-copy
+            span.hero-pill Ưu đãi cho thành viên
+            h1.hero-title Voucher sành điệu
+            p.hero-subtitle Lưu mã giảm giá, thử áp dụng và sử dụng ngay trên đơn hàng.
+            .hero-actions
+              a.btn.btn-dark.btn-lg(href='/products') Mua sắm ngay
+              a.btn.btn-outline-dark.btn-lg(href='/cart') Đến giỏ hàng
+          .hero-card
+            .hero-card__title Mua hàng thông minh
+            ul.hero-card__list
+              li Tăng cơ hội tiết kiệm với voucher mới mỗi tuần
+              li Áp dụng nhanh với mã đã lưu
+              li Theo dõi hạn sử dụng ngay trên thẻ
+
+    section.voucher-content
+      .container
+        .voucher-toolbar
+          .toolbar-left
+            button.btn-filter.is-active(type='button' data-filter='all') Tất cả
+            button.btn-filter(type='button' data-filter='saved') Đã lưu
+            button.btn-filter(type='button' data-filter='active') Còn hiệu lực
+          .toolbar-right
+            .search-wrap
+              i.bi.bi-search
+              input#voucherSearch(type='text' placeholder='Tìm theo mã hoặc tên voucher')
+
+        .voucher-layout
+          .voucher-grid#voucherGrid
+            .voucher-loading Đang tải voucher...
+
+          aside.voucher-side
+            .calculator-card
+              h3.calc-title Thử áp dụng voucher
+              p.calc-note Nhập tạm tính và khu vực giao hàng để ước tính giảm giá.
+              label.form-label Mã voucher
+              input#calcCode.form-control(type='text' placeholder='VD: SALE10')
+              label.form-label.mt-3 Tạm tính
+              input#calcSubtotal.form-control(type='number' min='0' step='1000' value='0')
+              - const shipRegion = (shippingConfig && shippingConfig.defaultRegion) || 'noithanh'
+              - const shipFee = (shippingConfig && shippingConfig.regions && shippingConfig.regions[shipRegion]) ? shippingConfig.regions[shipRegion].fee : 0
+              label.form-label.mt-3 Phí vận chuyển
+              input#calcRegion(type='hidden' value=shipRegion)
+              .form-control-plaintext Đồng giá #{shipFee.toLocaleString('vi-VN')}₫
+              button#calcApply.btn.btn-primary.w-100.mt-3(type='button') Tính ngay
+              .calc-result.mt-3
+                .d-flex.justify-content-between
+                  span Giảm giá
+                  strong#calcDiscount 0₫
+                .d-flex.justify-content-between
+                  span Phí vận chuyển
+                  strong#calcShipping 0₫
+                .d-flex.justify-content-between.total-row
+                  span Tổng thanh toán
+                  strong#calcTotal 0₫
+              .calc-message#calcMessage
+
+block scripts
+  script(src='/js/vouchers.js')

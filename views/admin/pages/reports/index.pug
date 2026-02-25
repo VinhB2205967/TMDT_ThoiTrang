@@ -1,0 +1,167 @@
+extends ../../layouts/default.pug
+
+block styles
+    link(rel="preconnect" href="https://fonts.googleapis.com")
+    link(rel="preconnect" href="https://fonts.gstatic.com" crossorigin)
+    link(href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet")
+    link(rel="stylesheet" href="/admin/css/reports.css")
+
+block main
+    .reports-dashboard(data-default-status=defaultStatus)
+        .reports-hero
+            .hero-content
+                h1 Báo cáo thống kê bán hàng
+                p Theo dõi doanh thu, lợi nhuận và hiệu quả kinh doanh theo thời gian.
+            .hero-actions
+                button.btn.btn-light.btn-sm(type="button" id="btn-export-excel")
+                    i.bi.bi-file-earmark-excel.me-1
+                    | Xuất Excel
+                button.btn.btn-light.btn-sm(type="button" id="btn-export-pdf")
+                    i.bi.bi-file-earmark-pdf.me-1
+                    | Xuất PDF
+                button.btn.btn-light.btn-sm(type="button" id="btn-print")
+                    i.bi.bi-printer.me-1
+                    | In báo cáo
+                button.btn.btn-outline-light.btn-sm(type="button" id="btn-toggle-theme")
+                    i.bi.bi-moon-stars.me-1
+                    | Chế độ tối
+
+        form#report-filters.filter-card
+            .row.g-3
+                .col-12.col-md-4.col-lg-3
+                    label.form-label Từ ngày
+                    input.form-control(type="date" name="fromDate")
+                .col-12.col-md-4.col-lg-3
+                    label.form-label Đến ngày
+                    input.form-control(type="date" name="toDate")
+                .col-6.col-md-2
+                    label.form-label Tháng
+                    select.form-select(name="month")
+                        option(value="") Tất cả
+                        each m in months
+                            option(value=m.value) #{m.label}
+                .col-6.col-md-2
+                    label.form-label Năm
+                    select.form-select(name="year")
+                        option(value="") Tất cả
+                        each y in years
+                            option(value=y) #{y}
+                .col-12.col-md-4.col-lg-2
+                    label.form-label Danh mục
+                    select.form-select(name="category")
+                        option(value="") Tất cả
+                        each c in categories
+                            option(value=c) #{c}
+                .col-12.col-md-4.col-lg-2
+                    label.form-label Trạng thái
+                    select.form-select(name="status")
+                        each st in statusOptions
+                            option(value=st.value) #{st.label}
+                .col-12.col-md-4.col-lg-2.d-flex.align-items-end
+                    button.btn.btn-primary.w-100(type="submit")
+                        i.bi.bi-funnel.me-1
+                        | Áp dụng
+
+        .overview-grid
+            .overview-card
+                .card-label Tổng doanh thu
+                .card-value(data-metric="totalRevenue") 0
+                .card-sub Theo bộ lọc hiện tại
+            .overview-card
+                .card-label Tổng đơn hàng
+                .card-value(data-metric="totalOrders") 0
+                .card-sub Đơn hàng hợp lệ
+            .overview-card
+                .card-label Tổng sản phẩm đã bán
+                .card-value(data-metric="totalSold") 0
+                .card-sub Số lượng sản phẩm
+            .overview-card
+                .card-label Lợi nhuận
+                .card-value(data-metric="profit") 0
+                .card-sub Doanh thu - chi phí
+                .card-sub(data-metric="profitStatus")
+            .overview-card
+                .card-label Tỷ suất lợi nhuận
+                .card-value(data-metric="profitMargin") 0%
+                .card-sub Hiệu quả kinh doanh
+            .overview-card
+                .card-label Tổng tiền vốn
+                .card-value(data-metric="totalCost") 0
+                .card-sub Giá vốn bán hàng
+
+        .charts-grid
+            .chart-card
+                .chart-header
+                    h3 Doanh thu tháng
+                    span.badge.bg-primary-subtle.text-primary(data-chart-note="revenue")
+                        | VNĐ
+                canvas#chart-revenue(height="110")
+            .chart-card
+                .chart-header
+                    h3 Lợi nhuận theo thời gian
+                    span.badge.bg-success-subtle.text-success
+                        | Xu hướng
+                canvas#chart-profit(height="110")
+            .chart-card
+                .chart-header
+                    h3 Tỷ lệ sản phẩm bán chạy
+                    span.badge.bg-warning-subtle.text-warning
+                        | Top 5
+                canvas#chart-top-products(height="140")
+            .chart-card
+                .chart-header
+                    h3 So sánh doanh thu và chi phí
+                    span.badge.bg-info-subtle.text-info
+                        | Doanh thu & Chi phí
+                canvas#chart-revenue-cost(height="120")
+
+        .reports-split
+            .detail-card
+                .card-header
+                    h3 Chi tiết đơn hàng
+                    span.text-muted Cập nhật từ bộ lọc
+                .table-responsive
+                    table.table.table-hover.align-middle
+                        thead
+                            tr
+                                th Mã đơn
+                                th Ngày tạo
+                                th Khách hàng
+                                th Tổng tiền
+                                th Chi phí
+                                th Lãi/Lỗ
+                                th Trạng thái
+                                th
+                        tbody#report-table
+                            tr
+                                td(colspan="8" class="text-center text-muted") Đang tải dữ liệu...
+
+            .insight-card
+                .insight-block
+                    h3 Phân tích nâng cao
+                    .growth-box
+                        span.growth-label Tăng trưởng kỳ này
+                        span.growth-value(data-metric="growth") 0%
+                        span.growth-sub(data-metric="growthSub") So với kỳ trước
+                    .alert.alert-danger.mt-3.d-none#loss-alert
+                        i.bi.bi-exclamation-triangle.me-2
+                        | Cảnh báo: Lợi nhuận âm!
+                .insight-block
+                    h4 Top 5 sản phẩm bán chạy
+                    ul.list-group.list-group-flush#top-products
+                        li.list-group-item.text-muted Đang tải...
+                .insight-block
+                    h4 Top khách hàng mua nhiều
+                    ul.list-group.list-group-flush#top-customers
+                        li.list-group-item.text-muted Đang tải...
+
+        .reports-loading.d-none#reports-loading
+            .spinner-border.text-light(role="status")
+                span.visually-hidden Loading...
+
+block scripts
+    script(src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js")
+    script(src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js")
+    script(src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js")
+    script(src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.29/dist/jspdf.plugin.autotable.min.js")
+    script(src="/admin/js/reports.js")

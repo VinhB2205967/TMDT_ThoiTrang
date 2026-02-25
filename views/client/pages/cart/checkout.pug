@@ -1,8 +1,14 @@
 extends ../../layouts/default.pug
 
+block styles
+  link(rel='stylesheet' href='/css/checkout-voucher.css')
+
 block main
   .container.py-4.checkout-page
     h1.mb-3 Thanh toán
+    #checkoutInlineAlert.alert.alert-danger.alert-dismissible.fade.d-none(role='alert')
+      span#checkoutInlineAlertText
+      button.btn-close(type='button' data-bs-dismiss='alert' aria-label='Close')
 
     if items && items.length
       form(method='POST' action='/cart/checkout')
@@ -70,12 +76,57 @@ block main
                     span #{item.tensanpham} x#{item.soluong}
                     span #{((item.giagiam || item.gia || 0) * (item.soluong || 1)).toLocaleString('vi-VN')}₫
                 hr
-                .d-flex.justify-content-between.fw-semibold
-                  span Tổng
-                  span #{(subtotal || 0).toLocaleString('vi-VN')}₫
+                - const shipRegion = (shippingConfig && shippingConfig.defaultRegion) || 'noithanh'
+                - const shipFee = (shippingConfig && shippingConfig.regions && shippingConfig.regions[shipRegion]) ? shippingConfig.regions[shipRegion].fee : 0
+                .mb-3
+                  label.form-label.mb-1 Phí vận chuyển
+                  input#checkoutShippingRegion(type='hidden' name='shippingRegion' value=shipRegion)
+                  .form-control-plaintext Đồng giá #{shipFee.toLocaleString('vi-VN')}₫
+                  if shippingConfig && shippingConfig.freeShipThreshold
+                    .form-text Miễn phí vận chuyển cho đơn từ #{shippingConfig.freeShipThreshold.toLocaleString('vi-VN')}₫.
+
+                .mb-3
+                  label.form-label.mb-1 Chọn voucher
+                  input#voucherCode(type='hidden' name='voucherCode' value='')
+                  .voucher-list#voucherList(data-subtotal=(subtotal || 0))
+                    .voucher-item
+                      input.voucher-radio(type='radio' name='voucherChoice' id='voucher-none' value='' checked)
+                      label.voucher-label(for='voucher-none') Không dùng voucher
+                  .voucher-actions-inline
+                    button#voucherMoreBtn.btn.btn-outline-secondary.btn-sm(type='button' data-bs-toggle='modal' data-bs-target='#voucherModal' style='display:none') Chọn voucher
+                  .selected-voucher-card#selectedVoucherCard
+                  .selected-voucher-note#selectedVoucherNote
+                  .form-text.mt-2
+                    | Bạn có thể nhận thêm voucher tại
+                    a.ms-1(href='/vouchers') trang Voucher
+
+                .d-flex.justify-content-between
+                  span Tạm tính
+                  span#checkoutSubtotal #{(subtotal || 0).toLocaleString('vi-VN')}₫
+                .d-flex.justify-content-between
+                  span Phí vận chuyển
+                  span#checkoutShipping #{(shippingFee || 0).toLocaleString('vi-VN')}₫
+                .d-flex.justify-content-between
+                  span Giảm giá
+                  span#checkoutDiscount 0₫
+                .d-flex.justify-content-between.fw-semibold.mt-1
+                  span Tổng thanh toán
+                  span#checkoutTotal #{(finalTotal || 0).toLocaleString('vi-VN')}₫
                 button.btn.btn-primary.w-100.mt-3(type='submit') Đặt hàng
+
+      .modal.fade#voucherModal(tabindex='-1' aria-hidden='true')
+        .modal-dialog.modal-dialog-centered
+          .modal-content
+            .modal-header
+              h5.modal-title Chọn voucher
+              button.btn-close(type='button' data-bs-dismiss='modal' aria-label='Close')
+            .modal-body
+              .voucher-modal-list#voucherModalList
     else
       .text-center.py-5.text-muted
         i.bi.bi-cart-x.fs-1.d-block.mb-3
         p Không có sản phẩm để thanh toán.
         a.btn.btn-primary(href='/products') Mua sắm ngay
+
+block scripts
+  script(src='/js/checkout-voucher.js')

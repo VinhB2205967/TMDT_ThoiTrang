@@ -9,6 +9,12 @@ function laLoaiKhongSize(loaisanpham) {
   return NO_SIZE_TYPES.includes(String(loaisanpham || '').toLowerCase());
 }
 
+function laLoaiKhongSizeTheoItem(productDoc, item) {
+  const productType = String(productDoc?.loaisanpham || '').toLowerCase();
+  const itemCategory = String(item?.danhmuc || item?.danh_muc || '').toLowerCase();
+  return laLoaiKhongSize(productType) || laLoaiKhongSize(itemCategory);
+}
+
 function taoMaPhieuNhap() {
   const d = new Date();
   const y = d.getFullYear();
@@ -32,8 +38,18 @@ function buildStockKey(productId, variantIdOrNull, sizeKey) {
   return `${pid}|${vid}|${sk}`;
 }
 
+async function findReceiptByIdOrCode(idOrCode) {
+  const raw = String(idOrCode || '').trim();
+  if (!raw) return null;
+  if (mongoose.Types.ObjectId.isValid(raw)) {
+    const docById = await PhieuNhapKho.findById(raw);
+    if (docById) return docById;
+  }
+  return PhieuNhapKho.findOne({ maphieu: raw });
+}
+
 function applyDeltaToProductDoc(productDoc, item, deltaQty) {
-  const hasSize = !laLoaiKhongSize(productDoc.loaisanpham);
+  const hasSize = !laLoaiKhongSizeTheoItem(productDoc, item);
   const delta = Number(deltaQty || 0);
   if (!Number.isFinite(delta) || delta === 0) return;
 
@@ -81,7 +97,7 @@ function applyDeltaToProductDoc(productDoc, item, deltaQty) {
 }
 
 async function apDungNhapKhoChoSanPham(productDoc, item) {
-  const hasSize = !laLoaiKhongSize(productDoc.loaisanpham);
+  const hasSize = !laLoaiKhongSizeTheoItem(productDoc, item);
   const qty = Number(item.soluong ?? item.so_luong ?? 0);
   if (!Number.isFinite(qty) || qty <= 0) throw new Error('Số lượng nhập không hợp lệ');
 
@@ -238,7 +254,9 @@ const taoMoiPost = async (req, res) => {
     });
 
     const receipt = new PhieuNhapKho({
+      code: maphieu,
       maphieu,
+      ma_phieu: maphieu,
       ngaynhap,
       nhacungcap,
       ghichu,
@@ -270,9 +288,8 @@ const taoMoiPost = async (req, res) => {
 const chiTiet = async (req, res) => {
   try {
     const id = String(req.params.id || '').trim();
-    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(404).send('Không tìm thấy phiếu nhập');
-
-    const receipt = await PhieuNhapKho.findById(id).lean();
+    const receiptDoc = await findReceiptByIdOrCode(id);
+    const receipt = receiptDoc ? receiptDoc.toObject() : null;
     if (!receipt) return res.status(404).send('Không tìm thấy phiếu nhập');
 
     res.render('admin/pages/imports/show.pug', {
@@ -288,9 +305,8 @@ const chiTiet = async (req, res) => {
 const chinhSua = async (req, res) => {
   try {
     const id = String(req.params.id || '').trim();
-    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(404).send('Không tìm thấy phiếu nhập');
-
-    const receipt = await PhieuNhapKho.findById(id).lean();
+    const receiptDoc = await findReceiptByIdOrCode(id);
+    const receipt = receiptDoc ? receiptDoc.toObject() : null;
     if (!receipt) return res.status(404).send('Không tìm thấy phiếu nhập');
 
     const products = await Sanpham.find({ daxoa: { $ne: true } })
@@ -313,12 +329,7 @@ const chinhSua = async (req, res) => {
 const chinhSuaPost = async (req, res) => {
   try {
     const id = String(req.params.id || '').trim();
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      req.flash('error', 'Phiếu nhập không hợp lệ');
-      return res.redirect('back');
-    }
-
-    const receiptDoc = await PhieuNhapKho.findById(id);
+    const receiptDoc = await findReceiptByIdOrCode(id);
     if (!receiptDoc) {
       req.flash('error', 'Không tìm thấy phiếu nhập');
       return res.redirect(req.app.locals.admin + '/imports');
@@ -395,7 +406,7 @@ const chinhSuaPost = async (req, res) => {
     for (const it of receiptDoc.chitiet || receiptDoc.chi_tiet || []) {
       const product = productDocMap.get(String(it.sanphamid || it.san_pham_id));
       if (!product) continue;
-      const hasSize = !laLoaiKhongSize(product.loaisanpham);
+      const hasSize = !laLoaiKhongSizeTheoItem(product, it);
       const sizeKey = hasSize ? String(it.kichco || it.kich_co || '').trim() : '';
       addQty(oldQty, it.sanphamid || it.san_pham_id, it.bientheid || it.bien_the_id || null, sizeKey, it.soluong ?? it.so_luong ?? 0, {
         sanphamid: String(it.sanphamid || it.san_pham_id),
@@ -408,7 +419,7 @@ const chinhSuaPost = async (req, res) => {
     for (const it of normalizedItems) {
       const product = productDocMap.get(String(it.sanphamid));
       if (!product) throw new Error('Sản phẩm không tồn tại');
-      const hasSize = !laLoaiKhongSize(product.loaisanpham);
+      const hasSize = !laLoaiKhongSizeTheoItem(product, it);
       const sizeKey = hasSize ? String(it.kichco || '').trim() : '';
       if (hasSize && !sizeKey) throw new Error('Thiếu size cho sản phẩm có size');
       addQty(newQty, it.sanphamid, it.bientheid || null, sizeKey, it.soluong, {
@@ -448,6 +459,10 @@ const chinhSuaPost = async (req, res) => {
       await productDoc.save();
     }
 
+    const ensuredCode = receiptDoc.maphieu || receiptDoc.ma_phieu || taoMaPhieuNhap();
+    if (!receiptDoc.code) receiptDoc.code = ensuredCode;
+    if (!receiptDoc.maphieu) receiptDoc.maphieu = ensuredCode;
+    if (!receiptDoc.ma_phieu) receiptDoc.ma_phieu = ensuredCode;
     receiptDoc.ngaynhap = ngaynhap;
     receiptDoc.nhacungcap = nhacungcap;
     receiptDoc.ghichu = ghichu;

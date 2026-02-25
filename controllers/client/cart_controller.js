@@ -8,6 +8,14 @@ const { muonJSON } = require('../../helpers/http');
 const { taoThanhToanMoMo } = require('../../services/momo.service');
 const { taoThanhToanVnpay, kiemTraChuKyVnpay } = require('../../services/vnpay.service');
 const { taoGiaoDichThanhToan, capNhatGiaoDichThanhToan, danhDauThanhCongTheoDonHang } = require('../../services/payment.service');
+const SHIPPING_CONFIG = require('../../config/shipping');
+const {
+  normalizeCode,
+  validateVoucherForOrder,
+  reserveVoucherUsage,
+  releaseVoucherUsage,
+  markVoucherUsed
+} = require('../../services/voucher.service');
 
 // laLoaiKhongSize / tinhTongTon / layBienTheVaTon đã được tách sang services/productStock.service
 
@@ -294,6 +302,13 @@ module.exports.trangThanhToan = async (req, res) => {
     return sum + (gia * (it.soluong || 1));
   }, 0);
 
+  const defaultRegion = SHIPPING_CONFIG.defaultRegion || 'noithanh';
+  const regionConfig = SHIPPING_CONFIG.regions || {};
+  const shippingFee = tamtinh >= SHIPPING_CONFIG.freeShipThreshold
+    ? 0
+    : (regionConfig[defaultRegion]?.fee || 0);
+  const finalTotal = Math.max(0, tamtinh + shippingFee);
+
   const taikhoan = await nguoidung.findOne({ _id: req.user._id, daxoa: { $ne: true } }).lean();
   const danhsachdiachi = Array.isArray(taikhoan?.diachiList) ? taikhoan.diachiList : [];
   const danhsachdiachihienthi = [];
@@ -321,6 +336,10 @@ module.exports.trangThanhToan = async (req, res) => {
     cart: giohang,
     items: danhsachitem,
     subtotal: tamtinh,
+    shippingFee,
+    finalTotal,
+    shippingConfig: SHIPPING_CONFIG,
+    selectedShippingRegion: defaultRegion,
     selectedIds: danhsachitem.map(it => String(it._id)),
     userProfile: {
       hoten: taikhoan?.hoten || '',
@@ -374,6 +393,18 @@ async function truTonTheoItem(item) {
 
   sanphamdoc.soluongton = Math.max(0, tonggoc - soluong);
   await sanphamdoc.save();
+}
+
+function normalizeShippingRegion(raw) {
+  const key = String(raw || '').trim().toLowerCase();
+  if (SHIPPING_CONFIG.regions && SHIPPING_CONFIG.regions[key]) return key;
+  return SHIPPING_CONFIG.defaultRegion || 'noithanh';
+}
+
+function calcShippingFee(subtotal, regionKey) {
+  const total = Number(subtotal || 0);
+  if (total >= Number(SHIPPING_CONFIG.freeShipThreshold || 0)) return 0;
+  return Number(SHIPPING_CONFIG.regions?.[regionKey]?.fee || 0);
 }
 
 module.exports.xuLyThanhToan = async (req, res) => {
@@ -433,6 +464,15 @@ module.exports.xuLyThanhToan = async (req, res) => {
     const ghichu = String(req.body.ghichu || '').trim();
     const phuongthucthanhtoan = String(req.body.phuongthucthanhtoan || 'cod');
 
+    let shouldSaveProfile = false;
+
+    if (taikhoan && !String(taikhoan.diachi || '').trim()) {
+      taikhoan.diachi = diachigiao;
+      if (!String(taikhoan.hoten || '').trim()) taikhoan.hoten = tennguoinhan;
+      if (!String(taikhoan.sodienthoai || '').trim()) taikhoan.sodienthoai = sodienthoai;
+      shouldSaveProfile = true;
+    }
+
     // Lưu địa chỉ mới
     if (String(req.body.saveAddress || '') && taikhoan && (iddiachi === 'new' || !iddiachi)) {
       taikhoan.diachiList = taikhoan.diachiList || [];
@@ -442,6 +482,10 @@ module.exports.xuLyThanhToan = async (req, res) => {
         sodienthoai: sodienthoai,
         diachi: diachigiao
       });
+      shouldSaveProfile = true;
+    }
+
+    if (shouldSaveProfile) {
       await taikhoan.save();
     }
 
@@ -450,7 +494,43 @@ module.exports.xuLyThanhToan = async (req, res) => {
       return sum + (gia * (it.soluong || 1));
     }, 0);
 
-    const donhangdoc = await donhang.create({
+    const shippingRegion = normalizeShippingRegion(req.body.shippingRegion);
+    const phivanchuyen = calcShippingFee(tamtinh, shippingRegion);
+
+    let giamgia = 0;
+    let voucherDoc = null;
+    let reservedVoucher = false;
+    let orderCreated = false;
+
+    const voucherCodeRaw = req.body.voucherCode;
+    const voucherCode = normalizeCode(voucherCodeRaw);
+    if (voucherCode) {
+      const validation = await validateVoucherForOrder({
+        code: voucherCode,
+        userId: req.user._id,
+        orderTotal: tamtinh
+      });
+
+      if (!validation.ok) {
+        req.flash?.('error', validation.message || 'Voucher không hợp lệ');
+        return res.redirect('/cart/checkout');
+      }
+
+      voucherDoc = validation.voucher;
+      giamgia = Math.min(Number(validation.discount || 0), tamtinh);
+
+      reservedVoucher = await reserveVoucherUsage(voucherDoc._id);
+      if (!reservedVoucher) {
+        req.flash?.('error', 'Voucher đã hết lượt sử dụng');
+        return res.redirect('/cart/checkout');
+      }
+    }
+
+    const tongtien = Math.max(0, tamtinh - giamgia + phivanchuyen);
+
+    let donhangdoc = null;
+    try {
+      donhangdoc = await donhang.create({
       nguoidung_id: req.user._id,
       tennguoinhan: tennguoinhan,
       sodienthoai: sodienthoai,
@@ -458,11 +538,30 @@ module.exports.xuLyThanhToan = async (req, res) => {
       diachigiao: diachigiao,
       ghichu: ghichu,
       phuongthucthanhtoan: phuongthucthanhtoan,
+      phuongthucvanchuyen: shippingRegion,
       tamtinh: tamtinh,
-      tongtien: tamtinh,
+      giamgia: giamgia,
+      phivanchuyen: phivanchuyen,
+      tongtien: tongtien,
+      voucher_id: voucherDoc?._id || undefined,
+      voucher_code: voucherDoc?.code || undefined,
+      voucher_type: voucherDoc?.loai || undefined,
+      voucher_value: voucherDoc?.giatri || undefined,
+      voucher_discount: giamgia,
       trangthai: 'choxacnhan',
       ngaycapnhat: new Date()
-    });
+      });
+      orderCreated = true;
+    } catch (error) {
+      if (reservedVoucher && voucherDoc) {
+        await releaseVoucherUsage(voucherDoc._id);
+      }
+      throw error;
+    }
+
+    if (voucherDoc) {
+      await markVoucherUsed({ voucherId: voucherDoc._id, userId: req.user._id });
+    }
 
     for (const it of danhsachitem) {
       await truTonTheoItem(it);
@@ -491,11 +590,12 @@ module.exports.xuLyThanhToan = async (req, res) => {
       const orderInfo = `Thanh toán đơn hàng ${donhangdoc.madonhang || String(donhangdoc._id)}`;
       const maMoMo = `${donhangdoc._id}-${Date.now()}`;
       const extraData = Buffer.from(JSON.stringify({ orderId: String(donhangdoc._id) })).toString('base64');
+      const soTienThanhToan = Math.max(0, Math.round(tongtien));
 
       const ketqua = await taoThanhToanMoMo({
         orderId: maMoMo,
         requestId: maMoMo,
-        amount: String(Math.max(0, Math.round(tamtinh))),
+        amount: String(soTienThanhToan),
         orderInfo,
         redirectUrl,
         ipnUrl,
@@ -513,7 +613,7 @@ module.exports.xuLyThanhToan = async (req, res) => {
           donhangId: donhangdoc._id,
           nguoidungId: req.user._id,
           phuongthuc: 'momo',
-          sotien: Math.max(0, Math.round(tamtinh)),
+          sotien: soTienThanhToan,
           magiaodich: maMoMo,
           trangthai: ketqua?.payUrl ? 'choduyet' : 'thatbai',
           response: ketqua,
@@ -544,9 +644,10 @@ module.exports.xuLyThanhToan = async (req, res) => {
         { $set: { vnpayTxnRef: txnRef } }
       );
 
+      const soTienThanhToan = Math.max(0, Math.round(tongtien));
       const payUrl = taoThanhToanVnpay({
         orderId: txnRef,
-        amount: tamtinh,
+        amount: soTienThanhToan,
         orderInfo,
         returnUrl,
         ipnUrl,
@@ -560,7 +661,7 @@ module.exports.xuLyThanhToan = async (req, res) => {
           donhangId: donhangdoc._id,
           nguoidungId: req.user._id,
           phuongthuc: 'vnpay',
-          sotien: Math.max(0, Math.round(tamtinh)),
+          sotien: soTienThanhToan,
           magiaodich: txnRef,
           trangthai: 'choduyet',
           response: { txnRef, payUrl },
@@ -580,6 +681,13 @@ module.exports.xuLyThanhToan = async (req, res) => {
 
     return res.redirect(`/orders/${donhangdoc._id}`);
   } catch (e) {
+    if (reservedVoucher && voucherDoc && !orderCreated) {
+      try {
+        await releaseVoucherUsage(voucherDoc._id);
+      } catch {
+        // ignore
+      }
+    }
     if (muonJSON(req)) return res.status(500).json({ success: false, message: e.message || 'Có lỗi xảy ra' });
     req.flash?.('error', e.message || 'Có lỗi xảy ra');
     return res.redirect('/cart/checkout');

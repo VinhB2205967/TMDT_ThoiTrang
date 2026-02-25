@@ -9,6 +9,7 @@ const Thanhtoan = require('./pay_model');
 const Danhgia = require('./review_model');
 const Yeuthich = require('./favorite_model');
 const Coupon = require('./coupon_model');
+const UserVoucher = require('./user_voucher_model');
 const LoginLog = require('./login_log_model');
 const Taikhoan = require('./accounts_model');
 
@@ -23,6 +24,7 @@ module.exports = {
     Danhgia,
     Yeuthich,
     Coupon,
+    UserVoucher,
     LoginLog,
     Taikhoan
 };

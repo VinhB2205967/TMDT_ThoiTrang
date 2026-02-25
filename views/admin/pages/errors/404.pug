@@ -1,0 +1,12 @@
+extends ../../layouts/default.pug
+
+block main
+    .container.py-5
+        .row.justify-content-center
+            .col-lg-6.text-center
+                .display-1.fw-bold.text-danger 404
+                h2.mb-3 Không tìm thấy trang
+                p.text-muted.mb-4 Trang admin bạn truy cập không tồn tại hoặc đã bị thay đổi.
+                a.btn.btn-primary(href="/admin")
+                    i.bi.bi-speedometer2.me-1
+                    | Về bảng điều khiển

@@ -1,0 +1,64 @@
+extends ../../layouts/default.pug
+
+block main
+  .container-fluid.p-3
+    .d-flex.justify-content-between.align-items-center.mb-3
+      h3.mb-0 Tạo voucher
+      a.btn.btn-outline-secondary(href=`${admin}/vouchers`)
+        i.bi.bi-arrow-left
+        |  Danh sách
+
+    form(method='POST' action=`${admin}/vouchers/create` enctype='multipart/form-data')
+      .card
+        .card-header Thông tin voucher
+        .card-body
+          .row.g-3
+            .col-md-4
+              label.form-label Mã voucher
+              input.form-control(name='code' placeholder='VD: SALE10' required)
+            .col-md-8
+              label.form-label Tên voucher
+              input.form-control(name='ten' placeholder='Tên chương trình')
+            .col-12
+              label.form-label Mô tả
+              textarea.form-control(name='mota' rows='2' placeholder='Mô tả ngắn')
+            .col-12
+              label.form-label Ảnh banner
+              input.form-control(type='file' name='banner' accept='image/*')
+              .form-text Ảnh dùng cho thẻ voucher phía client.
+
+            .col-md-4
+              label.form-label Loại
+              select.form-select(name='loai' required)
+                option(value='phantram') Phần trăm (%)
+                option(value='tientruc_tiep') Giảm trực tiếp
+            .col-md-4
+              label.form-label Giá trị
+              input.form-control(type='number' name='giatri' min='1' step='1' placeholder='VD: 10 hoặc 50000' required)
+            .col-md-4
+              label.form-label Giảm tối đa (chỉ cho %)
+              input.form-control(type='number' name='giam_toida' min='0' step='1000' placeholder='VD: 50000')
+
+            .col-md-4
+              label.form-label Đơn tối thiểu
+              input.form-control(type='number' name='don_toithieu' min='0' step='1000' value='0')
+            .col-md-4
+              label.form-label Tổng lượt dùng
+              input.form-control(type='number' name='soluong_toida' min='0' step='1' value='100')
+            .col-md-4
+              label.form-label Trạng thái
+              select.form-select(name='trangthai')
+                option(value='active') Đang hoạt động
+                option(value='inactive') Tạm khóa
+
+            .col-md-6
+              label.form-label Ngày bắt đầu
+              input.form-control(type='date' name='ngay_batdau' value=defaultStart)
+            .col-md-6
+              label.form-label Ngày kết thúc
+              input.form-control(type='date' name='ngay_ketthuc' value=defaultEnd required)
+
+          .d-flex.justify-content-end.mt-3
+            button.btn.btn-success(type='submit')
+              i.bi.bi-check2-circle
+              |  Lưu voucher

@@ -85,6 +85,8 @@
 
   App.apiFetch = App.apiFetch || async function apiFetch(url, options = {}, cfg = {}) {
     const { redirectOn401 = true } = cfg;
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    const csrfToken = meta ? String(meta.getAttribute('content') || '') : '';
     const tuyChon = {
       credentials: 'same-origin',
       ...options,
@@ -93,6 +95,13 @@
         ...(options.headers || {})
       }
     };
+
+    if (csrfToken && !tuyChon.headers['X-CSRF-Token']) {
+      const method = String(tuyChon.method || 'GET').toUpperCase();
+      if (method !== 'GET' && method !== 'HEAD') {
+        tuyChon.headers['X-CSRF-Token'] = csrfToken;
+      }
+    }
 
     const phanHoi = await fetch(url, tuyChon);
     const duLieu = await App.safeJson(phanHoi);

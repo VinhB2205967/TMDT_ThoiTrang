@@ -25,7 +25,9 @@ const importItemSchema = new mongoose.Schema(
 );
 
 const importReceiptSchema = new mongoose.Schema({
+  code: { type: String },
   maphieu: { type: String, required: true, unique: true, index: true },
+  ma_phieu: { type: String },
   ngaynhap: { type: Date, required: true },
   nhacungcap: { type: String, default: '' },
   ghichu: { type: String, default: '' },
