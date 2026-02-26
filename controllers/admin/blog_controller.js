@@ -24,7 +24,7 @@ module.exports.danhSach = async (req, res) => {
 };
 
 module.exports.taoMoi = async (req, res) => {
-  const slug = slugify(req.body.tieude || req.body.slug);
+  const slug = slugify(req.body.tieude || '');
   const image = req.file?.filename ? `/uploads/blogs/${req.file.filename}` : (req.body.hinhanh || '');
   const payload = {
     tieude: req.body.tieude,
@@ -42,9 +42,9 @@ module.exports.taoMoi = async (req, res) => {
 
 module.exports.capNhat = async (req, res) => {
   const payload = {};
-  if (req.body.tieude !== undefined) payload.tieude = req.body.tieude;
-  if (req.body.slug !== undefined && String(req.body.slug || '').trim() !== '') {
-    payload.slug = slugify(req.body.slug);
+  if (req.body.tieude !== undefined) {
+    payload.tieude = req.body.tieude;
+    payload.slug = slugify(req.body.tieude || '');
   }
   if (req.body.tomtat !== undefined) payload.tomtat = req.body.tomtat;
   if (req.body.noidung !== undefined) payload.noidung = req.body.noidung;

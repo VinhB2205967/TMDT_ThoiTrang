@@ -140,11 +140,17 @@ async function dongBoDanhMucSangBrand(categoryDoc) {
   if (!payload.ten) return;
 
   if (mappedBrandId) {
-    await Brand.findByIdAndUpdate(mappedBrandId, { $set: payload });
+    await Brand.findByIdAndUpdate(mappedBrandId, {
+      $set: {
+        ...payload,
+        daXoa: false,
+        deletedAt: null
+      }
+    });
     return;
   }
 
-  const existedByName = await Brand.findOne({ ten: payload.ten }).select('_id').lean();
+  const existedByName = await Brand.findOne({ ten: payload.ten, daXoa: { $ne: true } }).select('_id').lean();
   if (existedByName?._id) {
     await Brand.findByIdAndUpdate(existedByName._id, { $set: payload });
     await Danhmuc.updateOne(
@@ -189,7 +195,7 @@ async function dongBoThuongHieuVaoDanhMuc() {
 
   if (!root?._id) return;
 
-  const danhSachThuongHieu = await Brand.find({}).sort({ thuTu: 1, ten: 1 }).lean();
+  const danhSachThuongHieu = await Brand.find({ daXoa: { $ne: true } }).sort({ order: 1, thuTu: 1, ten: 1 }).lean();
   if (!danhSachThuongHieu.length) return;
 
   const brandCategoryDocs = await Danhmuc.find({
@@ -202,7 +208,7 @@ async function dongBoThuongHieuVaoDanhMuc() {
 
   for (const thuongHieu of danhSachThuongHieu) {
     const slug = slugThuongHieuTheoId(thuongHieu._id);
-    const ten = String(thuongHieu.ten || '').trim();
+    const ten = String(thuongHieu.ten || thuongHieu.name || '').trim();
     if (!ten) continue;
 
     const payload = {
@@ -211,10 +217,10 @@ async function dongBoThuongHieuVaoDanhMuc() {
       type: 'brand',
       parent_id: root._id,
       danhmuccha: root._id,
-      order: Number(thuongHieu.thuTu || 0),
-      thutu: Number(thuongHieu.thuTu || 0),
-      isActive: Boolean(thuongHieu.hienthi),
-      trangthai: Boolean(thuongHieu.hienthi) ? 'active' : 'inactive',
+      order: Number(thuongHieu.order || thuongHieu.thuTu || 0),
+      thutu: Number(thuongHieu.order || thuongHieu.thuTu || 0),
+      isActive: Boolean(thuongHieu.hienthi || thuongHieu.isActive),
+      trangthai: Boolean(thuongHieu.hienthi || thuongHieu.isActive) ? 'active' : 'inactive',
       daxoa: false
     };
 

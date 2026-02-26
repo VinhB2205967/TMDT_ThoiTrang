@@ -81,7 +81,15 @@ async function getHomeData() {
         ]
       }).sort({ order: 1, thuTu: 1, createdAt: -1 }).lean()
       : Promise.resolve([]),
-    isActive('brands') ? Brand.find({ hienthi: true, noiBat: true }).sort({ thuTu: 1 }).lean() : Promise.resolve([]),
+    isActive('brands')
+      ? Brand.find({
+        daXoa: { $ne: true },
+        $and: [
+          { $or: [{ hienthi: true }, { isActive: true }] },
+          { $or: [{ noiBat: true }, { isFeatured: true }] }
+        ]
+      }).sort({ order: 1, thuTu: 1, ten: 1 }).lean()
+      : Promise.resolve([]),
     isActive('blog') ? BlogPost.find({ xuatban: true }).sort({ ngayxuatban: -1, ngaytao: -1 }).limit(blogLimit).lean() : Promise.resolve([])
   ]);
 

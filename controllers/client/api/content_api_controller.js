@@ -32,7 +32,13 @@ module.exports.getLookbookDetail = async (req, res) => {
 };
 
 module.exports.getFeaturedBrands = async (req, res) => {
-  const data = await Brand.find({ hienthi: true, noiBat: true }).sort({ thuTu: 1 }).lean();
+  const data = await Brand.find({
+    daXoa: { $ne: true },
+    $and: [
+      { $or: [{ hienthi: true }, { isActive: true }] },
+      { $or: [{ noiBat: true }, { isFeatured: true }] }
+    ]
+  }).sort({ order: 1, thuTu: 1, ten: 1 }).lean();
   res.json({ success: true, data });
 };
 

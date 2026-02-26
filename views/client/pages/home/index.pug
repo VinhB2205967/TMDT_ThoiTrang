@@ -153,7 +153,7 @@ block main
                     .row.g-3.align-items-center
                         each brand in brands
                             .col-6.col-md-3.col-lg-2
-                                a.brand-item.d-block.text-center(href=`/products?brand=${brand._id}`)
+                                a.brand-item.d-block.text-center(href=`/brands/${brand.slug || brand._id}`)
                                     img.img-fluid(src=brand.logo alt=brand.ten)
 
     if isActive('blog')
@@ -223,14 +223,21 @@ mixin productCard(product)
         a.product-link(href=`/products/${product._id}`)
             .product-image
                 img(src=product.displayImage || product.hinhanh || '/images/shopping.png' alt=product.tensanpham)
-                if product.badges && product.badges.length
+                - const gocGia = Number(product.gia || 0)
+                - const giamGiaCoSan = Number(product.phantramgiamgia || 0)
+                - const flashGia = Number(product.flashSalePrice || 0)
+                - const flashPercentFromData = Number(product.flashSalePercent || 0)
+                - const flashGiaTheoPhanTram = (flashPercentFromData > 0 && gocGia > 0) ? Math.round(gocGia * (100 - flashPercentFromData) / 100) : 0
+                - const flashGiaHienThi = flashGiaTheoPhanTram > 0 ? flashGiaTheoPhanTram : flashGia
+                - const giamTheoFlash = flashPercentFromData > 0 ? flashPercentFromData : ((gocGia > 0 && flashGia > 0 && flashGia < gocGia) ? Math.round(((gocGia - flashGia) / gocGia) * 100) : 0)
+                - const phanTramGiamHienThi = flashGiaHienThi > 0 ? giamTheoFlash : giamGiaCoSan
+                - const coGiamPhanTram = phanTramGiamHienThi > 0
+                if (product.badges && product.badges.length) || coGiamPhanTram
                     .product-badges
                         each badge in product.badges
                             span.badge.badge-pill= badge
-                if product.phantramgiamgia > 0 && !product.flashSalePrice
-                    span.discount-badge -#{product.phantramgiamgia}%
-                if product.flashSalePrice
-                    span.discount-badge FLASH
+                        if coGiamPhanTram
+                            span.badge.badge-pill.badge-discount -#{phanTramGiamHienThi}%
                 .product-top-actions
                     button.btn-icon.btn-view(type="button" title="Xem nhanh")
                         i.bi.bi-eye
@@ -252,8 +259,8 @@ mixin productCard(product)
                     if product.bienthe.length > 4
                         span.more-variants +#{product.bienthe.length - 4}
             .product-price
-                if product.flashSalePrice
-                    - const flashText = (product.flashSalePrice || 0).toLocaleString('vi-VN') + '₫'
+                if flashGiaHienThi > 0
+                    - const flashText = flashGiaHienThi.toLocaleString('vi-VN') + '₫'
                     span.price-original #{product.giaText || (product.gia ? product.gia.toLocaleString('vi-VN') + '₫' : '')}
                     span.price-sale #{flashText}
                 else if product.phantramgiamgia > 0

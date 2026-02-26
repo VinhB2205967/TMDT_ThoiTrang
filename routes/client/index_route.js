@@ -10,6 +10,7 @@ const voucherRoutes = require('./voucher_route');
 const apiRoutes = require('./api_route');
 const lookbookRoutes = require('./lookbook_route');
 const blogRoutes = require('./blog_route');
+const brandsRoutes = require('./brands_route');
 
 module.exports = (app) => {
     app.use('/api', apiRoutes);
@@ -17,6 +18,7 @@ module.exports = (app) => {
     app.use('/products', productsRoutes);
     app.use('/lookbook', lookbookRoutes);
     app.use('/lookbooks', lookbookRoutes);
+    app.use('/brands', brandsRoutes);
     app.use('/blog', blogRoutes);
     app.use('/favorites', favoritesRoutes);
     app.use('/cart', cartRoutes);

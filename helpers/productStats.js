@@ -31,12 +31,21 @@ function applyProductStats(products, ratingMap, soldMap) {
   return (products || []).map((p) => {
     const r = ratingMap.get(String(p._id));
     const s = soldMap.get(String(p._id));
-    const avg = r && Number.isFinite(r.avg) ? Math.round(r.avg * 10) / 10 : 0;
+
+    const avgRaw = Number(r && r.avg);
+    const avg = Number.isFinite(avgRaw) ? Math.round(avgRaw * 10) / 10 : 0;
+
+    const reviewCountRaw = Number(r && r.count);
+    const reviewCount = Number.isFinite(reviewCountRaw) && reviewCountRaw >= 0 ? reviewCountRaw : 0;
+
+    const soldCountRaw = Number(s && s.sold);
+    const soldCount = Number.isFinite(soldCountRaw) && soldCountRaw >= 0 ? soldCountRaw : 0;
+
     return {
       ...p,
       avgRating: avg,
-      reviewCount: r ? r.count : 0,
-      soldCount: s ? s.sold : 0,
+      reviewCount,
+      soldCount,
       danhgia: avg
     };
   });

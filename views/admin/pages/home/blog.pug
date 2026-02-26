@@ -7,12 +7,9 @@ block main
       .card-body
         form#blogCreate
           .row.g-3
-            .col-12.col-md-6
+            .col-12
               label.form-label Tiêu đề
               input.form-control(type="text" name="tieude" required)
-            .col-12.col-md-6
-              label.form-label Slug (tùy chọn)
-              input.form-control(type="text" name="slug")
             .col-12
               label.form-label Tóm tắt
               input.form-control(type="text" name="tomtat")
@@ -20,8 +17,9 @@ block main
               label.form-label Hình ảnh
               input.form-control(type="file" name="image" accept="image/*")
             .col-12
-              label.form-label Nội dung (HTML)
-              textarea.form-control(name="noidung" rows="4")
+              label.form-label Nội dung
+              textarea.form-control(name="noidung" rows="6" placeholder="Nhập nội dung bình thường, có thể xuống dòng")
+              .form-text Hệ thống tự hiển thị theo từng dòng, không cần nhập thẻ HTML.
             .col-12
               .form-check
                 input.form-check-input(type="checkbox" name="xuatban")
@@ -35,7 +33,6 @@ block main
           thead
             tr
               th Tiêu đề
-              th Slug
               th Xuất bản
               th Hành động
           tbody
@@ -48,9 +45,7 @@ block main
                     if item.hinhanh
                       img.img-thumbnail.mt-2(style="max-width:120px" src=item.hinhanh alt=item.tieude)
                     input.form-control.form-control-sm.mt-2(type="file" name="image" accept="image/*")
-                    textarea.form-control.form-control-sm.mt-2(name="noidung" rows="2") #{item.noidung}
-                  td
-                    input.form-control.form-control-sm(type="text" name="slug" value=item.slug)
+                    textarea.form-control.form-control-sm.mt-2(name="noidung" rows="4" placeholder="Nhập nội dung bình thường") #{item.noidung}
                   td
                     input.form-check-input(type="checkbox" name="xuatban" checked=item.xuatban)
                   td
@@ -60,7 +55,7 @@ block main
                       button.btn.btn-sm.btn-outline-danger(type="button" data-action="delete") Xóa
             else
               tr
-                td(colspan="4").text-muted Chưa có bài viết.
+                td(colspan="3").text-muted Chưa có bài viết.
 
 block scripts
   script(src="/admin/js/home-blog.js")

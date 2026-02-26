@@ -2,12 +2,31 @@ const Banner = require('../../models/banner_model');
 
 module.exports.danhSach = async (req, res) => {
   const data = await Banner.find({}).sort({ thuTu: 1, ngaytao: -1 }).lean();
+  const ctaLinkSuggestions = [
+    '/',
+    '/products',
+    '/products?sort=ngaytao-desc',
+    '/products?sort=gia-asc',
+    '/products?sort=gia-desc',
+    '/products?loaisanpham=ao',
+    '/products?loaisanpham=quan',
+    '/products?loaisanpham=vay',
+    '/products?gioitinh=nu',
+    '/products?gioitinh=nam',
+    '/lookbook',
+    '/blog',
+    '/brands',
+    '/#flash-sale',
+    '/#new-products',
+    '/#best-sellers'
+  ];
   const want = req.accepts(['html', 'json']);
   if (want === 'html') {
     return res.render('admin/pages/home/banners.pug', {
       titlePage: 'Quản lý Banner',
       banners: data,
-      bannerTypes: ['collection', 'sale', 'lookbook', 'general']
+      bannerTypes: ['collection', 'sale', 'lookbook', 'general'],
+      ctaLinkSuggestions
     });
   }
   return res.json({ success: true, data });

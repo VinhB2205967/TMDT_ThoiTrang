@@ -1,0 +1,45 @@
+extends ../../layouts/default.pug
+
+block main
+  .container.py-4
+    .card.mb-4
+      .card-body
+        .row.g-3.align-items-center
+          .col-md-3.text-center
+            if brand.logo
+              img.img-fluid(style='max-height:120px;object-fit:contain' src=brand.logo alt=brand.ten)
+          .col-md-9
+            h1.h3.mb-2= brand.ten
+            if brand.description || brand.moTa
+              p.text-muted.mb-0 #{brand.description || brand.moTa}
+
+    .d-flex.justify-content-between.align-items-center.mb-3
+      h2.h5.mb-0 Sản phẩm thuộc thương hiệu
+      a.btn.btn-sm.btn-outline-secondary(href=`/products?brand=${brand._id}`) Lọc tại trang sản phẩm
+
+    if products && products.length
+      .row.g-3
+        each item in products
+          .col-6.col-md-4.col-lg-3
+            a.card.h-100.text-decoration-none.text-dark(href=`/products/${item._id}`)
+              if item.displayImage || item.hinhanh
+                img.card-img-top(src=(item.displayImage || item.hinhanh) alt=item.tensanpham)
+              .card-body
+                h3.h6.mb-1= item.tensanpham
+                if item.giamoiText
+                  .text-danger.fw-semibold= item.giamoiText
+                else if item.giaText
+                  .text-danger.fw-semibold= item.giaText
+    else
+      .alert.alert-light Thương hiệu này chưa có sản phẩm.
+
+    if pagination && pagination.totalPages > 1
+      nav.mt-3
+        ul.pagination
+          li.page-item(class=pagination.hasPrev ? '' : 'disabled')
+            a.page-link(href=`?page=${pagination.currentPage - 1}`) «
+          each p in Array(pagination.totalPages).fill(0).map((_, i) => i + 1)
+            li.page-item(class=p === pagination.currentPage ? 'active' : '')
+              a.page-link(href=`?page=${p}`)= p
+          li.page-item(class=pagination.hasNext ? '' : 'disabled')
+            a.page-link(href=`?page=${pagination.currentPage + 1}`) »

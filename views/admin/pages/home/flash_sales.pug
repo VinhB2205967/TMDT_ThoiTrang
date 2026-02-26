@@ -1,5 +1,17 @@
 extends ../../layouts/default.pug
 
+block styles
+  link(rel='stylesheet' href='https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css')
+  style.
+    .select2-container .select2-selection--multiple { min-height: 38px; }
+    .flash-product-list { max-height: 90px; overflow: auto; font-size: 12px; }
+    .flash-discount-input {
+      min-width: 120px;
+      font-size: 18px;
+      font-weight: 700;
+      text-align: center;
+    }
+
 block main
   .container-fluid.py-4
     h1.mb-3 Quản lý Flash Sale
@@ -18,10 +30,10 @@ block main
               input.form-control(type="datetime-local" name="ketthuc" required)
             .col-12.col-md-2
               label.form-label % giảm
-              input.form-control(type="number" name="phantramgiamgia" value="0" min="0" max="90")
+              input.form-control.flash-discount-input(type="number" name="phantramgiamgia" value="0" min="0" max="90")
             .col-12.col-md-10
               label.form-label Sản phẩm (chọn nhiều)
-              select.form-select(name="sanpham" multiple size="6")
+              select.form-select.flash-product-select(name="sanpham" multiple)
                 if products && products.length
                   each p in products
                     option(value=p._id) #{p.tensanpham}
@@ -54,9 +66,16 @@ block main
                       input.form-control.form-control-sm(type="datetime-local" name="batdau" value=(item.batdau ? new Date(item.batdau).toISOString().slice(0,16) : ''))
                       input.form-control.form-control-sm(type="datetime-local" name="ketthuc" value=(item.ketthuc ? new Date(item.ketthuc).toISOString().slice(0,16) : ''))
                   td
-                    input.form-control.form-control-sm(type="number" name="phantramgiamgia" value=item.phantramgiamgia min="0" max="90")
+                    input.form-control.flash-discount-input(type="number" name="phantramgiamgia" value=item.phantramgiamgia min="0" max="90")
                   td
-                    textarea.form-control.form-control-sm(name="sanpham_ids" rows="2") #{(item.sanpham || []).map(i => i.sanpham_id).join(',')}
+                    - const selectedProductIds = (item.sanpham || []).map(i => String(i.sanpham_id))
+                    select.form-select.form-select-sm.flash-product-select(name="sanpham" multiple)
+                      if products && products.length
+                        each p in products
+                          option(value=p._id selected=(selectedProductIds.includes(String(p._id)))) #{p.tensanpham}
+                    .flash-product-list.mt-2.text-muted
+                      each sp in (item.sanpham || [])
+                        div #{sp.tenSanPham || sp.sanpham_id}
                   td
                     input.form-check-input(type="checkbox" name="hienthi" checked=item.hienthi)
                   td
@@ -69,4 +88,6 @@ block main
                 td(colspan="6").text-muted Chưa có flash sale.
 
 block scripts
+  script(src='https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js')
+  script(src='https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js')
   script(src="/admin/js/home-flash-sales.js")

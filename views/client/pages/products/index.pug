@@ -10,16 +10,8 @@ block main
                 form#filterForm(method="GET" action="/products")
                     .row.g-3
                         //- Search
-                        .col-md-3
+                        .col-md-4
                             input.form-control(type="text" name="keyword" placeholder="Tìm kiếm sản phẩm..." value=keyword)
-                        
-                        //- Category filter
-                        .col-md-3
-                            select.form-select(name="category")
-                                option(value="" selected=!currentCategory) Danh mục (toàn cây)
-                                each c in (categoryOptions || [])
-                                    - const selectedCategory = String(c._id) === String(currentCategory || '')
-                                    option(value=c._id selected=selectedCategory) #{'— '.repeat(c.level || 0)}#{c.name}
 
                         .col-md-2
                             select.form-select(name="loaisanpham")

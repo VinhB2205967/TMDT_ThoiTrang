@@ -101,7 +101,10 @@ async function layDuLieuPhanLoaiSanPham() {
     let [occasionTree, ageGroupTree, brands] = await Promise.all([
         getCategoryTree({ type: 'occasion', isActive: true }),
         getCategoryTree({ type: 'age_group', isActive: true }),
-        Brand.find({ hienthi: true }).sort({ thuTu: 1, ten: 1 }).lean()
+        Brand.find({
+            daXoa: { $ne: true },
+            $or: [{ hienthi: true }, { isActive: true }]
+        }).sort({ order: 1, thuTu: 1, ten: 1 }).lean()
     ]);
 
     const occasionOptions = flattenTreeOptions(occasionTree);

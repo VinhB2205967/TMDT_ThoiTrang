@@ -7,7 +7,6 @@
       e.preventDefault();
       const fd = new FormData(form);
       fd.set('xuatban', String(Boolean(fd.get('xuatban'))));
-      if (!String(fd.get('slug') || '').trim()) fd.delete('slug');
 
       const res = await App.apiFetch('/admin/blog', {
         method: 'POST',
@@ -50,8 +49,6 @@
     if (action === 'save') {
       const fd = new FormData();
       fd.set('tieude', row.querySelector('input[name="tieude"]')?.value || '');
-      const slugVal = row.querySelector('input[name="slug"]')?.value || '';
-      if (slugVal.trim()) fd.set('slug', slugVal.trim());
       fd.set('tomtat', row.querySelector('input[name="tomtat"]')?.value || '');
       fd.set('noidung', row.querySelector('textarea[name="noidung"]')?.value || '');
       fd.set('xuatban', String(Boolean(row.querySelector('input[name="xuatban"]')?.checked)));

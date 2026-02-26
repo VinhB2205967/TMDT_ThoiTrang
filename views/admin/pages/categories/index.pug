@@ -1,12 +1,54 @@
 extends ../../layouts/default.pug
 
+block styles
+  style.
+    .category-tree .category-tree-item {
+      padding: 12px 14px;
+    }
+    .category-tree .category-tree-row {
+      gap: 10px;
+    }
+    .category-tree .category-tree-label {
+      min-width: 0;
+      flex: 1;
+    }
+    .category-tree .category-tree-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+      align-items: center;
+    }
+    .category-tree .category-action-form {
+      margin: 0;
+    }
+    .category-tree .category-tree-actions .btn {
+      min-width: 68px;
+      border-radius: 999px;
+      padding-left: 12px;
+      padding-right: 12px;
+      font-weight: 500;
+      line-height: 1.2;
+    }
+    .category-tree .category-edit-box {
+      background: var(--bs-light);
+      border: 1px dashed var(--bs-border-color);
+      border-radius: 10px;
+      padding: 10px;
+    }
+    @media (max-width: 992px) {
+      .category-tree .category-tree-actions {
+        justify-content: flex-start;
+      }
+    }
+
 mixin nodeRow(item, depth)
   - const indent = (depth || 0) * 20;
   - const typeMap = { category: 'Danh mục', brand: 'Thương hiệu', occasion: 'Dịp dùng', age_group: 'Nhóm tuổi', gender: 'Giới tính' };
   - const typeText = typeMap[item.type] || item.type;
-  li.list-group-item
-    .d-flex.flex-column.flex-lg-row.gap-2.align-items-lg-center.justify-content-between
-      .d-flex.align-items-center.gap-2(style=`padding-left:${indent}px`)
+  li.list-group-item.category-tree-item
+    .d-flex.flex-column.flex-lg-row.align-items-lg-center.justify-content-between.category-tree-row
+      .d-flex.align-items-center.gap-2.category-tree-label(style=`padding-left:${indent}px`)
         if item.children && item.children.length
           button.btn.btn-sm.btn-outline-secondary(type='button' data-bs-toggle='collapse' data-bs-target=`#children-${item._id}` aria-expanded='true' aria-controls=`children-${item._id}`)
             i.bi.bi-chevron-down
@@ -17,21 +59,19 @@ mixin nodeRow(item, depth)
         span.badge.bg-light.text-dark #{typeText}
         if !item.isActive
           span.badge.bg-secondary Ẩn
-      .d-flex.flex-wrap.gap-2
-        form(method='POST' action=`${admin}/categories/${item._id}/toggle`)
+      .category-tree-actions
+        form.category-action-form(method='POST' action=`${admin}/categories/${item._id}/toggle`)
           input(type='hidden' name='_csrf' value=csrfToken)
           button.btn.btn-sm(type='submit' class=item.isActive ? 'btn-outline-warning' : 'btn-outline-success') #{item.isActive ? 'Ẩn' : 'Hiện'}
         button.btn.btn-sm.btn-outline-primary(type='button' data-bs-toggle='collapse' data-bs-target=`#edit-${item._id}`) Sửa
-        form(method='POST' action=`${admin}/categories/${item._id}/delete` onsubmit='return confirm("Xóa danh mục này?")')
+        form.category-action-form(method='POST' action=`${admin}/categories/${item._id}/delete` onsubmit='return confirm("Xóa danh mục này?")')
           input(type='hidden' name='_csrf' value=csrfToken)
           button.btn.btn-sm.btn-outline-danger(type='submit') Xóa
-    .collapse.mt-2(id=`edit-${item._id}`)
+    .collapse.mt-2.category-edit-box(id=`edit-${item._id}`)
       form.row.g-2(method='POST' action=`${admin}/categories/${item._id}/edit`)
         input(type='hidden' name='_csrf' value=csrfToken)
         .col-md-3
           input.form-control.form-control-sm(type='text' name='name' required value=item.name)
-        .col-md-2
-          input.form-control.form-control-sm(type='text' name='slug' value=item.slug placeholder='slug')
         .col-md-2
           select.form-select.form-select-sm(name='type')
             option(value='category' selected=item.type === 'category') category
@@ -72,9 +112,6 @@ block main
                 label.form-label Tên
                 input.form-control(type='text' name='name' required)
               .mb-2
-                label.form-label Slug (tùy chọn)
-                input.form-control(type='text' name='slug')
-              .mb-2
                 label.form-label Loại
                 select.form-select(name='type')
                   option(value='gender') Giới tính
@@ -103,7 +140,7 @@ block main
             a.btn.btn-sm.btn-outline-secondary(href=`${admin}/categories`) Làm mới
           .card-body
             if tree && tree.length
-              ul.list-group.list-group-flush
+              ul.list-group.list-group-flush.category-tree
                 each item in tree
                   +nodeRow(item, 0)
             else

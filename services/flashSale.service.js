@@ -8,13 +8,58 @@ function tinhGiaFlash(giaGoc, phanTram) {
   return giaMoi;
 }
 
-async function getFlashSaleActive() {
-  const now = new Date();
-  const sale = await FlashSale.findOne({
+async function dongBoTrangThaiFlashSale(now = new Date()) {
+  await FlashSale.updateMany(
+    {
+      hienthi: false,
+      batdau: { $lte: now },
+      ketthuc: { $gt: now }
+    },
+    { $set: { hienthi: true } }
+  );
+
+  await FlashSale.updateMany(
+    {
+      hienthi: true,
+      ketthuc: { $lte: now }
+    },
+    { $set: { hienthi: false } }
+  );
+}
+
+async function layFlashSaleDangChay(now = new Date()) {
+  await dongBoTrangThaiFlashSale(now);
+  return FlashSale.findOne({
     hienthi: true,
     batdau: { $lte: now },
-    ketthuc: { $gte: now }
+    ketthuc: { $gt: now }
   }).sort({ batdau: -1 }).lean();
+}
+
+async function getFlashSalePercentMap(productIds = []) {
+  const sale = await layFlashSaleDangChay();
+  const result = new Map();
+  if (!sale || !Array.isArray(productIds) || !productIds.length) return result;
+
+  const flashIds = new Set(
+    (sale.sanpham || [])
+      .map((item) => item && item.sanpham_id ? String(item.sanpham_id) : null)
+      .filter(Boolean)
+  );
+
+  const percent = Number(sale.phantramgiamgia) || 0;
+  if (percent <= 0) return result;
+
+  productIds.forEach((id) => {
+    const key = String(id || '');
+    if (key && flashIds.has(key)) result.set(key, percent);
+  });
+
+  return result;
+}
+
+async function getFlashSaleActive() {
+  const sale = await layFlashSaleDangChay();
 
   if (!sale) return null;
 
@@ -34,7 +79,7 @@ async function getFlashSaleActive() {
     if (!p) return null;
 
     const giaGoc = Number(p.gia) || 0;
-    const flashGia = Number(item.giagiam) || tinhGiaFlash(giaGoc, sale.phantramgiamgia);
+    const flashGia = tinhGiaFlash(giaGoc, sale.phantramgiamgia);
 
     return {
       ...p,
@@ -48,5 +93,7 @@ async function getFlashSaleActive() {
 }
 
 module.exports = {
-  getFlashSaleActive
+  getFlashSaleActive,
+  getFlashSalePercentMap,
+  tinhGiaFlash
 };

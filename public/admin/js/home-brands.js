@@ -2,13 +2,29 @@
   const form = document.getElementById('brandCreate');
   const App = window.App || {};
 
+  const toBoolString = (value) => String(Boolean(value));
+  const thongBao = (res, fallback) => {
+    const message = (res && res.data && res.data.message) || fallback || 'Có lỗi xảy ra';
+    window.alert(message);
+  };
+
+  async function capNhatToggle(id, loai, value) {
+    const endpoint = loai === 'featured' ? `/admin/brands/${id}/featured` : `/admin/brands/${id}/active`;
+    const body = loai === 'featured' ? { noiBat: value } : { hienthi: value };
+    return App.apiFetch(endpoint, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  }
+
   if (form) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const fd = new FormData(form);
       fd.set('thuTu', String(Number(fd.get('thuTu') || 0)));
-      fd.set('noiBat', String(Boolean(fd.get('noiBat'))));
-      fd.set('hienthi', String(Boolean(fd.get('hienthi'))));
+      fd.set('noiBat', toBoolString(fd.get('noiBat')));
+      fd.set('hienthi', toBoolString(fd.get('hienthi')));
 
       const res = await App.apiFetch('/admin/brands', {
         method: 'POST',
@@ -16,6 +32,7 @@
       });
 
       if (res.ok) window.location.reload();
+      else thongBao(res, 'Không thể tạo thương hiệu');
     });
   }
 
@@ -31,20 +48,18 @@
       if (!App.confirmDelete()) return;
       const res = await App.apiFetch(`/admin/brands/${id}`, { method: 'DELETE' });
       if (res.ok) row.remove();
+      else thongBao(res, 'Không thể xóa thương hiệu');
       return;
     }
 
     if (action === 'featured') {
-      const noiBat = Boolean(row.querySelector('input[name="noiBat"]')?.checked);
-      const res = await App.apiFetch(`/admin/brands/${id}/featured`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ noiBat })
-      });
+      const checkbox = row.querySelector('input[name="noiBat"]');
+      const noiBat = !Boolean(checkbox?.checked);
+      const res = await capNhatToggle(id, 'featured', noiBat);
       if (res.ok && res.data && res.data.data) {
-        const checkbox = row.querySelector('input[name="noiBat"]');
         if (checkbox) checkbox.checked = Boolean(res.data.data.noiBat);
       }
+      if (!res.ok) thongBao(res, 'Không thể cập nhật nổi bật');
       return;
     }
 
@@ -52,8 +67,8 @@
       const fd = new FormData();
       fd.set('ten', row.querySelector('input[name="ten"]')?.value || '');
       fd.set('thuTu', String(Number(row.querySelector('input[name="thuTu"]')?.value || 0)));
-      fd.set('noiBat', String(Boolean(row.querySelector('input[name="noiBat"]')?.checked)));
-      fd.set('hienthi', String(Boolean(row.querySelector('input[name="hienthi"]')?.checked)));
+      fd.set('noiBat', toBoolString(row.querySelector('input[name="noiBat"]')?.checked));
+      fd.set('hienthi', toBoolString(row.querySelector('input[name="hienthi"]')?.checked));
 
       const fileInput = row.querySelector('input[name="logo"]');
       if (fileInput && fileInput.files && fileInput.files[0]) {
@@ -66,6 +81,34 @@
       });
 
       if (res.ok) return;
+      thongBao(res, 'Không thể cập nhật thương hiệu');
+    }
+  });
+
+  document.addEventListener('change', async (e) => {
+    const featuredCk = e.target.closest('input[name="noiBat"]');
+    if (featuredCk) {
+      const row = featuredCk.closest('tr[data-id]');
+      if (!row) return;
+      const id = row.getAttribute('data-id');
+      const res = await capNhatToggle(id, 'featured', Boolean(featuredCk.checked));
+      if (!res.ok) {
+        featuredCk.checked = !featuredCk.checked;
+        thongBao(res, 'Không thể cập nhật nổi bật');
+      }
+      return;
+    }
+
+    const activeCk = e.target.closest('input[name="hienthi"]');
+    if (activeCk) {
+      const row = activeCk.closest('tr[data-id]');
+      if (!row) return;
+      const id = row.getAttribute('data-id');
+      const res = await capNhatToggle(id, 'active', Boolean(activeCk.checked));
+      if (!res.ok) {
+        activeCk.checked = !activeCk.checked;
+        thongBao(res, 'Không thể cập nhật hiển thị');
+      }
     }
   });
 })();

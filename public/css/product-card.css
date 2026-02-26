@@ -78,8 +78,13 @@
 
 /* Prevent overlap between SALE badge and discount percent */
 .product-card .discount-badge {
-    left: auto;
-    right: 10px;
+    left: 10px;
+    right: auto;
     top: 10px;
     z-index: 6;
+}
+
+.product-badges .badge.badge-discount {
+    background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+    color: #fff;
 }

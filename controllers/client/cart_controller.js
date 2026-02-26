@@ -8,6 +8,7 @@ const { muonJSON } = require('../../helpers/http');
 const { taoThanhToanMoMo } = require('../../services/momo.service');
 const { taoThanhToanVnpay, kiemTraChuKyVnpay } = require('../../services/vnpay.service');
 const { taoGiaoDichThanhToan, capNhatGiaoDichThanhToan, danhDauThanhCongTheoDonHang } = require('../../services/payment.service');
+const { getFlashSalePercentMap, tinhGiaFlash } = require('../../services/flashSale.service');
 const SHIPPING_CONFIG = require('../../config/shipping');
 const {
   normalizeCode,
@@ -19,30 +20,71 @@ const {
 
 // laLoaiKhongSize / tinhTongTon / layBienTheVaTon đã được tách sang services/productStock.service
 
-module.exports.danhSach = async (req, res) => {
-  const giohang = await getOrCreateCart(req.user._id);
+function tinhPhanTramTuGia(giaGoc, giaSauGiam) {
+  const goc = Number(giaGoc || 0);
+  const giam = Number(giaSauGiam || 0);
+  if (!(goc > 0) || !(giam > 0) || giam >= goc) return 0;
+  return Math.round(((goc - giam) / goc) * 100);
+}
 
-  let dacapnhat = false;
-  const danhsachsanpham = giohang.sanpham || [];
-  for (const item of danhsachsanpham) {
-    let tonkho = 0;
-    try {
-      const sanphamdoc = await sanpham.findOne({ _id: item.sanpham_id, daxoa: { $ne: true }, trangthai: 'dangban' });
-      if (sanphamdoc) {
-        const ketqua = layBienTheVaTon(sanphamdoc, item.bienthe_id, item.kichco);
-        tonkho = ketqua?.error ? 0 : Math.max(0, Number(ketqua.stock || 0));
-      }
-    } catch {
-      tonkho = 0;
+async function dongBoGiaGioHang(giohang, { capNhatTonKho = false } = {}) {
+  if (!giohang || !Array.isArray(giohang.sanpham) || !giohang.sanpham.length) return false;
+
+  const productIds = [...new Set(giohang.sanpham.map((it) => String(it.sanpham_id || '')).filter(Boolean))];
+  const docs = await sanpham.find({
+    _id: { $in: productIds },
+    daxoa: { $ne: true },
+    trangthai: 'dangban'
+  });
+
+  const docMap = new Map(docs.map((doc) => [String(doc._id), doc]));
+  const flashPercentMap = await getFlashSalePercentMap(productIds);
+
+  let changed = false;
+
+  for (const item of giohang.sanpham) {
+    const productDoc = docMap.get(String(item.sanpham_id || ''));
+    if (!productDoc) {
+      if (capNhatTonKho && item.tonkho !== 0) item.tonkho = 0;
+      continue;
     }
 
-    item.tonkho = tonkho;
-    if (tonkho > 0 && (item.soluong || 0) > tonkho) {
-      item.soluong = tonkho;
-      dacapnhat = true;
+    const ketqua = layBienTheVaTon(productDoc, item.bienthe_id, item.kichco);
+
+    if (capNhatTonKho) {
+      const tonkho = ketqua?.error ? 0 : Math.max(0, Number(ketqua.stock || 0));
+      item.tonkho = tonkho;
+      if (tonkho > 0 && Number(item.soluong || 0) > tonkho) {
+        item.soluong = tonkho;
+        changed = true;
+      }
+    }
+
+    if (ketqua?.error) continue;
+
+    const giaGoc = Number(ketqua.gia || item.gia || 0);
+    const phanTramGoc = tinhPhanTramTuGia(giaGoc, ketqua.giagiam);
+    const phanTramFlash = Number(flashPercentMap.get(String(item.sanpham_id || '')) || 0);
+    const phanTramApDung = phanTramFlash > 0 ? phanTramFlash : phanTramGoc;
+    const giaGiam = phanTramApDung > 0 ? (tinhGiaFlash(giaGoc, phanTramApDung) || giaGoc) : giaGoc;
+
+    if (Number(item.gia || 0) !== giaGoc) {
+      item.gia = giaGoc;
+      changed = true;
+    }
+    if (Number(item.giagiam || 0) !== giaGiam) {
+      item.giagiam = giaGiam;
+      changed = true;
     }
   }
 
+  return changed;
+}
+
+module.exports.danhSach = async (req, res) => {
+  const giohang = await getOrCreateCart(req.user._id);
+
+  const dacapnhat = await dongBoGiaGioHang(giohang, { capNhatTonKho: true });
   if (dacapnhat) {
     await giohang.save();
   }
@@ -289,6 +331,10 @@ module.exports.xoaHet = async (req, res) => {
 
 module.exports.trangThanhToan = async (req, res) => {
   const giohang = await getOrCreateCart(req.user._id);
+  const daDongBoGia = await dongBoGiaGioHang(giohang);
+  if (daDongBoGia) {
+    await giohang.save();
+  }
 
   const thamso = req.query.itemIds;
   const danhsachidchon = Array.isArray(thamso) ? thamso.map(String) : (thamso ? [String(thamso)] : []);
@@ -410,6 +456,10 @@ function calcShippingFee(subtotal, regionKey) {
 module.exports.xuLyThanhToan = async (req, res) => {
   try {
     const giohang = await getOrCreateCart(req.user._id);
+    const daDongBoGia = await dongBoGiaGioHang(giohang);
+    if (daDongBoGia) {
+      await giohang.save();
+    }
     if (!giohang.sanpham || giohang.sanpham.length === 0) {
       return res.redirect('/cart');
     }

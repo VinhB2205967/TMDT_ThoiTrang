@@ -8,7 +8,8 @@ const productViewHelper = require('../../helpers/productView');
 const { buildProductStats, applyProductStats } = require('../../helpers/productStats');
 const Brand = require('../../models/brand_model');
 const Danhmuc = require('../../models/category_model');
-const { getCategoryTree, flattenTreeOptions, getDescendantCategoryIds } = require('../../services/category.service');
+const { getCategoryTree, flattenTreeOptions } = require('../../services/category.service');
+const { getFlashSalePercentMap, tinhGiaFlash } = require('../../services/flashSale.service');
 
 async function timHoacTaoDanhMuc({ name, slug, type, parentId = null, order = 0 }) {
     const existed = await Danhmuc.findOne({ slug, daxoa: { $ne: true } }).select('_id').lean();
@@ -74,11 +75,13 @@ async function damBaoDanhMucMacDinh() {
 }
 
 async function layBoLocNangCao() {
-    let [categoryTree, occasionTree, ageGroupTree, brands] = await Promise.all([
-        getCategoryTree({ type: 'category', isActive: true }),
+    let [occasionTree, ageGroupTree, brands] = await Promise.all([
         getCategoryTree({ type: 'occasion', isActive: true }),
         getCategoryTree({ type: 'age_group', isActive: true }),
-        Brand.find({ hienthi: true }).sort({ thuTu: 1, ten: 1 }).lean()
+        Brand.find({
+            daXoa: { $ne: true },
+            $or: [{ hienthi: true }, { isActive: true }]
+        }).sort({ order: 1, thuTu: 1, ten: 1 }).lean()
     ]);
 
     if (!flattenTreeOptions(occasionTree).length || !flattenTreeOptions(ageGroupTree).length) {
@@ -90,7 +93,6 @@ async function layBoLocNangCao() {
     }
 
     return {
-        categoryOptions: flattenTreeOptions(categoryTree),
         occasionOptions: flattenTreeOptions(occasionTree),
         ageGroupOptions: flattenTreeOptions(ageGroupTree),
         brandOptions: brands || []
@@ -122,6 +124,37 @@ function chuanHoaSanPhamDanhSach(item) {
     }
 
     return p;
+}
+
+function ganGiaFlashSaleChoSanPham(product, flashPercentMap) {
+    if (!product || !product._id || !(flashPercentMap instanceof Map)) return product;
+
+    const percent = Number(flashPercentMap.get(String(product._id)) || 0);
+    if (percent <= 0) return product;
+
+    const giaGoc = Number(product.gia || 0);
+    const flashGia = tinhGiaFlash(giaGoc, percent);
+    if (!Number.isFinite(flashGia)) return product;
+
+    product.flashSalePercent = percent;
+    product.flashSalePrice = flashGia;
+    product.phantramgiamgia = percent;
+    product.giamoi = flashGia;
+    product.giamoiText = `${flashGia.toLocaleString('vi-VN')}₫`;
+
+    if (Array.isArray(product.bienthe)) {
+        product.bienthe = product.bienthe.map((variant) => {
+            const giaBienThe = Number((variant && variant.gia) || giaGoc || 0);
+            const giaBienTheSauGiam = tinhGiaFlash(giaBienThe, percent);
+            return {
+                ...variant,
+                phantramgiamgia: percent,
+                giamoi: Number.isFinite(giaBienTheSauGiam) ? giaBienTheSauGiam : giaBienThe
+            };
+        });
+    }
+
+    return product;
 }
 
 module.exports.danhSach = async (req, res) => {
@@ -159,17 +192,6 @@ module.exports.danhSach = async (req, res) => {
                 { thuonghieu_id: req.query.brand },
                 { brand: req.query.brand }
             ];
-        }
-
-        // Lọc theo danh mục cây (bao gồm toàn bộ danh mục con)
-        if (req.query.category && mongoose.Types.ObjectId.isValid(req.query.category)) {
-            const categoryIds = await getDescendantCategoryIds(req.query.category, {
-                includeSelf: true,
-                onlyActive: true
-            });
-            if (categoryIds.length) {
-                boloc.category = { $in: categoryIds };
-            }
         }
 
         // Lọc theo dịp
@@ -217,8 +239,11 @@ module.exports.danhSach = async (req, res) => {
         }
         
         const danhsachsanpham = await sanpham.find(boloc).sort(sapxep).lean();
-        const capnhatsp = (danhsachsanpham || []).map(chuanHoaSanPhamDanhSach);
         const ids = (danhsachsanpham || []).map(p => p && p._id).filter(Boolean);
+        const flashPercentMap = await getFlashSalePercentMap(ids);
+        const capnhatsp = (danhsachsanpham || [])
+            .map(chuanHoaSanPhamDanhSach)
+            .map((item) => ganGiaFlashSaleChoSanPham(item, flashPercentMap));
         const { ratingMap, soldMap } = await buildProductStats(ids);
         const capnhatspDayDu = applyProductStats(capnhatsp, ratingMap, soldMap);
 
@@ -229,7 +254,6 @@ module.exports.danhSach = async (req, res) => {
             currentSort: req.query.sort,
             currentLoai: req.query.loaisanpham,
             currentGioiTinh: req.query.gioitinh,
-            currentCategory: req.query.category,
             currentBrand: req.query.brand,
             currentOccasion: req.query.occasion,
             currentAgeGroup: req.query.ageGroup,
@@ -256,6 +280,8 @@ module.exports.chiTiet = async (req, res) => {
 
         const capnhatsp = productHelper(sanphamdoc);
         capnhatsp.hinhanh = capnhatsp.displayImage || productViewHelper.chuanHoaAnh(capnhatsp.hinhanh);
+        const flashPercentMap = await getFlashSalePercentMap([sanphamdoc._id]);
+        ganGiaFlashSaleChoSanPham(capnhatsp, flashPercentMap);
 
         // Tạo danh sách tất cả các lựa chọn màu
         let tatcabienthe = [];
@@ -344,10 +370,11 @@ module.exports.chiTiet = async (req, res) => {
 
         // Sản phẩm tương tự (cùng loại)
         const sanphamlienquan = await sanpham.find({ loaisanpham: sanphamdoc.loaisanpham, _id: { $ne: sanphamdoc._id }, daxoa: { $ne: true }, trangthai: 'dangban' }).limit(6).lean();
+        const flashPercentMapRelated = await getFlashSalePercentMap((sanphamlienquan || []).map((sp) => sp && sp._id).filter(Boolean));
         const sanphamlienquanxuly = (sanphamlienquan || []).map(sp => {
             const p = productHelper(sp);
             p.hinhanh = p.displayImage || productViewHelper.chuanHoaAnh(p.hinhanh);
-            return p;
+            return ganGiaFlashSaleChoSanPham(p, flashPercentMapRelated);
         });
 
         res.render('client/pages/products/detail.pug', {
@@ -382,6 +409,8 @@ module.exports.tuyChon = async (req, res) => {
 
         const capnhatsp = productHelper(sanphamdoc);
         capnhatsp.hinhanh = capnhatsp.displayImage || productViewHelper.chuanHoaAnh(capnhatsp.hinhanh);
+        const flashPercentMap = await getFlashSalePercentMap([sanphamdoc._id]);
+        ganGiaFlashSaleChoSanPham(capnhatsp, flashPercentMap);
 
         const khongsize = ['tui', 'phukien'];
         const cosize = !khongsize.includes(String(capnhatsp.loaisanpham || '').toLowerCase());
