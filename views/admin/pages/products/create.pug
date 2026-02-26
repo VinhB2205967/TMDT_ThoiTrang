@@ -94,13 +94,13 @@ block main
                                     select.form-select(name="occasion")
                                         option(value="") -- Chọn dịp --
                                         each c in (occasionOptions || [])
-                                            option(value=c._id) #{'— '.repeat(c.level || 0)}#{c.name}
+                                            option(value=c._id) #{c.name}
                                 .col-md-6
                                     label.form-label.fw-bold Nhóm tuổi
                                     select.form-select(name="ageGroup")
                                         option(value="") -- Chọn nhóm tuổi --
                                         each c in (ageGroupOptions || [])
-                                            option(value=c._id) #{'— '.repeat(c.level || 0)}#{c.name}
+                                            option(value=c._id) #{c.name}
                             
                             .mt-3
                                 label.form-label.fw-bold Màu sắc sản phẩm chính

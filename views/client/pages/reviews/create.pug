@@ -14,7 +14,9 @@ block main
       if !canEdit
         .alert.alert-warning Bạn đã quá hạn sửa đánh giá (#{editWindowDays} ngày).
       else
-        form(method='POST' action=(isEdit ? `/reviews/${review._id}/update` : '/reviews') enctype='multipart/form-data')
+        - const reviewAction = isEdit ? `/reviews/${review._id}/update?_csrf=${encodeURIComponent(csrfToken || '')}` : `/reviews?_csrf=${encodeURIComponent(csrfToken || '')}`
+        form(method='POST' action=reviewAction enctype='multipart/form-data')
+          input(type='hidden' name='_csrf' value=csrfToken)
           input(type='hidden' name='orderId' value=order._id)
           input(type='hidden' name='itemId' value=item._id)
           input(type='hidden' name='productId' value=productId)

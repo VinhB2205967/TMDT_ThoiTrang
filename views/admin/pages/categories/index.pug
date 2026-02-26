@@ -87,7 +87,7 @@ mixin nodeRow(item, depth)
             each p in parentOptions
               - const selected = String(p._id) === String(item.parent_id || '')
               if String(p._id) !== String(item._id)
-                option(value=p._id selected=selected) #{'— '.repeat(p.level || 0)}#{p.name}
+                option(value=p._id selected=selected) #{p.name}
         .col-md-1
           .form-check.form-switch.pt-2
             input.form-check-input(type='checkbox' name='isActive' value='true' checked=item.isActive)
@@ -124,7 +124,7 @@ block main
                 select.form-select(name='parent_id')
                   option(value='') Cấp cha
                   each p in parentOptions
-                    option(value=p._id) #{'— '.repeat(p.level || 0)}#{p.name}
+                    option(value=p._id) #{p.name}
               .mb-2
                 label.form-label Thứ tự
                 input.form-control(type='number' name='order' value='0' min='0')

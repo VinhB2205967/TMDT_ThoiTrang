@@ -22,9 +22,15 @@
   };
 
   App.setCartBadge = App.setCartBadge || function setCartBadge(count) {
-    const huyHieu = App.qs('.cart-badge');
-    if (!huyHieu) return;
-    huyHieu.textContent = String(count ?? 0);
+    const value = String(count ?? 0);
+    const nodes = [
+      ...App.qsa('.cart-badge'),
+      ...App.qsa('a[href="/cart"] .badge-counter')
+    ];
+    if (!nodes.length) return;
+    nodes.forEach((node) => {
+      node.textContent = value;
+    });
   };
 
   App.setFavoriteBadge = App.setFavoriteBadge || function setFavoriteBadge(count) {

@@ -10,7 +10,9 @@ block main
             .row.g-4
               .col-12
                 h2.h6.fw-bold.mb-2 Cập nhật thông tin
-                form(method="POST" action="/account/profile" enctype="multipart/form-data")
+                - const profileAction = `/account/profile?_csrf=${encodeURIComponent(csrfToken || '')}`
+                form(method="POST" action=profileAction enctype="multipart/form-data")
+                  input(type='hidden' name='_csrf' value=csrfToken)
                   .row.g-3
                     .col-12
                       label.form-label Họ tên
@@ -51,6 +53,7 @@ block main
                 hr
                 h2.h6.fw-bold.mb-2 Đổi mật khẩu
                 form(method="POST" action="/account/password")
+                  input(type='hidden' name='_csrf' value=csrfToken)
                   if hasPassword
                     .mb-3
                       label.form-label Mật khẩu hiện tại
@@ -70,4 +73,5 @@ block main
                 hr
                 h2.h6.fw-bold.text-danger.mb-2 Xóa tài khoản
                 form(method="POST" action="/account/delete" onsubmit="return confirm('Bạn chắc chắn muốn xóa tài khoản?')")
+                  input(type='hidden' name='_csrf' value=csrfToken)
                   button.btn.btn-outline-danger(type="submit") Xóa tài khoản

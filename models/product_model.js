@@ -41,10 +41,9 @@ const productSchema = new mongoose.Schema({
   ngaycapnhat: Date
 });
 
-productSchema.pre('validate', function syncLegacyFields(next) {
+productSchema.pre('validate', function syncLegacyFields() {
   if (!this.brand && this.thuonghieu_id) this.brand = this.thuonghieu_id;
   if (!this.thuonghieu_id && this.brand) this.thuonghieu_id = this.brand;
-  next();
 });
 
 productSchema.index({ category: 1, trangthai: 1, daxoa: 1 });

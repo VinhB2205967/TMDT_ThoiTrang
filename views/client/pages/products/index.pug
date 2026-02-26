@@ -43,13 +43,13 @@ block main
                             select.form-select(name="occasion")
                                 option(value="" selected=!currentOccasion) Tất cả dịp
                                 each c in (occasionOptions || [])
-                                    option(value=c._id selected=(String(currentOccasion || '') === String(c._id))) #{'— '.repeat(c.level || 0)}#{c.name}
+                                    option(value=c._id selected=(String(currentOccasion || '') === String(c._id))) #{c.name}
 
                         .col-md-2
                             select.form-select(name="ageGroup")
                                 option(value="" selected=!currentAgeGroup) Tất cả nhóm tuổi
                                 each c in (ageGroupOptions || [])
-                                    option(value=c._id selected=(String(currentAgeGroup || '') === String(c._id))) #{'— '.repeat(c.level || 0)}#{c.name}
+                                    option(value=c._id selected=(String(currentAgeGroup || '') === String(c._id))) #{c.name}
                         
                         //- Price range
                         .col-md-2

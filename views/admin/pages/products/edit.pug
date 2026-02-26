@@ -96,14 +96,14 @@ block main
                                         option(value="") -- Chọn dịp --
                                         each c in (occasionOptions || [])
                                             - const selectedOccasion = String(c._id) === String(product.occasion || '')
-                                            option(value=c._id selected=selectedOccasion) #{'— '.repeat(c.level || 0)}#{c.name}
+                                            option(value=c._id selected=selectedOccasion) #{c.name}
                                 .col-md-6
                                     label.form-label.fw-bold Nhóm tuổi
                                     select.form-select(name="ageGroup")
                                         option(value="") -- Chọn nhóm tuổi --
                                         each c in (ageGroupOptions || [])
                                             - const selectedAge = String(c._id) === String(product.ageGroup || '')
-                                            option(value=c._id selected=selectedAge) #{'— '.repeat(c.level || 0)}#{c.name}
+                                            option(value=c._id selected=selectedAge) #{c.name}
                             
                             .mt-3
                                 label.form-label.fw-bold Màu sắc sản phẩm chính

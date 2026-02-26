@@ -16,78 +16,96 @@ function isEditableWithinWindow(review) {
 }
 
 async function kiemTraQuyenDanhGia({ userId, orderId, itemId, productId }) {
-  if (!mongoose.Types.ObjectId.isValid(orderId) || !mongoose.Types.ObjectId.isValid(itemId)) return null;
+  if (!mongoose.Types.ObjectId.isValid(orderId)) return null;
+  const hasValidItemId = mongoose.Types.ObjectId.isValid(itemId);
+  const hasValidProductId = mongoose.Types.ObjectId.isValid(productId);
 
   const order = await Donhang.findOne({ _id: orderId, nguoidung_id: userId, daxoa: { $ne: true } }).lean();
   if (!order) return null;
   if (String(order.trangthai) !== 'dagiao') return { order, item: null };
 
-  const item = await Chitietdonhang.findOne({
-    _id: itemId,
-    donhang_id: orderId,
-    sanpham_id: productId
-  }).lean();
+  let item = null;
+  if (hasValidItemId) {
+    item = await Chitietdonhang.findOne({
+      _id: itemId,
+      donhang_id: orderId,
+      ...(hasValidProductId ? { sanpham_id: productId } : {})
+    }).lean();
+  }
+
+  if (!item && hasValidProductId) {
+    item = await Chitietdonhang.findOne({
+      donhang_id: orderId,
+      sanpham_id: productId
+    }).sort({ ngaytao: 1 }).lean();
+  }
 
   return { order, item };
 }
 
 module.exports.taoMoi = async (req, res) => {
-  const orderId = String(req.query.orderId || '').trim();
-  const itemId = String(req.query.itemId || '').trim();
-  const productId = String(req.query.productId || '').trim();
+  try {
+    const orderId = String(req.query.orderId || '').trim();
+    const itemId = String(req.query.itemId || '').trim();
+    const productId = String(req.query.productId || '').trim();
 
-  if (!mongoose.Types.ObjectId.isValid(productId)) {
-    req.flash?.('error', 'Sản phẩm không hợp lệ');
-    return res.redirect('/orders');
-  }
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      req.flash?.('error', 'Sản phẩm không hợp lệ');
+      return res.redirect('/orders');
+    }
 
-  const quyen = await kiemTraQuyenDanhGia({
-    userId: req.user._id,
-    orderId,
-    itemId,
-    productId
-  });
+    const quyen = await kiemTraQuyenDanhGia({
+      userId: req.user._id,
+      orderId,
+      itemId,
+      productId
+    });
 
-  if (!quyen || !quyen.order) {
-    req.flash?.('error', 'Không thể đánh giá đơn hàng này');
-    return res.redirect('/orders');
-  }
+    if (!quyen || !quyen.order) {
+      req.flash?.('error', 'Không thể đánh giá đơn hàng này');
+      return res.redirect('/orders');
+    }
 
-  if (!quyen.item) {
-    req.flash?.('error', 'Không tìm thấy sản phẩm trong đơn');
-    return res.redirect(`/orders/${orderId}`);
-  }
+    if (!quyen.item) {
+      req.flash?.('error', 'Không tìm thấy sản phẩm trong đơn');
+      return res.redirect(`/orders/${orderId}`);
+    }
 
-  const existing = await Danhgia.findOne({
-    nguoidung_id: req.user._id,
-    chitietdonhang_id: quyen.item._id,
-    daxoa: { $ne: true }
-  }).lean();
+    const existing = await Danhgia.findOne({
+      nguoidung_id: req.user._id,
+      chitietdonhang_id: quyen.item._id,
+      daxoa: { $ne: true }
+    }).lean();
 
-  if (existing) {
-    const canEdit = isEditableWithinWindow(existing);
+    if (existing) {
+      const canEdit = isEditableWithinWindow(existing);
+      return res.render('client/pages/reviews/create.pug', {
+        titlePage: 'Sửa đánh giá',
+        order: quyen.order,
+        item: quyen.item,
+        productId,
+        review: existing,
+        tags: TAGS_NHANH,
+        canEdit,
+        editWindowDays: EDIT_WINDOW_DAYS
+      });
+    }
+
     return res.render('client/pages/reviews/create.pug', {
-      titlePage: 'Sửa đánh giá',
+      titlePage: 'Đánh giá sản phẩm',
       order: quyen.order,
       item: quyen.item,
       productId,
-      review: existing,
+      review: null,
       tags: TAGS_NHANH,
-      canEdit,
+      canEdit: true,
       editWindowDays: EDIT_WINDOW_DAYS
     });
+  } catch (err) {
+    console.error('review create page error:', err);
+    req.flash?.('error', 'Không thể mở trang đánh giá. Vui lòng thử lại.');
+    return res.redirect('/orders');
   }
-
-  return res.render('client/pages/reviews/create.pug', {
-    titlePage: 'Đánh giá sản phẩm',
-    order: quyen.order,
-    item: quyen.item,
-    productId,
-    review: null,
-    tags: TAGS_NHANH,
-    canEdit: true,
-    editWindowDays: EDIT_WINDOW_DAYS
-  });
 };
 
 module.exports.taoMoiPost = async (req, res) => {
@@ -99,14 +117,15 @@ module.exports.taoMoiPost = async (req, res) => {
     const diem = Number(req.body.diem || 0);
     const noidung = String(req.body.noidung || '').trim();
     const tags = Array.isArray(req.body.tags) ? req.body.tags.map(t => String(t)) : (req.body.tags ? [String(req.body.tags)] : []);
+    const reviewFormUrl = `/reviews/new?orderId=${orderId}&itemId=${itemId}&productId=${productId}#review-form`;
 
     if (!Number.isFinite(diem) || diem < 1 || diem > 5) {
       req.flash?.('error', 'Vui lòng chọn số sao hợp lệ (1-5)');
-      return res.redirect('back');
+      return res.redirect(reviewFormUrl);
     }
     if (noidung.length < 10) {
       req.flash?.('error', 'Nội dung đánh giá tối thiểu 10 ký tự');
-      return res.redirect('back');
+      return res.redirect(reviewFormUrl);
     }
 
     const quyen = await kiemTraQuyenDanhGia({
@@ -136,10 +155,10 @@ module.exports.taoMoiPost = async (req, res) => {
     const imgs = files.map(f => `/uploads/reviews/${f.filename}`).slice(0, 5);
 
     await Danhgia.create({
-      sanpham_id: productId,
+      sanpham_id: quyen.item.sanpham_id,
       nguoidung_id: req.user._id,
-      donhang_id: orderId,
-      chitietdonhang_id: itemId,
+      donhang_id: quyen.order._id,
+      chitietdonhang_id: quyen.item._id,
       diem,
       noidung,
       hinhanh: imgs,
@@ -152,14 +171,20 @@ module.exports.taoMoiPost = async (req, res) => {
       ngaycapnhat: new Date()
     });
 
-    await Chitietdonhang.updateOne({ _id: itemId }, { $set: { danhgia: true } });
+    await Chitietdonhang.updateOne({ _id: quyen.item._id }, { $set: { danhgia: true } });
 
     req.flash?.('success', 'Đã gửi đánh giá');
-    return res.redirect(`/orders/${orderId}`);
+    return res.redirect(`/orders/${quyen.order._id}`);
   } catch (err) {
     console.error('create review error:', err);
     req.flash?.('error', 'Không thể gửi đánh giá');
-    return res.redirect('back');
+    const orderId = String(req.body.orderId || '').trim();
+    const itemId = String(req.body.itemId || '').trim();
+    const productId = String(req.body.productId || '').trim();
+    if (orderId && productId) {
+      return res.redirect(`/reviews/new?orderId=${orderId}&itemId=${itemId}&productId=${productId}#review-form`);
+    }
+    return res.redirect('/orders');
   }
 };
 

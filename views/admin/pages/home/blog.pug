@@ -18,8 +18,8 @@ block main
               input.form-control(type="file" name="image" accept="image/*")
             .col-12
               label.form-label Nội dung
-              textarea.form-control(name="noidung" rows="6" placeholder="Nhập nội dung bình thường, có thể xuống dòng")
-              .form-text Hệ thống tự hiển thị theo từng dòng, không cần nhập thẻ HTML.
+              textarea.form-control(name="noidung" rows="6" placeholder="Nhập nội dung bài viết")
+              
             .col-12
               .form-check
                 input.form-check-input(type="checkbox" name="xuatban")
@@ -45,7 +45,7 @@ block main
                     if item.hinhanh
                       img.img-thumbnail.mt-2(style="max-width:120px" src=item.hinhanh alt=item.tieude)
                     input.form-control.form-control-sm.mt-2(type="file" name="image" accept="image/*")
-                    textarea.form-control.form-control-sm.mt-2(name="noidung" rows="4" placeholder="Nhập nội dung bình thường") #{item.noidung}
+                    textarea.form-control.form-control-sm.mt-2(name="noidung" rows="4" placeholder="Nhập nội dung bài viết") #{item.noidung}
                   td
                     input.form-check-input(type="checkbox" name="xuatban" checked=item.xuatban)
                   td

@@ -2,6 +2,7 @@ const sanpham = require('../../models/product_model');
 const donhang = require('../../models/order_model');
 const chitietdonhang = require('../../models/order_item_model');
 const nguoidung = require('../../models/user_model');
+const mongoose = require('mongoose');
 const { getOrCreateCart } = require('../../services/cart.service');
 const { laLoaiKhongSize, tinhTongTon, layBienTheVaTon } = require('../../services/productStock.service');
 const { muonJSON } = require('../../helpers/http');
@@ -27,10 +28,22 @@ function tinhPhanTramTuGia(giaGoc, giaSauGiam) {
   return Math.round(((goc - giam) / goc) * 100);
 }
 
+function tinhSoLuongHienThiGio(giohang) {
+  if (!giohang || !Array.isArray(giohang.sanpham)) return 0;
+  return giohang.sanpham.length;
+}
+
 async function dongBoGiaGioHang(giohang, { capNhatTonKho = false } = {}) {
   if (!giohang || !Array.isArray(giohang.sanpham) || !giohang.sanpham.length) return false;
 
-  const productIds = [...new Set(giohang.sanpham.map((it) => String(it.sanpham_id || '')).filter(Boolean))];
+  const productIds = [...new Set(
+    giohang.sanpham
+      .map((it) => String(it.sanpham_id || '').trim())
+      .filter((id) => id && mongoose.Types.ObjectId.isValid(id))
+  )];
+
+  if (!productIds.length) return false;
+
   const docs = await sanpham.find({
     _id: { $in: productIds },
     daxoa: { $ne: true },
@@ -145,7 +158,7 @@ module.exports.them = async (req, res) => {
     await giohang.save();
 
     if (muonJSON(req)) {
-      return res.json({ success: true, cartCount: giohang.sanpham.length });
+      return res.json({ success: true, cartCount: tinhSoLuongHienThiGio(giohang) });
     }
 
     return res.redirect('/cart');
@@ -210,7 +223,7 @@ module.exports.muaNgay = async (req, res) => {
     const duongdanchuyen = iditemdich ? `/cart/checkout?itemIds=${iditemdich}` : '/cart/checkout';
 
     if (muonJSON(req)) {
-      return res.json({ success: true, cartCount: giohang.sanpham.length, redirect: duongdanchuyen });
+      return res.json({ success: true, cartCount: tinhSoLuongHienThiGio(giohang), redirect: duongdanchuyen });
     }
 
     return res.redirect(duongdanchuyen);
@@ -255,7 +268,7 @@ module.exports.capNhatSoLuong = async (req, res) => {
   await giohang.save();
 
   return muonJSON(req)
-    ? res.json({ success: true, cartCount: giohang.sanpham.length, quantity: soluongcapnhat, maxStock: tonkho })
+    ? res.json({ success: true, cartCount: tinhSoLuongHienThiGio(giohang), quantity: soluongcapnhat, maxStock: tonkho })
     : res.redirect('/cart');
 };
 
@@ -306,7 +319,7 @@ module.exports.capNhatTuyChon = async (req, res) => {
     }
 
     await giohang.save();
-    return res.json({ success: true, cartCount: giohang.sanpham.length });
+    return res.json({ success: true, cartCount: tinhSoLuongHienThiGio(giohang) });
   } catch (e) {
     return res.status(500).json({ success: false, message: 'Có lỗi xảy ra' });
   }
@@ -319,7 +332,7 @@ module.exports.xoa = async (req, res) => {
   giohang.sanpham = giohang.sanpham.filter(i => String(i._id) !== String(iditem));
   await giohang.save();
 
-  return muonJSON(req) ? res.json({ success: true, cartCount: giohang.sanpham.length }) : res.redirect('/cart');
+  return muonJSON(req) ? res.json({ success: true, cartCount: tinhSoLuongHienThiGio(giohang) }) : res.redirect('/cart');
 };
 
 module.exports.xoaHet = async (req, res) => {
@@ -330,71 +343,76 @@ module.exports.xoaHet = async (req, res) => {
 };
 
 module.exports.trangThanhToan = async (req, res) => {
-  const giohang = await getOrCreateCart(req.user._id);
-  const daDongBoGia = await dongBoGiaGioHang(giohang);
-  if (daDongBoGia) {
-    await giohang.save();
-  }
+  try {
+    const giohang = await getOrCreateCart(req.user._id);
+    const daDongBoGia = await dongBoGiaGioHang(giohang);
+    if (daDongBoGia) {
+      await giohang.save();
+    }
 
-  const thamso = req.query.itemIds;
-  const danhsachidchon = Array.isArray(thamso) ? thamso.map(String) : (thamso ? [String(thamso)] : []);
-  const tapidchon = new Set(danhsachidchon);
-  const danhsachitem = danhsachidchon.length
-    ? (giohang.sanpham || []).filter(it => tapidchon.has(String(it._id)))
-    : (giohang.sanpham || []);
+    const thamso = req.query.itemIds;
+    const danhsachidchon = Array.isArray(thamso) ? thamso.map(String) : (thamso ? [String(thamso)] : []);
+    const tapidchon = new Set(danhsachidchon);
+    const danhsachitem = danhsachidchon.length
+      ? (giohang.sanpham || []).filter(it => tapidchon.has(String(it._id)))
+      : (giohang.sanpham || []);
 
-  const tamtinh = danhsachitem.reduce((sum, it) => {
-    const gia = it.giagiam || it.gia || 0;
-    return sum + (gia * (it.soluong || 1));
-  }, 0);
+    const tamtinh = danhsachitem.reduce((sum, it) => {
+      const gia = it.giagiam || it.gia || 0;
+      return sum + (gia * (it.soluong || 1));
+    }, 0);
 
-  const defaultRegion = SHIPPING_CONFIG.defaultRegion || 'noithanh';
-  const regionConfig = SHIPPING_CONFIG.regions || {};
-  const shippingFee = tamtinh >= SHIPPING_CONFIG.freeShipThreshold
-    ? 0
-    : (regionConfig[defaultRegion]?.fee || 0);
-  const finalTotal = Math.max(0, tamtinh + shippingFee);
+    const defaultRegion = SHIPPING_CONFIG.defaultRegion || 'noithanh';
+    const regionConfig = SHIPPING_CONFIG.regions || {};
+    const shippingFee = tamtinh >= SHIPPING_CONFIG.freeShipThreshold
+      ? 0
+      : (regionConfig[defaultRegion]?.fee || 0);
+    const finalTotal = Math.max(0, tamtinh + shippingFee);
 
-  const taikhoan = await nguoidung.findOne({ _id: req.user._id, daxoa: { $ne: true } }).lean();
-  const danhsachdiachi = Array.isArray(taikhoan?.diachiList) ? taikhoan.diachiList : [];
-  const danhsachdiachihienthi = [];
-  if (taikhoan?.diachi) {
-    danhsachdiachihienthi.push({
-      _id: 'profile',
-      label: 'Địa chỉ mặc định',
-      tennguoinhan: taikhoan?.hoten || '',
-      sodienthoai: taikhoan?.sodienthoai || '',
-      diachi: taikhoan?.diachi || ''
+    const taikhoan = await nguoidung.findOne({ _id: req.user._id, daxoa: { $ne: true } }).lean();
+    const danhsachdiachi = Array.isArray(taikhoan?.diachiList) ? taikhoan.diachiList : [];
+    const danhsachdiachihienthi = [];
+    if (taikhoan?.diachi) {
+      danhsachdiachihienthi.push({
+        _id: 'profile',
+        label: 'Địa chỉ mặc định',
+        tennguoinhan: taikhoan?.hoten || '',
+        sodienthoai: taikhoan?.sodienthoai || '',
+        diachi: taikhoan?.diachi || ''
+      });
+    }
+    danhsachdiachi.forEach((diachi) => {
+      danhsachdiachihienthi.push({
+        _id: String(diachi._id),
+        label: diachi.label || 'Địa chỉ',
+        tennguoinhan: diachi.tennguoinhan || taikhoan?.hoten || '',
+        sodienthoai: diachi.sodienthoai || taikhoan?.sodienthoai || '',
+        diachi: diachi.diachi || ''
+      });
     });
-  }
-  danhsachdiachi.forEach((diachi) => {
-    danhsachdiachihienthi.push({
-      _id: String(diachi._id),
-      label: diachi.label || 'Địa chỉ',
-      tennguoinhan: diachi.tennguoinhan || taikhoan?.hoten || '',
-      sodienthoai: diachi.sodienthoai || taikhoan?.sodienthoai || '',
-      diachi: diachi.diachi || ''
-    });
-  });
 
-  res.render('client/pages/cart/checkout.pug', {
-    titlePage: 'Thanh toán',
-    cart: giohang,
-    items: danhsachitem,
-    subtotal: tamtinh,
-    shippingFee,
-    finalTotal,
-    shippingConfig: SHIPPING_CONFIG,
-    selectedShippingRegion: defaultRegion,
-    selectedIds: danhsachitem.map(it => String(it._id)),
-    userProfile: {
-      hoten: taikhoan?.hoten || '',
-      sodienthoai: taikhoan?.sodienthoai || '',
-      email: taikhoan?.email || '',
-      diachi: taikhoan?.diachi || ''
-    },
-    addresses: danhsachdiachihienthi
-  });
+    res.render('client/pages/cart/checkout.pug', {
+      titlePage: 'Thanh toán',
+      cart: giohang,
+      items: danhsachitem,
+      subtotal: tamtinh,
+      shippingFee,
+      finalTotal,
+      shippingConfig: SHIPPING_CONFIG,
+      selectedShippingRegion: defaultRegion,
+      selectedIds: danhsachitem.map(it => String(it._id)),
+      userProfile: {
+        hoten: taikhoan?.hoten || '',
+        sodienthoai: taikhoan?.sodienthoai || '',
+        email: taikhoan?.email || '',
+        diachi: taikhoan?.diachi || ''
+      },
+      addresses: danhsachdiachihienthi
+    });
+  } catch (error) {
+    req.flash?.('error', 'Không thể tải trang thanh toán. Vui lòng thử lại.');
+    return res.redirect('/cart');
+  }
 };
 
 async function truTonTheoItem(item) {
@@ -454,6 +472,9 @@ function calcShippingFee(subtotal, regionKey) {
 }
 
 module.exports.xuLyThanhToan = async (req, res) => {
+  let voucherDoc = null;
+  let reservedVoucher = false;
+  let orderCreated = false;
   try {
     const giohang = await getOrCreateCart(req.user._id);
     const daDongBoGia = await dongBoGiaGioHang(giohang);
@@ -548,9 +569,6 @@ module.exports.xuLyThanhToan = async (req, res) => {
     const phivanchuyen = calcShippingFee(tamtinh, shippingRegion);
 
     let giamgia = 0;
-    let voucherDoc = null;
-    let reservedVoucher = false;
-    let orderCreated = false;
 
     const voucherCodeRaw = req.body.voucherCode;
     const voucherCode = normalizeCode(voucherCodeRaw);

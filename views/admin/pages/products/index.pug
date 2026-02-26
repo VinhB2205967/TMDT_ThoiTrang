@@ -118,13 +118,13 @@ block main
                                 select.form-select.form-select-sm(name="occasion" onchange="this.form.submit()")
                                     option(value="" selected=(!currentOccasion)) Tất cả
                                     each c in (occasionOptions || [])
-                                        option(value=c._id selected=(String(currentOccasion || '') === String(c._id))) #{'— '.repeat(c.level || 0)}#{c.name}
+                                        option(value=c._id selected=(String(currentOccasion || '') === String(c._id))) #{c.name}
                             .col-md-2
                                 label.form-label.small.fw-bold Lứa tuổi
                                 select.form-select.form-select-sm(name="ageGroup" onchange="this.form.submit()")
                                     option(value="" selected=(!currentAgeGroup)) Tất cả
                                     each c in (ageGroupOptions || [])
-                                        option(value=c._id selected=(String(currentAgeGroup || '') === String(c._id))) #{'— '.repeat(c.level || 0)}#{c.name}
+                                        option(value=c._id selected=(String(currentAgeGroup || '') === String(c._id))) #{c.name}
                             .col-md-3
                                 label.form-label.small.fw-bold Khoảng giá
                                 .input-group.input-group-sm

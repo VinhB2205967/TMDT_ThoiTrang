@@ -163,7 +163,7 @@ module.exports.danhSach = async (req, res) => {
   if (danhsachdon && danhsachdon.length) {
     const danhsachiddon = danhsachdon.map(o => o._id);
     const danhsachchitiet = await chitietdonhang.find({ donhang_id: { $in: danhsachiddon } })
-      .select('donhang_id tensanpham hinhanh sanpham_id')
+      .select('_id donhang_id tensanpham hinhanh sanpham_id')
       .sort({ ngaytao: 1 })
       .lean();
 
@@ -237,7 +237,7 @@ module.exports.chiTiet = async (req, res) => {
     nguoidung_id: req.user._id,
     donhang_id: donhangdoc._id,
     daxoa: { $ne: true }
-  }).select('chitietdonhang_id').lean();
+  }).select('_id chitietdonhang_id').lean();
   const reviewMap = new Map((reviewed || []).map(r => [String(r.chitietdonhang_id), r]));
 
   const danhsachdaxuly = (danhsachitem || []).map((it) => ({

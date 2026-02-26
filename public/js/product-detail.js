@@ -8,6 +8,28 @@ let chiSoBienTheHienTai = 0;
 let kichCoHienTai = '';
 let soLuongToiDa = 99; // Default max
 
+const goiApi = (window.App && window.App.apiFetch)
+    ? window.App.apiFetch
+    : async (url, options = {}) => {
+        const res = await fetch(url, {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json', ...(options.headers || {}) },
+            ...options
+        });
+        let data = null;
+        try { data = await res.json(); } catch { data = null; }
+        return { ok: res.ok, status: res.status, data };
+    };
+
+const capNhatBadgeGio = (count) => {
+    if (window.App && typeof window.App.setCartBadge === 'function') {
+        window.App.setCartBadge(count);
+        return;
+    }
+    const badge = document.querySelector('a[href="/cart"] .badge-counter') || document.querySelector('.cart-badge');
+    if (badge) badge.textContent = String(count || 0);
+};
+
 // ===== HELPER FUNCTIONS =====
 const dinhDangGia = (gia) => {
     if (window.App && window.App.formatNumberVI) return window.App.formatNumberVI(gia);
@@ -327,6 +349,55 @@ const xuLyNhapSoLuong = (event) => {
     capNhatNutSoLuong();
 };
 
+function ganSubmitThemGioAjax() {
+    const addForm = boLayNhanh.addToCartForm();
+    if (!addForm || addForm.dataset.ajaxBound === '1') return;
+    addForm.dataset.ajaxBound = '1';
+
+    addForm.addEventListener('submit', async (event) => {
+        const submitter = event.submitter || document.activeElement;
+        const formAction = String(
+            (submitter && submitter.getAttribute && submitter.getAttribute('formaction'))
+            || addForm.getAttribute('action')
+            || '/cart/add'
+        );
+
+        if (!formAction.includes('/cart/add')) {
+            return;
+        }
+
+        event.preventDefault();
+
+        const formData = new FormData(addForm);
+        const payload = {
+            sanpham_id: String(formData.get('sanpham_id') || '').trim(),
+            bienthe_id: String(formData.get('bienthe_id') || '').trim() || null,
+            kichco: String(formData.get('kichco') || '').trim() || null,
+            soluong: Math.max(1, parseInt(String(formData.get('soluong') || '1'), 10) || 1)
+        };
+
+        const { ok, data } = await goiApi('/cart/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!ok || !data || !data.success) {
+            window.alert((data && data.message) ? data.message : 'Không thể thêm vào giỏ hàng');
+            return;
+        }
+
+        if (typeof data.cartCount === 'number') {
+            capNhatBadgeGio(data.cartCount);
+        }
+
+        if (window.App && typeof window.App.flyToCart === 'function') {
+            const img = boLayNhanh.mainImage();
+            if (img) window.App.flyToCart(img);
+        }
+    });
+}
+
 
 // ===== INITIALIZATION =====
 
@@ -334,12 +405,17 @@ const xuLyNhapSoLuong = (event) => {
  * Khởi tạo trạng thái ban đầu khi trang tải xong.
  */
 const khoiTaoTrangChiTiet = () => {
+    ganSubmitThemGioAjax();
+
     // Kiểm tra xem `productVariants` có tồn tại không
     if (typeof window.productVariants === 'undefined' || window.productVariants.length === 0) {
         console.error("Product variants data is not available.");
         // Có thể vô hiệu hóa toàn bộ form nếu không có data
         const form = boLayNhanh.addToCartForm();
-        if(form) form.style.opacity = '0.5'; form.style.pointerEvents = 'none';
+        if (form) {
+            form.style.opacity = '0.5';
+            form.style.pointerEvents = 'none';
+        }
         return;
     }
 
@@ -386,17 +462,6 @@ const khoiTaoTrangChiTiet = () => {
     const initialStockPanel = layPhanTu(`stockPanel_${chiSoBienTheHienTai}`);
     if(initialSizePanel) initialSizePanel.style.display = 'flex';
     if(initialStockPanel) initialStockPanel.style.display = 'block';
-
-    // Fly-to-cart animation on submit
-    const addForm = boLayNhanh.addToCartForm();
-    if (addForm) {
-        addForm.addEventListener('submit', () => {
-            if (window.App && typeof window.App.flyToCart === 'function') {
-                const img = boLayNhanh.mainImage();
-                if (img) window.App.flyToCart(img);
-            }
-        });
-    }
 
 };
 
