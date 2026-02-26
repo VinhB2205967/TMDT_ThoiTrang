@@ -1,0 +1,73 @@
+extends ../../layouts/default.pug
+
+block main
+  .container-fluid.py-4
+    h1.mb-3 Quản lý Lookbook
+    .card.mb-4
+      .card-body
+        form#lookbookCreate
+          .row.g-3
+            .col-12.col-md-4
+              label.form-label Tên mùa
+              input.form-control(type="text" name="tenmua" required)
+            .col-12.col-md-4
+              label.form-label Hình ảnh
+              input.form-control(type="file" name="image" accept="image/*" required)
+            .col-12.col-md-4
+              label.form-label Thứ tự
+              input.form-control(type="number" name="thuTu" value="0" min="0")
+            .col-12
+              label.form-label Mô tả
+              input.form-control(type="text" name="mota")
+            .col-12
+              label.form-label Sản phẩm (chọn nhiều)
+              select.form-select(name="sanpham_ids" multiple size="6")
+                if products && products.length
+                  each p in products
+                    option(value=p._id) #{p.tensanpham}
+            .col-12
+              .form-check
+                input.form-check-input(type="checkbox" name="hienthi" checked)
+                label.form-check-label Hiển thị
+          .mt-3
+            button.btn.btn-primary(type="submit") Tạo lookbook
+
+    .card
+      .card-body
+        table.table.table-striped.align-middle
+          thead
+            tr
+              th Tên
+              th Hình ảnh
+              th Thứ tự
+              th Sản phẩm
+              th Hiển thị
+              th Hành động
+          tbody
+            if lookbooks && lookbooks.length
+              each item in lookbooks
+                tr(data-id=item._id)
+                  td
+                    input.form-control.form-control-sm(type="text" name="tenmua" value=item.tenmua)
+                    input.form-control.form-control-sm.mt-2(type="text" name="mota" value=item.mota)
+                  td
+                    if item.hinhanh
+                      img.img-thumbnail.mb-2(style="max-width:120px" src=item.hinhanh alt=item.tenmua)
+                    input.form-control.form-control-sm(type="file" name="image" accept="image/*")
+                  td
+                    input.form-control.form-control-sm(type="number" name="thuTu" value=item.thuTu min="0")
+                  td
+                    textarea.form-control.form-control-sm(name="sanpham_ids" rows="2") #{(item.sanpham_ids || []).join(',')}
+                  td
+                    input.form-check-input(type="checkbox" name="hienthi" checked=item.hienthi)
+                  td
+                    .d-flex.gap-2
+                      button.btn.btn-sm.btn-outline-primary(type="button" data-action="save") Lưu
+                      button.btn.btn-sm.btn-outline-secondary(type="button" data-action="toggle") Bật/Tắt
+                      button.btn.btn-sm.btn-outline-danger(type="button" data-action="delete") Xóa
+            else
+              tr
+                td(colspan="6").text-muted Chưa có lookbook.
+
+block scripts
+  script(src="/admin/js/home-lookbooks.js")

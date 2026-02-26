@@ -21,6 +21,12 @@ const productSchema = new mongoose.Schema({
   mota: String,
   gia: Number,              
   phantramgiamgia: Number,  
+  category: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null },
+  occasion: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null },
+  ageGroup: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null },
+  thuonghieu_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand' },
+  brand: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand', default: null },
+  luotmua: { type: Number, default: 0 },
   mausac_chinh: String,    
   sizes: [sizeSchema],      
   soluong_chinh: Number,    // Số lượng chính (cho sản phẩm không có size như túi, phụ kiện)
@@ -34,6 +40,18 @@ const productSchema = new mongoose.Schema({
   ngaytao: Date,
   ngaycapnhat: Date
 });
+
+productSchema.pre('validate', function syncLegacyFields(next) {
+  if (!this.brand && this.thuonghieu_id) this.brand = this.thuonghieu_id;
+  if (!this.thuonghieu_id && this.brand) this.thuonghieu_id = this.brand;
+  next();
+});
+
+productSchema.index({ category: 1, trangthai: 1, daxoa: 1 });
+productSchema.index({ occasion: 1, trangthai: 1, daxoa: 1 });
+productSchema.index({ ageGroup: 1, trangthai: 1, daxoa: 1 });
+productSchema.index({ brand: 1, trangthai: 1, daxoa: 1 });
+productSchema.index({ gioitinh: 1, gia: 1 });
 
 
 // Virtual: Giá mới sau giảm giá

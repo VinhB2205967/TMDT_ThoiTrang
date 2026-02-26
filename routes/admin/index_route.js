@@ -8,6 +8,14 @@ const authRoutes = require('./auth_route');
 const usersRoutes = require('./users_route');
 const reportsRoutes = require('./reports_route');
 const vouchersRoutes = require('./vouchers_route');
+const bannersRoutes = require('./banners_route');
+const homeSectionsRoutes = require('./home_sections_route');
+const settingsRoutes = require('./settings_route');
+const flashSalesRoutes = require('./flash_sales_route');
+const lookbooksRoutes = require('./lookbooks_route');
+const brandsRoutes = require('./brands_route');
+const categoriesRoutes = require('./categories_route');
+const blogRoutes = require('./blog_route');
 const { requireAdmin } = require('../../middlewares/auth');
 module.exports =(app)=>{
     const PATH_ADMIN = systemConfig.prefigAdmin;
@@ -25,4 +33,14 @@ module.exports =(app)=>{
     app.use(PATH_ADMIN + '/users', usersRoutes);
     app.use(PATH_ADMIN + '/reports', reportsRoutes);
     app.use(PATH_ADMIN + '/vouchers', vouchersRoutes);
+    app.use(PATH_ADMIN + '/banners', bannersRoutes);
+    app.use(PATH_ADMIN + '/home-sections', homeSectionsRoutes);
+    app.use(PATH_ADMIN + '/settings', settingsRoutes);
+    app.use(PATH_ADMIN + '/flash-sales', flashSalesRoutes);
+    app.use(PATH_ADMIN + '/lookbooks', lookbooksRoutes);
+    app.use(PATH_ADMIN + '/lookbook', lookbooksRoutes);
+    app.use(PATH_ADMIN + '/brands', brandsRoutes);
+    app.use(PATH_ADMIN + '/categories', categoriesRoutes);
+    app.use(PATH_ADMIN + '/category', categoriesRoutes);
+    app.use(PATH_ADMIN + '/blog', blogRoutes);
 }

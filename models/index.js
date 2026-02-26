@@ -12,6 +12,13 @@ const Coupon = require('./coupon_model');
 const UserVoucher = require('./user_voucher_model');
 const LoginLog = require('./login_log_model');
 const Taikhoan = require('./accounts_model');
+const Banner = require('./banner_model');
+const HomeSection = require('./home_section_model');
+const Setting = require('./setting_model');
+const FlashSale = require('./flash_sale_model');
+const Lookbook = require('./lookbook_model');
+const Brand = require('./brand_model');
+const BlogPost = require('./blog_model');
 
 module.exports = {
     Sanpham,
@@ -26,5 +33,12 @@ module.exports = {
     Coupon,
     UserVoucher,
     LoginLog,
-    Taikhoan
+    Taikhoan,
+    Banner,
+    HomeSection,
+    Setting,
+    FlashSale,
+    Lookbook,
+    Brand,
+    BlogPost
 };

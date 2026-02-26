@@ -1,0 +1,66 @@
+extends ../../layouts/default.pug
+
+block main
+  .container-fluid.py-4
+    h1.mb-3 Quản lý Blog
+    .card.mb-4
+      .card-body
+        form#blogCreate
+          .row.g-3
+            .col-12.col-md-6
+              label.form-label Tiêu đề
+              input.form-control(type="text" name="tieude" required)
+            .col-12.col-md-6
+              label.form-label Slug (tùy chọn)
+              input.form-control(type="text" name="slug")
+            .col-12
+              label.form-label Tóm tắt
+              input.form-control(type="text" name="tomtat")
+            .col-12
+              label.form-label Hình ảnh
+              input.form-control(type="file" name="image" accept="image/*")
+            .col-12
+              label.form-label Nội dung (HTML)
+              textarea.form-control(name="noidung" rows="4")
+            .col-12
+              .form-check
+                input.form-check-input(type="checkbox" name="xuatban")
+                label.form-check-label Xuất bản
+          .mt-3
+            button.btn.btn-primary(type="submit") Tạo bài viết
+
+    .card
+      .card-body
+        table.table.table-striped.align-middle
+          thead
+            tr
+              th Tiêu đề
+              th Slug
+              th Xuất bản
+              th Hành động
+          tbody
+            if posts && posts.length
+              each item in posts
+                tr(data-id=item._id)
+                  td
+                    input.form-control.form-control-sm(type="text" name="tieude" value=item.tieude)
+                    input.form-control.form-control-sm.mt-2(type="text" name="tomtat" value=item.tomtat)
+                    if item.hinhanh
+                      img.img-thumbnail.mt-2(style="max-width:120px" src=item.hinhanh alt=item.tieude)
+                    input.form-control.form-control-sm.mt-2(type="file" name="image" accept="image/*")
+                    textarea.form-control.form-control-sm.mt-2(name="noidung" rows="2") #{item.noidung}
+                  td
+                    input.form-control.form-control-sm(type="text" name="slug" value=item.slug)
+                  td
+                    input.form-check-input(type="checkbox" name="xuatban" checked=item.xuatban)
+                  td
+                    .d-flex.gap-2
+                      button.btn.btn-sm.btn-outline-primary(type="button" data-action="save") Lưu
+                      button.btn.btn-sm.btn-outline-secondary(type="button" data-action="publish") Xuất bản
+                      button.btn.btn-sm.btn-outline-danger(type="button" data-action="delete") Xóa
+            else
+              tr
+                td(colspan="4").text-muted Chưa có bài viết.
+
+block scripts
+  script(src="/admin/js/home-blog.js")

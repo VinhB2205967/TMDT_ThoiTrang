@@ -1,0 +1,105 @@
+extends ../../layouts/default.pug
+
+block styles
+  link(rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css")
+  style.
+    .lookbook-preview {
+      width: 100%;
+      max-width: 420px;
+      aspect-ratio: 16 / 10;
+      border-radius: 14px;
+      border: 1px dashed #ced4da;
+      overflow: hidden;
+      background: #f8f9fa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #6c757d;
+      font-size: 14px;
+    }
+    .lookbook-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+block main
+  .container-fluid.py-4
+    .d-flex.justify-content-between.align-items-center.mb-3
+      h1.h4.mb-0 #{mode === 'create' ? 'Thêm Lookbook' : 'Chỉnh sửa Lookbook'}
+      a.btn.btn-outline-secondary(href="/admin/lookbook")
+        i.bi.bi-arrow-left.me-1
+        | Quay lại
+
+    if errors && errors.length
+      .alert.alert-danger
+        ul.mb-0
+          each err in errors
+            li #{err}
+
+    - const baseActionUrl = mode === 'create' ? '/admin/lookbook/create' : `/admin/lookbook/edit/${lookbook._id}`
+    - const actionUrl = `${baseActionUrl}?_csrf=${encodeURIComponent(csrfToken || '')}`
+    form.card.shadow-sm(method="POST" action=actionUrl enctype="multipart/form-data")
+      input(type="hidden" name="_csrf" value=csrfToken)
+      .card-body
+        .row.g-3
+          .col-12.col-lg-8
+            .row.g-3
+              .col-12
+                label.form-label Tên mùa
+                input.form-control(type="text" name="title" required value=lookbook.title || '')
+
+              .col-12
+                label.form-label Mô tả
+                textarea.form-control(name="description" rows="4")= lookbook.description || ''
+
+              .col-12
+                label.form-label Chọn sản phẩm (nhiều)
+                select.form-select.js-select-products(name="products" multiple required)
+                  each p in products
+                    - const selected = Array.isArray(lookbook.products) && lookbook.products.some((id) => String(id) === String(p._id))
+                    option(value=p._id selected=selected) #{p.tensanpham}
+                .form-text Nhập từ khóa để tìm nhanh sản phẩm.
+
+              .col-12.col-md-4
+                label.form-label Thứ tự hiển thị
+                input.form-control(type="number" name="order" min="0" value=lookbook.order || 0)
+
+              .col-12.col-md-4
+                label.form-label Bắt đầu (tùy chọn)
+                input.form-control(type="datetime-local" name="startDate" value=(lookbook.startDate ? new Date(lookbook.startDate).toISOString().slice(0,16) : ''))
+
+              .col-12.col-md-4
+                label.form-label Kết thúc (tùy chọn)
+                input.form-control(type="datetime-local" name="endDate" value=(lookbook.endDate ? new Date(lookbook.endDate).toISOString().slice(0,16) : ''))
+
+              .col-12
+                .form-check.form-switch
+                  input.form-check-input(type="checkbox" role="switch" name="isActive" checked=(lookbook.isActive !== false))
+                  label.form-check-label Hiển thị trên client
+
+          .col-12.col-lg-4
+            label.form-label Ảnh đại diện
+            input#lookbookImage.form-control(type="file" name="image" accept="image/*")
+            if mode === 'create'
+              .form-text.mb-2 Bắt buộc khi tạo mới.
+            else
+              .form-text.mb-2 Nếu không chọn ảnh mới sẽ giữ ảnh hiện tại.
+
+            .lookbook-preview#lookbookPreview
+              if lookbook.image
+                img(src=lookbook.image alt="Preview")
+              else
+                span Chưa có ảnh
+
+      .card-footer.bg-white.d-flex.justify-content-end.gap-2
+        a.btn.btn-light.border(href="/admin/lookbook") Hủy
+        button.btn.btn-primary(type="submit")
+          i.bi.bi-check2-circle.me-1
+          | #{mode === 'create' ? 'Tạo lookbook' : 'Lưu thay đổi'}
+
+block scripts
+  script(src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js")
+  script(src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js")
+  script(src="/admin/js/lookbook-form.js")

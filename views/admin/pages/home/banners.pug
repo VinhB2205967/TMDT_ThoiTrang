@@ -1,0 +1,82 @@
+extends ../../layouts/default.pug
+
+block main
+  .container-fluid.py-4
+    h1.mb-3 Quản lý Banner
+    .card.mb-4
+      .card-body
+        form#bannerCreate
+          .row.g-3
+            .col-12.col-md-4
+              label.form-label Tiêu đề
+              input.form-control(type="text" name="tieude" required)
+            .col-12.col-md-4
+              label.form-label Mô tả
+              input.form-control(type="text" name="mota")
+            .col-12.col-md-4
+              label.form-label Hình ảnh
+              input.form-control(type="file" name="image" accept="image/*" required)
+            .col-12.col-md-3
+              label.form-label Nút CTA
+              input.form-control(type="text" name="nut_text")
+            .col-12.col-md-5
+              label.form-label Link CTA
+              input.form-control(type="text" name="nut_link")
+            .col-12.col-md-2
+              label.form-label Loại
+              select.form-select(name="loai")
+                each t in bannerTypes
+                  option(value=t)= t
+            .col-12.col-md-2
+              label.form-label Thứ tự
+              input.form-control(type="number" name="thuTu" value="0" min="0")
+            .col-12
+              .form-check
+                input.form-check-input(type="checkbox" name="hienthi" checked)
+                label.form-check-label Hiển thị
+          .mt-3
+            button.btn.btn-primary(type="submit") Tạo banner
+
+    .card
+      .card-body
+        table.table.table-striped.align-middle
+          thead
+            tr
+              th Tiêu đề
+              th Hình ảnh
+              th Loại
+              th Thứ tự
+              th Hiển thị
+              th Hành động
+          tbody
+            if banners && banners.length
+              each banner in banners
+                tr(data-id=banner._id)
+                  td
+                    input.form-control.form-control-sm(type="text" name="tieude" value=banner.tieude)
+                    input.form-control.form-control-sm.mt-2(type="text" name="mota" value=banner.mota)
+                    input.form-control.form-control-sm.mt-2(type="text" name="nut_text" value=banner.nut_text placeholder="CTA text")
+                    input.form-control.form-control-sm.mt-2(type="text" name="nut_link" value=banner.nut_link placeholder="CTA link")
+                  td
+                    if banner.hinhanh
+                      img.img-thumbnail.mb-2(style="max-width:120px" src=banner.hinhanh alt=banner.tieude)
+                    input.form-control.form-control-sm(type="file" name="image" accept="image/*")
+                  td
+                    select.form-select.form-select-sm(name="loai")
+                      each t in bannerTypes
+                        option(value=t selected=banner.loai === t)= t
+                  td
+                    input.form-control.form-control-sm(type="number" name="thuTu" value=banner.thuTu min="0")
+                  td
+                    input.form-check-input(type="checkbox" name="hienthi" checked=banner.hienthi)
+                  td
+                    .d-flex.gap-2
+                      button.btn.btn-sm.btn-outline-primary(type="button" data-action="save") Lưu
+                      button.btn.btn-sm.btn-outline-secondary(type="button" data-action="toggle") Bật/Tắt
+                      button.btn.btn-sm.btn-outline-danger(type="button" data-action="delete") Xóa
+            else
+              tr
+                td(colspan="6").text-muted Chưa có banner.
+
+block scripts
+  script(src="/admin/js/home-banners.js")

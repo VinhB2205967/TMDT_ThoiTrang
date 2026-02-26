@@ -1,0 +1,68 @@
+extends ../../layouts/default.pug
+
+block main
+  .container-fluid.py-4
+    h1.mb-3 Quản lý Thương hiệu
+    .card.mb-4
+      .card-body
+        form#brandCreate
+          .row.g-3
+            .col-12.col-md-4
+              label.form-label Tên
+              input.form-control(type="text" name="ten" required)
+            .col-12.col-md-4
+              label.form-label Logo
+              input.form-control(type="file" name="logo" accept="image/*" required)
+            .col-12.col-md-2
+              label.form-label Thứ tự
+              input.form-control(type="number" name="thuTu" value="0" min="0")
+            .col-12.col-md-2
+              label.form-label Nổi bật
+              .form-check
+                input.form-check-input(type="checkbox" name="noiBat")
+                label.form-check-label Chọn
+            .col-12
+              .form-check
+                input.form-check-input(type="checkbox" name="hienthi" checked)
+                label.form-check-label Hiển thị
+          .mt-3
+            button.btn.btn-primary(type="submit") Tạo thương hiệu
+
+    .card
+      .card-body
+        table.table.table-striped.align-middle
+          thead
+            tr
+              th Tên
+              th Logo
+              th Thứ tự
+              th Nổi bật
+              th Hiển thị
+              th Hành động
+          tbody
+            if brands && brands.length
+              each item in brands
+                tr(data-id=item._id)
+                  td
+                    input.form-control.form-control-sm(type="text" name="ten" value=item.ten)
+                  td
+                    if item.logo
+                      img.img-thumbnail.mb-2(style="max-width:120px" src=item.logo alt=item.ten)
+                    input.form-control.form-control-sm(type="file" name="logo" accept="image/*")
+                  td
+                    input.form-control.form-control-sm(type="number" name="thuTu" value=item.thuTu min="0")
+                  td
+                    input.form-check-input(type="checkbox" name="noiBat" checked=item.noiBat)
+                  td
+                    input.form-check-input(type="checkbox" name="hienthi" checked=item.hienthi)
+                  td
+                    .d-flex.gap-2
+                      button.btn.btn-sm.btn-outline-primary(type="button" data-action="save") Lưu
+                      button.btn.btn-sm.btn-outline-secondary(type="button" data-action="featured") Nổi bật
+                      button.btn.btn-sm.btn-outline-danger(type="button" data-action="delete") Xóa
+            else
+              tr
+                td(colspan="6").text-muted Chưa có thương hiệu.
+
+block scripts
+  script(src="/admin/js/home-brands.js")

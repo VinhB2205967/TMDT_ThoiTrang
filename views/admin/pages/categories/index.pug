@@ -1,0 +1,110 @@
+extends ../../layouts/default.pug
+
+mixin nodeRow(item, depth)
+  - const indent = (depth || 0) * 20;
+  - const typeMap = { category: 'Danh mục', brand: 'Thương hiệu', occasion: 'Dịp dùng', age_group: 'Nhóm tuổi', gender: 'Giới tính' };
+  - const typeText = typeMap[item.type] || item.type;
+  li.list-group-item
+    .d-flex.flex-column.flex-lg-row.gap-2.align-items-lg-center.justify-content-between
+      .d-flex.align-items-center.gap-2(style=`padding-left:${indent}px`)
+        if item.children && item.children.length
+          button.btn.btn-sm.btn-outline-secondary(type='button' data-bs-toggle='collapse' data-bs-target=`#children-${item._id}` aria-expanded='true' aria-controls=`children-${item._id}`)
+            i.bi.bi-chevron-down
+        else
+          span.text-muted
+            i.bi.bi-dot
+        .fw-semibold #{item.name}
+        span.badge.bg-light.text-dark #{typeText}
+        if !item.isActive
+          span.badge.bg-secondary Ẩn
+      .d-flex.flex-wrap.gap-2
+        form(method='POST' action=`${admin}/categories/${item._id}/toggle`)
+          input(type='hidden' name='_csrf' value=csrfToken)
+          button.btn.btn-sm(type='submit' class=item.isActive ? 'btn-outline-warning' : 'btn-outline-success') #{item.isActive ? 'Ẩn' : 'Hiện'}
+        button.btn.btn-sm.btn-outline-primary(type='button' data-bs-toggle='collapse' data-bs-target=`#edit-${item._id}`) Sửa
+        form(method='POST' action=`${admin}/categories/${item._id}/delete` onsubmit='return confirm("Xóa danh mục này?")')
+          input(type='hidden' name='_csrf' value=csrfToken)
+          button.btn.btn-sm.btn-outline-danger(type='submit') Xóa
+    .collapse.mt-2(id=`edit-${item._id}`)
+      form.row.g-2(method='POST' action=`${admin}/categories/${item._id}/edit`)
+        input(type='hidden' name='_csrf' value=csrfToken)
+        .col-md-3
+          input.form-control.form-control-sm(type='text' name='name' required value=item.name)
+        .col-md-2
+          input.form-control.form-control-sm(type='text' name='slug' value=item.slug placeholder='slug')
+        .col-md-2
+          select.form-select.form-select-sm(name='type')
+            option(value='category' selected=item.type === 'category') category
+            option(value='gender' selected=item.type === 'gender') gender
+            option(value='occasion' selected=item.type === 'occasion') occasion
+            option(value='age_group' selected=item.type === 'age_group') age_group
+            option(value='brand' selected=item.type === 'brand') brand
+        .col-md-2
+          input.form-control.form-control-sm(type='number' name='order' value=item.order min='0')
+        .col-md-2
+          select.form-select.form-select-sm(name='parent_id')
+            option(value='') Không có cha
+            each p in parentOptions
+              - const selected = String(p._id) === String(item.parent_id || '')
+              if String(p._id) !== String(item._id)
+                option(value=p._id selected=selected) #{'— '.repeat(p.level || 0)}#{p.name}
+        .col-md-1
+          .form-check.form-switch.pt-2
+            input.form-check-input(type='checkbox' name='isActive' value='true' checked=item.isActive)
+        .col-12
+          button.btn.btn-sm.btn-primary(type='submit') Lưu
+    if item.children && item.children.length
+      ul.list-group.list-group-flush.collapse.show(id=`children-${item._id}`)
+        each child in item.children
+          +nodeRow(child, (depth || 0) + 1)
+
+block main
+  .container-fluid.py-4
+    h1.mb-3 Quản lý danh mục đa cấp
+    .row.g-3
+      .col-lg-4
+        .card
+          .card-header Thêm danh mục
+          .card-body
+            form(method='POST' action=`${admin}/categories/create`)
+              input(type='hidden' name='_csrf' value=csrfToken)
+              .mb-2
+                label.form-label Tên
+                input.form-control(type='text' name='name' required)
+              .mb-2
+                label.form-label Slug (tùy chọn)
+                input.form-control(type='text' name='slug')
+              .mb-2
+                label.form-label Loại
+                select.form-select(name='type')
+                  option(value='gender') Giới tính
+                  option(value='category' selected) Danh mục
+                  option(value='occasion') Dịp
+                  option(value='age_group') Nhóm tuổi
+                  option(value='brand') Thương hiệu
+              .mb-2
+                label.form-label Danh mục cha
+                select.form-select(name='parent_id')
+                  option(value='') Cấp cha
+                  each p in parentOptions
+                    option(value=p._id) #{'— '.repeat(p.level || 0)}#{p.name}
+              .mb-2
+                label.form-label Thứ tự
+                input.form-control(type='number' name='order' value='0' min='0')
+              .mb-3
+                .form-check.form-switch
+                  input.form-check-input(type='checkbox' name='isActive' value='true' checked)
+                  label.form-check-label Hiển thị
+              button.btn.btn-primary.w-100(type='submit') Tạo danh mục
+      .col-lg-8
+        .card
+          .card-header.d-flex.justify-content-between.align-items-center
+            span Cây danh mục
+            a.btn.btn-sm.btn-outline-secondary(href=`${admin}/categories`) Làm mới
+          .card-body
+            if tree && tree.length
+              ul.list-group.list-group-flush
+                each item in tree
+                  +nodeRow(item, 0)
+            else
+              .text-muted Chưa có danh mục.

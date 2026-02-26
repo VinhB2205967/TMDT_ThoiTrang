@@ -116,6 +116,26 @@ body {
   border-color: rgba(17, 24, 39, 0.18);
 }
 
+/* Home content blocks */
+.brand-item {
+  padding: 12px;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid var(--ui-border);
+  box-shadow: var(--ui-shadow-sm);
+}
+
+.brand-item img {
+  max-height: 46px;
+  object-fit: contain;
+}
+
+.lookbook-section .card-img-top,
+.blog-section .card-img-top {
+  height: 180px;
+  object-fit: cover;
+}
+
 /* Flash alerts under header */
 .flash-alert {
   border-radius: 14px;
@@ -154,17 +174,16 @@ body {
 
 /* Header polish (client) */
 .header {
-  /* Không dùng glass/blur: nền đặc, rõ ràng */
-  background: linear-gradient(135deg, #6c82f7, #667eea);
+  /* Nền 1 màu duy nhất */
+  background: #5f76f2;
   border-bottom: 1px solid rgba(255,255,255,0.14);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 
-  /* Giữ yên khi cuộn */
+  /* Giữ ổn định khi cuộn */
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
   width: 100%;
   z-index: 1050;
 }
@@ -482,49 +501,42 @@ body {
 
 /* ==================== MOBILE UI (CLIENT) ==================== */
 @media (max-width: 992px) {
-  .header .container {
+  .header .container-fluid {
     padding: 0 16px;
   }
 
   .header-inner {
-    gap: 14px;
-    flex-wrap: nowrap;
+    gap: 12px;
+    flex-wrap: wrap;
   }
 
-  .header-actions {
-    width: auto;
-    flex: 1 1 auto;
-    min-width: 0;
-    justify-content: flex-end;
-    gap: 10px;
-    flex-wrap: nowrap;
+  .header-logo {
+    flex: 0 0 auto;
+    order: 1;
   }
 
   .header-search {
-    flex: 1 1 auto;
-    max-width: none;
-    min-width: 220px;
+    flex: 1 1 100%;
+    max-width: 100%;
+    min-width: 100%;
+    order: 2;
+  }
+
+  .header-right {
+    width: 100%;
+    order: 3;
+    gap: 10px;
+    flex-wrap: wrap;
   }
 
   .header-nav {
-    flex: 1 1 auto;
-    min-width: 0;
+    width: 100%;
   }
 
   .header-nav .nav-list {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    gap: 6px;
+    flex-wrap: wrap;
+    gap: 14px;
     padding-bottom: 4px;
-  }
-
-  .header-nav .nav-list::-webkit-scrollbar {
-    height: 4px;
-  }
-
-  .header-nav .nav-list::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.35);
-    border-radius: 10px;
   }
 
   .header-nav .nav-list li {
@@ -533,17 +545,14 @@ body {
 
   .header-nav .nav-list a {
     white-space: nowrap;
+    padding: 8px 12px;
+    font-size: 13px;
   }
 
   .auth-buttons {
     margin-left: auto;
     flex-wrap: wrap;
     justify-content: flex-end;
-  }
-
-  /* Search hàng dưới: gọn hơn */
-  .header-search {
-    margin-top: 6px;
   }
 }
 
@@ -608,34 +617,7 @@ body {
 
   .header-search {
     max-width: 100%;
-  }
-
-  /* Layout mobile: nav (hàng 1), search giữa + avatar góc phải (hàng 2) */
-  .header-actions {
-    display: grid;
-    grid-template-columns: 1fr minmax(0, 420px) auto;
-    grid-template-areas:
-      "nav nav nav"
-      ". search user";
-    gap: 8px;
-    align-items: center;
-  }
-
-  .header-nav { grid-area: nav; }
-  .header-search { grid-area: search; min-width: 0; margin: 0; }
-  .auth-buttons { grid-area: user; margin-left: 0; justify-self: end; }
-
-  /* Nav hiển thị đủ nút, không cần kéo */
-  .header-nav .nav-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(48px, 1fr));
-    overflow-x: visible;
-    gap: 6px;
-    padding-bottom: 0;
-  }
-
-  .header-nav .nav-list li {
-    min-width: 0;
+    order: unset;
   }
 
   .header-search .input-group {
@@ -648,30 +630,24 @@ body {
     font-size: 12px;
   }
 
-  .header-search .input-group {
-    border-radius: 12px;
-  }
-
   .header-search .btn-search {
     min-width: 44px;
     padding-left: 12px;
     padding-right: 12px;
   }
 
-  .header-search {
-    min-width: 160px;
-  }
-
   .header-logo .logo-text {
     display: none;
   }
 
+  .header-nav .nav-list {
+    gap: 10px;
+  }
+
   .header-nav .nav-list a {
-    padding: 8px 10px;
-    font-size: 13px;
-    min-width: 48px;
-    height: 36px;
-    border-radius: 16px;
+    padding: 6px 8px;
+    font-size: 11px;
+    gap: 4px;
   }
 
   /* Chỉ ẩn label, giữ badge */
@@ -679,27 +655,19 @@ body {
     display: none;
   }
 
-  .header-nav .nav-list a {
-    justify-content: center;
-    gap: 0;
-  }
-
   .header-nav .nav-list a i {
-    font-size: 18px;
-    line-height: 1;
+    font-size: 16px;
   }
 
   /* Badge canh lại cho nút lớn */
   .cart-badge,
   .favorite-badge {
-    top: -6px;
-    right: -6px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
+    top: -5px;
+    right: -5px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    font-size: 8px;
   }
 
   /* Dropdown user: ưu tiên avatar */

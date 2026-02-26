@@ -55,3 +55,31 @@
 .wishlist-btn.active i {
     color: #fff;
 }
+
+/* Badge cluster on product cards */
+.product-badges {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 5;
+}
+
+.product-badges .badge {
+    background: #111827;
+    color: #fff;
+    font-size: 11px;
+    letter-spacing: 0.3px;
+    padding: 4px 8px;
+    border-radius: 999px;
+}
+
+/* Prevent overlap between SALE badge and discount percent */
+.product-card .discount-badge {
+    left: auto;
+    right: 10px;
+    top: 10px;
+    z-index: 6;
+}

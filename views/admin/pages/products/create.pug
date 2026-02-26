@@ -11,7 +11,9 @@ block main
                 | Quay lại
 
     .dashboard-container.mt-4
-        form(action=`${admin}/products/create` method="POST" enctype="multipart/form-data")
+        - const createActionUrl = `${admin}/products/create?_csrf=${encodeURIComponent(csrfToken || '')}`
+        form(action=createActionUrl method="POST" enctype="multipart/form-data")
+            input(type="hidden" name="_csrf" value=csrfToken)
             .row.g-4
                 //- Cột trái - Thông tin cơ bản
                 .col-lg-8
@@ -59,6 +61,7 @@ block main
                                         option(value="unisex") Unisex
                                         option(value="nam") Nam
                                         option(value="nu") Nữ
+                                        option(value="tre-em") Trẻ em
                                 
                                 .col-md-4
                                     label.form-label.fw-bold Loại sản phẩm
@@ -76,6 +79,28 @@ block main
                                     select.form-select(name="trangthai")
                                         option(value="dangban") Đang bán
                                         option(value="ngungban") Ngừng bán
+
+                            .row.g-3.mt-1
+                                .col-md-12
+                                    label.form-label.fw-bold Thương hiệu
+                                    select.form-select(name="brand")
+                                        option(value="") -- Chọn thương hiệu --
+                                        each b in (brandOptions || [])
+                                            option(value=b._id) #{b.ten}
+
+                            .row.g-3.mt-1
+                                .col-md-6
+                                    label.form-label.fw-bold Dịp sử dụng
+                                    select.form-select(name="occasion")
+                                        option(value="") -- Chọn dịp --
+                                        each c in (occasionOptions || [])
+                                            option(value=c._id) #{'— '.repeat(c.level || 0)}#{c.name}
+                                .col-md-6
+                                    label.form-label.fw-bold Nhóm tuổi
+                                    select.form-select(name="ageGroup")
+                                        option(value="") -- Chọn nhóm tuổi --
+                                        each c in (ageGroupOptions || [])
+                                            option(value=c._id) #{'— '.repeat(c.level || 0)}#{c.name}
                             
                             .mt-3
                                 label.form-label.fw-bold Màu sắc sản phẩm chính

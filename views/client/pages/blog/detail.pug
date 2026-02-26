@@ -1,0 +1,22 @@
+extends ../../layouts/default.pugextends ../../layouts/default.pug
+
+
+
+
+
+
+
+
+
+
+
+      .blog-content !{post.noidung}    if post.noidung      p.text-muted #{post.tomtat}    if post.tomtat      img.img-fluid.rounded.mb-3(src=post.hinhanh alt=post.tieude)    if post.hinhanh    h1.mb-3 #{post.tieude}  .container.py-4block main
+block main
+  .container.py-4
+    h1.mb-3 #{post.tieude}
+    if post.hinhanh
+      img.img-fluid.rounded.mb-3(src=post.hinhanh alt=post.tieude)
+    if post.tomtat
+      p.text-muted #{post.tomtat}
+    if post.noidung
+      .blog-content !{post.noidung}

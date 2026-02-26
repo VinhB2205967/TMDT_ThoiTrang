@@ -4,6 +4,7 @@ const controller = require('../../controllers/client/product_controller');
 
 // Specific routes MUST come before :id
 router.get('/', controller.danhSach);
+router.get('/filter', controller.danhSach);
 router.get('/:id/options', controller.tuyChon);
 router.get('/:id', controller.chiTiet);
 

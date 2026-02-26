@@ -1,0 +1,23 @@
+extends ../../layouts/default.pug
+
+block main
+  .container-fluid.py-4
+    h1.mb-3 Cấu hình số lượng hiển thị
+    .card
+      .card-body
+        form#homeSettingsForm
+          .row.g-3
+            .col-12.col-md-4
+              label.form-label Số lượng sản phẩm mới
+              input.form-control(type="number" name="home_new_limit" min="1" value=(settings && settings.home_new_limit ? settings.home_new_limit : 8))
+            .col-12.col-md-4
+              label.form-label Số lượng bán chạy
+              input.form-control(type="number" name="home_best_limit" min="1" value=(settings && settings.home_best_limit ? settings.home_best_limit : 8))
+            .col-12.col-md-4
+              label.form-label Số lượng blog
+              input.form-control(type="number" name="home_blog_limit" min="1" value=(settings && settings.home_blog_limit ? settings.home_blog_limit : 6))
+          .mt-3
+            button.btn.btn-primary(type="submit") Lưu cấu hình
+
+block scripts
+  script(src="/admin/js/home-settings.js")

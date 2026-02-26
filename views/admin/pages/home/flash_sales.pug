@@ -1,0 +1,72 @@
+extends ../../layouts/default.pug
+
+block main
+  .container-fluid.py-4
+    h1.mb-3 Quản lý Flash Sale
+    .card.mb-4
+      .card-body
+        form#flashSaleCreate
+          .row.g-3
+            .col-12.col-md-4
+              label.form-label Tên
+              input.form-control(type="text" name="ten" required)
+            .col-12.col-md-4
+              label.form-label Bắt đầu
+              input.form-control(type="datetime-local" name="batdau" required)
+            .col-12.col-md-4
+              label.form-label Kết thúc
+              input.form-control(type="datetime-local" name="ketthuc" required)
+            .col-12.col-md-2
+              label.form-label % giảm
+              input.form-control(type="number" name="phantramgiamgia" value="0" min="0" max="90")
+            .col-12.col-md-10
+              label.form-label Sản phẩm (chọn nhiều)
+              select.form-select(name="sanpham" multiple size="6")
+                if products && products.length
+                  each p in products
+                    option(value=p._id) #{p.tensanpham}
+            .col-12
+              .form-check
+                input.form-check-input(type="checkbox" name="hienthi" checked)
+                label.form-check-label Hiển thị
+          .mt-3
+            button.btn.btn-primary(type="submit") Tạo Flash Sale
+
+    .card
+      .card-body
+        table.table.table-striped.align-middle
+          thead
+            tr
+              th Tên
+              th Thời gian
+              th % giảm
+              th Sản phẩm
+              th Hiển thị
+              th Hành động
+          tbody
+            if flashSales && flashSales.length
+              each item in flashSales
+                tr(data-id=item._id)
+                  td
+                    input.form-control.form-control-sm(type="text" name="ten" value=item.ten)
+                  td
+                    .d-flex.gap-2
+                      input.form-control.form-control-sm(type="datetime-local" name="batdau" value=(item.batdau ? new Date(item.batdau).toISOString().slice(0,16) : ''))
+                      input.form-control.form-control-sm(type="datetime-local" name="ketthuc" value=(item.ketthuc ? new Date(item.ketthuc).toISOString().slice(0,16) : ''))
+                  td
+                    input.form-control.form-control-sm(type="number" name="phantramgiamgia" value=item.phantramgiamgia min="0" max="90")
+                  td
+                    textarea.form-control.form-control-sm(name="sanpham_ids" rows="2") #{(item.sanpham || []).map(i => i.sanpham_id).join(',')}
+                  td
+                    input.form-check-input(type="checkbox" name="hienthi" checked=item.hienthi)
+                  td
+                    .d-flex.gap-2
+                      button.btn.btn-sm.btn-outline-primary(type="button" data-action="save") Lưu
+                      button.btn.btn-sm.btn-outline-secondary(type="button" data-action="toggle") Bật/Tắt
+                      button.btn.btn-sm.btn-outline-danger(type="button" data-action="delete") Xóa
+            else
+              tr
+                td(colspan="6").text-muted Chưa có flash sale.
+
+block scripts
+  script(src="/admin/js/home-flash-sales.js")

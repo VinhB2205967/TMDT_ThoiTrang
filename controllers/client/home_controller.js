@@ -1,63 +1,68 @@
-const sanpham = require('../../models/product_model');
 const productHelper = require('../../helpers/product');
 const { buildProductStats, applyProductStats } = require('../../helpers/productStats');
+const { getHomeData } = require('../../services/home.service');
+
+function buildBadges(product) {
+    const badges = [];
+    const now = Date.now();
+    const createdAt = product.ngaytao ? new Date(product.ngaytao).getTime() : 0;
+    const isNew = createdAt && (now - createdAt) <= 14 * 24 * 60 * 60 * 1000;
+    const isSale = Number(product.phantramgiamgia) > 0 || Number(product.flashSalePrice) > 0;
+    const soldCount = Number(product.soldCount || product.luotmua || 0);
+    const isHot = soldCount >= 10;
+
+    if (isNew) badges.push('NEW');
+    if (isSale) badges.push('SALE');
+    if (isHot) badges.push('HOT');
+    return badges;
+}
 
 // Trang chủ
 module.exports.trangChu = async (req, res) => {
-    const sanphammoi = await sanpham.find({ 
-        trangthai: 'dangban',
-        daxoa: false
-    })
-    .sort({ ngaytao: -1 })
-    .limit(8)
-    .lean();
+    const homeData = await getHomeData();
 
-    // Sản phẩm giảm giá (8 sản phẩm có giảm giá cao nhất)
-    const sanphamgiamgia = await sanpham.find({ 
-        trangthai: 'dangban',
-        daxoa: false,
-        phantramgiamgia: { $gt: 0 }
-    })
-    .sort({ phantramgiamgia: -1 })
-    .limit(8)
-    .lean();
-
-    // Flash sale (sản phẩm giảm giá từ 30% trở lên)
-    const sanphamflashsale = await sanpham.find({ 
-        trangthai: 'dangban',
-        daxoa: false,
-        phantramgiamgia: { $gte: 30 }
-    })
-    .sort({ phantramgiamgia: -1 })
-    .limit(8)
-    .lean();
-    // Best seller
-    const sanphambanchay = await sanpham.find({ 
-        trangthai: 'dangban',
-        daxoa: false
-    })
-    .sort({ luotmua: -1, ngaytao: -1 })
-    .limit(8)
-    .lean();
-
-    if (process.env.NODE_ENV !== 'production') {
-        console.log('Home - New products:', sanphammoi.length);
-        console.log('Home - Discount products:', sanphamgiamgia.length);
-    }
-
+    const flashProducts = homeData.flashSale ? homeData.flashSale.products : [];
     const allIds = [
-        ...sanphammoi,
-        ...sanphamgiamgia,
-        ...sanphamflashsale,
-        ...sanphambanchay
-    ].map(p => p && p._id).filter(Boolean);
+        ...homeData.newProducts,
+        ...homeData.bestSellers,
+        ...flashProducts
+    ].map((p) => p && p._id).filter(Boolean);
+
     const { ratingMap, soldMap } = await buildProductStats(allIds);
+
+    const withStats = (list) => applyProductStats(list.map(productHelper), ratingMap, soldMap)
+        .map((p) => ({ ...p, badges: buildBadges(p) }));
+
+    const newProducts = withStats(homeData.newProducts);
+    const bestSellerProducts = withStats(homeData.bestSellers);
+    const flashSaleProducts = withStats(flashProducts);
+    const lookbooks = (homeData.lookbooks || []).map((book) => ({
+        ...book,
+        title: book.title || book.tenmua || '',
+        image: book.image || book.hinhanh || '',
+        description: book.description || book.mota || '',
+        products: Array.isArray(book.products) && book.products.length ? book.products : (book.sanpham_ids || [])
+    }));
+
+    const flashSaleEnd = homeData.flashSale?.sale?.ketthuc
+        ? new Date(homeData.flashSale.sale.ketthuc).toISOString()
+        : '';
+    const flashSaleStart = homeData.flashSale?.sale?.batdau
+        ? new Date(homeData.flashSale.sale.batdau).toISOString()
+        : '';
 
     res.render("client/pages/home/index.pug", {
         titlePage: "Fashion Store - Thời trang chất lượng",
-        newProducts: applyProductStats(sanphammoi.map(productHelper), ratingMap, soldMap),
-        discountProducts: applyProductStats(sanphamgiamgia.map(productHelper), ratingMap, soldMap),
-        flashSaleProducts: applyProductStats(sanphamflashsale.map(productHelper), ratingMap, soldMap),
-        bestSellerProducts: applyProductStats(sanphambanchay.map(productHelper), ratingMap, soldMap)
+        sections: homeData.sections.filter((s) => s.hienthi),
+        banners: homeData.banners,
+        flashSale: homeData.flashSale,
+        flashSaleEnd,
+        flashSaleStart,
+        newProducts,
+        bestSellerProducts,
+        lookbooks,
+        brands: homeData.brands,
+        blogs: homeData.blogs,
+        flashSaleProducts
     });
 }

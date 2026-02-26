@@ -1,5 +1,12 @@
 
 const { SIZE_LIST, NO_SIZE_TYPES } = require('../config/constants');
+const mongoose = require('mongoose');
+
+function parseObjectId(id) {
+    const value = String(id || '').trim();
+    if (!value || !mongoose.Types.ObjectId.isValid(value)) return null;
+    return value;
+}
 
 const prepareProductData = (body, files) => {
     const isNoSizeProduct = NO_SIZE_TYPES.includes(body.loaisanpham);
@@ -31,8 +38,16 @@ const prepareProductData = (body, files) => {
         gioitinh: body.gioitinh,
         loaisanpham: body.loaisanpham,
         trangthai: body.trangthai || 'dangban',
+        occasion: parseObjectId(body.occasion),
+        ageGroup: parseObjectId(body.ageGroup),
+        brand: parseObjectId(body.brand || body.thuonghieu_id),
+        thuonghieu_id: parseObjectId(body.brand || body.thuonghieu_id),
         // daxoa và ngaytao sẽ được xử lý riêng ở controller tùy ngữ cảnh
     };
+
+    if (body.category !== undefined) {
+        productData.category = parseObjectId(body.category);
+    }
 
     // 3. Xử lý biến thể
     let tongBienThe = 0;

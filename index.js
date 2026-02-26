@@ -17,6 +17,7 @@ const { configurePassport } = require('./config/passport')
 const { attachUserToLocals, trackOnline, enforceActiveSessions } = require('./middlewares/auth')
 const { attachCartCount } = require('./middlewares/cart')
 const { attachFavoriteCount } = require('./middlewares/favorites')
+const { attachCategoryMenu } = require('./middlewares/categories')
 const { seedAdminOnConnect } = require('./services/seedAdmin')
 const database = require("./config/database")
 const route = require('./routes/client/index_route')
@@ -142,6 +143,7 @@ app.use(enforceActiveSessions)
 app.use(attachUserToLocals)
 app.use(attachCartCount)
 app.use(attachFavoriteCount)
+app.use(attachCategoryMenu)
 app.use(trackOnline)
 
 app.locals.prefigAdmin = systemConfig.prefigAdmin;
@@ -156,7 +158,15 @@ route(app);
 app.use((err, req, res, next) => {
   if (err && err.code === 'EBADCSRFTOKEN') {
     const message = 'Phiên làm việc đã hết hạn. Vui lòng tải lại trang.';
-    if (req.accepts('json')) {
+    const acceptHeader = String(req.get('accept') || '').toLowerCase();
+    const contentTypeHeader = String(req.get('content-type') || '').toLowerCase();
+    const isApiRequest =
+      req.xhr
+      || String(req.get('x-requested-with') || '').toLowerCase() === 'xmlhttprequest'
+      || acceptHeader.includes('application/json')
+      || contentTypeHeader.includes('application/json');
+
+    if (isApiRequest) {
       return res.status(403).json({ success: false, message });
     }
     if (req.flash) req.flash('error', message);

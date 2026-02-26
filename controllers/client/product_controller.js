@@ -1,10 +1,101 @@
 // Danh sách
 const sanpham = require("../../models/product_model");
+const mongoose = require('mongoose');
 const danhgia = require("../../models/review_model");
 const searchHelper = require('../../helpers/search');
 const productHelper = require('../../helpers/product');
 const productViewHelper = require('../../helpers/productView');
 const { buildProductStats, applyProductStats } = require('../../helpers/productStats');
+const Brand = require('../../models/brand_model');
+const Danhmuc = require('../../models/category_model');
+const { getCategoryTree, flattenTreeOptions, getDescendantCategoryIds } = require('../../services/category.service');
+
+async function timHoacTaoDanhMuc({ name, slug, type, parentId = null, order = 0 }) {
+    const existed = await Danhmuc.findOne({ slug, daxoa: { $ne: true } }).select('_id').lean();
+    if (existed?._id) return existed._id;
+
+    const doc = await Danhmuc.create({
+        name,
+        tendanhmuc: name,
+        slug,
+        type,
+        parent_id: parentId,
+        danhmuccha: parentId,
+        order,
+        thutu: order,
+        isActive: true,
+        trangthai: 'active',
+        daxoa: false
+    });
+    return doc._id;
+}
+
+async function damBaoDanhMucMacDinh() {
+    const occasionCount = await Danhmuc.countDocuments({ daxoa: { $ne: true }, type: 'occasion' });
+    if (!occasionCount) {
+        const rootId = await timHoacTaoDanhMuc({ name: 'Dịp sử dụng', slug: 'taxonomy-occasion-root', type: 'occasion', order: 0 });
+        const items = [
+            { name: 'Đi làm', slug: 'occasion-di-lam' },
+            { name: 'Đi chơi', slug: 'occasion-di-choi' },
+            { name: 'Dự tiệc', slug: 'occasion-du-tiec' },
+            { name: 'Thể thao', slug: 'occasion-the-thao' },
+            { name: 'Ở nhà', slug: 'occasion-o-nha' }
+        ];
+        for (let index = 0; index < items.length; index += 1) {
+            await timHoacTaoDanhMuc({
+                name: items[index].name,
+                slug: items[index].slug,
+                type: 'occasion',
+                parentId: rootId,
+                order: index + 1
+            });
+        }
+    }
+
+    const ageCount = await Danhmuc.countDocuments({ daxoa: { $ne: true }, type: 'age_group' });
+    if (!ageCount) {
+        const rootId = await timHoacTaoDanhMuc({ name: 'Nhóm tuổi', slug: 'taxonomy-age-group-root', type: 'age_group', order: 0 });
+        const items = [
+            { name: '1-3 tuổi', slug: 'age-group-1-3' },
+            { name: '4-6 tuổi', slug: 'age-group-4-6' },
+            { name: '7-10 tuổi', slug: 'age-group-7-10' },
+            { name: '11-14 tuổi', slug: 'age-group-11-14' }
+        ];
+        for (let index = 0; index < items.length; index += 1) {
+            await timHoacTaoDanhMuc({
+                name: items[index].name,
+                slug: items[index].slug,
+                type: 'age_group',
+                parentId: rootId,
+                order: index + 1
+            });
+        }
+    }
+}
+
+async function layBoLocNangCao() {
+    let [categoryTree, occasionTree, ageGroupTree, brands] = await Promise.all([
+        getCategoryTree({ type: 'category', isActive: true }),
+        getCategoryTree({ type: 'occasion', isActive: true }),
+        getCategoryTree({ type: 'age_group', isActive: true }),
+        Brand.find({ hienthi: true }).sort({ thuTu: 1, ten: 1 }).lean()
+    ]);
+
+    if (!flattenTreeOptions(occasionTree).length || !flattenTreeOptions(ageGroupTree).length) {
+        await damBaoDanhMucMacDinh();
+        [occasionTree, ageGroupTree] = await Promise.all([
+            getCategoryTree({ type: 'occasion', isActive: true }),
+            getCategoryTree({ type: 'age_group', isActive: true })
+        ]);
+    }
+
+    return {
+        categoryOptions: flattenTreeOptions(categoryTree),
+        occasionOptions: flattenTreeOptions(occasionTree),
+        ageGroupOptions: flattenTreeOptions(ageGroupTree),
+        brandOptions: brands || []
+    };
+}
 
 function chuanHoaSanPhamDanhSach(item) {
     const p = productHelper(item);
@@ -35,6 +126,7 @@ function chuanHoaSanPhamDanhSach(item) {
 
 module.exports.danhSach = async (req, res) => {
     try {
+        const filterOptions = await layBoLocNangCao();
         // Search
         const doituongtimkiem = searchHelper(req.query, { keywordKey: 'keyword' });
         
@@ -56,9 +148,38 @@ module.exports.danhSach = async (req, res) => {
         }
 
         // Lọc theo giới tính
-        const tapgioitinhchophep = new Set(['nam', 'nu', 'unisex']);
+        const tapgioitinhchophep = new Set(['nam', 'nu', 'unisex', 'tre-em']);
         if (req.query.gioitinh && tapgioitinhchophep.has(req.query.gioitinh)) {
             boloc.gioitinh = req.query.gioitinh;
+        }
+
+        // Lọc theo thương hiệu
+        if (req.query.brand && mongoose.Types.ObjectId.isValid(req.query.brand)) {
+            boloc.$or = [
+                { thuonghieu_id: req.query.brand },
+                { brand: req.query.brand }
+            ];
+        }
+
+        // Lọc theo danh mục cây (bao gồm toàn bộ danh mục con)
+        if (req.query.category && mongoose.Types.ObjectId.isValid(req.query.category)) {
+            const categoryIds = await getDescendantCategoryIds(req.query.category, {
+                includeSelf: true,
+                onlyActive: true
+            });
+            if (categoryIds.length) {
+                boloc.category = { $in: categoryIds };
+            }
+        }
+
+        // Lọc theo dịp
+        if (req.query.occasion && mongoose.Types.ObjectId.isValid(req.query.occasion)) {
+            boloc.occasion = req.query.occasion;
+        }
+
+        // Lọc theo nhóm tuổi
+        if (req.query.ageGroup && mongoose.Types.ObjectId.isValid(req.query.ageGroup)) {
+            boloc.ageGroup = req.query.ageGroup;
         }
         
         // Lọc theo khoảng giá (giá sau giảm)
@@ -108,8 +229,13 @@ module.exports.danhSach = async (req, res) => {
             currentSort: req.query.sort,
             currentLoai: req.query.loaisanpham,
             currentGioiTinh: req.query.gioitinh,
+            currentCategory: req.query.category,
+            currentBrand: req.query.brand,
+            currentOccasion: req.query.occasion,
+            currentAgeGroup: req.query.ageGroup,
             priceMin: req.query.priceMin,
-            priceMax: req.query.priceMax
+            priceMax: req.query.priceMax,
+            ...filterOptions
         });
     } catch (error) {
         console.error("Lỗi lấy sản phẩm:", error);

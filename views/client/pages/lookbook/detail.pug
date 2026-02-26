@@ -1,0 +1,52 @@
+extends ../../layouts/default.pug
+
+block main
+  .container.py-4.py-lg-5
+    .card.border-0.shadow-sm.overflow-hidden.mb-4
+      if lookbook.image
+        img.w-100(src=lookbook.image alt=lookbook.title style="max-height:440px;object-fit:cover;")
+      .card-body
+        h1.h3.mb-2 #{lookbook.title}
+        if lookbook.description
+          p.text-muted.mb-0 #{lookbook.description}
+
+    .d-flex.justify-content-between.align-items-center.mb-3
+      h3.h5.mb-0 Sản phẩm trong lookbook
+      if pagination
+        span.text-muted.small Tổng #{pagination.totalProducts} sản phẩm
+
+    if products && products.length
+      .products-grid
+        each product in products
+          +productCard(product)
+
+      if pagination && pagination.totalPages > 1
+        nav.mt-4(aria-label="Phân trang lookbook")
+          ul.pagination.justify-content-center
+            - const prevPage = pagination.currentPage - 1
+            li.page-item(class=prevPage < 1 ? 'disabled' : '')
+              a.page-link(href=prevPage < 1 ? '#' : `?page=${prevPage}` aria-label="Previous")
+                span(aria-hidden="true") &laquo;
+            - for (let p = 1; p <= pagination.totalPages; p++)
+              li.page-item(class=p === pagination.currentPage ? 'active' : '')
+                a.page-link(href=`?page=${p}`) #{p}
+            - const nextPage = pagination.currentPage + 1
+            li.page-item(class=nextPage > pagination.totalPages ? 'disabled' : '')
+              a.page-link(href=nextPage > pagination.totalPages ? '#' : `?page=${nextPage}` aria-label="Next")
+                span(aria-hidden="true") &raquo;
+    else
+      p.text-muted Chưa có sản phẩm nào.
+
+mixin productCard(product)
+  .product-card(data-product-id=product._id)
+    a.product-link(href=`/products/${product._id}`)
+      .product-image
+        img(src=product.displayImage || product.hinhanh || '/images/shopping.png' alt=product.tensanpham)
+    .product-info
+      h3.product-name #{product.tensanpham}
+      .product-price
+        if product.phantramgiamgia > 0
+          span.price-original #{product.giaText || (product.gia ? product.gia.toLocaleString('vi-VN') + '₫' : '')}
+          span.price-sale #{product.giamoiText || ((product.gia * (100 - product.phantramgiamgia) / 100).toLocaleString('vi-VN') + '₫')}
+        else
+          span.price-sale #{product.giaText || (product.gia ? product.gia.toLocaleString('vi-VN') + '₫' : '—')}

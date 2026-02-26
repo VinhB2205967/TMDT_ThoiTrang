@@ -14,6 +14,13 @@ block main
                             input.form-control(type="text" name="keyword" placeholder="Tìm kiếm sản phẩm..." value=keyword)
                         
                         //- Category filter
+                        .col-md-3
+                            select.form-select(name="category")
+                                option(value="" selected=!currentCategory) Danh mục (toàn cây)
+                                each c in (categoryOptions || [])
+                                    - const selectedCategory = String(c._id) === String(currentCategory || '')
+                                    option(value=c._id selected=selectedCategory) #{'— '.repeat(c.level || 0)}#{c.name}
+
                         .col-md-2
                             select.form-select(name="loaisanpham")
                                 option(value="" selected=!currentLoai) Tất cả loại
@@ -32,6 +39,25 @@ block main
                                 option(value="nam" selected=(currentGioiTinh === 'nam')) Nam
                                 option(value="nu" selected=(currentGioiTinh === 'nu')) Nữ
                                 option(value="unisex" selected=(currentGioiTinh === 'unisex')) Unisex
+                                option(value="tre-em" selected=(currentGioiTinh === 'tre-em')) Trẻ em
+
+                        .col-md-2
+                            select.form-select(name="brand")
+                                option(value="" selected=!currentBrand) Tất cả thương hiệu
+                                each b in (brandOptions || [])
+                                    option(value=b._id selected=(String(currentBrand || '') === String(b._id))) #{b.ten}
+
+                        .col-md-2
+                            select.form-select(name="occasion")
+                                option(value="" selected=!currentOccasion) Tất cả dịp
+                                each c in (occasionOptions || [])
+                                    option(value=c._id selected=(String(currentOccasion || '') === String(c._id))) #{'— '.repeat(c.level || 0)}#{c.name}
+
+                        .col-md-2
+                            select.form-select(name="ageGroup")
+                                option(value="" selected=!currentAgeGroup) Tất cả nhóm tuổi
+                                each c in (ageGroupOptions || [])
+                                    option(value=c._id selected=(String(currentAgeGroup || '') === String(c._id))) #{'— '.repeat(c.level || 0)}#{c.name}
                         
                         //- Price range
                         .col-md-2

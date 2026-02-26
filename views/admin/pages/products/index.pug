@@ -51,7 +51,7 @@ block main
                         +search(keyword)
 
                 //- Bộ lọc nâng cao (thu gọn mặc định)
-                - const hasAdvanced = !!(currentDeleted || currentSort || currentLoai || currentGioiTinh || priceMin || priceMax || dateFrom || dateTo);
+                - const hasAdvanced = !!(currentDeleted || currentSort || currentLoai || currentGioiTinh || currentBrand || currentOccasion || currentAgeGroup || priceMin || priceMax || dateFrom || dateTo);
                 .d-flex.justify-content-between.align-items-center.mt-2
                     button.btn.btn-outline-primary.btn-sm(type='button' data-bs-toggle='collapse' data-bs-target='#advancedFilters' aria-expanded=hasAdvanced ? 'true' : 'false' aria-controls='advancedFilters')
                         i.bi.bi-sliders.me-1
@@ -106,6 +106,25 @@ block main
                                     option(value="nam" selected=(currentGioiTinh=='nam')) Nam
                                     option(value="nu" selected=(currentGioiTinh=='nu')) Nữ
                                     option(value="unisex" selected=(currentGioiTinh=='unisex')) Unisex
+                                    option(value="tre-em" selected=(currentGioiTinh=='tre-em')) Trẻ em
+                            .col-md-2
+                                label.form-label.small.fw-bold Thương hiệu
+                                select.form-select.form-select-sm(name="brand" onchange="this.form.submit()")
+                                    option(value="" selected=(!currentBrand)) Tất cả
+                                    each b in (brandOptions || [])
+                                        option(value=b._id selected=(String(currentBrand || '') === String(b._id))) #{b.ten}
+                            .col-md-2
+                                label.form-label.small.fw-bold Dịp sử dụng
+                                select.form-select.form-select-sm(name="occasion" onchange="this.form.submit()")
+                                    option(value="" selected=(!currentOccasion)) Tất cả
+                                    each c in (occasionOptions || [])
+                                        option(value=c._id selected=(String(currentOccasion || '') === String(c._id))) #{'— '.repeat(c.level || 0)}#{c.name}
+                            .col-md-2
+                                label.form-label.small.fw-bold Lứa tuổi
+                                select.form-select.form-select-sm(name="ageGroup" onchange="this.form.submit()")
+                                    option(value="" selected=(!currentAgeGroup)) Tất cả
+                                    each c in (ageGroupOptions || [])
+                                        option(value=c._id selected=(String(currentAgeGroup || '') === String(c._id))) #{'— '.repeat(c.level || 0)}#{c.name}
                             .col-md-3
                                 label.form-label.small.fw-bold Khoảng giá
                                 .input-group.input-group-sm
@@ -137,6 +156,7 @@ block main
                             th(scope="col" style="width: 50px") STT
                             th(scope="col" style="width: 90px") Hình ảnh
                             th(scope="col") Tiêu đề
+                            th(scope="col" style="width: 120px") Thương hiệu
                             th(scope="col" style="width: 180px") Giá
                             th(scope="col" style="width: 90px") Tồn kho
                             th(scope="col" style="width: 110px") Ngày cập nhật
@@ -163,6 +183,8 @@ block main
                                     .fw-semibold #{product.tensanpham || '—'}
                                     if product.bienthe && product.bienthe.length
                                         small.text-muted #{product.bienthe.length} biến thể
+                                td
+                                    small.text-muted #{product.tenThuongHieu || '—'}
                                 td
                                     if giamGia > 0
                                         .d-flex.flex-column
@@ -222,6 +244,8 @@ block main
                                             .fw-semibold #{vTitle}
                                             if v.mausac
                                                 small.text-muted #{v.mausac}
+                                        td
+                                            small.text-muted #{product.tenThuongHieu || '—'}
                                         td
                                             if vGiam > 0
                                                 .d-flex.flex-column
@@ -285,6 +309,7 @@ block main
                                         span.badge.bg-success.rounded-pill Đang bán
                                     else
                                         span.badge.bg-danger.rounded-pill Ngừng
+                                small.text-muted.d-block Thương hiệu: #{product.tenThuongHieu || '—'}
                                 - const tonKhoMobile = (product.tonkho !== undefined && product.tonkho !== null) ? product.tonkho : (product.soluongton || 0);
                                 - const __noSizeTypesMobile = ['tui','phukien'];
                                 - const __isNoSizeMobile = __noSizeTypesMobile.includes(String(product.loaisanpham || '').toLowerCase());
@@ -333,6 +358,7 @@ block main
                                                 span.badge.bg-success.rounded-pill Đang bán
                                             else
                                                 span.badge.bg-danger.rounded-pill Ngừng
+                                        small.text-muted.d-block Thương hiệu: #{product.tenThuongHieu || '—'}
                                         small.text-muted.d-block Tồn kho: #{vTon}
                                     .card-footer.bg-transparent.border-0.pt-0
                                         .d-flex.gap-2

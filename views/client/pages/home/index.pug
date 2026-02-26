@@ -1,39 +1,34 @@
 extends ../../layouts/default.pug
 
 block main
-    //- Banner Slider
-    section.banner-section
-        #bannerCarousel.carousel.slide(data-bs-ride="carousel")
-            .carousel-indicators
-                button.active(type="button" data-bs-target="#bannerCarousel" data-bs-slide-to="0" aria-current="true")
-                button(type="button" data-bs-target="#bannerCarousel" data-bs-slide-to="1")
-                button(type="button" data-bs-target="#bannerCarousel" data-bs-slide-to="2")
-            .carousel-inner
-                .carousel-item.active
-                    .banner-slide.banner-1
-                        .container
-                            .banner-content
-                                h2.banner-title SALE MÙA ĐÔNG
-                                p.banner-subtitle Giảm đến 50% các sản phẩm áo khoác, hoodie
-                                a.btn.btn-banner(href="/products?loaisanpham=ao") Mua ngay
-                .carousel-item
-                    .banner-slide.banner-2
-                        .container
-                            .banner-content
-                                h2.banner-title BST XUÂN 2026
-                                p.banner-subtitle Phong cách trẻ trung, năng động
-                                a.btn.btn-banner(href="/products") Khám phá
-                .carousel-item
-                    .banner-slide.banner-3
-                        .container
-                            .banner-content
-                                h2.banner-title FREESHIP
-                                p.banner-subtitle Miễn phí vận chuyển đơn từ 300K
-                                a.btn.btn-banner(href="/products") Xem ngay
-            button.carousel-control-prev(type="button" data-bs-target="#bannerCarousel" data-bs-slide="prev")
-                span.carousel-control-prev-icon
-            button.carousel-control-next(type="button" data-bs-target="#bannerCarousel" data-bs-slide="next")
-                span.carousel-control-next-icon
+    - const getSection = (k) => (sections || []).find(s => s.key === k)
+    - const isActive = (k) => {
+    -   const s = getSection(k)
+    -   return s ? s.hienthi !== false : false
+    - }
+
+    if isActive('banner_slider') && banners && banners.length
+        section.banner-section
+            #bannerCarousel.carousel.slide(data-bs-ride="carousel")
+                .carousel-indicators
+                    each banner, idx in banners
+                        button(type="button" data-bs-target="#bannerCarousel" data-bs-slide-to=idx class=idx === 0 ? 'active' : '' aria-current=idx === 0 ? 'true' : 'false')
+                .carousel-inner
+                    each banner, idx in banners
+                        .carousel-item(class=idx === 0 ? 'active' : '')
+                            .banner-slide(style=`background-image:url('${banner.hinhanh}')`)
+                                .container
+                                    .banner-content
+                                        if banner.tieude
+                                            h2.banner-title #{banner.tieude}
+                                        if banner.mota
+                                            p.banner-subtitle #{banner.mota}
+                                        if banner.nut_text && banner.nut_link
+                                            a.btn.btn-banner(href=banner.nut_link) #{banner.nut_text}
+                button.carousel-control-prev(type="button" data-bs-target="#bannerCarousel" data-bs-slide="prev")
+                    span.carousel-control-prev-icon
+                button.carousel-control-next(type="button" data-bs-target="#bannerCarousel" data-bs-slide="next")
+                    span.carousel-control-next-icon
 
     //- Quick Links / Features
     section.features-section
@@ -67,10 +62,9 @@ block main
     //- Danh mục sản phẩm
     section.categories-section
         .container
-            .section-header
-                h2.section-title
-                    i.bi.bi-grid-3x3-gap-fill.me-2
-                    | DANH MỤC
+            .categories-header
+                i.bi.bi-grid-3x3-gap-fill
+                h3.categories-title DANH MỤC
             .categories-grid
                 a.category-item(href="/products?loaisanpham=ao")
                     .category-icon
@@ -105,79 +99,123 @@ block main
                         i.bi.bi-gender-female
                     span Thời trang Nữ
 
-    //- Flash Sale
-    if flashSaleProducts && flashSaleProducts.length
-        section.flash-sale-section
+    if isActive('flash_sale') && flashSale && flashSale.products && flashSale.products.length
+        section.flash-sale-section(data-flash-end=flashSaleEnd data-flash-start=flashSaleStart)
             .container
                 .section-header.flash-sale-header
                     h2.section-title
                         i.bi.bi-lightning-charge-fill.text-warning.me-2
                         | FLASH SALE
-                    .countdown
-                        span.countdown-label Kết thúc sau:
-                        .countdown-timer
-                            span.countdown-item#hours 02
-                            span.countdown-sep :
-                            span.countdown-item#minutes 30
-                            span.countdown-sep :
-                            span.countdown-item#seconds 00
+                    if flashSale.sale
+                        .countdown
+                            span.countdown-label Kết thúc sau:
+                            .countdown-timer
+                                span.countdown-item#hours 00
+                                span.countdown-sep :
+                                span.countdown-item#minutes 00
+                                span.countdown-sep :
+                                span.countdown-item#seconds 00
                 .products-grid
                     each product in flashSaleProducts
                         +productCard(product)
 
-    //- Sản phẩm mới
-    section.products-section
-        .container
-            .section-header
-                h2.section-title
-                    i.bi.bi-stars.me-2
-                    | SẢN PHẨM MỚI
-                a.view-all(href="/products?sort=ngaytao-desc") Xem tất cả
-                    i.bi.bi-arrow-right.ms-1
-            if newProducts && newProducts.length
-                .products-grid
-                    each product in newProducts
-                        +productCard(product)
-            else
-                .text-center.py-5.text-muted
-                    i.bi.bi-box-seam.fs-1.d-block.mb-3
-                    p Chưa có sản phẩm nào
+    if isActive('lookbook')
+        if lookbooks && lookbooks.length
+            section.lookbook-section
+                .container
+                    .section-header
+                        h2.section-title
+                            i.bi.bi-camera.me-2
+                            | LOOKBOOK THEO MÙA
+                    .row.g-3
+                        each book in lookbooks
+                            .col-12.col-md-6.col-lg-4
+                                a.card.h-100.text-decoration-none.text-dark(href=`/lookbook/${book.slug || book._id}`)
+                                    if book.image
+                                        img.card-img-top(src=book.image alt=book.title)
+                                    .card-body
+                                        h5.card-title #{book.title}
+                                        if book.description
+                                            p.card-text #{book.description}
+                                        if book.products && book.products.length
+                                            .d-flex.justify-content-between.align-items-center
+                                                span.badge.bg-light.text-dark #{book.products.length} sản phẩm
+                                                span.btn.btn-sm.btn-primary Xem bộ sưu tập
 
-    //- Sản phẩm bán chạy
-    section.products-section.bg-light
-        .container
-            .section-header
-                h2.section-title
-                    i.bi.bi-fire.text-danger.me-2
-                    | BÁN CHẠY NHẤT
-                a.view-all(href="/products") Xem tất cả
-                    i.bi.bi-arrow-right.ms-1
-            if bestSellerProducts && bestSellerProducts.length
-                .products-grid
-                    each product in bestSellerProducts
-                        +productCard(product)
-            else
-                .text-center.py-5.text-muted
-                    i.bi.bi-graph-up.fs-1.d-block.mb-3
-                    p Đang cập nhật
+    if isActive('brands')
+        if brands && brands.length
+            section.brand-section.bg-light
+                .container
+                    .section-header
+                        h2.section-title
+                            i.bi.bi-award.me-2
+                            | THƯƠNG HIỆU NỔI BẬT
+                    .row.g-3.align-items-center
+                        each brand in brands
+                            .col-6.col-md-3.col-lg-2
+                                a.brand-item.d-block.text-center(href=`/products?brand=${brand._id}`)
+                                    img.img-fluid(src=brand.logo alt=brand.ten)
 
-    //- Sản phẩm giảm giá
-    section.products-section
-        .container
-            .section-header
-                h2.section-title
-                    i.bi.bi-percent.text-success.me-2
-                    | ĐANG GIẢM GIÁ
-                a.view-all(href="/products") Xem tất cả
-                    i.bi.bi-arrow-right.ms-1
-            if discountProducts && discountProducts.length
-                .products-grid
-                    each product in discountProducts
-                        +productCard(product)
-            else
-                .text-center.py-5.text-muted
-                    i.bi.bi-tags.fs-1.d-block.mb-3
-                    p Đang cập nhật
+    if isActive('blog')
+        if blogs && blogs.length
+            section.blog-section
+                .container
+                    .section-header
+                        h2.section-title
+                            i.bi.bi-journal-text.me-2
+                            | BLOG THỜI TRANG
+                        a.view-all(href="/blog") Xem tất cả
+                            i.bi.bi-arrow-right.ms-1
+                    .row.g-3
+                        each post in blogs
+                            .col-12.col-md-6.col-lg-4
+                                a.card.h-100.text-decoration-none.text-dark(href=`/blog/${post.slug}`)
+                                    if post.hinhanh
+                                        img.card-img-top(src=post.hinhanh alt=post.tieude)
+                                    .card-body
+                                        h5.card-title #{post.tieude}
+                                        if post.tomtat
+                                            p.card-text #{post.tomtat}
+
+    if sections && sections.length
+        each section in sections
+            if section.key === 'new_products' && isActive('new_products')
+                section.products-section
+                    .container
+                        .section-header
+                            h2.section-title
+                                i.bi.bi-stars.me-2
+                                | SẢN PHẨM MỚI
+                            a.view-all(href="/products?sort=ngaytao-desc") Xem tất cả
+                                i.bi.bi-arrow-right.ms-1
+                        if newProducts && newProducts.length
+                            .products-grid
+                                each product in newProducts
+                                    +productCard(product)
+                        else
+                            .text-center.py-5.text-muted
+                                i.bi.bi-box-seam.fs-1.d-block.mb-3
+                                p Chưa có sản phẩm nào
+
+            if section.key === 'best_sellers' && isActive('best_sellers')
+                section.products-section.bg-light
+                    .container
+                        .section-header
+                            h2.section-title
+                                i.bi.bi-fire.text-danger.me-2
+                                | BÁN CHẠY NHẤT
+                            a.view-all(href="/products") Xem tất cả
+                                i.bi.bi-arrow-right.ms-1
+                        if bestSellerProducts && bestSellerProducts.length
+                            .products-grid
+                                each product in bestSellerProducts
+                                    +productCard(product)
+                        else
+                            .text-center.py-5.text-muted
+                                i.bi.bi-graph-up.fs-1.d-block.mb-3
+                                p Đang cập nhật
+
+
 
 //- Mixin Product Card
 mixin productCard(product)
@@ -185,15 +223,19 @@ mixin productCard(product)
         a.product-link(href=`/products/${product._id}`)
             .product-image
                 img(src=product.displayImage || product.hinhanh || '/images/shopping.png' alt=product.tensanpham)
-                if product.phantramgiamgia > 0
+                if product.badges && product.badges.length
+                    .product-badges
+                        each badge in product.badges
+                            span.badge.badge-pill= badge
+                if product.phantramgiamgia > 0 && !product.flashSalePrice
                     span.discount-badge -#{product.phantramgiamgia}%
-                //- Nút yêu thích + xem nhanh ở góc phải
+                if product.flashSalePrice
+                    span.discount-badge FLASH
                 .product-top-actions
                     button.btn-icon.btn-view(type="button" title="Xem nhanh")
                         i.bi.bi-eye
                     button.btn-icon.btn-wishlist(type="button" title="Yêu thích")
                         i.bi.bi-heart
-                //- Nút Mua + Thêm giỏ ở dưới ảnh
                 .product-bottom-actions
                     button.btn-add-cart(type="button" title="Thêm vào giỏ")
                         i.bi.bi-cart-plus
@@ -202,7 +244,6 @@ mixin productCard(product)
                         span Mua ngay
         .product-info
             h3.product-name #{product.tensanpham}
-            //- Variant thumbnails (hình biến thể)
             if product.bienthe && product.bienthe.length
                 .variant-thumbs
                     each bt, idx in product.bienthe.slice(0, 4)
@@ -211,7 +252,11 @@ mixin productCard(product)
                     if product.bienthe.length > 4
                         span.more-variants +#{product.bienthe.length - 4}
             .product-price
-                if product.phantramgiamgia > 0
+                if product.flashSalePrice
+                    - const flashText = (product.flashSalePrice || 0).toLocaleString('vi-VN') + '₫'
+                    span.price-original #{product.giaText || (product.gia ? product.gia.toLocaleString('vi-VN') + '₫' : '')}
+                    span.price-sale #{flashText}
+                else if product.phantramgiamgia > 0
                     span.price-original #{product.giaText || (product.gia ? product.gia.toLocaleString('vi-VN') + '₫' : '')}
                     span.price-sale #{product.giamoiText || ((product.gia * (100 - product.phantramgiamgia) / 100).toLocaleString('vi-VN') + '₫')}
                 else
@@ -234,3 +279,6 @@ mixin productCard(product)
                         span.text-muted.small &nbsp;•&nbsp;
                     span.text-muted.small #{product.reviewCount || 0} đánh giá
                     span.text-muted.small &nbsp;•&nbsp;đã bán #{product.soldCount || 0}
+
+block scripts
+    script(src="/js/home.js")

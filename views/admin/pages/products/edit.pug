@@ -11,7 +11,9 @@ block main
                 | Quay lại
 
     .dashboard-container.mt-4
-        form(action=`${admin}/products/${product._id}/edit` method="POST" enctype="multipart/form-data")
+        - const editActionUrl = `${admin}/products/${product._id}/edit?_csrf=${encodeURIComponent(csrfToken || '')}`
+        form(action=editActionUrl method="POST" enctype="multipart/form-data")
+            input(type="hidden" name="_csrf" value=csrfToken)
             .row.g-4
                 //- Cột trái - Thông tin cơ bản
                 .col-lg-8
@@ -59,6 +61,7 @@ block main
                                         option(value="unisex" selected=(product.gioitinh === 'unisex')) Unisex
                                         option(value="nam" selected=(product.gioitinh === 'nam')) Nam
                                         option(value="nu" selected=(product.gioitinh === 'nu')) Nữ
+                                        option(value="tre-em" selected=(product.gioitinh === 'tre-em')) Trẻ em
                                 
                                 .col-md-4
                                     label.form-label.fw-bold Loại sản phẩm
@@ -76,6 +79,31 @@ block main
                                     select.form-select(name="trangthai")
                                         option(value="dangban" selected=(product.trangthai === 'dangban')) Đang bán
                                         option(value="ngungban" selected=(product.trangthai === 'ngungban')) Ngừng bán
+
+                            .row.g-3.mt-1
+                                .col-md-12
+                                    label.form-label.fw-bold Thương hiệu
+                                    select.form-select(name="brand")
+                                        option(value="") -- Chọn thương hiệu --
+                                        each b in (brandOptions || [])
+                                            - const selectedBrand = String(b._id) === String(product.brand || product.thuonghieu_id || '')
+                                            option(value=b._id selected=selectedBrand) #{b.ten}
+
+                            .row.g-3.mt-1
+                                .col-md-6
+                                    label.form-label.fw-bold Dịp sử dụng
+                                    select.form-select(name="occasion")
+                                        option(value="") -- Chọn dịp --
+                                        each c in (occasionOptions || [])
+                                            - const selectedOccasion = String(c._id) === String(product.occasion || '')
+                                            option(value=c._id selected=selectedOccasion) #{'— '.repeat(c.level || 0)}#{c.name}
+                                .col-md-6
+                                    label.form-label.fw-bold Nhóm tuổi
+                                    select.form-select(name="ageGroup")
+                                        option(value="") -- Chọn nhóm tuổi --
+                                        each c in (ageGroupOptions || [])
+                                            - const selectedAge = String(c._id) === String(product.ageGroup || '')
+                                            option(value=c._id selected=selectedAge) #{'— '.repeat(c.level || 0)}#{c.name}
                             
                             .mt-3
                                 label.form-label.fw-bold Màu sắc sản phẩm chính
