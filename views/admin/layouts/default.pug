@@ -30,8 +30,13 @@ html
           userId: !{JSON.stringify(String(adminUser._id || ''))},
           adminPath: !{JSON.stringify(admin || '/admin')}
         };
+      script.
+        window.AdminOrderNotifyRuntime = {
+          adminPath: !{JSON.stringify(admin || '/admin')}
+        };
       script(src="/socket.io/socket.io.js")
       script(src="/admin/js/chat-notify.js")
+      script(src="/admin/js/order-notify.js")
     
     //- Block cho scripts bổ sung từ các trang con
     block scripts

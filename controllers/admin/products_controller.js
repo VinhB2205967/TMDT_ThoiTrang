@@ -227,9 +227,9 @@ const danhSach = async (req, res) => {
         }
 
         // Sắp xếp (whitelist)
-        // Default: ngày cập nhật giảm dần
-        let sapxep = { ngaycapnhat: -1, ngaytao: -1 };
-        let khoasapxep = 'ngaycapnhat';
+        // Default: sản phẩm tạo mới nhất lên đầu
+        let sapxep = { ngaytao: -1, ngaycapnhat: -1 };
+        let khoasapxep = 'ngaytao';
         let chieusapxep = -1;
         if (req.query.sort) {
             const [khoa, huong] = String(req.query.sort).split('-');

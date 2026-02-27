@@ -203,7 +203,7 @@ async function getAdminConversationSummaries() {
       clientId: String(item.clientId),
       userName: item.user && item.user.hoten ? item.user.hoten : 'Khách hàng',
       userEmail: item.user && item.user.email ? item.user.email : '',
-      avatar: item.user && item.user.avatar ? item.user.avatar : '/images/download.jpg',
+      avatar: item.user && item.user.avatar ? item.user.avatar : '/images/avatar/avatar.png',
       lastMessage: summaryMessage || mediaFallback,
       lastAt: item.lastAt || null,
       unreadCount: Number(item.unreadCount || 0)
@@ -222,7 +222,7 @@ async function getUserBasicInfo(userId) {
     userId: String(user._id),
     userName: user.hoten || 'Khách hàng',
     userEmail: user.email || '',
-    avatar: user.avatar || '/images/download.jpg'
+    avatar: user.avatar || '/images/avatar/avatar.png'
   };
 }
 

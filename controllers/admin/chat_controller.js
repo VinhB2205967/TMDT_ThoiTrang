@@ -5,7 +5,7 @@ const {
   getAdminUnreadTotal,
   getUserBasicInfo
 } = require('../../services/chat.service');
-const { isUserOnline } = require('../../services/chat.socket');
+const { isUserOnline } = require('../../socketio/chat.socket');
 const { resolveChatMedia } = require('../../middlewares/chatUpload');
 
 module.exports.trangChat = async (req, res) => {

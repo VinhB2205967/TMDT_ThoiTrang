@@ -38,6 +38,16 @@ MOMO_LANG=vi
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
 GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback
+
+# App URL + SMTP (quên mật khẩu)
+APP_BASE_URL=http://localhost:3000
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_app_password
+SMTP_FROM_NAME=Fashion Store
+SMTP_FROM_EMAIL=your_email@gmail.com
 ```
 
 3) Chạy:
@@ -49,6 +59,25 @@ GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback
 - Trang auth dùng chung: `/auth` (tab Đăng nhập/Đăng ký trên cùng 1 trang).
 - Đăng nhập admin đúng role sẽ tự chuyển sang `/admin`, user thường sẽ về `/`.
 - Google Login: truy cập `/auth/google` (cần cấu hình biến môi trường Google ở trên).
+
+## Quên mật khẩu
+
+- Trang nhập email: `/forgot-password`
+- Gửi email reset: `POST /forgot-password`
+- Trang đặt lại mật khẩu: `/reset-password?token=...`
+- Xử lý đặt lại mật khẩu: `POST /reset-password`
+
+Token reset được tạo ngẫu nhiên bằng `crypto`, lưu dạng hash SHA-256 trong `accounts.tokenquenmatkhau`, hết hạn sau 15 phút (`accounts.thoigianhethan`) và bị xóa sau khi đặt lại mật khẩu thành công.
+
+## Email đơn hàng tự động
+
+- Khi admin đổi trạng thái đơn sang `daxacnhan` (`POST /admin/orders/:id/status`) hệ thống gửi email xác nhận đơn.
+- Khi admin đổi trạng thái đơn sang `dagiao` hệ thống gửi email hoàn thành đơn (kèm nút đánh giá).
+- Hệ thống chỉ gửi khi trạng thái thực sự thay đổi (kiểm tra `modifiedCount`).
+- Tránh gửi trùng bằng cờ trong DB:
+	- `orders.emailxacnhan_dagui`
+	- `orders.emaildagiao_dagui`
+- Nếu gửi thất bại, hệ thống ghi `orders.emailloi_cuoi` và trả thông báo lỗi để admin biết.
 
 ## Cấu trúc dự án
 

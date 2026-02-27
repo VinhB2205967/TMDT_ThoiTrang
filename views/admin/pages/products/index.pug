@@ -81,9 +81,9 @@ block main
                             .col-md-2
                                 label.form-label.small.fw-bold Sắp xếp
                                 select.form-select.form-select-sm(name="sort" onchange="this.form.submit()")
-                                    option(value="ngaycapnhat-desc" selected=(!currentSort || currentSort=='ngaycapnhat-desc')) Cập nhật mới nhất
+                                    option(value="ngaytao-desc" selected=(!currentSort || currentSort=='ngaytao-desc')) Tạo mới nhất
+                                    option(value="ngaycapnhat-desc" selected=(currentSort=='ngaycapnhat-desc')) Cập nhật mới nhất
                                     option(value="ngaycapnhat-asc" selected=(currentSort=='ngaycapnhat-asc')) Cập nhật cũ nhất
-                                    option(value="ngaytao-desc" selected=(currentSort=='ngaytao-desc')) Tạo mới nhất
                                     option(value="ngaytao-asc" selected=(currentSort=='ngaytao-asc')) Tạo cũ nhất
                                     option(value="gia-desc" selected=(currentSort=='gia-desc')) Giá giảm dần
                                     option(value="gia-asc" selected=(currentSort=='gia-asc')) Giá tăng dần

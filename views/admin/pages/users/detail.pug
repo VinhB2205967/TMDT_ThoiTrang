@@ -36,10 +36,7 @@ block main
                 |  -
 
           .col-12.col-lg-6
-            if u.avatar
-              img(src=u.avatar alt="avatar" style="width:96px;height:96px;object-fit:cover;border-radius:12px")
-            else
-              .text-muted Không có avatar
+            img(src=(u.avatar || '/images/avatar/avatar.png') alt="avatar" style="width:96px;height:96px;object-fit:cover;border-radius:12px")
 
     .row.g-4
       .col-12.col-lg-7

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const ExcelJS = require('exceljs');
 const Donhang = require('../../models/order_model');
 const Chitietdonhang = require('../../models/order_item_model');
 const Sanpham = require('../../models/product_model');
@@ -7,6 +8,7 @@ const { thoatBieuThuc } = require('../../helpers/validators');
 const { layTrangThaiChoPhep } = require('../../helpers/orderStatus');
 const { laLoaiKhongSize, tinhTongTon } = require('../../services/productStock.service');
 const { danhDauThatBaiTatCaPendingTheoDonHang } = require('../../services/payment.service');
+const { sendOrderConfirmedEmail, sendOrderDeliveredEmail } = require('../../services/orderEmail.service');
 
 const TRANG_THAI_CHO_PHEP = layTrangThaiChoPhep().filter((s) => s !== 'all');
 const TAP_TRANG_THAI = new Set(TRANG_THAI_CHO_PHEP);
@@ -69,15 +71,32 @@ function taoChuoiBoLoc({ keyword, status, payment, fromDate, toDate, sort, limit
 function sortMap(sortKey) {
   switch (sortKey) {
     case 'oldest':
-      return { ngaytao: 1 };
+      return { ngaytao: 1, createdAt: 1, _id: 1 };
     case 'total-asc':
       return { tongtien: 1, tamtinh: 1 };
     case 'total-desc':
       return { tongtien: -1, tamtinh: -1 };
     case 'newest':
     default:
-      return { ngaytao: -1, ngaycapnhat: -1 };
+      return { ngaytao: -1, createdAt: -1, _id: -1 };
   }
+}
+
+function layDuongDanDanhSachHopLe(raw) {
+  const input = String(raw || '').trim();
+  if (!input) return '';
+
+  let path = '';
+  try {
+    const parsed = new URL(input, 'http://localhost');
+    path = `${parsed.pathname || ''}${parsed.search || ''}`;
+  } catch {
+    return '';
+  }
+
+  if (!path.startsWith('/admin/orders')) return '';
+  if (/^\/admin\/orders\/[^/?#]+/.test(path)) return '';
+  return path;
 }
 
 function buildBadgeClass(status) {
@@ -237,6 +256,8 @@ module.exports.danhSach = async (req, res) => {
       sort: sort || 'newest',
       limit
     });
+    const currentListUrl = `/admin/orders?page=${phantrang.currentPage}${filterString || ''}`;
+    const exportQuery = filterString ? `?${filterString.replace(/^&/, '')}` : '';
 
     return res.render('admin/pages/orders/index.pug', {
       titlePage: 'Quản lý đơn hàng',
@@ -254,7 +275,9 @@ module.exports.danhSach = async (req, res) => {
       statusLabels: ADMIN_STATUS_LABELS,
       statusOptions: TRANG_THAI_CHO_PHEP,
       badgeClass: buildBadgeClass,
-      filterString
+      filterString,
+      currentListUrl,
+      exportQuery
     });
   } catch (err) {
     console.error('admin orders index error:', err);
@@ -267,7 +290,9 @@ module.exports.danhSach = async (req, res) => {
       statusLabels: ADMIN_STATUS_LABELS,
       statusOptions: TRANG_THAI_CHO_PHEP,
       badgeClass: buildBadgeClass,
-      filterString: ''
+      filterString: '',
+      currentListUrl: '/admin/orders',
+      exportQuery: ''
     });
   }
 };
@@ -310,26 +335,71 @@ module.exports.exportExcel = async (req, res) => {
     const { boloc } = taoBoLocTuQuery(req.query);
     const rows = await Donhang.find(boloc).sort({ ngaytao: -1 }).lean();
 
-    const header = ['MaDon', 'KhachHang', 'SDT', 'Email', 'ThanhToan', 'TrangThai', 'TongTien', 'NgayTao'];
-    const lines = [header.join(',')];
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'TMDT_ThoiTrang';
+    workbook.created = new Date();
+
+    const worksheet = workbook.addWorksheet('DonHang');
+    worksheet.columns = [
+      { header: 'Mã đơn', key: 'madon', width: 16 },
+      { header: 'Khách hàng', key: 'khachhang', width: 24 },
+      { header: 'SĐT', key: 'sdt', width: 16 },
+      { header: 'Email', key: 'email', width: 28 },
+      { header: 'Thanh toán', key: 'thanhtoan', width: 14 },
+      { header: 'Trạng thái', key: 'trangthai', width: 18 },
+      { header: 'Tổng tiền', key: 'tongtien', width: 14 },
+      { header: 'Ngày tạo', key: 'ngaytao', width: 22 }
+    ];
+
     for (const o of (rows || [])) {
-      const line = [
-        o.madonhang || '',
-        (o.tennguoinhan || '').replace(/\n|\r|,/g, ' '),
-        o.sodienthoai || '',
-        o.email || '',
-        (o.phuongthucthanhtoan || '').toUpperCase(),
-        layNhanTrangThai(o.trangthai),
-        Number(o.tongtien || o.tamtinh || 0),
-        o.ngaytao ? new Date(o.ngaytao).toISOString() : ''
-      ];
-      lines.push(line.join(','));
+      worksheet.addRow({
+        madon: String(o.madonhang || ''),
+        khachhang: String(o.tennguoinhan || ''),
+        sdt: String(o.sodienthoai || ''),
+        email: String(o.email || ''),
+        thanhtoan: String((o.phuongthucthanhtoan || '').toUpperCase()),
+        trangthai: String(layNhanTrangThai(o.trangthai)),
+        tongtien: Number(o.tongtien || o.tamtinh || 0),
+        ngaytao: o.ngaytao ? new Date(o.ngaytao) : null
+      });
     }
 
-    const csv = lines.join('\n');
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="orders_export.csv"');
-    return res.status(200).send(csv);
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true };
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+    worksheet.getColumn('sdt').numFmt = '@';
+    worksheet.getColumn('madon').numFmt = '@';
+    worksheet.getColumn('tongtien').numFmt = '#,##0';
+    worksheet.getColumn('ngaytao').numFmt = 'dd/mm/yyyy hh:mm:ss';
+
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber > 1) {
+        row.alignment = { vertical: 'middle', horizontal: 'left' };
+      }
+    });
+
+    worksheet.columns.forEach((column) => {
+      let maxLength = String(column.header || '').length;
+      column.eachCell({ includeEmpty: true }, (cell) => {
+        const value = cell.value;
+        let cellText = '';
+        if (value instanceof Date) {
+          cellText = value.toISOString();
+        } else if (value && typeof value === 'object' && value.richText) {
+          cellText = value.richText.map((part) => part.text || '').join('');
+        } else {
+          cellText = value !== null && value !== undefined ? String(value) : '';
+        }
+        if (cellText.length > maxLength) maxLength = cellText.length;
+      });
+      column.width = Math.min(Math.max(maxLength + 2, 12), 50);
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="orders_export.xlsx"');
+    await workbook.xlsx.write(res);
+    return res.end();
   } catch (err) {
     console.error('admin orders export error:', err);
     req.flash('error', 'Không thể xuất danh sách đơn hàng');
@@ -337,51 +407,196 @@ module.exports.exportExcel = async (req, res) => {
   }
 };
 
+module.exports.tongQuanDonMoi = async (req, res) => {
+  try {
+    const filter = { daxoa: { $ne: true }, trangthai: 'choxacnhan' };
+    const [count, latest] = await Promise.all([
+      Donhang.countDocuments(filter),
+      Donhang.findOne(filter)
+        .sort({ ngaytao: -1 })
+        .select('_id madonhang tennguoinhan ngaytao')
+        .lean()
+    ]);
+
+    return res.json({
+      success: true,
+      count: Number(count || 0),
+      latestOrder: latest
+        ? {
+          id: String(latest._id),
+          madonhang: latest.madonhang || '',
+          tennguoinhan: latest.tennguoinhan || '',
+          ngaytao: latest.ngaytao || null
+        }
+        : null
+    });
+  } catch (err) {
+    console.error('orders new summary error:', err);
+    return res.status(500).json({ success: false, message: 'Không thể lấy thông báo đơn mới' });
+  }
+};
+
 module.exports.capNhatTrangThai = async (req, res) => {
   try {
     const id = req.params.id;
     const nextStatus = String(req.body.status || '').trim();
-
-    const referer = String(req.get('referer') || '');
-    const returnToList = referer.includes('/admin/orders') && !referer.includes(`/admin/orders/${id}`);
+    const returnToListPath =
+      layDuongDanDanhSachHopLe(req.body.returnTo) ||
+      layDuongDanDanhSachHopLe(req.get('referer'));
+    const redirectPath = returnToListPath || `/admin/orders/${id}`;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       req.flash('error', 'ID không hợp lệ');
-      return res.redirect(returnToList ? '/admin/orders' : `/admin/orders/${id}`);
+      return res.redirect(returnToListPath || '/admin/orders');
     }
 
     if (!TAP_TRANG_THAI.has(nextStatus) || nextStatus === 'dahuy') {
       req.flash('error', 'Trạng thái không hợp lệ');
-      return res.redirect(returnToList ? '/admin/orders' : `/admin/orders/${id}`);
+      return res.redirect(redirectPath);
     }
 
     const order = await Donhang.findOne({ _id: id, daxoa: { $ne: true } }).lean();
     if (!order) {
       req.flash('error', 'Không tìm thấy đơn hàng');
-      return res.redirect(returnToList ? '/admin/orders' : `/admin/orders/${id}`);
+      return res.redirect(returnToListPath || '/admin/orders');
     }
 
     const allowedNext = CHUYEN_TRANG_THAI[order.trangthai] || [];
     if (!allowedNext.includes(nextStatus)) {
       req.flash('error', 'Không thể chuyển trạng thái theo luồng hiện tại');
-      return res.redirect(returnToList ? '/admin/orders' : `/admin/orders/${id}`);
+      return res.redirect(redirectPath);
     }
 
-    await Donhang.updateOne(
+    const updateResult = await Donhang.updateOne(
       { _id: id, trangthai: order.trangthai, daxoa: { $ne: true } },
       { $set: { trangthai: nextStatus, ngaycapnhat: new Date() } }
     );
 
+    if (!updateResult || Number(updateResult.modifiedCount || 0) === 0) {
+      req.flash('error', 'Không thể cập nhật trạng thái (dữ liệu có thể đã thay đổi)');
+      return res.redirect(redirectPath);
+    }
+
+    try {
+      if (nextStatus === 'daxacnhan') {
+        const mailResult = await sendOrderConfirmedEmail({ orderId: id });
+        if (!mailResult.sent && mailResult.reason === 'already-sent') {
+          console.log('ORDER_CONFIRM_EMAIL_SKIPPED_ALREADY_SENT', { orderId: id });
+        }
+      }
+
+      if (nextStatus === 'dagiao') {
+        const mailResult = await sendOrderDeliveredEmail({ orderId: id });
+        if (!mailResult.sent && mailResult.reason === 'already-sent') {
+          console.log('ORDER_DELIVERED_EMAIL_SKIPPED_ALREADY_SENT', { orderId: id });
+        }
+      }
+    } catch (mailError) {
+      console.error('order status email error:', mailError);
+      req.flash('error', 'Đã cập nhật trạng thái nhưng gửi email thất bại. Vui lòng kiểm tra SMTP/log.');
+      return res.redirect(redirectPath);
+    }
+
     req.flash('success', 'Cập nhật trạng thái thành công');
-    return res.redirect(returnToList ? '/admin/orders' : `/admin/orders/${id}`);
+    return res.redirect(redirectPath);
   } catch (err) {
     console.error('admin update order status error:', err);
     req.flash('error', 'Không thể cập nhật trạng thái đơn hàng');
-    const referer = String(req.get('referer') || '');
-    if (referer.includes('/admin/orders') && !referer.includes(`/admin/orders/${req.params.id}`)) {
-      return res.redirect('/admin/orders');
-    }
+    const returnToListPath =
+      layDuongDanDanhSachHopLe(req.body.returnTo) ||
+      layDuongDanDanhSachHopLe(req.get('referer'));
+    if (returnToListPath) return res.redirect(returnToListPath);
     return res.redirect(`/admin/orders/${req.params.id}`);
+  }
+};
+
+module.exports.capNhatTrangThaiHangLoat = async (req, res) => {
+  try {
+    const nextStatus = String(req.body.status || '').trim();
+    const returnToListPath =
+      layDuongDanDanhSachHopLe(req.body.returnTo) ||
+      layDuongDanDanhSachHopLe(req.get('referer')) ||
+      '/admin/orders';
+
+    const rawOrderIds = Array.isArray(req.body.orderIds)
+      ? req.body.orderIds
+      : (req.body.orderIds ? [req.body.orderIds] : []);
+
+    const orderIds = Array.from(new Set(
+      rawOrderIds
+        .map((id) => String(id || '').trim())
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    ));
+
+    if (!orderIds.length) {
+      req.flash('error', 'Vui lòng chọn ít nhất một đơn hàng');
+      return res.redirect(returnToListPath);
+    }
+
+    if (!TAP_TRANG_THAI.has(nextStatus) || nextStatus === 'dahuy') {
+      req.flash('error', 'Trạng thái cập nhật không hợp lệ');
+      return res.redirect(returnToListPath);
+    }
+
+    const orders = await Donhang.find({
+      _id: { $in: orderIds },
+      daxoa: { $ne: true }
+    }).lean();
+
+    let updatedCount = 0;
+    let skippedCount = 0;
+    let mailErrorCount = 0;
+
+    for (const order of (orders || [])) {
+      const allowedNext = CHUYEN_TRANG_THAI[order.trangthai] || [];
+      if (!allowedNext.includes(nextStatus)) {
+        skippedCount += 1;
+        continue;
+      }
+
+      const updateResult = await Donhang.updateOne(
+        { _id: order._id, trangthai: order.trangthai, daxoa: { $ne: true } },
+        { $set: { trangthai: nextStatus, ngaycapnhat: new Date() } }
+      );
+
+      if (!updateResult || Number(updateResult.modifiedCount || 0) === 0) {
+        skippedCount += 1;
+        continue;
+      }
+
+      updatedCount += 1;
+
+      try {
+        if (nextStatus === 'daxacnhan') {
+          await sendOrderConfirmedEmail({ orderId: order._id });
+        }
+        if (nextStatus === 'dagiao') {
+          await sendOrderDeliveredEmail({ orderId: order._id });
+        }
+      } catch (mailError) {
+        mailErrorCount += 1;
+        console.error('bulk order status email error:', { orderId: String(order._id), error: mailError });
+      }
+    }
+
+    if (updatedCount === 0) {
+      req.flash('error', 'Không có đơn nào được cập nhật trạng thái');
+      return res.redirect(returnToListPath);
+    }
+
+    let message = `Đã cập nhật ${updatedCount} đơn hàng`;
+    if (skippedCount > 0) message += `, bỏ qua ${skippedCount} đơn không đúng luồng`;
+    if (mailErrorCount > 0) message += `, ${mailErrorCount} đơn gửi email thất bại`;
+    req.flash('success', message);
+    return res.redirect(returnToListPath);
+  } catch (err) {
+    console.error('admin bulk update order status error:', err);
+    req.flash('error', 'Không thể cập nhật trạng thái hàng loạt');
+    const returnToListPath =
+      layDuongDanDanhSachHopLe(req.body.returnTo) ||
+      layDuongDanDanhSachHopLe(req.get('referer')) ||
+      '/admin/orders';
+    return res.redirect(returnToListPath);
   }
 };
 

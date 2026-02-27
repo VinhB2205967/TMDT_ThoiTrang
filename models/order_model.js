@@ -86,7 +86,19 @@ const orderSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  ngaycapnhat: Date
+  ngaycapnhat: Date,
+
+  emailxacnhan_dagui: {
+    type: Boolean,
+    default: false
+  },
+  emailxacnhan_guio: Date,
+  emaildagiao_dagui: {
+    type: Boolean,
+    default: false
+  },
+  emaildagiao_guio: Date,
+  emailloi_cuoi: String
 });
 
 // Tạo mã đơn hàng tự động

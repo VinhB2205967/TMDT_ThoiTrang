@@ -61,10 +61,7 @@ block main
                 each u in users
                   tr(data-user-id=`${u._id}`)
                     td
-                      if u.avatar
-                        img(src=u.avatar alt="avatar" style="width:32px;height:32px;border-radius:8px;object-fit:cover")
-                      else
-                        span.text-muted -
+                      img(src=(u.avatar || '/images/avatar/avatar.png') alt="avatar" style="width:32px;height:32px;border-radius:8px;object-fit:cover")
                     td #{u.email}
                     td #{u.hoten || ''}
                     td

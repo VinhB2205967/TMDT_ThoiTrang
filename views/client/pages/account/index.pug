@@ -38,12 +38,11 @@ block main
                       input.form-control(type="date" name="ngaysinh" value=(profile && profile.ngaysinh) || '')
                     .col-12
                       label.form-label Avatar
-                      if profile && profile.avatar
-                        .mb-2
-                          img(src=profile.avatar alt="avatar" style="width:64px;height:64px;border-radius:12px;object-fit:cover")
-                      input.form-control(type="file" name="avatarFile" accept="image/*")
+                      .mb-2
+                        img#accountAvatarPreview(src=((profile && profile.avatar) || '/images/avatar/avatar.png') alt="avatar" style="width:64px;height:64px;border-radius:12px;object-fit:cover")
+                      input#accountAvatarFileInput.form-control(type="file" name="avatarFile" accept="image/*")
                       .form-text Hoặc dán link ảnh (tuỳ chọn)
-                      input.form-control.mt-2(type="text" name="avatarUrl" placeholder="https://..." value=(profile && profile.avatar) || '')
+                      input#accountAvatarUrlInput.form-control.mt-2(type="text" name="avatarUrl" placeholder="https://..." value=(profile && profile.avatar) || '')
                       
                   .d-flex.gap-2.mt-3
                     button.btn.btn-primary(type="submit") Lưu thay đổi
@@ -76,3 +75,6 @@ block main
                 form(method="POST" action="/account/delete" onsubmit="return confirm('Bạn chắc chắn muốn xóa tài khoản?')")
                   input(type='hidden' name='_csrf' value=csrfToken)
                   button.btn.btn-outline-danger(type="submit") Xóa tài khoản
+
+block scripts
+  script(src="/js/account-profile.js")

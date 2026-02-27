@@ -1,91 +1,88 @@
-.sider
-    .sider-header
-        a.sider-brand(href=`${admin}/dashboard`)
-            i.bi.bi-shop-window
-            span Fashion Admin
-    .inner-menu
-        ul
-            li
-                a(href=`${admin}/dashboard`)
-                    i.bi.bi-speedometer2
-                    span Tổng quan
-            li
-                a(href=`${admin}/chats`)
-                    i.bi.bi-chat-square-text
-                    span Chat khách hàng
-                    span#adminChatMenuUnread.badge.text-bg-danger.ms-2.d-none 0
-            li
-                a(href=`${admin}/users`)
-                    i.bi.bi-people
-                    span Người dùng
-            li
-                a(href=`${admin}/products`)
-                    i.bi.bi-box-seam
-                    span Sản phẩm
-            li
-                a(href=`${admin}/categories`)
-                    i.bi.bi-diagram-3
-                    span Danh mục
-            li
-                a(href=`${admin}/banners`)
-                    i.bi.bi-images
-                    span Banner
-            li
-                a(href=`${admin}/flash-sales`)
-                    i.bi.bi-lightning-charge
-                    span Flash Sale
-            li
-                a(href=`${admin}/lookbooks`)
-                    i.bi.bi-camera
-                    span Lookbook
-            li
-                a(href=`${admin}/brands`)
-                    i.bi.bi-award
-                    span Thương hiệu
-            li
-                a(href=`${admin}/blog`)
-                    i.bi.bi-journal-text
-                    span Blog
-            li
-                a(href=`${admin}/home-sections`)
-                    i.bi.bi-layout-text-window
-                    span Trang chủ
-            li
-                a(href=`${admin}/imports`)
-                    i.bi.bi-box-arrow-in-down
-                    span Nhập kho
-            li
-                a(href=`${admin}/orders`)
-                    i.bi.bi-receipt
-                    span Đơn hàng
-            li
-                a(href=`${admin}/reviews`)
-                    i.bi.bi-chat-dots
-                    span Đánh giá
-            li
-                a(href=`${admin}/reports`)
-                    i.bi.bi-bar-chart-line
-                    span Báo cáo
-            li
-                a(href=`${admin}/vouchers`)
-                    i.bi.bi-ticket-perforated
-                    span Voucher
+aside.sider
+  .sider-header
+    a.sider-brand(href=admin)
+      i.bi.bi-shop-window
+      span Fashion Admin
 
-    .sider-footer
-        - const au = typeof adminUser !== 'undefined' ? adminUser : null
-        - const adminName = (au && au.hoten) ? au.hoten : 'Admin'
-        - const adminEmail = (au && au.email) ? au.email : ''
-        - const adminAvatar = (au && au.avatar) ? au.avatar : '/images/download.jpg'
+  .inner-menu
+    ul
+      li
+        a(href=`${admin}/dashboard`)
+          i.bi.bi-speedometer2
+          span Tổng quan
+      li
+        a(href=`${admin}/chats`)
+          i.bi.bi-chat-dots
+          span Chat khách hàng
+          span#adminChatMenuUnread.badge.rounded-pill.text-bg-danger.ms-auto.d-none 0
+      li
+        a(href=`${admin}/products`)
+          i.bi.bi-box-seam
+          span Sản phẩm
+      li
+        a(href=`${admin}/categories`)
+          i.bi.bi-diagram-3
+          span Danh mục
+      li
+        a(href=`${admin}/brands`)
+          i.bi.bi-bookmark-star
+          span Thương hiệu
+      li
+        a(href=`${admin}/orders`)
+          i.bi.bi-receipt-cutoff
+          span Đơn hàng
+          span#adminOrderMenuUnread.badge.rounded-pill.text-bg-danger.ms-auto.d-none 0
+      li
+        a(href=`${admin}/users`)
+          i.bi.bi-people
+          span Người dùng
+      li
+        a(href=`${admin}/reviews`)
+          i.bi.bi-star
+          span Đánh giá
+      li
+        a(href=`${admin}/vouchers`)
+          i.bi.bi-ticket-perforated
+          span Mã giảm giá
+      li
+        a(href=`${admin}/blog`)
+          i.bi.bi-journal-richtext
+          span Quản lý Blog
+      li
+        a(href=`${admin}/reports`)
+          i.bi.bi-bar-chart
+          span Báo cáo
+      li
+        a(href=`${admin}/banners`)
+          i.bi.bi-image
+          span Banner
+      li
+        a(href=`${admin}/home-sections`)
+          i.bi.bi-grid-3x3-gap
+          span Trang chủ
+      li
+        a(href=`${admin}/flash-sales`)
+          i.bi.bi-lightning-charge
+          span Flash Sale
+      li
+        a(href=`${admin}/lookbooks`)
+          i.bi.bi-camera
+          span Lookbook
+      li
+        a(href=`${admin}/imports`)
+          i.bi.bi-box-arrow-in-down
+          span Nhập kho
 
-        .sider-profile
-            img.sider-profile__avatar(src=adminAvatar alt="avatar")
-            .sider-profile__meta
-                .sider-profile__name #{adminName}
-                if adminEmail
-                    .sider-profile__email #{adminEmail}
-            span.sider-profile__badge ADMIN
+  .sider-footer
+    .sider-profile
+      img.sider-profile__avatar(src=(adminUser && (adminUser.avatar || adminUser.anhdaidien)) ? (adminUser.avatar || adminUser.anhdaidien) : '/images/avatar/avatar.png' alt='avatar')
+      .sider-profile__meta
+        .sider-profile__name #{(adminUser && adminUser.hoten) || 'Quản trị viên'}
+        .sider-profile__email #{(adminUser && adminUser.email) || ''}
+      span.sider-profile__badge ADMIN
 
-        form(method="POST" action=`${admin}/logout`)
-            button.sider-logout-btn(type="submit")
-                i.bi.bi-box-arrow-right
-                span Đăng xuất
+    form(method='POST', action=`${admin}/logout`)
+      input(type='hidden', name='_csrf', value=csrfToken)
+      button.sider-logout-btn(type='submit')
+        i.bi.bi-box-arrow-right
+        span Đăng xuất

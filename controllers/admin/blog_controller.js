@@ -15,7 +15,7 @@ module.exports.danhSach = async (req, res) => {
   const data = await BlogPost.find({}).sort({ ngaytao: -1 }).lean();
   const want = req.accepts(['html', 'json']);
   if (want === 'html') {
-    return res.render('admin/pages/home/blog.pug', {
+    return res.render('admin/pages/blog/blog.pug', {
       titlePage: 'Quản lý Blog',
       posts: data
     });

@@ -3,7 +3,17 @@ const nguoidung = require('../../models/user_model');
 const { redirectAfterLogin } = require('../../middlewares/auth');
 const { writeLoginLog } = require('../../services/loginLog');
 const { laEmailHopLe } = require('../../helpers/validators');
-const { createLocalAccountForUser, verifyPasswordWithLegacy, getAccountByUserId } = require('../../services/account.service');
+const {
+  createLocalAccountForUser,
+  verifyPasswordWithLegacy,
+  getAccountByUserId,
+  ensureAccountFromUser,
+  createPasswordResetToken,
+  findAccountByResetToken,
+  clearPasswordResetTokenByUserId,
+  setPasswordByUserId
+} = require('../../services/account.service');
+const { sendResetPasswordEmail } = require('../../services/mailer.service');
 
 function chuanHoaEmail(email) {
   return String(email || '').trim().toLowerCase();
@@ -32,6 +42,31 @@ function tuyChonCookie() {
   };
 }
 
+function getAppBaseUrl(req) {
+  const envBaseUrl = String(process.env.APP_BASE_URL || '').trim();
+  if (envBaseUrl) return envBaseUrl.replace(/\/$/, '');
+  const proto = req.protocol || 'http';
+  const host = req.get('host');
+  return `${proto}://${host}`;
+}
+
+function luuDuLieuForm(req, data = {}) {
+  if (!req || !req.flash) return;
+  req.flash('formData', JSON.stringify(data || {}));
+}
+
+function layDuLieuForm(req) {
+  try {
+    const raw = req && req.flash ? req.flash('formData') : [];
+    const first = Array.isArray(raw) ? raw[0] : null;
+    if (!first) return {};
+    const parsed = JSON.parse(first);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 // Trang
 module.exports.trang = async (req, res) => {
  // Nếu đã đăng nhập
@@ -41,11 +76,13 @@ module.exports.trang = async (req, res) => {
 
   const chedo = req.query.mode === 'register' ? 'register' : 'login';
   const emaildanho = String(req.cookies?.rememberEmail || '').trim();
+  const formData = layDuLieuForm(req);
   res.render('client/pages/auth/index.pug', {
     titlePage: chedo === 'register' ? 'Đăng ký' : 'Đăng nhập',
     mode: chedo,
     googleEnabled: kiemTraGoogle(),
-    rememberedEmail: emaildanho
+    rememberedEmail: emaildanho,
+    formData
   });
 };
 
@@ -57,18 +94,21 @@ module.exports.dangKy = async (req, res) => {
     const matkhau = String(req.body.password || '');
 
     if (!emaildangky || !laEmailHopLe(emaildangky)) {
+      luuDuLieuForm(req, { hoten, email: emaildangky });
       req.flash('error', 'Email không đúng định dạng');
       return res.redirect('/auth?mode=register');
     }
 
     const loimatkhau = kiemTraMatKhau(matkhau);
     if (loimatkhau) {
+      luuDuLieuForm(req, { hoten, email: emaildangky });
       req.flash('error', loimatkhau);
       return res.redirect('/auth?mode=register');
     }
 
     const nguoidungtontai = await nguoidung.findOne({ email: emaildangky, daxoa: { $ne: true } });
     if (nguoidungtontai) {
+      luuDuLieuForm(req, { hoten, email: emaildangky });
       req.flash('error', 'Email đã tồn tại');
       return res.redirect('/auth?mode=register');
     }
@@ -97,9 +137,11 @@ module.exports.dangKy = async (req, res) => {
     console.error('Register error:', loi);
     // lỗi trùng lặp
     if (loi && (loi.code === 11000 || String(loi.message || '').includes('E11000'))) {
+      luuDuLieuForm(req, { hoten: String(req.body.hoten || '').trim(), email: chuanHoaEmail(req.body.email) });
       req.flash('error', 'Email đã tồn tại');
       return res.redirect('/auth?mode=register');
     }
+    luuDuLieuForm(req, { hoten: String(req.body.hoten || '').trim(), email: chuanHoaEmail(req.body.email) });
     req.flash('error', 'Có lỗi khi đăng ký');
     return res.redirect('/auth?mode=register');
   }
@@ -115,6 +157,7 @@ module.exports.dangNhap = async (req, res) => {
     const taikhoan = await nguoidung.findOne({ email: emaildangnhap, daxoa: { $ne: true } });
     if (!taikhoan) {
       await writeLoginLog({ req, email: emaildangnhap, provider: 'local', status: 'failed', message: 'user_not_found' });
+      luuDuLieuForm(req, { email: emaildangnhap, remember: req.body.remember });
       req.flash('error', 'Sai email hoặc mật khẩu');
       return res.redirect('/auth?mode=login');
     }
@@ -122,6 +165,7 @@ module.exports.dangNhap = async (req, res) => {
     const hople = await verifyPasswordWithLegacy({ userDoc: taikhoan, passwordPlain: matkhau });
     if (!hople) {
       await writeLoginLog({ req, user: taikhoan, provider: 'local', status: 'failed', message: 'wrong_password' });
+      luuDuLieuForm(req, { email: emaildangnhap, remember: req.body.remember });
       req.flash('error', 'Sai email hoặc mật khẩu');
       return res.redirect('/auth?mode=login');
     }
@@ -129,6 +173,7 @@ module.exports.dangNhap = async (req, res) => {
     const acc = await getAccountByUserId({ userId: taikhoan._id }).catch(() => null);
     if (!acc || acc.trangthai !== 'active') {
       await writeLoginLog({ req, user: taikhoan, provider: 'local', status: 'failed', message: 'noactive' });
+      luuDuLieuForm(req, { email: emaildangnhap, remember: req.body.remember });
       req.flash('error', 'Tài khoản đang bị khóa');
       return res.redirect('/auth?mode=login');
     }
@@ -150,6 +195,7 @@ module.exports.dangNhap = async (req, res) => {
     req.login(taikhoan, function (loi) {
       if (loi) {
         writeLoginLog({ req, user: taikhoan, provider: 'local', status: 'failed', message: 'req_login_failed' });
+        luuDuLieuForm(req, { email: emaildangnhap, remember: req.body.remember });
         req.flash('error', 'Đăng nhập thất bại');
         return res.redirect('/auth?mode=login');
       }
@@ -167,6 +213,7 @@ module.exports.dangNhap = async (req, res) => {
   } catch (loi) {
     console.error('Login error:', loi);
     await writeLoginLog({ req, email: chuanHoaEmail(req.body.email), provider: 'local', status: 'failed', message: 'exception' });
+    luuDuLieuForm(req, { email: chuanHoaEmail(req.body.email), remember: req.body.remember });
     req.flash('error', 'Có lỗi khi đăng nhập');
     return res.redirect('/auth?mode=login');
   }
@@ -291,4 +338,112 @@ module.exports.xuLyGoogleCallback = (req, res, next) => {
         return res.redirect('/auth?mode=login');
       });
   })(req, res, next);
+};
+
+module.exports.trangQuenMatKhau = (req, res) => {
+  const formData = layDuLieuForm(req);
+  return res.render('client/pages/auth/forgot_password.pug', {
+    titlePage: 'Quên mật khẩu',
+    formData
+  });
+};
+
+module.exports.guiEmailDatLaiMatKhau = async (req, res) => {
+  try {
+    const email = chuanHoaEmail(req.body.email);
+    if (!email || !laEmailHopLe(email)) {
+      luuDuLieuForm(req, { email });
+      req.flash('error', 'Email không đúng định dạng');
+      return res.redirect('/forgot-password');
+    }
+
+    const user = await nguoidung.findOne({ email, daxoa: { $ne: true } }).lean();
+    if (!user) {
+      req.flash('error', 'Email không tồn tại trong hệ thống');
+      return res.redirect('/forgot-password');
+    }
+
+    await ensureAccountFromUser(user, { provider: 'local' });
+    const tokenInfo = await createPasswordResetToken({ userId: user._id, expiresMinutes: 15 });
+    const resetLink = `${getAppBaseUrl(req)}/reset-password?token=${encodeURIComponent(tokenInfo.tokenPlain)}`;
+
+    const mailInfo = await sendResetPasswordEmail({
+      toEmail: email,
+      userName: user.hoten || email.split('@')[0],
+      resetLink,
+      minutes: tokenInfo.expiresMinutes
+    });
+    console.log('FORGOT_PASSWORD_MAIL_SENT', {
+      toEmail: email,
+      messageId: mailInfo && mailInfo.messageId ? mailInfo.messageId : null,
+      accepted: mailInfo && mailInfo.accepted ? mailInfo.accepted : null,
+      rejected: mailInfo && mailInfo.rejected ? mailInfo.rejected : null
+    });
+
+    req.flash('success', 'Đã gửi email đặt lại mật khẩu. Vui lòng kiểm tra hộp thư.');
+    return res.redirect('/forgot-password');
+  } catch (error) {
+    console.error('forgotPassword error:', error);
+    req.flash('error', 'Không thể gửi email đặt lại mật khẩu lúc này');
+    return res.redirect('/forgot-password');
+  }
+};
+
+module.exports.trangDatLaiMatKhau = async (req, res) => {
+  const token = String(req.query.token || '').trim();
+  if (!token) {
+    req.flash('error', 'Liên kết đặt lại mật khẩu không hợp lệ');
+    return res.redirect('/forgot-password');
+  }
+
+  const account = await findAccountByResetToken({ tokenPlain: token });
+  if (!account) {
+    req.flash('error', 'Liên kết đã hết hạn hoặc không hợp lệ');
+    return res.redirect('/forgot-password');
+  }
+
+  return res.render('client/pages/auth/reset_password.pug', {
+    titlePage: 'Đặt lại mật khẩu',
+    token
+  });
+};
+
+module.exports.datLaiMatKhau = async (req, res) => {
+  try {
+    const token = String(req.body.token || '').trim();
+    const newPassword = String(req.body.password || '');
+    const confirmPassword = String(req.body.confirmPassword || '');
+
+    if (!token) {
+      req.flash('error', 'Thiếu token đặt lại mật khẩu');
+      return res.redirect('/forgot-password');
+    }
+
+    const account = await findAccountByResetToken({ tokenPlain: token });
+    if (!account) {
+      req.flash('error', 'Liên kết đã hết hạn hoặc không hợp lệ');
+      return res.redirect('/forgot-password');
+    }
+
+    const passwordError = kiemTraMatKhau(newPassword);
+    if (passwordError) {
+      req.flash('error', passwordError);
+      return res.redirect(`/reset-password?token=${encodeURIComponent(token)}`);
+    }
+
+    if (newPassword !== confirmPassword) {
+      req.flash('error', 'Xác nhận mật khẩu không khớp');
+      return res.redirect(`/reset-password?token=${encodeURIComponent(token)}`);
+    }
+
+    await setPasswordByUserId({ userId: account.nguoidung_id, newPasswordPlain: newPassword });
+    await clearPasswordResetTokenByUserId({ userId: account.nguoidung_id });
+
+    req.flash('success', 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại.');
+    return res.redirect('/auth?mode=login');
+  } catch (error) {
+    console.error('resetPassword error:', error);
+    req.flash('error', 'Không thể đặt lại mật khẩu');
+    return res.redirect('/forgot-password');
+  }
 };

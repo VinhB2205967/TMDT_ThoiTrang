@@ -3,7 +3,7 @@ const {
   getClientUnreadCount,
   markClientRead
 } = require('../../services/chat.service');
-const { getAdminOnlineStatus } = require('../../services/chat.socket');
+const { getAdminOnlineStatus } = require('../../socketio/chat.socket');
 const { resolveChatMedia } = require('../../middlewares/chatUpload');
 
 module.exports.layLichSu = async (req, res) => {

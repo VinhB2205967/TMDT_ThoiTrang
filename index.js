@@ -25,7 +25,7 @@ const database = require("./config/database")
 const route = require('./routes/client/index_route')
 const routeAdmin = require('./routes/admin/index_route')
 const systemConfig = require('./config/system')
-const { setupChatSocket } = require('./services/chat.socket')
+const { setupChatSocket } = require('./socketio/chat.socket')
 const port = process.env.PORT
 database.connect();
 const httpServer = http.createServer(app)

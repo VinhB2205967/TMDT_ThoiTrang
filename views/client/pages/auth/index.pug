@@ -23,23 +23,24 @@ block main
                 form(method="POST" action="/auth/login")
                   .mb-3
                     label.form-label Email
-                    input.form-control(type="email" name="email" required autocomplete="email" value=(rememberedEmail || ''))
+                    input.form-control(type="email" name="email" required autocomplete="email" value=((formData && formData.email) || rememberedEmail || ''))
                   .mb-3
                     label.form-label Mật khẩu
                     input.form-control(type="password" name="password" required autocomplete="current-password")
                   .d-flex.align-items-center.justify-content-between.mb-3
                     .form-check
-                      input.form-check-input(type="checkbox" name="remember" id="rememberEmail" checked=Boolean(rememberedEmail))
+                      input.form-check-input(type="checkbox" name="remember" id="rememberEmail" checked=Boolean((formData && formData.remember) || rememberedEmail))
                       label.form-check-label(for="rememberEmail") Ghi nhớ email
+                    a.small.text-decoration-none(href="/forgot-password") Quên mật khẩu?
                   button.btn.btn-primary.w-100(type="submit") Đăng nhập
               else
                 form(method="POST" action="/auth/register")
                   .mb-3
                     label.form-label Họ tên
-                    input.form-control(type="text" name="hoten" autocomplete="name")
+                    input.form-control(type="text" name="hoten" autocomplete="name" value=((formData && formData.hoten) || ''))
                   .mb-3
                     label.form-label Email
-                    input.form-control(type="email" name="email" required autocomplete="email")
+                    input.form-control(type="email" name="email" required autocomplete="email" value=((formData && formData.email) || ''))
                   .mb-3
                     label.form-label Mật khẩu
                     input.form-control(type="password" name="password" required autocomplete="new-password" minlength="6")

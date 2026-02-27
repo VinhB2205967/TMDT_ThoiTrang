@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const mongoose = require('mongoose');
 const Taikhoan = require('../models/accounts_model');
 const Nguoidung = require('../models/user_model');
@@ -216,6 +217,64 @@ async function syncRoleStatusFromUser({ userId, vaitro, trangthai }) {
   await Taikhoan.updateOne({ nguoidung_id: uid }, { $set }, { upsert: true }).catch(() => {});
 }
 
+function hashResetToken(tokenPlain) {
+  return crypto.createHash('sha256').update(String(tokenPlain || '')).digest('hex');
+}
+
+async function createPasswordResetToken({ userId, expiresMinutes = 15 }) {
+  const uid = normalizeId(userId);
+  if (!uid) throw new Error('Thiếu userId');
+
+  const minutes = Math.max(1, Number(expiresMinutes || 15));
+  const tokenPlain = crypto.randomBytes(32).toString('hex');
+  const tokenHash = hashResetToken(tokenPlain);
+  const expiresAt = new Date(Date.now() + minutes * 60 * 1000);
+
+  await Taikhoan.updateOne(
+    { nguoidung_id: uid },
+    {
+      $set: {
+        tokenquenmatkhau: tokenHash,
+        thoigianhethan: expiresAt,
+        ngaycapnhat: new Date()
+      }
+    }
+  );
+
+  return {
+    tokenPlain,
+    expiresAt,
+    expiresMinutes: minutes
+  };
+}
+
+async function findAccountByResetToken({ tokenPlain }) {
+  const token = String(tokenPlain || '').trim();
+  if (!token) return null;
+
+  const tokenHash = hashResetToken(token);
+  const now = new Date();
+  const account = await Taikhoan.findOne({
+    tokenquenmatkhau: tokenHash,
+    thoigianhethan: { $gt: now }
+  }).lean();
+
+  return account || null;
+}
+
+async function clearPasswordResetTokenByUserId({ userId }) {
+  const uid = normalizeId(userId);
+  if (!uid) return;
+
+  await Taikhoan.updateOne(
+    { nguoidung_id: uid },
+    {
+      $unset: { tokenquenmatkhau: '', thoigianhethan: '' },
+      $set: { ngaycapnhat: new Date() }
+    }
+  );
+}
+
 module.exports = {
   ensureAccountFromUser,
   createLocalAccountForUser,
@@ -224,5 +283,8 @@ module.exports = {
   verifyPasswordByEmail,
   verifyPasswordWithLegacy,
   setPasswordByUserId,
-  syncRoleStatusFromUser
+  syncRoleStatusFromUser,
+  createPasswordResetToken,
+  findAccountByResetToken,
+  clearPasswordResetTokenByUserId
 };

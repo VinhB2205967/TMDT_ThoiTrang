@@ -1,0 +1,38 @@
+.card.blog-editor-card
+  .card-header.bg-white.border-0.pb-0
+    h5.mb-1 Tạo bài viết mới
+    p.text-muted.mb-0 Nhập thông tin cơ bản, kiểm tra nhanh trước khi xuất bản.
+  .card-body
+    form#blogCreate.blog-form(novalidate)
+      .row.g-3
+        .col-12
+          label.form-label(for='blogTitle') Tiêu đề
+          input#blogTitle.form-control(type='text' name='tieude' required maxlength='180' placeholder='Ví dụ: Xu hướng thời trang thu đông 2025')
+          .invalid-feedback Vui lòng nhập tiêu đề bài viết.
+
+        .col-12
+          label.form-label(for='blogSummary') Tóm tắt
+          textarea#blogSummary.form-control(name='tomtat' rows='2' maxlength='320' placeholder='Mô tả ngắn gọn nội dung bài viết')
+
+        .col-12
+          label.form-label(for='blogImageInput') Hình ảnh đại diện
+          input#blogImageInput.form-control(type='file' name='image' accept='image/*')
+          .form-text Hỗ trợ định dạng ảnh thông dụng, nên dùng ảnh ngang để hiển thị đẹp hơn.
+
+        .col-12
+          label.form-label(for='blogContent') Nội dung
+          textarea#blogContent.form-control(name='noidung' rows='10' required placeholder='Nhập nội dung chi tiết...')
+          .invalid-feedback Vui lòng nhập nội dung bài viết.
+
+        .col-12
+          .form-check
+            input#blogPublish.form-check-input(type='checkbox' name='xuatban')
+            label.form-check-label(for='blogPublish') Xuất bản ngay sau khi tạo
+
+      .d-flex.flex-wrap.gap-2.mt-4
+        button.btn.btn-primary(type='submit')
+          i.bi.bi-plus-circle.me-1
+          | Tạo bài viết
+        button#blogResetBtn.btn.btn-outline-secondary(type='button')
+          i.bi.bi-arrow-counterclockwise.me-1
+          | Làm mới form

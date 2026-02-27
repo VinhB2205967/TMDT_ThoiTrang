@@ -22,7 +22,10 @@ const userSchema = new mongoose.Schema({
   },
   gioitinh: String,                 
   ngaysinh: Date,
-  avatar: String,                   
+  avatar: {
+    type: String,
+    default: '/images/avatar/avatar.png'
+  },
   daxoa: {
     type: Boolean,
     default: false

@@ -7,7 +7,7 @@ block main
         i.bi.bi-receipt.me-2
         | Quản lý đơn hàng
       .d-flex.align-items-center.gap-2.orders-actions
-        a.btn.btn-header.btn-header-outline(href=`${admin}/orders/export`)
+        a.btn.btn-header.btn-header-outline(href=`${admin}/orders/export${exportQuery || ''}`)
           i.bi.bi-file-earmark-spreadsheet.me-1
           | Xuất Excel
         button.btn.btn-header.btn-header-primary(type='button' disabled)
@@ -57,10 +57,27 @@ block main
         if !orders || orders.length === 0
           .text-muted Không có đơn hàng.
         else
+          form#orderBulkForm.mb-3(method='POST', action=`${admin}/orders/bulk-status`)
+            .d-flex.flex-wrap.gap-2.align-items-center
+              .form-check.mb-0
+                input#orderCheckAll.form-check-input(type='checkbox')
+                label.form-check-label(for='orderCheckAll') Tích tất cả
+              select.form-select.form-select-sm(name='status' style='max-width:220px' required)
+                option(value='') Chọn trạng thái cần cập nhật
+                each st in (statusOptions || [])
+                  if st !== 'dahuy'
+                    option(value=st) #{(statusLabels && statusLabels[st]) || st}
+              input(type='hidden' name='returnTo' value=(currentListUrl || `${admin}/orders`))
+              button#orderBulkSubmit.btn.btn-sm.btn-primary(type='submit' disabled) Cập nhật đã chọn
+              small#orderBulkCount.text-muted Chưa chọn đơn hàng nào
+            #orderBulkIds
+
           .table-responsive
             table.table.align-middle
               thead
                 tr
+                  th(style='width:40px')
+                    input#orderCheckAllInTable.form-check-input(type='checkbox')
                   th Mã đơn
                   th Khách hàng
                   th Tổng tiền
@@ -73,6 +90,8 @@ block main
                   - const badge = (badgeClass && typeof badgeClass === 'function') ? badgeClass(o.trangthai) : 'bg-secondary'
                   - const label = (statusLabels && statusLabels[o.trangthai]) || o.trangthai || '—'
                   tr
+                    td
+                      input.order-row-check.form-check-input(type='checkbox' value=String(o._id))
                     td
                       a.fw-semibold(href=`${admin}/orders/${o._id}`) #{o.madonhang || o._id}
                     td
@@ -91,6 +110,7 @@ block main
                       if o.trangthai === 'choxacnhan'
                         form.d-inline(method='POST', action=`${admin}/orders/${o._id}/status`)
                           input(type='hidden' name='status' value='daxacnhan')
+                          input(type='hidden' name='returnTo' value=(currentListUrl || `${admin}/orders`))
                           button.btn.btn-sm.btn-success.me-1(type='submit' onclick="return confirm('Xác nhận đơn hàng này?')")
                             i.bi.bi-check2-circle
                             |  Xác nhận
@@ -102,6 +122,7 @@ block main
                               li
                                 form(method='POST', action=`${admin}/orders/${o._id}/status`)
                                   input(type='hidden' name='status' value=st)
+                                  input(type='hidden' name='returnTo' value=(currentListUrl || `${admin}/orders`))
                                   button.dropdown-item(type='submit' onclick="return confirm('Xác nhận cập nhật trạng thái?')") #{(statusLabels && statusLabels[st]) || st}
                       else
                         span.text-muted.small —
@@ -152,4 +173,71 @@ block scripts
           inputSelectors: ['input[type="date"]']
         });
       }
+
+      const bulkForm = document.getElementById('orderBulkForm');
+      if (!bulkForm) return;
+
+      const checkAll = document.getElementById('orderCheckAll');
+      const checkAllInTable = document.getElementById('orderCheckAllInTable');
+      const rowChecks = Array.from(document.querySelectorAll('.order-row-check'));
+      const countEl = document.getElementById('orderBulkCount');
+      const submitBtn = document.getElementById('orderBulkSubmit');
+      const idsWrap = document.getElementById('orderBulkIds');
+
+      const syncMasterState = function () {
+        const checked = rowChecks.filter((item) => item.checked).length;
+        const allChecked = checked > 0 && checked === rowChecks.length;
+
+        if (checkAll) checkAll.checked = allChecked;
+        if (checkAllInTable) checkAllInTable.checked = allChecked;
+
+        if (countEl) {
+          countEl.textContent = checked > 0
+            ? `Đã chọn ${checked} đơn hàng`
+            : 'Chưa chọn đơn hàng nào';
+        }
+        if (submitBtn) submitBtn.disabled = checked === 0;
+      };
+
+      const setAllChecked = function (next) {
+        rowChecks.forEach((item) => {
+          item.checked = !!next;
+        });
+        syncMasterState();
+      };
+
+      if (checkAll) {
+        checkAll.addEventListener('change', function () {
+          setAllChecked(this.checked);
+        });
+      }
+
+      if (checkAllInTable) {
+        checkAllInTable.addEventListener('change', function () {
+          setAllChecked(this.checked);
+        });
+      }
+
+      rowChecks.forEach((item) => {
+        item.addEventListener('change', syncMasterState);
+      });
+
+      bulkForm.addEventListener('submit', function (event) {
+        const ids = rowChecks.filter((item) => item.checked).map((item) => item.value);
+        if (!ids.length) {
+          event.preventDefault();
+          return;
+        }
+
+        idsWrap.innerHTML = '';
+        ids.forEach((id) => {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = 'orderIds';
+          input.value = id;
+          idsWrap.appendChild(input);
+        });
+      });
+
+      syncMasterState();
     })();
