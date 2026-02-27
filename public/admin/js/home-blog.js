@@ -2,6 +2,39 @@
   const form = document.getElementById('blogCreate');
   const App = window.App || {};
 
+  const thongBao = (res, fallback) => {
+    const message = (res && res.data && res.data.message) || fallback || 'Có lỗi xảy ra';
+    window.alert(message);
+  };
+
+  const thongBaoThanhCong = (res, fallback) => {
+    const message = (res && res.data && res.data.message) || fallback || 'Thao tác thành công';
+    window.alert(message);
+  };
+
+  function hienThiXemTruocAnh(fileInput) {
+    if (!fileInput || !fileInput.files || !fileInput.files[0]) return;
+    const scope = fileInput.closest('tr, form') || fileInput.parentElement;
+    if (!scope) return;
+
+    let preview = scope.querySelector('img.img-thumbnail');
+    if (!preview) {
+      preview = document.createElement('img');
+      preview.className = 'img-thumbnail mt-2';
+      preview.alt = 'preview';
+      preview.style.maxWidth = '120px';
+      fileInput.parentNode.insertBefore(preview, fileInput);
+    }
+
+    if (preview.dataset.previewUrl) {
+      URL.revokeObjectURL(preview.dataset.previewUrl);
+    }
+
+    const nextUrl = URL.createObjectURL(fileInput.files[0]);
+    preview.src = nextUrl;
+    preview.dataset.previewUrl = nextUrl;
+  }
+
   if (form) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -13,9 +46,20 @@
         body: fd
       });
 
-      if (res.ok) window.location.reload();
+      if (res.ok) {
+        thongBaoThanhCong(res, 'Tạo bài viết thành công');
+        window.location.reload();
+      } else {
+        thongBao(res, 'Không thể tạo bài viết');
+      }
     });
   }
+
+  document.addEventListener('change', (e) => {
+    const fileInput = e.target.closest('input[name="image"][type="file"]');
+    if (!fileInput) return;
+    hienThiXemTruocAnh(fileInput);
+  });
 
   document.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-action]');
@@ -28,7 +72,12 @@
     if (action === 'delete') {
       if (!App.confirmDelete()) return;
       const res = await App.apiFetch(`/admin/blog/${id}`, { method: 'DELETE' });
-      if (res.ok) row.remove();
+      if (res.ok) {
+        row.remove();
+        thongBaoThanhCong(res, 'Đã xóa bài viết');
+      } else {
+        thongBao(res, 'Không thể xóa bài viết');
+      }
       return;
     }
 
@@ -42,6 +91,9 @@
       if (res.ok && res.data && res.data.data) {
         const checkbox = row.querySelector('input[name="xuatban"]');
         if (checkbox) checkbox.checked = Boolean(res.data.data.xuatban);
+        thongBaoThanhCong(res, checkbox && checkbox.checked ? 'Đã xuất bản bài viết' : 'Đã hủy xuất bản bài viết');
+      } else if (!res.ok) {
+        thongBao(res, 'Không thể cập nhật xuất bản');
       }
       return;
     }
@@ -63,7 +115,12 @@
         body: fd
       });
 
-      if (res.ok) return;
+      if (res.ok) {
+        thongBaoThanhCong(res, 'Lưu bài viết thành công');
+        return;
+      }
+
+      thongBao(res, 'Không thể lưu bài viết');
     }
   });
 })();

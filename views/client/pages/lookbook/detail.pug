@@ -16,9 +16,10 @@ block main
         span.text-muted.small Tổng #{pagination.totalProducts} sản phẩm
 
     if products && products.length
-      .products-grid
+      .row.g-3.g-md-4
         each product in products
-          +productCard(product)
+          .col-6.col-sm-6.col-md-4.col-lg-3.col-xl-2
+            +productCard(product)
 
       if pagination && pagination.totalPages > 1
         nav.mt-4(aria-label="Phân trang lookbook")
@@ -38,15 +39,35 @@ block main
       p.text-muted Chưa có sản phẩm nào.
 
 mixin productCard(product)
-  .product-card(data-product-id=product._id)
-    a.product-link(href=`/products/${product._id}`)
+  .product-card.h-100(data-product-id=product._id)
+    a.product-card-link(href=`/products/${product._id}`)
       .product-image
-        img(src=product.displayImage || product.hinhanh || '/images/shopping.png' alt=product.tensanpham)
-    .product-info
-      h3.product-name #{product.tensanpham}
-      .product-price
-        if product.phantramgiamgia > 0
-          span.price-original #{product.giaText || (product.gia ? product.gia.toLocaleString('vi-VN') + '₫' : '')}
-          span.price-sale #{product.giamoiText || ((product.gia * (100 - product.phantramgiamgia) / 100).toLocaleString('vi-VN') + '₫')}
-        else
-          span.price-sale #{product.giaText || (product.gia ? product.gia.toLocaleString('vi-VN') + '₫' : '—')}
+        img(src=product.displayImage || product.hinhanh || '/images/shopping.png' alt=product.tensanpham loading="lazy")
+        if product.phantramgiamgia && product.phantramgiamgia > 0
+          .discount-badge
+            | -#{product.phantramgiamgia}%
+      .product-info
+        h3.product-name #{product.tensanpham}
+        .product-price
+          if product.phantramgiamgia && product.phantramgiamgia > 0
+            span.original-price #{product.giaText || (product.gia ? product.gia.toLocaleString('vi-VN') + '₫' : '')}
+          span.sale-price #{product.giamoiText || product.giaText || (product.gia ? product.gia.toLocaleString('vi-VN') + '₫' : '—')}
+        .product-rating
+          .stars
+            - const avg = product.avgRating || 0
+            - for (let i = 1; i <= 5; i++)
+              if avg >= i
+                i.fas.fa-star
+              else if avg >= (i - 0.5)
+                i.fas.fa-star-half-alt
+              else
+                i.far.fa-star
+          span.review-count #{avg ? (avg.toFixed(1) + ' • ') : ''}#{product.reviewCount || 0} đánh giá • đã bán #{product.soldCount || 0}
+    .product-actions
+      a.btn-buy-now(href=`/products/${product._id}`)
+        i.bi.bi-lightning-fill.me-1
+        | Mua ngay
+      button.btn-add-cart(type="button" title="Thêm vào giỏ")
+        i.bi.bi-cart-plus
+    button.btn-wishlist-float(type='button' title="Yêu thích")
+      i.bi.bi-heart

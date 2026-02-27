@@ -1,5 +1,7 @@
 const express = require('express')
 const app = express()
+const http = require('http')
+const { Server } = require('socket.io')
 const path = require('path')
 require('dotenv').config()
 const flash = require('express-flash')
@@ -23,8 +25,10 @@ const database = require("./config/database")
 const route = require('./routes/client/index_route')
 const routeAdmin = require('./routes/admin/index_route')
 const systemConfig = require('./config/system')
+const { setupChatSocket } = require('./services/chat.socket')
 const port = process.env.PORT
 database.connect();
+const httpServer = http.createServer(app)
 
 // Auth setup
 configurePassport();
@@ -200,6 +204,15 @@ app.use((req, res) => {
   });
 });
 
-app.listen(port, () => {
+const io = new Server(httpServer, {
+  cors: {
+    origin: true,
+    credentials: true
+  }
+})
+
+setupChatSocket(io)
+
+httpServer.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })

@@ -52,22 +52,23 @@ block main
               .col-12
                 hr
                 h2.h6.fw-bold.mb-2 Đổi mật khẩu
-                form(method="POST" action="/account/password")
-                  input(type='hidden' name='_csrf' value=csrfToken)
-                  if hasPassword
-                    .mb-3
-                      label.form-label Mật khẩu hiện tại
-                      input.form-control(type="password" name="oldPassword" autocomplete="current-password" required)
-                  else
-                    .alert.alert-info.mb-3 Bạn đang đăng nhập bằng Google, bạn có thể đặt mật khẩu mới.
+                if canChangePassword
+                  form(method="POST" action="/account/password")
+                    input(type='hidden' name='_csrf' value=csrfToken)
+                    if hasPassword
+                      .mb-3
+                        label.form-label Mật khẩu hiện tại
+                        input.form-control(type="password" name="oldPassword" autocomplete="current-password" required)
 
-                  .mb-3
-                    label.form-label Mật khẩu mới
-                    input.form-control(type="password" name="newPassword" autocomplete="new-password" minlength="6" required)
-                  .mb-3
-                    label.form-label Xác nhận mật khẩu mới
-                    input.form-control(type="password" name="confirmPassword" autocomplete="new-password" minlength="6" required)
-                  button.btn.btn-success(type="submit") Đổi mật khẩu
+                    .mb-3
+                      label.form-label Mật khẩu mới
+                      input.form-control(type="password" name="newPassword" autocomplete="new-password" minlength="6" required)
+                    .mb-3
+                      label.form-label Xác nhận mật khẩu mới
+                      input.form-control(type="password" name="confirmPassword" autocomplete="new-password" minlength="6" required)
+                    button.btn.btn-success(type="submit") Đổi mật khẩu
+                else
+                  .alert.alert-info.mb-0 Tài khoản đăng nhập bằng Google không hỗ trợ đổi mật khẩu tại đây.
 
               .col-12
                 hr

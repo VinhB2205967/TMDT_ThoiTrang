@@ -18,18 +18,41 @@ block main
       a.btn.btn-sm.btn-outline-secondary(href=`/products?brand=${brand._id}`) Lọc tại trang sản phẩm
 
     if products && products.length
-      .row.g-3
+      .row.g-3.g-md-4
         each item in products
-          .col-6.col-md-4.col-lg-3
-            a.card.h-100.text-decoration-none.text-dark(href=`/products/${item._id}`)
-              if item.displayImage || item.hinhanh
-                img.card-img-top(src=(item.displayImage || item.hinhanh) alt=item.tensanpham)
-              .card-body
-                h3.h6.mb-1= item.tensanpham
-                if item.giamoiText
-                  .text-danger.fw-semibold= item.giamoiText
-                else if item.giaText
-                  .text-danger.fw-semibold= item.giaText
+          .col-6.col-sm-6.col-md-4.col-lg-3.col-xl-2
+            .product-card.h-100(data-product-id=item._id)
+              a.product-card-link(href=`/products/${item._id}`)
+                .product-image
+                  img(src=(item.displayImage || item.hinhanh || '/images/shopping.png') alt=item.tensanpham loading="lazy")
+                  if item.phantramgiamgia && item.phantramgiamgia > 0
+                    .discount-badge
+                      | -#{item.phantramgiamgia}%
+                .product-info
+                  h3.product-name #{item.tensanpham}
+                  .product-price
+                    if item.phantramgiamgia && item.phantramgiamgia > 0
+                      span.original-price #{item.giaText || (item.gia ? item.gia.toLocaleString('vi-VN') + '₫' : '')}
+                    span.sale-price #{item.giamoiText || item.giaText || (item.gia ? item.gia.toLocaleString('vi-VN') + '₫' : '—')}
+                  .product-rating
+                    .stars
+                      - const avg = item.avgRating || 0
+                      - for (let i = 1; i <= 5; i++)
+                        if avg >= i
+                          i.fas.fa-star
+                        else if avg >= (i - 0.5)
+                          i.fas.fa-star-half-alt
+                        else
+                          i.far.fa-star
+                    span.review-count #{avg ? (avg.toFixed(1) + ' • ') : ''}#{item.reviewCount || 0} đánh giá • đã bán #{item.soldCount || 0}
+              .product-actions
+                a.btn-buy-now(href=`/products/${item._id}`)
+                  i.bi.bi-lightning-fill.me-1
+                  | Mua ngay
+                button.btn-add-cart(type="button" title="Thêm vào giỏ")
+                  i.bi.bi-cart-plus
+              button.btn-wishlist-float(type='button' title="Yêu thích")
+                i.bi.bi-heart
     else
       .alert.alert-light Thương hiệu này chưa có sản phẩm.
 

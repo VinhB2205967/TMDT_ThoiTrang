@@ -24,6 +24,14 @@ html
     script(src="/admin/js/admin.js")
     script(src="/admin/js/filterAutoSubmit.js")
     script(src="/js/script.js")
+    if adminUser && adminUser._id
+      script.
+        window.AdminChatNotifyRuntime = {
+          userId: !{JSON.stringify(String(adminUser._id || ''))},
+          adminPath: !{JSON.stringify(admin || '/admin')}
+        };
+      script(src="/socket.io/socket.io.js")
+      script(src="/admin/js/chat-notify.js")
     
     //- Block cho scripts bổ sung từ các trang con
     block scripts

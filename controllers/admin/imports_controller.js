@@ -54,7 +54,14 @@ function applyDeltaToProductDoc(productDoc, item, deltaQty) {
   if (!Number.isFinite(delta) || delta === 0) return;
 
   const vId = item.bientheid ? String(item.bientheid) : (item.bien_the_id ? String(item.bien_the_id) : '');
-  const laChinh = !vId || vId === 'main';
+  let laChinh = !vId || vId === 'main';
+  let variant = null;
+  if (!laChinh) {
+    variant = (productDoc.bienthe || []).find((v) => String(v._id) === vId) || null;
+    if (!variant) {
+      laChinh = true;
+    }
+  }
 
   if (hasSize) {
     const size = String(item.kichco || item.kich_co || '').trim();
@@ -69,8 +76,6 @@ function applyDeltaToProductDoc(productDoc, item, deltaQty) {
       if (dong) dong.soluong = next;
       else productDoc.sizes.push({ size, soluong: next });
     } else {
-      const variant = (productDoc.bienthe || []).find((v) => String(v._id) === vId);
-      if (!variant) throw new Error('Biến thể không tồn tại');
       variant.sizes = Array.isArray(variant.sizes) ? variant.sizes : [];
       const dong = variant.sizes.find((s) => String(s.size) === size);
       const cur = Number(dong?.soluong || 0);
@@ -86,8 +91,6 @@ function applyDeltaToProductDoc(productDoc, item, deltaQty) {
       if (next < 0) throw new Error('Tồn kho không đủ để trừ (sản phẩm chính)');
       productDoc.soluong_chinh = next;
     } else {
-      const variant = (productDoc.bienthe || []).find((v) => String(v._id) === vId);
-      if (!variant) throw new Error('Biến thể không tồn tại');
       const cur = Number(variant.soluong || 0);
       const next = cur + delta;
       if (next < 0) throw new Error('Tồn kho không đủ để trừ (biến thể)');
@@ -183,7 +186,7 @@ const taoMoiPost = async (req, res) => {
     const items = normalizeItems(req.body.chitiet || req.body.chi_tiet || req.body.items);
     if (!items.length) {
       req.flash('error', 'Vui lòng thêm ít nhất 1 sản phẩm nhập');
-      return res.redirect('back');
+      return res.redirect(req.get('Referrer') || (req.app.locals.admin + '/imports/create'));
     }
 
     // Validate + snapshot display fields
@@ -220,7 +223,7 @@ const taoMoiPost = async (req, res) => {
     const existed = await PhieuNhapKho.findOne({ maphieu }).select('_id').lean();
     if (existed) {
       req.flash('error', 'Mã phiếu nhập đã tồn tại, vui lòng thử lại');
-      return res.redirect('back');
+      return res.redirect(req.get('Referrer') || (req.app.locals.admin + '/imports/create'));
     }
 
     // Attach uploaded images (by index)
@@ -281,7 +284,7 @@ const taoMoiPost = async (req, res) => {
   } catch (error) {
     console.error('Create import receipt error:', error);
     req.flash('error', 'Không thể tạo phiếu nhập: ' + error.message);
-    return res.redirect('back');
+    return res.redirect(req.get('Referrer') || (req.app.locals.admin + '/imports/create'));
   }
 };
 
@@ -344,7 +347,7 @@ const chinhSuaPost = async (req, res) => {
     const items = normalizeItems(req.body.chitiet || req.body.chi_tiet || req.body.items);
     if (!items.length) {
       req.flash('error', 'Vui lòng giữ ít nhất 1 dòng nhập');
-      return res.redirect('back');
+      return res.redirect(req.get('Referrer') || (req.app.locals.admin + '/imports/' + receiptDoc._id + '/edit'));
     }
 
     const normalizedItems = [];
@@ -476,7 +479,7 @@ const chinhSuaPost = async (req, res) => {
   } catch (error) {
     console.error('Import receipt edit save error:', error);
     req.flash('error', 'Không thể lưu chỉnh sửa: ' + error.message);
-    return res.redirect('back');
+    return res.redirect(req.get('Referrer') || (req.app.locals.admin + '/imports/' + req.params.id + '/edit'));
   }
 };
 

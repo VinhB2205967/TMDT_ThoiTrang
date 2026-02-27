@@ -12,8 +12,8 @@ const defaultSections = [
   { key: 'new_products', tieuDe: 'San pham moi', hienthi: true, thuTu: 2, config: { limit: 8 } },
   { key: 'best_sellers', tieuDe: 'Ban chay nhat', hienthi: true, thuTu: 3, config: { limit: 8 } },
   { key: 'flash_sale', tieuDe: 'Flash Sale', hienthi: true, thuTu: 4, config: {} },
-  { key: 'lookbook', tieuDe: 'Lookbook', hienthi: true, thuTu: 5, config: {} },
-  { key: 'brands', tieuDe: 'Thuong hieu noi bat', hienthi: true, thuTu: 6, config: {} },
+  { key: 'brands', tieuDe: 'Thuong hieu noi bat', hienthi: true, thuTu: 5, config: {} },
+  { key: 'lookbook', tieuDe: 'Lookbook', hienthi: true, thuTu: 6, config: {} },
   { key: 'blog', tieuDe: 'Blog thoi trang', hienthi: true, thuTu: 7, config: { limit: 6 } }
 ];
 

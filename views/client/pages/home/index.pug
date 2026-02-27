@@ -99,86 +99,83 @@ block main
                         i.bi.bi-gender-female
                     span Thời trang Nữ
 
-    if isActive('flash_sale') && flashSale && flashSale.products && flashSale.products.length
-        section.flash-sale-section(data-flash-end=flashSaleEnd data-flash-start=flashSaleStart)
-            .container
-                .section-header.flash-sale-header
-                    h2.section-title
-                        i.bi.bi-lightning-charge-fill.text-warning.me-2
-                        | FLASH SALE
-                    if flashSale.sale
-                        .countdown
-                            span.countdown-label Kết thúc sau:
-                            .countdown-timer
-                                span.countdown-item#hours 00
-                                span.countdown-sep :
-                                span.countdown-item#minutes 00
-                                span.countdown-sep :
-                                span.countdown-item#seconds 00
-                .products-grid
-                    each product in flashSaleProducts
-                        +productCard(product)
-
-    if isActive('lookbook')
-        if lookbooks && lookbooks.length
-            section.lookbook-section
-                .container
-                    .section-header
-                        h2.section-title
-                            i.bi.bi-camera.me-2
-                            | LOOKBOOK THEO MÙA
-                    .row.g-3
-                        each book in lookbooks
-                            .col-12.col-md-6.col-lg-4
-                                a.card.h-100.text-decoration-none.text-dark(href=`/lookbook/${book.slug || book._id}`)
-                                    if book.image
-                                        img.card-img-top(src=book.image alt=book.title)
-                                    .card-body
-                                        h5.card-title #{book.title}
-                                        if book.description
-                                            p.card-text #{book.description}
-                                        if book.products && book.products.length
-                                            .d-flex.justify-content-between.align-items-center
-                                                span.badge.bg-light.text-dark #{book.products.length} sản phẩm
-                                                span.btn.btn-sm.btn-primary Xem bộ sưu tập
-
-    if isActive('brands')
-        if brands && brands.length
-            section.brand-section.bg-light
-                .container
-                    .section-header
-                        h2.section-title
-                            i.bi.bi-award.me-2
-                            | THƯƠNG HIỆU NỔI BẬT
-                    .row.g-3.align-items-center
-                        each brand in brands
-                            .col-6.col-md-3.col-lg-2
-                                a.brand-item.d-block.text-center(href=`/brands/${brand.slug || brand._id}`)
-                                    img.img-fluid(src=brand.logo alt=brand.ten)
-
-    if isActive('blog')
-        if blogs && blogs.length
-            section.blog-section
-                .container
-                    .section-header
-                        h2.section-title
-                            i.bi.bi-journal-text.me-2
-                            | BLOG THỜI TRANG
-                        a.view-all(href="/blog") Xem tất cả
-                            i.bi.bi-arrow-right.ms-1
-                    .row.g-3
-                        each post in blogs
-                            .col-12.col-md-6.col-lg-4
-                                a.card.h-100.text-decoration-none.text-dark(href=`/blog/${post.slug}`)
-                                    if post.hinhanh
-                                        img.card-img-top(src=post.hinhanh alt=post.tieude)
-                                    .card-body
-                                        h5.card-title #{post.tieude}
-                                        if post.tomtat
-                                            p.card-text #{post.tomtat}
-
     if sections && sections.length
         each section in sections
+            if section.key === 'flash_sale' && isActive('flash_sale') && flashSale && flashSale.products && flashSale.products.length
+                section.flash-sale-section(data-flash-end=flashSaleEnd data-flash-start=flashSaleStart)
+                    .container
+                        .section-header.flash-sale-header
+                            h2.section-title
+                                i.bi.bi-lightning-charge-fill.text-warning.me-2
+                                | FLASH SALE
+                            if flashSale.sale
+                                .countdown
+                                    span.countdown-label Kết thúc sau:
+                                    .countdown-timer
+                                        span.countdown-item#hours 00
+                                        span.countdown-sep :
+                                        span.countdown-item#minutes 00
+                                        span.countdown-sep :
+                                        span.countdown-item#seconds 00
+                        .products-grid
+                            each product in flashSaleProducts
+                                +productCard(product)
+
+            if section.key === 'brands' && isActive('brands') && brands && brands.length
+                section.brand-section.bg-light
+                    .container
+                        .section-header
+                            h2.section-title
+                                i.bi.bi-award.me-2
+                                | THƯƠNG HIỆU NỔI BẬT
+                        .row.g-3.align-items-center
+                            each brand in brands
+                                .col-6.col-md-3.col-lg-2
+                                    a.brand-item.d-block.text-center(href=`/brands/${brand.slug || brand._id}`)
+                                        img.img-fluid(src=brand.logo alt=brand.ten)
+
+            if section.key === 'lookbook' && isActive('lookbook') && lookbooks && lookbooks.length
+                section.lookbook-section
+                    .container
+                        .section-header
+                            h2.section-title
+                                i.bi.bi-camera.me-2
+                                | LOOKBOOK THEO MÙA
+                        .row.g-3
+                            each book in lookbooks
+                                .col-12.col-md-6.col-lg-4
+                                    a.card.h-100.text-decoration-none.text-dark(href=`/lookbook/${book.slug || book._id}`)
+                                        if book.image
+                                            img.card-img-top(src=book.image alt=book.title)
+                                        .card-body
+                                            h5.card-title #{book.title}
+                                            if book.description
+                                                p.card-text #{book.description}
+                                            if book.products && book.products.length
+                                                .d-flex.justify-content-between.align-items-center
+                                                    span.badge.bg-light.text-dark #{book.products.length} sản phẩm
+                                                    span.btn.btn-sm.btn-primary Xem bộ sưu tập
+
+            if section.key === 'blog' && isActive('blog') && blogs && blogs.length
+                section.blog-section
+                    .container
+                        .section-header
+                            h2.section-title
+                                i.bi.bi-journal-text.me-2
+                                | BLOG THỜI TRANG
+                            a.view-all(href="/blog") Xem tất cả
+                                i.bi.bi-arrow-right.ms-1
+                        .row.g-3
+                            each post in blogs
+                                .col-12.col-md-6.col-lg-4
+                                    a.card.h-100.text-decoration-none.text-dark(href=`/blog/${post.slug}`)
+                                        if post.hinhanh
+                                            img.card-img-top(src=post.hinhanh alt=post.tieude)
+                                        .card-body
+                                            h5.card-title #{post.tieude}
+                                            if post.tomtat
+                                                p.card-text #{post.tomtat}
+
             if section.key === 'new_products' && isActive('new_products')
                 section.products-section
                     .container

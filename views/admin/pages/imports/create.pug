@@ -8,7 +8,9 @@ block main
         i.bi.bi-arrow-left
         |  Danh sách
 
-    form(method='POST', action=`${admin}/imports/create` enctype='multipart/form-data')
+    - const createAction = `${admin}/imports/create?_csrf=${encodeURIComponent(csrfToken || '')}`
+    form#import-create-form(method='POST', action=createAction enctype='multipart/form-data')
+      input(type='hidden' name='_csrf' value=csrfToken)
       .card.mb-3
         .card-header Thông tin chung phiếu nhập
         .card-body

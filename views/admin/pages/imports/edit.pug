@@ -12,7 +12,9 @@ block main
           i.bi.bi-list
           |  Danh sách
 
-    form(method='POST', action=`${admin}/imports/${receipt._id}/edit` enctype='multipart/form-data')
+    - const editAction = `${admin}/imports/${receipt._id}/edit?_csrf=${encodeURIComponent(csrfToken || '')}`
+    form(method='POST', action=editAction enctype='multipart/form-data')
+      input(type='hidden' name='_csrf' value=csrfToken)
       .card.mb-3
         .card-header Thông tin chung
         .card-body

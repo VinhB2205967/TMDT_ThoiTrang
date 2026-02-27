@@ -19,6 +19,7 @@ const FlashSale = require('./flash_sale_model');
 const Lookbook = require('./lookbook_model');
 const Brand = require('./brand_model');
 const BlogPost = require('./blog_model');
+const ChatMessage = require('./chat_message_model');
 
 module.exports = {
     Sanpham,
@@ -40,5 +41,6 @@ module.exports = {
     FlashSale,
     Lookbook,
     Brand,
-    BlogPost
+    BlogPost,
+    ChatMessage
 };

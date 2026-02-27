@@ -10,6 +10,11 @@
                     i.bi.bi-speedometer2
                     span Tổng quan
             li
+                a(href=`${admin}/chats`)
+                    i.bi.bi-chat-square-text
+                    span Chat khách hàng
+                    span#adminChatMenuUnread.badge.text-bg-danger.ms-2.d-none 0
+            li
                 a(href=`${admin}/users`)
                     i.bi.bi-people
                     span Người dùng
@@ -45,10 +50,6 @@
                 a(href=`${admin}/home-sections`)
                     i.bi.bi-layout-text-window
                     span Trang chủ
-            li
-                a(href=`${admin}/settings/home`)
-                    i.bi.bi-sliders
-                    span Cấu hình home
             li
                 a(href=`${admin}/imports`)
                     i.bi.bi-box-arrow-in-down

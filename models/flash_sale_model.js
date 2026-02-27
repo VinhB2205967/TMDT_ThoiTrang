@@ -41,12 +41,11 @@ flashSaleSchema.pre('validate', function normalizeFlashSale() {
   }
 });
 
-flashSaleSchema.pre('save', function validateDateRange(next) {
-  if (!this.batdau || !this.ketthuc) return next();
+flashSaleSchema.pre('save', function validateDateRange() {
+  if (!this.batdau || !this.ketthuc) return;
   if (new Date(this.ketthuc).getTime() <= new Date(this.batdau).getTime()) {
-    return next(new Error('Thời gian kết thúc phải lớn hơn bắt đầu'));
+    throw new Error('Thời gian kết thúc phải lớn hơn bắt đầu');
   }
-  return next();
 });
 
 module.exports = mongoose.model('FlashSale', flashSaleSchema, 'flash_sales');

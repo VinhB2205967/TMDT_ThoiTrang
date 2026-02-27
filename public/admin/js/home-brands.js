@@ -7,6 +7,33 @@
     const message = (res && res.data && res.data.message) || fallback || 'Có lỗi xảy ra';
     window.alert(message);
   };
+  const thongBaoThanhCong = (res, fallback) => {
+    const message = (res && res.data && res.data.message) || fallback || 'Thao tác thành công';
+    window.alert(message);
+  };
+
+  function hienThiXemTruocAnh(fileInput) {
+    if (!fileInput || !fileInput.files || !fileInput.files[0]) return;
+    const scope = fileInput.closest('tr, form') || fileInput.parentElement;
+    if (!scope) return;
+
+    let preview = scope.querySelector('img.img-thumbnail');
+    if (!preview) {
+      preview = document.createElement('img');
+      preview.className = 'img-thumbnail mb-2';
+      preview.alt = 'preview';
+      preview.style.maxWidth = '120px';
+      fileInput.parentNode.insertBefore(preview, fileInput);
+    }
+
+    if (preview.dataset.previewUrl) {
+      URL.revokeObjectURL(preview.dataset.previewUrl);
+    }
+
+    const nextUrl = URL.createObjectURL(fileInput.files[0]);
+    preview.src = nextUrl;
+    preview.dataset.previewUrl = nextUrl;
+  }
 
   async function capNhatToggle(id, loai, value) {
     const endpoint = loai === 'featured' ? `/admin/brands/${id}/featured` : `/admin/brands/${id}/active`;
@@ -31,8 +58,10 @@
         body: fd
       });
 
-      if (res.ok) window.location.reload();
-      else thongBao(res, 'Không thể tạo thương hiệu');
+      if (res.ok) {
+        thongBaoThanhCong(res, 'Tạo thương hiệu thành công');
+        window.location.reload();
+      } else thongBao(res, 'Không thể tạo thương hiệu');
     });
   }
 
@@ -47,7 +76,10 @@
     if (action === 'delete') {
       if (!App.confirmDelete()) return;
       const res = await App.apiFetch(`/admin/brands/${id}`, { method: 'DELETE' });
-      if (res.ok) row.remove();
+      if (res.ok) {
+        row.remove();
+        thongBaoThanhCong(res, 'Đã xóa thương hiệu');
+      }
       else thongBao(res, 'Không thể xóa thương hiệu');
       return;
     }
@@ -58,6 +90,7 @@
       const res = await capNhatToggle(id, 'featured', noiBat);
       if (res.ok && res.data && res.data.data) {
         if (checkbox) checkbox.checked = Boolean(res.data.data.noiBat);
+        thongBaoThanhCong(res, checkbox && checkbox.checked ? 'Đã bật nổi bật thương hiệu' : 'Đã tắt nổi bật thương hiệu');
       }
       if (!res.ok) thongBao(res, 'Không thể cập nhật nổi bật');
       return;
@@ -80,7 +113,10 @@
         body: fd
       });
 
-      if (res.ok) return;
+      if (res.ok) {
+        thongBaoThanhCong(res, 'Lưu thương hiệu thành công');
+        return;
+      }
       thongBao(res, 'Không thể cập nhật thương hiệu');
     }
   });
@@ -108,7 +144,15 @@
       if (!res.ok) {
         activeCk.checked = !activeCk.checked;
         thongBao(res, 'Không thể cập nhật hiển thị');
+      } else {
+        thongBaoThanhCong(res, activeCk.checked ? 'Đã bật hiển thị thương hiệu' : 'Đã tắt hiển thị thương hiệu');
       }
+      return;
+    }
+
+    const fileInput = e.target.closest('input[name="logo"][type="file"]');
+    if (fileInput) {
+      hienThiXemTruocAnh(fileInput);
     }
   });
 })();

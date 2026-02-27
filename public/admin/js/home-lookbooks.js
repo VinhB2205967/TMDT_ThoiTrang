@@ -2,6 +2,39 @@
   const form = document.getElementById('lookbookCreate');
   const App = window.App || {};
 
+  const thongBao = (res, fallback) => {
+    const message = (res && res.data && res.data.message) || fallback || 'Có lỗi xảy ra';
+    window.alert(message);
+  };
+
+  const thongBaoThanhCong = (res, fallback) => {
+    const message = (res && res.data && res.data.message) || fallback || 'Thao tác thành công';
+    window.alert(message);
+  };
+
+  function hienThiXemTruocAnh(fileInput) {
+    if (!fileInput || !fileInput.files || !fileInput.files[0]) return;
+    const scope = fileInput.closest('tr, form') || fileInput.parentElement;
+    if (!scope) return;
+
+    let preview = scope.querySelector('img.img-thumbnail');
+    if (!preview) {
+      preview = document.createElement('img');
+      preview.className = 'img-thumbnail mb-2';
+      preview.alt = 'preview';
+      preview.style.maxWidth = '120px';
+      fileInput.parentNode.insertBefore(preview, fileInput);
+    }
+
+    if (preview.dataset.previewUrl) {
+      URL.revokeObjectURL(preview.dataset.previewUrl);
+    }
+
+    const nextUrl = URL.createObjectURL(fileInput.files[0]);
+    preview.src = nextUrl;
+    preview.dataset.previewUrl = nextUrl;
+  }
+
   function parseIds(raw) {
     if (!raw) return [];
     return String(raw)
@@ -25,9 +58,20 @@
         body: fd
       });
 
-      if (res.ok) window.location.reload();
+      if (res.ok) {
+        thongBaoThanhCong(res, 'Tạo lookbook thành công');
+        window.location.reload();
+      } else {
+        thongBao(res, 'Không thể tạo lookbook');
+      }
     });
   }
+
+  document.addEventListener('change', (e) => {
+    const fileInput = e.target.closest('input[name="image"][type="file"]');
+    if (!fileInput) return;
+    hienThiXemTruocAnh(fileInput);
+  });
 
   document.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-action]');
@@ -40,7 +84,12 @@
     if (action === 'delete') {
       if (!App.confirmDelete()) return;
       const res = await App.apiFetch(`/admin/lookbooks/${id}`, { method: 'DELETE' });
-      if (res.ok) row.remove();
+      if (res.ok) {
+        row.remove();
+        thongBaoThanhCong(res, 'Đã xóa lookbook');
+      } else {
+        thongBao(res, 'Không thể xóa lookbook');
+      }
       return;
     }
 
@@ -49,6 +98,9 @@
       if (res.ok && res.data && res.data.data) {
         const checkbox = row.querySelector('input[name="hienthi"]');
         if (checkbox) checkbox.checked = Boolean(res.data.data.hienthi);
+        thongBaoThanhCong(res, checkbox && checkbox.checked ? 'Đã bật hiển thị lookbook' : 'Đã tắt hiển thị lookbook');
+      } else if (!res.ok) {
+        thongBao(res, 'Không thể bật/tắt lookbook');
       }
       return;
     }
@@ -73,7 +125,12 @@
         body: fd
       });
 
-      if (res.ok) return;
+      if (res.ok) {
+        thongBaoThanhCong(res, 'Lưu lookbook thành công');
+        return;
+      }
+
+      thongBao(res, 'Không thể lưu lookbook');
     }
   });
 })();

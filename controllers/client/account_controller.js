@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const nguoidung = require('../../models/user_model');
 const { chuanHoaSoDienThoai, laSoDienThoaiVN, laUrlAnhAnToan } = require('../../helpers/validators');
-const { hasLocalPassword, verifyPasswordWithLegacy, setPasswordByUserId } = require('../../services/account.service');
+const { hasLocalPassword, verifyPasswordWithLegacy, setPasswordByUserId, getAccountByUserId } = require('../../services/account.service');
 
 function chuanHoaChuoi(value) {
   return String(value || '').trim();
@@ -33,11 +33,17 @@ function kiemTraMatKhauMoi(password) {
 module.exports.trang = async (req, res) => {
   const taikhoan = req.user;
   let coMatKhau = Boolean(taikhoan?.matkhau);
+  let loaiTaiKhoan = 'local';
   try {
+    const account = await getAccountByUserId({ userId: taikhoan?._id });
+    if (account && account.provider) loaiTaiKhoan = String(account.provider);
     coMatKhau = await hasLocalPassword({ userId: taikhoan?._id });
   } catch {
     // ignore
   }
+
+  const duocDoiMatKhau = loaiTaiKhoan !== 'google';
+
   res.render('client/pages/account/index.pug', {
     titlePage: 'Thông tin tài khoản',
     profile: {
@@ -49,7 +55,8 @@ module.exports.trang = async (req, res) => {
       ngaysinh: dinhDangNgayInput(taikhoan?.ngaysinh),
       avatar: taikhoan?.avatar || ''
     },
-    hasPassword: coMatKhau
+    hasPassword: coMatKhau,
+    canChangePassword: duocDoiMatKhau
   });
 };
 
@@ -129,6 +136,12 @@ module.exports.doiMatKhau = async (req, res) => {
   try {
     const idnguoidung = req.user && req.user._id ? String(req.user._id) : null;
     if (!idnguoidung) return res.redirect('/auth?mode=login');
+
+    const account = await getAccountByUserId({ userId: idnguoidung });
+    if (account && String(account.provider || '') === 'google') {
+      req.flash?.('error', 'Tài khoản Google không hỗ trợ đổi mật khẩu tại đây');
+      return res.redirect('/account');
+    }
 
     const matkhaucu = String(req.body.oldPassword || '');
     const matkhaumoi = String(req.body.newPassword || '');

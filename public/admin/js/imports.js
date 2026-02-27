@@ -707,7 +707,11 @@
   }
 
   // Generate chitiet[] for blocks right before submit
-  const formEl = document.querySelector('form[action$="/imports/create"]');
+  const formEl = document.querySelector('#import-create-form')
+    || Array.from(document.querySelectorAll('form')).find((f) => {
+      const action = String(f.getAttribute('action') || '');
+      return /\/imports\/create(?:\?|$)/.test(action);
+    });
   if (formEl && generatedItemsEl) {
     formEl.addEventListener('submit', () => {
       // Ensure accessory rows are indexed correctly

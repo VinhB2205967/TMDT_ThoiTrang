@@ -17,6 +17,7 @@ html(lang="vi")
     link(rel="stylesheet", href="/css/product-detail.css")
     link(rel="stylesheet", href="/css/filter-bar.css")
     link(rel="stylesheet", href="/css/ui-enhancements.css")
+    link(rel="stylesheet", href="/css/chat-client.css")
     meta(name="csrf-token" content=csrfToken)
     block styles
   body
@@ -25,10 +26,49 @@ html(lang="vi")
     main.main-content
       block main
     include ../partials/quick_add_modal.pug
+    if isAuthenticated && !isAdmin
+      button#chatWidgetToggle.btn.btn-primary.chat-widget-toggle(type="button" aria-label="Mở chat")
+        i.bi.bi-chat-dots.fs-4
+        span#chatWidgetUnread.badge.text-bg-danger.chat-unread-badge.d-none 0
+      .chat-widget-panel#chatWidgetPanel
+        .chat-widget-header.d-flex.justify-content-between.align-items-center
+          .d-flex.align-items-center.gap-2
+            strong Hỗ trợ khách hàng
+            span#chatWidgetStatus.badge.text-bg-secondary Offline
+          .d-flex.align-items-center.gap-2
+            button#chatWidgetExpand.btn.btn-sm.btn-outline-secondary(type="button" title="Phóng to chat")
+              i.bi.bi-arrows-angle-expand
+            button#chatWidgetClose.btn.btn-sm.btn-outline-secondary(type="button")
+              i.bi.bi-x-lg
+        #chatWidgetMessages.chat-widget-messages
+        .chat-widget-input
+          form#chatWidgetForm
+            input#chatWidgetFile(type="file" accept="image/*,video/mp4,video/webm,video/ogg,video/quicktime" hidden)
+            .small.text-muted.mb-1#chatWidgetFileLabel
+            #chatWidgetPreview.chat-widget-preview.d-none
+              button#chatWidgetPreviewRemove.chat-preview-remove(type="button" aria-label="Bỏ tệp")
+                i.bi.bi-x-lg
+              img#chatWidgetPreviewImage.chat-preview-image.d-none(alt="preview")
+              video#chatWidgetPreviewVideo.chat-preview-video.d-none(controls preload="metadata")
+            .input-group
+              button#chatWidgetFileBtn.btn.chat-attach-btn(type="button" title="Gửi ảnh/video")
+                i.bi.bi-paperclip
+              input#chatWidgetInput.form-control(type="text" placeholder="Nhập tin nhắn...")
+              button.btn.btn-primary(type="submit") Gửi
+      #chatClientToastWrap.chat-client-toast-wrap
     include ../partials/footer.pug
     script(src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js")
     script(src="/js/shared/csrf.js")
     script(src="/js/shared/utils.js")
     script(src="/js/shared/flash.js")
     script(src="/js/script.js")
+    if isAuthenticated && !isAdmin
+      script.
+        window.ChatRuntime = {
+          role: 'client',
+          userId: !{JSON.stringify(user && user._id ? String(user._id) : '')},
+          defaultTitle: !{JSON.stringify(titlePage || '')}
+        };
+      script(src="/socket.io/socket.io.js")
+      script(src="/js/chat-client.js")
     block scripts

@@ -8,12 +8,14 @@ const ordersRoutes = require('./orders_route');
 const reviewsRoutes = require('./reviews_route');
 const voucherRoutes = require('./voucher_route');
 const apiRoutes = require('./api_route');
+const chatRoutes = require('./chat_route');
 const lookbookRoutes = require('./lookbook_route');
 const blogRoutes = require('./blog_route');
 const brandsRoutes = require('./brands_route');
 
 module.exports = (app) => {
     app.use('/api', apiRoutes);
+    app.use('/chat', chatRoutes);
     app.use('/', homeRoutes);
     app.use('/products', productsRoutes);
     app.use('/lookbook', lookbookRoutes);

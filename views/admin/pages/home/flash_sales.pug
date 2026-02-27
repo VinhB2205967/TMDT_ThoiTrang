@@ -4,12 +4,42 @@ block styles
   link(rel='stylesheet' href='https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css')
   style.
     .select2-container .select2-selection--multiple { min-height: 38px; }
-    .flash-product-list { max-height: 90px; overflow: auto; font-size: 12px; }
+    .flash-product-list { max-height: 88px; overflow: auto; font-size: 12px; }
+    .flash-name-input { width: 100%; min-width: 220px; }
     .flash-discount-input {
-      min-width: 120px;
-      font-size: 18px;
+      min-width: 92px;
+      font-size: 16px;
       font-weight: 700;
       text-align: center;
+    }
+    .flash-sales-table { table-layout: fixed; }
+    .flash-sales-table thead th {
+      white-space: nowrap;
+      font-weight: 700;
+    }
+    .flash-sales-table td,
+    .flash-sales-table th { vertical-align: top; }
+    .flash-sales-table th:nth-child(1),
+    .flash-sales-table td:nth-child(1) { width: 18%; }
+    .flash-sales-table th:nth-child(2),
+    .flash-sales-table td:nth-child(2) { width: 27%; }
+    .flash-sales-table th:nth-child(3),
+    .flash-sales-table td:nth-child(3) { width: 8%; }
+    .flash-sales-table th:nth-child(4),
+    .flash-sales-table td:nth-child(4) { width: 26%; }
+    .flash-sales-table th:nth-child(5),
+    .flash-sales-table td:nth-child(5) { width: 7%; text-align: center; }
+    .flash-sales-table th:nth-child(6),
+    .flash-sales-table td:nth-child(6) { width: 14%; }
+    .flash-time-wrap { display: flex; gap: 8px; }
+    .flash-time-wrap .form-control { min-width: 0; }
+    .flash-actions { display: flex; flex-wrap: wrap; gap: 8px; min-width: 190px; }
+    .flash-product-cell .select2-container { width: 100% !important; }
+    .flash-product-cell .select2-selection__choice {
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
 block main
@@ -21,7 +51,7 @@ block main
           .row.g-3
             .col-12.col-md-4
               label.form-label Tên
-              input.form-control(type="text" name="ten" required)
+              input.form-control.flash-name-input(type="text" name="ten" required)
             .col-12.col-md-4
               label.form-label Bắt đầu
               input.form-control(type="datetime-local" name="batdau" required)
@@ -46,46 +76,47 @@ block main
 
     .card
       .card-body
-        table.table.table-striped.align-middle
-          thead
-            tr
-              th Tên
-              th Thời gian
-              th % giảm
-              th Sản phẩm
-              th Hiển thị
-              th Hành động
-          tbody
-            if flashSales && flashSales.length
-              each item in flashSales
-                tr(data-id=item._id)
-                  td
-                    input.form-control.form-control-sm(type="text" name="ten" value=item.ten)
-                  td
-                    .d-flex.gap-2
-                      input.form-control.form-control-sm(type="datetime-local" name="batdau" value=(item.batdau ? new Date(item.batdau).toISOString().slice(0,16) : ''))
-                      input.form-control.form-control-sm(type="datetime-local" name="ketthuc" value=(item.ketthuc ? new Date(item.ketthuc).toISOString().slice(0,16) : ''))
-                  td
-                    input.form-control.flash-discount-input(type="number" name="phantramgiamgia" value=item.phantramgiamgia min="0" max="90")
-                  td
-                    - const selectedProductIds = (item.sanpham || []).map(i => String(i.sanpham_id))
-                    select.form-select.form-select-sm.flash-product-select(name="sanpham" multiple)
-                      if products && products.length
-                        each p in products
-                          option(value=p._id selected=(selectedProductIds.includes(String(p._id)))) #{p.tensanpham}
-                    .flash-product-list.mt-2.text-muted
-                      each sp in (item.sanpham || [])
-                        div #{sp.tenSanPham || sp.sanpham_id}
-                  td
-                    input.form-check-input(type="checkbox" name="hienthi" checked=item.hienthi)
-                  td
-                    .d-flex.gap-2
-                      button.btn.btn-sm.btn-outline-primary(type="button" data-action="save") Lưu
-                      button.btn.btn-sm.btn-outline-secondary(type="button" data-action="toggle") Bật/Tắt
-                      button.btn.btn-sm.btn-outline-danger(type="button" data-action="delete") Xóa
-            else
+        .table-responsive
+          table.table.table-striped.align-middle.flash-sales-table
+            thead
               tr
-                td(colspan="6").text-muted Chưa có flash sale.
+                th Tên
+                th Thời gian
+                th % giảm
+                th Sản phẩm
+                th Hiển thị
+                th Hành động
+            tbody
+              if flashSales && flashSales.length
+                each item in flashSales
+                  tr(data-id=item._id)
+                    td
+                      input.form-control.form-control-sm.flash-name-input(type="text" name="ten" value=item.ten)
+                    td
+                      .flash-time-wrap
+                        input.form-control.form-control-sm(type="datetime-local" name="batdau" value=(item.batdau ? new Date(new Date(item.batdau).getTime() - (new Date(item.batdau).getTimezoneOffset() * 60000)).toISOString().slice(0,16) : ''))
+                        input.form-control.form-control-sm(type="datetime-local" name="ketthuc" value=(item.ketthuc ? new Date(new Date(item.ketthuc).getTime() - (new Date(item.ketthuc).getTimezoneOffset() * 60000)).toISOString().slice(0,16) : ''))
+                    td
+                      input.form-control.flash-discount-input(type="number" name="phantramgiamgia" value=item.phantramgiamgia min="0" max="90")
+                    td.flash-product-cell
+                      - const selectedProductIds = (item.sanpham || []).map(i => String(i.sanpham_id))
+                      select.form-select.form-select-sm.flash-product-select(name="sanpham" multiple)
+                        if products && products.length
+                          each p in products
+                            option(value=p._id selected=(selectedProductIds.includes(String(p._id)))) #{p.tensanpham}
+                      .flash-product-list.mt-2.text-muted
+                        each sp in (item.sanpham || [])
+                          div #{sp.tenSanPham || sp.sanpham_id}
+                    td
+                      input.form-check-input(type="checkbox" name="hienthi" checked=item.hienthi)
+                    td
+                      .flash-actions
+                        button.btn.btn-sm.btn-outline-primary(type="button" data-action="save") Lưu
+                        button.btn.btn-sm.btn-outline-secondary(type="button" data-action="toggle") Bật/Tắt
+                        button.btn.btn-sm.btn-outline-danger(type="button" data-action="delete") Xóa
+              else
+                tr
+                  td(colspan="6").text-muted Chưa có flash sale.
 
 block scripts
   script(src='https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js')
