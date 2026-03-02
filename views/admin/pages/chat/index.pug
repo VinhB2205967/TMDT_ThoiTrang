@@ -18,8 +18,12 @@ block main
 
       .chat-panel
         .chat-panel-header
-          .d-flex.justify-content-between.align-items-center
-            .fw-semibold#adminChatUserName Chọn khách hàng
+          .d-flex.justify-content-between.align-items-center.gap-2
+            .d-flex.align-items-center.gap-2
+              button#adminChatBackBtn.btn.btn-sm.btn-outline-secondary(type="button")
+                i.bi.bi-arrow-left
+                |  Quay lại
+              .fw-semibold#adminChatUserName Chọn khách hàng
             span#adminChatUserStatus.badge.text-bg-secondary Offline
         #adminChatMessages.chat-panel-messages
           .text-muted#adminChatEmpty Chọn một hội thoại để bắt đầu.
@@ -27,6 +31,11 @@ block main
           form#adminChatForm
             input#adminChatFile(type="file" accept="image/*,video/mp4,video/webm,video/ogg,video/quicktime" hidden)
             .small.text-muted.mb-1#adminChatFileLabel
+            #adminChatPreview.chat-preview.d-none
+              button#adminChatPreviewRemove.chat-preview-remove(type="button" aria-label="Bỏ tệp")
+                i.bi.bi-x-lg
+              img#adminChatPreviewImage.chat-preview-image.d-none(alt="preview")
+              video#adminChatPreviewVideo.chat-preview-video.d-none(controls preload="metadata")
             .input-group
               button#adminChatFileBtn.btn.btn-outline-secondary(type="button" title="Gửi ảnh/video")
                 i.bi.bi-paperclip
