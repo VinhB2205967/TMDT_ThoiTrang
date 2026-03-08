@@ -354,8 +354,8 @@
         inputEl.value = '';
         clearPreview();
       })
-      .catch(() => {
-        window.alert('Không thể gửi tệp. Vui lòng thử lại.');
+      .catch((err) => {
+        window.alert(err && err.message ? err.message : 'Không thể gửi tệp. Vui lòng thử lại.');
       });
   });
 

@@ -1,0 +1,45 @@
+extends ../../layouts/default.pug
+
+block main
+  .container-fluid.p-3
+    .d-flex.justify-content-between.align-items-center.mb-3
+      h3.mb-0 Thêm bảng hướng dẫn size
+      a.btn.btn-outline-secondary(href=`${admin}/size-guides`)
+        i.bi.bi-arrow-left
+        |  Danh sách
+
+    .card
+      .card-body
+        form(method='POST' action=`${admin}/size-guides/create`)
+          input(type='hidden' name='_csrf' value=_csrf)
+          .row.g-3
+            .col-md-6
+              label.form-label Tên bảng *
+              input.form-control(type='text' name='tenbang' required placeholder='Ví dụ: Bảng size áo mùa đông')
+            .col-md-3
+              label.form-label Loại sản phẩm áp dụng *
+              select.form-select(name='loaisanpham' required)
+                option(value='') -- Chọn loại --
+                each opt in (loaiOptions || [])
+                  option(value=opt.value) #{opt.label}
+            .col-md-3
+              label.form-label Slug (tùy chọn)
+              input.form-control(type='text' name='slug' placeholder='de-trong-de-tu-sinh')
+
+            .col-12
+              label.form-label Cột hiển thị (phân tách bằng dấu phẩy) *
+              input.form-control(type='text' name='cot' required placeholder='Ngực, Vai, Dài áo')
+
+            .col-12
+              label.form-label Dữ liệu dòng (mỗi dòng 1 size, dùng dấu |) *
+              textarea.form-control(name='dong' rows='8' required placeholder='S | 88 | 40 | 65&#10;M | 92 | 42 | 67&#10;L | 96 | 44 | 69')
+              .form-text Mẫu: `S | 88 | 40 | 65` (giá trị đầu tiên là size)
+
+            .col-12
+              label.form-label Gợi ý chọn size
+              input.form-control(type='text' name='goiy' placeholder='Nếu bạn cao 170cm và nặng 60kg -> nên chọn size M')
+
+          .mt-3
+            button.btn.btn-primary(type='submit')
+              i.bi.bi-check-lg
+              |  Lưu bảng size

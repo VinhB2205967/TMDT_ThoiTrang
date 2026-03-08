@@ -1,0 +1,216 @@
+extends ../../layouts/default.pug
+
+block main
+  .container-fluid.p-3
+    .d-flex.justify-content-between.align-items-center.mb-3
+      h3.mb-0 Tạo phiếu xuất kho
+      a.btn.btn-outline-secondary(href=`${admin}/exports`)
+        i.bi.bi-arrow-left
+        |  Danh sách
+
+    - const createAction = `${admin}/exports/create?_csrf=${encodeURIComponent(csrfToken || '')}`
+    form#export-create-form(method='POST', action=createAction)
+      input(type='hidden' name='_csrf' value=csrfToken)
+
+      .card.mb-3
+        .card-header Thông tin phiếu xuất
+        .card-body
+          .row.g-3
+            .col-md-4
+              label.form-label Mã phiếu xuất
+              input.form-control(name='maphieu' value=maPhieu readonly)
+            .col-md-4
+              label.form-label Ngày xuất
+              input.form-control(type='datetime-local' name='ngayxuat' required)
+            .col-md-4
+              label.form-label Nơi nhận
+              input.form-control(name='noinhan' placeholder='Kho chi nhánh / khách hàng / bộ phận')
+            .col-12
+              label.form-label Lý do xuất
+              textarea.form-control(name='lydo' rows='2' placeholder='Xuất bán / chuyển kho / đổi trả...')
+
+      .card
+        .card-header.d-flex.justify-content-between.align-items-center
+          span Danh sách xuất
+          button#btn-add-row.btn.btn-sm.btn-primary(type='button')
+            i.bi.bi-plus-lg
+            |  Thêm dòng
+        .card-body
+          .table-responsive
+            table.table.table-bordered.table-sm.align-middle
+              thead.table-light
+                tr
+                  th Sản phẩm
+                  th Biến thể
+                  th Size
+                  th Màu
+                  th Số lượng
+                  th Ảnh
+                  th Ghi chú
+                  th
+              tbody#export-items-body
+
+          .d-flex.justify-content-end.mt-3
+            button.btn.btn-success(type='submit')
+              i.bi.bi-check2-circle
+              |  Lưu phiếu xuất
+
+block scripts
+  script(type='application/json' id='products-json')
+    != JSON.stringify(products || [])
+  script(type='application/json' id='sizes-json')
+    != JSON.stringify(sizeList || [])
+  script.
+    (() => {
+      const form = document.getElementById('export-create-form');
+      const tbody = document.getElementById('export-items-body');
+      const addBtn = document.getElementById('btn-add-row');
+      const products = JSON.parse(document.getElementById('products-json')?.textContent || '[]');
+      const sizeList = JSON.parse(document.getElementById('sizes-json')?.textContent || '[]');
+      const map = new Map(products.map((p) => [String(p._id), p]));
+
+      const dateEl = form?.querySelector('input[name="ngayxuat"]');
+      if (dateEl && !dateEl.value) {
+        const n = new Date();
+        const p2 = (x) => String(x).padStart(2, '0');
+        dateEl.value = `${n.getFullYear()}-${p2(n.getMonth()+1)}-${p2(n.getDate())}T${p2(n.getHours())}:${p2(n.getMinutes())}`;
+      }
+
+      function optProducts(selected) {
+        const arr = ['<option value="">-- Chọn sản phẩm --</option>'];
+        products.forEach((p) => {
+          const s = String(p._id) === String(selected || '') ? ' selected' : '';
+          arr.push(`<option value="${p._id}"${s}>${(p.tensanpham || 'Sản phẩm')}</option>`);
+        });
+        return arr.join('');
+      }
+
+      function optVariants(product, selected) {
+        const arr = [`<option value="main"${String(selected || 'main') === 'main' ? ' selected' : ''}>Mặc định</option>`];
+        (product?.bienthe || []).forEach((v) => {
+          const id = String(v._id);
+          const label = v.mausac ? `Biến thể: ${v.mausac}` : `Biến thể: ${id.slice(-6)}`;
+          const s = String(selected || '') === id ? ' selected' : '';
+          arr.push(`<option value="${id}"${s}>${label}</option>`);
+        });
+        return arr.join('');
+      }
+
+      function optSizes(selected) {
+        const arr = ['<option value="">-- Size --</option>'];
+        (sizeList || []).forEach((s) => {
+          const sel = String(selected || '') === String(s) ? ' selected' : '';
+          arr.push(`<option value="${s}"${sel}>${s}</option>`);
+        });
+        return arr.join('');
+      }
+
+      function setPreview(imgEl, src) {
+        if (!imgEl) return;
+        if (src) {
+          imgEl.src = src;
+          imgEl.style.display = 'inline-block';
+        } else {
+          imgEl.removeAttribute('src');
+          imgEl.style.display = 'none';
+        }
+      }
+
+      function productImage(product, variantId) {
+        if (!product) return '';
+        if (variantId && variantId !== 'main') {
+          const v = (product.bienthe || []).find((x) => String(x._id) === String(variantId));
+          if (v?.hinhanh) return String(v.hinhanh);
+        }
+        return String(product.hinhanh || '');
+      }
+
+      function noSizeType(loaisanpham) {
+        const t = String(loaisanpham || '').toLowerCase();
+        return t === 'tui' || t === 'phukien';
+      }
+
+      function renumber() {
+        Array.from(tbody.querySelectorAll('tr')).forEach((tr, idx) => {
+          tr.querySelectorAll('[data-field]').forEach((el) => {
+            const field = el.getAttribute('data-field');
+            el.setAttribute('name', `chitiet[${idx}][${field}]`);
+          });
+        });
+      }
+
+      function rowTemplate(idx) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="min-width:230px">
+            <select class="form-select form-select-sm js-product" data-field="sanphamid">${optProducts('')}</select>
+            <input type="hidden" class="js-product-name" data-field="tensanpham" />
+          </td>
+          <td style="min-width:170px"><select class="form-select form-select-sm js-variant" data-field="bientheid"><option value="main">Mặc định</option></select></td>
+          <td style="min-width:110px"><select class="form-select form-select-sm js-size" data-field="kichco">${optSizes('')}</select></td>
+          <td style="min-width:130px"><input class="form-control form-control-sm js-color" data-field="mausac" placeholder="Màu" /></td>
+          <td style="min-width:100px"><input class="form-control form-control-sm" data-field="soluong" type="number" min="1" value="1" required /></td>
+          <td style="min-width:90px" class="text-center">
+            <img class="js-preview" src="" style="width:44px;height:44px;object-fit:cover;border-radius:6px;display:none" />
+            <input type="hidden" class="js-image" data-field="hinhanh" />
+          </td>
+          <td style="min-width:180px"><input class="form-control form-control-sm" data-field="ghichudong" placeholder="Ghi chú dòng" /></td>
+          <td style="min-width:60px" class="text-center"><button type="button" class="btn btn-sm btn-outline-danger js-remove"><i class="bi bi-x"></i></button></td>
+        `;
+
+        const productEl = tr.querySelector('.js-product');
+        const variantEl = tr.querySelector('.js-variant');
+        const sizeEl = tr.querySelector('.js-size');
+        const colorEl = tr.querySelector('.js-color');
+        const nameEl = tr.querySelector('.js-product-name');
+        const imageEl = tr.querySelector('.js-image');
+        const previewEl = tr.querySelector('.js-preview');
+
+        function refreshFromProduct() {
+          const p = map.get(String(productEl.value));
+          nameEl.value = p?.tensanpham || '';
+          variantEl.innerHTML = optVariants(p, 'main');
+          const noSize = noSizeType(p?.loaisanpham);
+          sizeEl.disabled = noSize;
+          sizeEl.required = !noSize;
+          if (noSize) sizeEl.value = '';
+          colorEl.value = p?.mausac_chinh || '';
+          const img = productImage(p, 'main');
+          imageEl.value = img;
+          setPreview(previewEl, img);
+        }
+
+        function refreshFromVariant() {
+          const p = map.get(String(productEl.value));
+          const vid = variantEl.value || 'main';
+          if (!p) return;
+          if (vid !== 'main') {
+            const v = (p.bienthe || []).find((x) => String(x._id) === String(vid));
+            colorEl.value = v?.mausac || colorEl.value;
+          } else {
+            colorEl.value = p?.mausac_chinh || colorEl.value;
+          }
+          const img = productImage(p, vid);
+          imageEl.value = img;
+          setPreview(previewEl, img);
+        }
+
+        productEl.addEventListener('change', refreshFromProduct);
+        variantEl.addEventListener('change', refreshFromVariant);
+        tr.querySelector('.js-remove')?.addEventListener('click', () => {
+          tr.remove();
+          renumber();
+        });
+
+        refreshFromProduct();
+        renumber();
+        return tr;
+      }
+
+      addBtn?.addEventListener('click', () => {
+        const idx = tbody.querySelectorAll('tr').length;
+        tbody.appendChild(rowTemplate(idx));
+      });
+
+      tbody.appendChild(rowTemplate(0));
+    })();

@@ -8,7 +8,9 @@ const { prepareProductData } = require('../../services/product.service');
 const orderItemModel = require('../../models/order_item_model');
 const Brand = require('../../models/brand_model');
 const Danhmuc = require('../../models/category_model');
+const SizeGuide = require('../../models/size_guide_model');
 const { getCategoryTree, flattenTreeOptions } = require('../../services/category.service');
+const { ensureDefaultSizeGuides } = require('../../services/sizeGuide.service');
 
 async function timHoacTaoDanhMuc({ name, slug, type, parentId = null, order = 0 }) {
     const existed = await Danhmuc.findOne({ slug, daxoa: { $ne: true } }).select('_id').lean();
@@ -98,6 +100,8 @@ async function damBaoDanhMucMacDinh() {
 }
 
 async function layDuLieuPhanLoaiSanPham() {
+    await ensureDefaultSizeGuides(SizeGuide);
+
     let [occasionTree, ageGroupTree, brands] = await Promise.all([
         getCategoryTree({ type: 'occasion', isActive: true }),
         getCategoryTree({ type: 'age_group', isActive: true }),
@@ -106,6 +110,11 @@ async function layDuLieuPhanLoaiSanPham() {
             $or: [{ hienthi: true }, { isActive: true }]
         }).sort({ order: 1, thuTu: 1, ten: 1 }).lean()
     ]);
+
+    const sizeGuideOptions = await SizeGuide.find({ daxoa: { $ne: true } })
+        .sort({ loaisanpham: 1, tenbang: 1 })
+        .select('_id tenbang loaisanpham')
+        .lean();
 
     const occasionOptions = flattenTreeOptions(occasionTree);
     const ageGroupOptions = flattenTreeOptions(ageGroupTree);
@@ -121,7 +130,8 @@ async function layDuLieuPhanLoaiSanPham() {
     return {
         occasionOptions: flattenTreeOptions(occasionTree),
         ageGroupOptions: flattenTreeOptions(ageGroupTree),
-        brandOptions: brands || []
+        brandOptions: brands || [],
+        sizeGuideOptions: sizeGuideOptions || []
     };
 }
 

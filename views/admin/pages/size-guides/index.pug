@@ -1,0 +1,42 @@
+extends ../../layouts/default.pug
+
+block main
+  .container-fluid.p-3
+    .d-flex.justify-content-between.align-items-center.mb-3
+      h3.mb-0 Bảng hướng dẫn chọn size
+      a.btn.btn-primary(href=`${admin}/size-guides/create`)
+        i.bi.bi-plus-lg
+        |  Thêm bảng size
+
+    if !guides || guides.length === 0
+      .alert.alert-info.mb-0 Chưa có bảng hướng dẫn size.
+    else
+      .table-responsive
+        table.table.table-bordered.table-hover.align-middle
+          thead.table-light
+            tr
+              th Tên bảng
+              th Loại áp dụng
+              th Cột
+              th Dòng size
+              th Gợi ý
+              th Cập nhật
+              th
+          tbody
+            each g in guides
+              tr
+                td.fw-semibold #{g.tenbang}
+                td.text-uppercase #{g.loaisanpham}
+                td #{(g.cot || []).join(', ')}
+                td #{(g.dong || []).length}
+                td #{g.goiy || ''}
+                td #{g.ngaycapnhat ? new Date(g.ngaycapnhat).toLocaleString('vi-VN') : ''}
+                td.text-nowrap
+                  a.btn.btn-sm.btn-outline-secondary.me-1(href=`${admin}/size-guides/${g._id}/edit`)
+                    i.bi.bi-pencil
+                    |  Sửa
+                  form.d-inline(method='POST' action=`${admin}/size-guides/${g._id}/delete` onsubmit='return confirm("Xóa bảng hướng dẫn size này?")')
+                    input(type='hidden' name='_csrf' value=_csrf)
+                    button.btn.btn-sm.btn-outline-danger(type='submit')
+                      i.bi.bi-trash
+                      |  Xóa

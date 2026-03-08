@@ -11,6 +11,7 @@ block main
               p.text-center.text-muted.mb-4 Quản trị hệ thống
 
               form(method="POST" action="/admin/login")
+                input(type='hidden' name='_csrf' value=csrfToken)
                 .mb-3
                   label.form-label Email
                   input.form-control(type="email" name="email" required autocomplete="email")

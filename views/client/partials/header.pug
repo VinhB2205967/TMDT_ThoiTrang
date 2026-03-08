@@ -31,27 +31,6 @@ header.header
                     li: a(href="/products") 
                         i.bi.bi-grid
                         span Sản phẩm
-                        .dropdown-menu.p-3(style="min-width: 680px;")
-                            if categoryMenu && categoryMenu.byKey
-                                .row.g-3
-                                    each key in ['nam', 'nu', 'tre-em', 'giay-dep', 'phu-kien']
-                                        - const root = categoryMenu.byKey[key]
-                                        if root
-                                            .col-12.col-md-6.col-lg-4
-                                                h6.fw-bold.mb-2
-                                                    a.text-decoration-none(href=`/products?category=${root._id}`)= root.name
-                                                if root.children && root.children.length
-                                                    ul.list-unstyled.mb-0
-                                                        each child in root.children
-                                                            li.mb-1
-                                                                a.text-decoration-none.small(href=`/products?category=${child._id}`)= child.name
-                                                                if child.children && child.children.length
-                                                                    ul.list-unstyled.ps-3.mt-1
-                                                                        each sub in child.children
-                                                                            li
-                                                                                a.text-decoration-none.small.text-muted(href=`/products?category=${sub._id}`)= sub.name
-                            else
-                                a.dropdown-item(href='/products') Xem toàn bộ sản phẩm
                     //- Dropdown: Khám phá
                     li.dropdown
                         button.nav-btn.dropdown-toggle(type="button" data-bs-toggle="dropdown" aria-expanded="false")
@@ -59,10 +38,14 @@ header.header
                             span Khám phá
                         ul.dropdown-menu.dropdown-menu-end
                             li
+                                a.dropdown-item(href="/lookbook")
+                                    i.bi.bi-stars
+                                    span Lookbook
+                            li
                                 a.dropdown-item(href="/favorites")
                                     i.bi.bi-heart
                                     span Yêu Thích
-                                    span.badge-counter #{favoriteCount || 0}
+                                    span.badge-counter.badge-favorite #{favoriteCount || 0}
                             li
                                 a.dropdown-item(href="/vouchers")
                                     i.bi.bi-ticket-perforated
@@ -73,7 +56,7 @@ header.header
                     li: a(href="/cart")
                         i.bi.bi-cart3
                         span Giỏ hàng
-                        span.badge-counter #{cartCount || 0}
+                        span.badge-counter.badge-cart #{cartCount || 0}
 
                     if isAuthenticated
                         li: a(href="/orders")
@@ -148,5 +131,26 @@ script.
                     offcanvasOverlay.classList.remove('show');
                 }
             });
+        });
+
+        document.querySelectorAll('.header-nav .nav-btn').forEach(btn => {
+            btn.addEventListener('click', function(event) {
+                if (window.innerWidth < 992) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    document.querySelectorAll('.header-nav li.dropdown.show').forEach(li => {
+                        if (li !== this.parentElement) li.classList.remove('show');
+                    });
+                    this.parentElement.classList.toggle('show');
+                }
+            });
+        });
+
+        window.addEventListener('resize', function() {
+            if (window.innerWidth >= 992) {
+                headerNav.classList.remove('show');
+                offcanvasOverlay.classList.remove('show');
+                document.querySelectorAll('.header-nav li.dropdown.show').forEach(li => li.classList.remove('show'));
+            }
         });
     });

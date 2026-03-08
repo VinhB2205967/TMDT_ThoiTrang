@@ -5,6 +5,11 @@ const fs = require('fs');
 const root = path.join(process.cwd(), 'public', 'uploads', 'chat');
 fs.mkdirSync(root, { recursive: true });
 
+const DEFAULT_MAX_CHAT_MEDIA_MB = 50;
+const parsedMaxMb = Number(process.env.CHAT_UPLOAD_MAX_MB || DEFAULT_MAX_CHAT_MEDIA_MB);
+const MAX_CHAT_MEDIA_MB = Number.isFinite(parsedMaxMb) && parsedMaxMb > 0 ? parsedMaxMb : DEFAULT_MAX_CHAT_MEDIA_MB;
+const MAX_CHAT_MEDIA_BYTES = Math.floor(MAX_CHAT_MEDIA_MB * 1024 * 1024);
+
 const ALLOWED_VIDEO_MIME = new Set([
   'video/mp4',
   'video/webm',
@@ -26,7 +31,7 @@ const storage = multer.diskStorage({
 const uploadChatMedia = multer({
   storage,
   limits: {
-    fileSize: 20 * 1024 * 1024,
+    fileSize: MAX_CHAT_MEDIA_BYTES,
     files: 1
   },
   fileFilter: function (_req, file, cb) {
@@ -53,5 +58,6 @@ function resolveChatMedia(file) {
 
 module.exports = {
   uploadChatMedia,
-  resolveChatMedia
+  resolveChatMedia,
+  MAX_CHAT_MEDIA_MB
 };

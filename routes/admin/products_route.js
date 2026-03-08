@@ -31,6 +31,7 @@ const upload = multer({
 // Upload fields: ảnh chính + ảnh biến thể
 const uploadFields = upload.fields([
     { name: 'hinhanh', maxCount: 1 },
+    { name: 'mota_hinhanh', maxCount: 1 },
     { name: 'bienthe_hinhanh', maxCount: 20 }
 ]);
 

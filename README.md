@@ -54,6 +54,18 @@ SMTP_FROM_EMAIL=your_email@gmail.com
 
 `npm start`
 
+## Backfill Lo FIFO
+
+- Dùng khi đã có dữ liệu phiếu nhập/xuất cũ nhưng chưa có bảng lô tồn (`inventory_lots`).
+- Lệnh chạy:
+
+`npm run backfill:inventory:lots`
+
+- Script sẽ:
+	- Xóa dữ liệu cũ trong `inventory_lots`.
+	- Tạo lại toàn bộ lô từ `import_receipts`.
+	- Trừ lô theo lịch sử `export_receipts` theo FIFO để ra `soluongconlai` hiện tại.
+
 ## Đăng nhập / Đăng ký
 
 - Trang auth dùng chung: `/auth` (tab Đăng nhập/Đăng ký trên cùng 1 trang).

@@ -5,6 +5,11 @@ block main
     .d-flex.justify-content-between.align-items-center.mb-3
       h3.mb-0 Chi tiết phiếu nhập
       .d-flex.gap-2
+        form(method='POST' action=`${admin}/imports/${receipt._id}/delete` onsubmit='return confirm("Xóa phiếu nhập này? Hành động này sẽ hoàn tác tồn kho nếu chưa phát sinh xuất FIFO.")')
+          input(type='hidden' name='_csrf' value=_csrf)
+          button.btn.btn-outline-danger(type='submit')
+            i.bi.bi-trash
+            |  Xóa phiếu
         a.btn.btn-outline-secondary(href=`${admin}/imports`)
           i.bi.bi-arrow-left
           |  Danh sách
@@ -61,9 +66,11 @@ block main
               tbody
                 each it in _chiTiet
                   - const v = it.bientheid ? String(it.bientheid) : (it.bien_the_id ? String(it.bien_the_id) : (it.variant_id ? String(it.variant_id) : 'main'))
+                  - const mau = String(it.mausac || it.mau_sac || it.color || '').trim()
+                  - const vLabel = v === 'main' ? 'Mặc định' : (mau || 'Biến thể')
                   tr
                     td #{it.tensanpham || it.ten_san_pham || it.product_name || it.sanphamid || it.san_pham_id || it.product_id}
-                    td #{v}
+                    td #{vLabel}
                     td #{it.kichco || it.kich_co || it.size || ''}
                     td #{it.mausac || it.mau_sac || it.color || ''}
                     td #{it.soluong || it.so_luong || it.quantity || 0}
@@ -76,3 +83,24 @@ block main
                         img(src=_img style='width:44px;height:44px;object-fit:cover;border-radius:6px')
                       else
                         span.text-muted -
+
+    .card.mt-3
+      .card-header Nhân viên thực hiện
+      .card-body
+        - const _nv = nhanVienKy || receipt.nhanvienky || {}
+        - const _nvName = _nv.tennhanvien || '---'
+        - const _nvId = _nv.idnhanvien || '---'
+        - const _signedAt = _nv.thoigianky || receipt.ngaytao
+        .row.g-3.align-items-center
+          .col-md-8
+            .fw-semibold Nhân viên nhập kho
+            div.fs-5 #{_nvName}
+            .text-muted ID nhân viên: #{_nvId}
+            if _signedAt
+              .text-muted.mt-1 Ngày ký: #{new Date(_signedAt).toLocaleString('vi-VN')}
+          .col-md-4
+            .fw-semibold Ảnh chữ ký
+            if _nv.anhchuky
+              img(src=_nv.anhchuky alt='Chữ ký nhân viên' style='max-width:220px;max-height:120px;object-fit:contain;border:1px solid #e5e7eb;border-radius:8px;padding:6px;background:#fff;')
+            else
+              div.text-muted Chưa có ảnh chữ ký

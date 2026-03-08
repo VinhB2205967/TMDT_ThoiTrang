@@ -49,6 +49,10 @@ const prepareProductData = (body, files) => {
         productData.category = parseObjectId(body.category);
     }
 
+    if (body.sizeguide_id !== undefined) {
+        productData.sizeguide_id = parseObjectId(body.sizeguide_id);
+    }
+
     // 3. Xử lý biến thể
     let tongBienThe = 0;
     if (body.bienthe_mausac) {
@@ -124,6 +128,10 @@ const prepareProductData = (body, files) => {
     // 4. Xử lý ảnh chính (nếu có upload mới)
     if (files && files['hinhanh'] && files['hinhanh'][0]) {
         productData.hinhanh = '/uploads/products/' + files['hinhanh'][0].filename;
+    }
+
+    if (files && files['mota_hinhanh'] && files['mota_hinhanh'][0]) {
+        productData.mota_hinhanh = '/uploads/products/' + files['mota_hinhanh'][0].filename;
     }
     
     return productData;

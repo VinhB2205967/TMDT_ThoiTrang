@@ -9,6 +9,7 @@ const { layTrangThaiChoPhep } = require('../../helpers/orderStatus');
 const { laLoaiKhongSize, tinhTongTon } = require('../../services/productStock.service');
 const { danhDauThatBaiTatCaPendingTheoDonHang } = require('../../services/payment.service');
 const { sendOrderConfirmedEmail, sendOrderDeliveredEmail } = require('../../services/orderEmail.service');
+const { createExportReceiptFromOrder } = require('../../services/exportReceipt.service');
 
 const TRANG_THAI_CHO_PHEP = layTrangThaiChoPhep().filter((s) => s !== 'all');
 const TAP_TRANG_THAI = new Set(TRANG_THAI_CHO_PHEP);
@@ -479,6 +480,11 @@ module.exports.capNhatTrangThai = async (req, res) => {
 
     try {
       if (nextStatus === 'daxacnhan') {
+        await createExportReceiptFromOrder({
+          orderId: id,
+          adminUser: req.adminUser || req.user,
+          note: 'Tự động tạo khi đơn hàng được xác nhận'
+        });
         const mailResult = await sendOrderConfirmedEmail({ orderId: id });
         if (!mailResult.sent && mailResult.reason === 'already-sent') {
           console.log('ORDER_CONFIRM_EMAIL_SKIPPED_ALREADY_SENT', { orderId: id });
@@ -492,8 +498,16 @@ module.exports.capNhatTrangThai = async (req, res) => {
         }
       }
     } catch (mailError) {
-      console.error('order status email error:', mailError);
-      req.flash('error', 'Đã cập nhật trạng thái nhưng gửi email thất bại. Vui lòng kiểm tra SMTP/log.');
+      console.error('order status side effect error:', mailError);
+      if (nextStatus === 'daxacnhan') {
+        await Donhang.updateOne(
+          { _id: id, trangthai: nextStatus, daxoa: { $ne: true } },
+          { $set: { trangthai: order.trangthai, ngaycapnhat: new Date() } }
+        ).catch(() => {});
+        req.flash('error', 'Không thể cập nhật trạng thái do lỗi tạo phiếu xuất hoặc gửi email.');
+      } else {
+        req.flash('error', 'Đã cập nhật trạng thái nhưng gửi email thất bại. Vui lòng kiểm tra SMTP/log.');
+      }
       return res.redirect(redirectPath);
     }
 
@@ -568,14 +582,27 @@ module.exports.capNhatTrangThaiHangLoat = async (req, res) => {
 
       try {
         if (nextStatus === 'daxacnhan') {
+          await createExportReceiptFromOrder({
+            orderId: order._id,
+            adminUser: req.adminUser || req.user,
+            note: 'Tự động tạo khi đơn hàng được xác nhận (bulk)'
+          });
           await sendOrderConfirmedEmail({ orderId: order._id });
         }
         if (nextStatus === 'dagiao') {
           await sendOrderDeliveredEmail({ orderId: order._id });
         }
       } catch (mailError) {
+        if (nextStatus === 'daxacnhan') {
+          await Donhang.updateOne(
+            { _id: order._id, trangthai: nextStatus, daxoa: { $ne: true } },
+            { $set: { trangthai: order.trangthai, ngaycapnhat: new Date() } }
+          ).catch(() => {});
+          updatedCount = Math.max(0, updatedCount - 1);
+          skippedCount += 1;
+        }
         mailErrorCount += 1;
-        console.error('bulk order status email error:', { orderId: String(order._id), error: mailError });
+        console.error('bulk order status side effect error:', { orderId: String(order._id), error: mailError });
       }
     }
 

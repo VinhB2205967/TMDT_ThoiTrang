@@ -2,6 +2,7 @@ const systemConfig = require('../../config/system');
 const dashboardRoutes = require('./dashboard_route');
 const productsdRoutes = require('./products_route');
 const importsRoutes = require('./imports_route');
+const exportsRoutes = require('./exports_route');
 const ordersRoutes = require('./orders_route');
 const reviewsRoutes = require('./reviews_route');
 const authRoutes = require('./auth_route');
@@ -14,6 +15,7 @@ const flashSalesRoutes = require('./flash_sales_route');
 const lookbooksRoutes = require('./lookbooks_route');
 const brandsRoutes = require('./brands_route');
 const categoriesRoutes = require('./categories_route');
+const sizeGuidesRoutes = require('./size_guides_route');
 const blogRoutes = require('./blog_route');
 const chatRoutes = require('./chat_route');
 const { requireAdmin } = require('../../middlewares/auth');
@@ -28,6 +30,7 @@ module.exports =(app)=>{
     app.use(PATH_ADMIN + '/dashboard', dashboardRoutes);  
     app.use(PATH_ADMIN + '/products', productsdRoutes); 
     app.use(PATH_ADMIN + '/imports', importsRoutes);
+    app.use(PATH_ADMIN + '/exports', exportsRoutes);
     app.use(PATH_ADMIN + '/orders', ordersRoutes);
     app.use(PATH_ADMIN + '/reviews', reviewsRoutes);
     app.use(PATH_ADMIN + '/users', usersRoutes);
@@ -42,6 +45,7 @@ module.exports =(app)=>{
     app.use(PATH_ADMIN + '/brands', brandsRoutes);
     app.use(PATH_ADMIN + '/categories', categoriesRoutes);
     app.use(PATH_ADMIN + '/category', categoriesRoutes);
+    app.use(PATH_ADMIN + '/size-guides', sizeGuidesRoutes);
     app.use(PATH_ADMIN + '/blog', blogRoutes);
     app.use(PATH_ADMIN + '/chats', chatRoutes);
 }

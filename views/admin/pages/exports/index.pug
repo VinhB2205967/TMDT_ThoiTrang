@@ -1,0 +1,52 @@
+extends ../../layouts/default.pug
+
+block main
+  .container-fluid.p-3
+    .d-flex.justify-content-between.align-items-center.mb-3
+      h3.mb-0 Danh sách phiếu xuất kho
+      a.btn.btn-primary(href=`${admin}/exports/create`)
+        i.bi.bi-plus-lg
+        |  Tạo phiếu xuất
+
+    .card
+      .card-body
+        if !receipts || !receipts.length
+          .alert.alert-info.mb-0 Chưa có phiếu xuất nào.
+        else
+          .table-responsive
+            table.table.table-bordered.table-sm.align-middle
+              thead.table-light
+                tr
+                  th Mã phiếu
+                  th Đơn hàng
+                  th Ngày xuất
+                  th Nơi nhận
+                  th Số dòng
+                  th Tổng số lượng
+                  th Doanh thu
+                  th Giá vốn
+                  th Lợi nhuận
+                  th Nhân viên
+                  th
+              tbody
+                each r in receipts
+                  tr
+                    td #{r.maphieu}
+                    td
+                      - const orderCode = r.madonhang || (r.donhang_id && r.donhang_id.madonhang) || ''
+                      if orderCode && r.donhang_id && r.donhang_id._id
+                        a.text-decoration-none(href=`${admin}/orders/${r.donhang_id._id}`)= orderCode
+                      else if orderCode
+                        span= orderCode
+                      else
+                        span.text-muted -
+                    td #{r.ngayxuat ? new Date(r.ngayxuat).toLocaleString('vi-VN') : ''}
+                    td #{r.noinhan || ''}
+                    td #{(r.chitiet || []).length}
+                    td #{Number(r.tongsoluong || 0).toLocaleString('vi-VN')}
+                    td #{Number(r.tongdoanhthu || 0).toLocaleString('vi-VN')}đ
+                    td #{Number(r.tonggiavon || 0).toLocaleString('vi-VN')}đ
+                    td #{Number(r.tongloinhuan || 0).toLocaleString('vi-VN')}đ
+                    td #{(r.nhanvienky && r.nhanvienky.tennhanvien) || ''}
+                    td
+                      a.btn.btn-sm.btn-outline-primary(href=`${admin}/exports/${r._id}`) Chi tiết

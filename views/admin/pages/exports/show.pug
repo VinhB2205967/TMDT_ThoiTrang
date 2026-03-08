@@ -1,0 +1,120 @@
+extends ../../layouts/default.pug
+
+block main
+  .container-fluid.p-3
+    .d-flex.justify-content-between.align-items-center.mb-3
+      h3.mb-0 Chi tiết phiếu xuất
+      .d-flex.gap-2
+        a.btn.btn-outline-secondary(href=`${admin}/exports`)
+          i.bi.bi-arrow-left
+          |  Danh sách
+
+    .card.mb-3
+      .card-header Thông tin phiếu xuất
+      .card-body
+        .row.g-3
+          .col-md-4
+            .fw-semibold Mã phiếu
+            div #{receipt.maphieu}
+          .col-md-4
+            .fw-semibold Đơn hàng liên quan
+            - const relatedOrderCode = receipt.madonhang || (receipt.donhang_id && receipt.donhang_id.madonhang) || ''
+            if relatedOrderCode
+              div #{relatedOrderCode}
+            else
+              div.text-muted -
+          .col-md-4
+            .fw-semibold Ngày xuất
+            div #{receipt.ngayxuat ? new Date(receipt.ngayxuat).toLocaleString('vi-VN') : ''}
+          .col-md-4
+            .fw-semibold Nơi nhận
+            div #{receipt.noinhan || ''}
+          .col-12
+            .fw-semibold Lý do xuất
+            div #{receipt.lydo || ''}
+          .col-12
+            .fw-semibold Tổng số lượng
+            div #{Number(receipt.tongsoluong || 0).toLocaleString('vi-VN')}
+
+    .card
+      .card-header Danh sách sản phẩm xuất
+      .card-body
+        - const _chiTiet = receipt.chitiet || []
+        if !_chiTiet.length
+          .alert.alert-info.mb-0 Không có dòng xuất.
+        else
+          .table-responsive
+            table.table.table-bordered.table-sm.align-middle
+              thead.table-light
+                tr
+                  th Sản phẩm
+                  th Biến thể
+                  th Size
+                  th Màu
+                  th Số lượng
+                  th Giá nhập
+                  th Giá bán
+                  th Giảm
+                  th Giá sau giảm
+                  th Doanh thu
+                  th Giá vốn
+                  th Lợi nhuận
+                  th Ảnh
+                  th Ghi chú
+              tbody
+                each it in _chiTiet
+                  - const v = it.bientheid ? String(it.bientheid) : 'main'
+                  tr
+                    td #{it.tensanpham || it.sanphamid}
+                    td #{v === 'main' ? 'Mặc định' : 'Biến thể'}
+                    td #{it.kichco || ''}
+                    td #{it.mausac || ''}
+                    td #{Number(it.soluong || 0).toLocaleString('vi-VN')}
+                    td #{Number(it.gianhap || 0).toLocaleString('vi-VN')}đ
+                    td #{Number(it.giaban || 0).toLocaleString('vi-VN')}đ
+                    td #{Number(it.phantramgiam || 0)}%
+                    td #{Number(it.giasaugiam || 0).toLocaleString('vi-VN')}đ
+                    td #{Number(it.doanhthu || 0).toLocaleString('vi-VN')}đ
+                    td #{Number(it.giavon || 0).toLocaleString('vi-VN')}đ
+                    td #{Number(it.loinhuan || 0).toLocaleString('vi-VN')}đ
+                    td
+                      if it.hinhanh
+                        img(src=it.hinhanh style='width:44px;height:44px;object-fit:cover;border-radius:6px')
+                      else
+                        span.text-muted -
+                    td #{it.ghichudong || ''}
+
+    .card.mt-3
+      .card-header Tổng hợp tài chính
+      .card-body
+        .row.g-3
+          .col-md-3
+            .fw-semibold Tổng doanh thu
+            div #{Number(receipt.tongdoanhthu || 0).toLocaleString('vi-VN')}đ
+          .col-md-3
+            .fw-semibold Tổng giá vốn
+            div #{Number(receipt.tonggiavon || 0).toLocaleString('vi-VN')}đ
+          .col-md-3
+            .fw-semibold Tổng lợi nhuận
+            div #{Number(receipt.tongloinhuan || 0).toLocaleString('vi-VN')}đ
+          .col-md-3
+            .fw-semibold Tỷ suất lợi nhuận
+            div #{Number(receipt.tysuatloinhuan || 0).toFixed(2)}%
+
+    .card.mt-3
+      .card-header Nhân viên thực hiện
+      .card-body
+        - const _nv = nhanVienKy || receipt.nhanvienky || {}
+        .row.g-3.align-items-center
+          .col-md-8
+            .fw-semibold Nhân viên xuất kho
+            div.fs-5 #{_nv.tennhanvien || '---'}
+            .text-muted ID nhân viên: #{_nv.idnhanvien || '---'}
+            if _nv.thoigianky
+              .text-muted.mt-1 Ngày ký: #{new Date(_nv.thoigianky).toLocaleString('vi-VN')}
+          .col-md-4
+            .fw-semibold Ảnh chữ ký
+            if _nv.anhchuky
+              img(src=_nv.anhchuky alt='Chữ ký nhân viên' style='max-width:220px;max-height:120px;object-fit:contain;border:1px solid #e5e7eb;border-radius:8px;padding:6px;background:#fff;')
+            else
+              div.text-muted Chưa có ảnh chữ ký

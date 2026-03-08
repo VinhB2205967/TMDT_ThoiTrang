@@ -19,9 +19,11 @@ const bienTheSchema = new mongoose.Schema({
 const productSchema = new mongoose.Schema({
   tensanpham: String,
   mota: String,
+  mota_hinhanh: String,
   gia: Number,              
   phantramgiamgia: Number,  
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null },
+  sizeguide_id: { type: mongoose.Schema.Types.ObjectId, ref: 'SizeGuide', default: null },
   occasion: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null },
   ageGroup: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null },
   thuonghieu_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand' },

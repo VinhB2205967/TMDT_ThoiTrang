@@ -20,6 +20,9 @@ const Lookbook = require('./lookbook_model');
 const Brand = require('./brand_model');
 const BlogPost = require('./blog_model');
 const ChatMessage = require('./chat_message_model');
+const PhieuXuatKho = require('./export_receipt_model');
+const TonKhoLo = require('./inventory_lot_model');
+const SizeGuide = require('./size_guide_model');
 
 module.exports = {
     Sanpham,
@@ -42,5 +45,8 @@ module.exports = {
     Lookbook,
     Brand,
     BlogPost,
-    ChatMessage
+    ChatMessage,
+    PhieuXuatKho,
+    TonKhoLo,
+    SizeGuide
 };

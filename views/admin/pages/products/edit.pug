@@ -29,6 +29,14 @@ block main
                             .mb-3
                                 label.form-label.fw-bold Mô tả
                                 textarea.form-control(name="mota" rows="4" placeholder="Mô tả chi tiết sản phẩm...")= product.mota
+
+                            .mb-3
+                                label.form-label.fw-bold Ảnh mô tả sản phẩm
+                                if product.mota_hinhanh
+                                    .mb-2
+                                        img.rounded.border(src=product.mota_hinhanh alt='Ảnh mô tả' style='max-height:120px;object-fit:cover;')
+                                input.form-control(type="file" name="mota_hinhanh" accept="image/*")
+                                small.text-muted Để trống nếu không thay đổi ảnh mô tả
                             
                             .row.g-3
                                 .col-md-6
@@ -104,6 +112,16 @@ block main
                                         each c in (ageGroupOptions || [])
                                             - const selectedAge = String(c._id) === String(product.ageGroup || '')
                                             option(value=c._id selected=selectedAge) #{c.name}
+
+                            .row.g-3.mt-1
+                                .col-md-12
+                                    label.form-label.fw-bold Bảng hướng dẫn size
+                                    select.form-select(name='sizeguide_id')
+                                        option(value='') -- Tự động theo loại sản phẩm --
+                                        each sg in (sizeGuideOptions || [])
+                                            - const selectedGuide = String(sg._id) === String(product.sizeguide_id || '')
+                                            option(value=sg._id data-loai=sg.loaisanpham selected=selectedGuide) #{sg.tenbang} (#{sg.loaisanpham.toUpperCase()})
+                                    small.text-muted Chọn bảng size riêng cho sản phẩm nếu muốn ghi đè mặc định theo loại.
                             
                             .mt-3
                                 label.form-label.fw-bold Màu sắc sản phẩm chính

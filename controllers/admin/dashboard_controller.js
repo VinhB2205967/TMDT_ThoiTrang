@@ -1,4 +1,5 @@
 const sanpham = require('../../models/product_model');
+const PhieuXuatKho = require('../../models/export_receipt_model');
 
 // Dashboard
 module.exports.bangDieuKhien = async (req, res) => {
@@ -46,6 +47,30 @@ module.exports.bangDieuKhien = async (req, res) => {
             { $sort: { count: -1 } }
         ]);
 
+        const exportAgg = await PhieuXuatKho.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    tongDoanhThu: { $sum: '$tongdoanhthu' },
+                    tongGiaVon: { $sum: '$tonggiavon' },
+                    tongLoiNhuan: { $sum: '$tongloinhuan' },
+                    tongSanPhamDaBan: { $sum: '$tongsoluong' },
+                    tongPhieuXuat: { $sum: 1 }
+                }
+            }
+        ]);
+
+        const exportStats = exportAgg && exportAgg.length ? exportAgg[0] : {
+            tongDoanhThu: 0,
+            tongGiaVon: 0,
+            tongLoiNhuan: 0,
+            tongSanPhamDaBan: 0,
+            tongPhieuXuat: 0
+        };
+        const tySuatLoiNhuan = Number(exportStats.tongDoanhThu || 0) > 0
+            ? (Number(exportStats.tongLoiNhuan || 0) / Number(exportStats.tongDoanhThu || 0)) * 100
+            : 0;
+
         console.log('Dashboard stats:', { tongsanpham, sanphamdangban, sanphamngungban, sosanphamhethang });
         // Hiển thị trang dashboard với dữ liệu thống kê
         res.render("admin/pages/dashboard/index.pug", {
@@ -54,7 +79,13 @@ module.exports.bangDieuKhien = async (req, res) => {
                 totalProducts: tongsanpham,
                 activeProducts: sanphamdangban,
                 inactiveProducts: sanphamngungban,
-                outOfStockCount: sosanphamhethang
+                outOfStockCount: sosanphamhethang,
+                totalRevenue: Number(exportStats.tongDoanhThu || 0),
+                totalCOGS: Number(exportStats.tongGiaVon || 0),
+                totalProfit: Number(exportStats.tongLoiNhuan || 0),
+                totalSoldItems: Number(exportStats.tongSanPhamDaBan || 0),
+                totalExportOrders: Number(exportStats.tongPhieuXuat || 0),
+                profitMarginPct: Number(tySuatLoiNhuan.toFixed(2))
             },
             recentProducts: sanphammoihat,
             productsByType: thongketheoloai,
@@ -68,7 +99,13 @@ module.exports.bangDieuKhien = async (req, res) => {
                 totalProducts: 0,
                 activeProducts: 0,
                 inactiveProducts: 0,
-                outOfStockCount: 0
+                outOfStockCount: 0,
+                totalRevenue: 0,
+                totalCOGS: 0,
+                totalProfit: 0,
+                totalSoldItems: 0,
+                totalExportOrders: 0,
+                profitMarginPct: 0
             },
             recentProducts: [],
             productsByType: [],

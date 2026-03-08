@@ -66,9 +66,12 @@ block main
                             option(value=p._id selected=(String(p._id)===String(it.sanphamid || it.san_pham_id))) #{p.tensanpham}
                         input(type='hidden' class='js-product-name' name=`chitiet[${idx}][tensanpham]` value=(it.tensanpham || it.ten_san_pham || ''))
                       td(style='min-width:180px')
+                        - const currentVariantId = it.bientheid ? String(it.bientheid) : (it.bien_the_id ? String(it.bien_the_id) : 'main')
+                        - const currentVariantColor = String(it.mausac || it.mau_sac || '').trim()
+                        - const currentVariantLabel = currentVariantId === 'main' ? 'Mặc định' : (currentVariantColor ? `Biến thể: ${currentVariantColor}` : 'Biến thể')
                         select.form-select.form-select-sm.js-variant(name=`chitiet[${idx}][bientheid]`)
-                          option(value=(it.bientheid ? String(it.bientheid) : (it.bien_the_id ? String(it.bien_the_id) : 'main')))
-                            | #{it.bientheid ? String(it.bientheid) : (it.bien_the_id ? String(it.bien_the_id) : 'main')}
+                          option(value=currentVariantId)
+                            | #{currentVariantLabel}
                       td(style='min-width:120px')
                         select.form-select.form-select-sm.js-size(name=`chitiet[${idx}][kichco]`)
                           option(value='') -- Size --

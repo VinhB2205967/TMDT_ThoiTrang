@@ -29,6 +29,11 @@ block main
                             .mb-3
                                 label.form-label.fw-bold Mô tả
                                 textarea.form-control(name="mota" rows="4" placeholder="Mô tả chi tiết sản phẩm...")
+
+                            .mb-3
+                                label.form-label.fw-bold Ảnh mô tả sản phẩm
+                                input.form-control(type="file" name="mota_hinhanh" accept="image/*")
+                                small.text-muted Chèn ảnh minh họa hiển thị trong phần mô tả ở trang chi tiết sản phẩm
                             
                             .row.g-3
                                 .col-md-6
@@ -101,6 +106,15 @@ block main
                                         option(value="") -- Chọn nhóm tuổi --
                                         each c in (ageGroupOptions || [])
                                             option(value=c._id) #{c.name}
+
+                            .row.g-3.mt-1
+                                .col-md-12
+                                    label.form-label.fw-bold Bảng hướng dẫn size
+                                    select.form-select(name='sizeguide_id')
+                                        option(value='') -- Tự động theo loại sản phẩm --
+                                        each sg in (sizeGuideOptions || [])
+                                            option(value=sg._id data-loai=sg.loaisanpham) #{sg.tenbang} (#{sg.loaisanpham.toUpperCase()})
+                                    small.text-muted Khi để tự động, hệ thống sẽ lấy bảng size phù hợp theo loại sản phẩm.
                             
                             .mt-3
                                 label.form-label.fw-bold Màu sắc sản phẩm chính

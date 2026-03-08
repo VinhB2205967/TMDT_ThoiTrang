@@ -8,8 +8,10 @@ const productViewHelper = require('../../helpers/productView');
 const { buildProductStats, applyProductStats } = require('../../helpers/productStats');
 const Brand = require('../../models/brand_model');
 const Danhmuc = require('../../models/category_model');
+const SizeGuide = require('../../models/size_guide_model');
 const { getCategoryTree, flattenTreeOptions } = require('../../services/category.service');
 const { getFlashSalePercentMap, tinhGiaFlash } = require('../../services/flashSale.service');
+const { normalizeGuideTypeFromProductType, ensureDefaultSizeGuides } = require('../../services/sizeGuide.service');
 
 async function timHoacTaoDanhMuc({ name, slug, type, parentId = null, order = 0 }) {
     const existed = await Danhmuc.findOne({ slug, daxoa: { $ne: true } }).select('_id').lean();
@@ -377,9 +379,25 @@ module.exports.chiTiet = async (req, res) => {
             return ganGiaFlashSaleChoSanPham(p, flashPercentMapRelated);
         });
 
+        await ensureDefaultSizeGuides(SizeGuide);
+        let sizeGuide = null;
+        if (sanphamdoc.sizeguide_id && mongoose.Types.ObjectId.isValid(String(sanphamdoc.sizeguide_id))) {
+            sizeGuide = await SizeGuide.findOne({ _id: sanphamdoc.sizeguide_id, daxoa: { $ne: true } }).lean();
+        }
+        if (!sizeGuide) {
+            const guideType = normalizeGuideTypeFromProductType(capnhatsp.loaisanpham);
+            if (guideType) {
+                sizeGuide = await SizeGuide.findOne({
+                    loaisanpham: guideType,
+                    daxoa: { $ne: true }
+                }).sort({ ngaycapnhat: -1, ngaytao: -1 }).lean();
+            }
+        }
+
         res.render('client/pages/products/detail.pug', {
             titlePage: capnhatsp.tensanpham || 'Chi tiết sản phẩm',
             product: capnhatsp,
+            sizeGuide,
             reviews: filtered || [],
             avgRating: diemtrungbinh,
             reviewStats: {

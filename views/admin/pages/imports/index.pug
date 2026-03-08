@@ -40,6 +40,11 @@ block main
                     a.btn.btn-sm.btn-outline-primary.me-1(href=`${admin}/imports/${r._id}`)
                       i.bi.bi-eye
                       |  Xem
-                    a.btn.btn-sm.btn-outline-secondary(href=`${admin}/imports/${r._id}/edit`)
+                    a.btn.btn-sm.btn-outline-secondary.me-1(href=`${admin}/imports/${r._id}/edit`)
                       i.bi.bi-pencil
                       |  Sửa
+                    form.d-inline(method='POST' action=`${admin}/imports/${r._id}/delete` onsubmit='return confirm("Xóa phiếu nhập này? Hành động này sẽ hoàn tác tồn kho nếu chưa phát sinh xuất FIFO.")')
+                      input(type='hidden' name='_csrf' value=_csrf)
+                      button.btn.btn-sm.btn-outline-danger(type='submit')
+                        i.bi.bi-trash
+                        |  Xóa

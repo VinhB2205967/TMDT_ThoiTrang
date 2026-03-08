@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Sanpham = require('../../models/product_model');
 const PhieuNhapKho = require('../../models/import_receipt_model');
+const TonKhoLo = require('../../models/inventory_lot_model');
 const { NO_SIZE_TYPES, SIZE_LIST } = require('../../config/constants');
 const { tinhTongTon } = require('../../services/productStock.service');
 const { normalizeItems, normalizeBienTheId, tinhTongTienNhap } = require('../../helpers/importReceipt');
@@ -27,6 +28,36 @@ function taoMaPhieuNhap() {
   return `NK${y}${m}${day}-${h}${min}${s}-${rand}`;
 }
 
+function taoThongTinNhanVienKy(req, fallback = {}) {
+  const adminUser = req.adminUser || req.user || null;
+  const tenNhanVien = String(
+    fallback.tennhanvien
+      || adminUser?.hoten
+      || adminUser?.name
+      || adminUser?.email
+      || ''
+  ).trim();
+  const idNhanVien = String(
+    fallback.idnhanvien
+      || adminUser?._id
+      || ''
+  ).trim();
+  const anhChuKy = String(
+    fallback.anhchuky
+      || adminUser?.chukyso
+      || adminUser?.chuKy
+      || adminUser?.avatar
+      || ''
+  ).trim();
+
+  return {
+    tennhanvien: tenNhanVien,
+    idnhanvien: idNhanVien,
+    anhchuky: anhChuKy,
+    thoigianky: fallback.thoigianky || new Date()
+  };
+}
+
 function variantKey(variantIdOrNull) {
   return variantIdOrNull ? String(variantIdOrNull) : 'main';
 }
@@ -36,6 +67,52 @@ function buildStockKey(productId, variantIdOrNull, sizeKey) {
   const vid = variantKey(variantIdOrNull);
   const sk = String(sizeKey || '');
   return `${pid}|${vid}|${sk}`;
+}
+
+function normalizeLotSize(productDoc, item) {
+  const hasSize = !laLoaiKhongSizeTheoItem(productDoc, item);
+  if (!hasSize) return '';
+  return String(item.kichco || item.kich_co || '').trim();
+}
+
+async function taoLoNhapChoPhieu({ receiptDoc, items, productDocMap }) {
+  const docs = [];
+  for (const item of (items || [])) {
+    const productId = String(item.sanphamid || item.san_pham_id || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(productId)) continue;
+    const productDoc = productDocMap.get(productId);
+    if (!productDoc) continue;
+
+    const qty = Number(item.soluong ?? item.so_luong ?? 0);
+    if (!Number.isFinite(qty) || qty <= 0) continue;
+
+    const variantId = normalizeBienTheId(item.bientheid || item.bien_the_id);
+    const variantObjectId = variantId && mongoose.Types.ObjectId.isValid(String(variantId))
+      ? new mongoose.Types.ObjectId(String(variantId))
+      : null;
+    const sizeKey = normalizeLotSize(productDoc, item);
+
+    docs.push({
+      phieunhap_id: receiptDoc._id,
+      maphieunhap: String(receiptDoc.maphieu || receiptDoc.ma_phieu || receiptDoc.code || ''),
+      ngaynhap: receiptDoc.ngaynhap || new Date(),
+      nhacungcap: String(receiptDoc.nhacungcap || ''),
+      sanphamid: new mongoose.Types.ObjectId(productId),
+      bientheid: variantObjectId,
+      kichco: sizeKey,
+      mausac: String(item.mausac || item.mau_sac || ''),
+      gianhap: Number(item.gianhap ?? item.gia_nhap ?? 0) || 0,
+      giabandexuat: Number(item.giabandexuat ?? item.gia_ban_de_xuat ?? 0) || 0,
+      soluongnhap: qty,
+      soluongconlai: qty,
+      ngaytao: new Date(),
+      ngaycapnhat: new Date()
+    });
+  }
+
+  if (docs.length) {
+    await TonKhoLo.insertMany(docs);
+  }
 }
 
 async function findReceiptByIdOrCode(idOrCode) {
@@ -265,19 +342,32 @@ const taoMoiPost = async (req, res) => {
       ghichu,
       tongtiennhap: tinhTongTienNhap(normalizedItems),
       chitiet: normalizedItems,
-      nguoitao: req.user?._id || null,
+      nhanvienky: taoThongTinNhanVienKy(req),
+      nguoitao: req.adminUser?._id || req.user?._id || null,
       ngaytao: new Date(),
       ngaycapnhat: new Date()
     });
 
     await receipt.save();
 
+    const productIds = Array.from(new Set(normalizedItems
+      .map((it) => String(it.sanphamid || ''))
+      .filter((it) => mongoose.Types.ObjectId.isValid(it))));
+    const productDocs = await Sanpham.find({ _id: { $in: productIds } });
+    const productDocMap = new Map(productDocs.map((p) => [String(p._id), p]));
+
     // Apply stock changes
     for (const item of normalizedItems) {
-      const productDoc = await Sanpham.findById(item.sanphamid);
+      const productDoc = productDocMap.get(String(item.sanphamid));
       if (!productDoc) continue;
       await apDungNhapKhoChoSanPham(productDoc, item);
     }
+
+    await taoLoNhapChoPhieu({
+      receiptDoc: receipt,
+      items: normalizedItems,
+      productDocMap
+    });
 
     req.flash('success', 'Tạo phiếu nhập kho thành công và đã cộng tồn kho');
     return res.redirect(req.app.locals.admin + '/imports');
@@ -292,12 +382,24 @@ const chiTiet = async (req, res) => {
   try {
     const id = String(req.params.id || '').trim();
     const receiptDoc = await findReceiptByIdOrCode(id);
+    if (receiptDoc && receiptDoc.nguoitao) {
+      await receiptDoc.populate({ path: 'nguoitao', select: 'hoten email avatar' });
+    }
+
     const receipt = receiptDoc ? receiptDoc.toObject() : null;
     if (!receipt) return res.status(404).send('Không tìm thấy phiếu nhập');
 
+    const nhanVienKy = {
+      tennhanvien: receipt?.nhanvienky?.tennhanvien || receipt?.nguoitao?.hoten || receipt?.nguoitao?.email || '',
+      idnhanvien: receipt?.nhanvienky?.idnhanvien || (receipt?.nguoitao?._id ? String(receipt.nguoitao._id) : ''),
+      anhchuky: receipt?.nhanvienky?.anhchuky || receipt?.nguoitao?.avatar || '',
+      thoigianky: receipt?.nhanvienky?.thoigianky || receipt?.ngaytao || null
+    };
+
     res.render('admin/pages/imports/show.pug', {
       titlePage: 'Chi tiết phiếu nhập',
-      receipt
+      receipt,
+      nhanVienKy
     });
   } catch (error) {
     console.error('Import receipt detail error:', error);
@@ -462,6 +564,15 @@ const chinhSuaPost = async (req, res) => {
       await productDoc.save();
     }
 
+    const usedLots = await TonKhoLo.find({ phieunhap_id: receiptDoc._id })
+      .select('soluongnhap soluongconlai')
+      .lean();
+    const daPhatSinhXuat = usedLots.some((lot) => Number(lot.soluongconlai || 0) < Number(lot.soluongnhap || 0));
+    if (daPhatSinhXuat) {
+      req.flash('error', 'Phiếu nhập đã phát sinh xuất kho theo FIFO nên không thể chỉnh sửa');
+      return res.redirect(req.get('Referrer') || (req.app.locals.admin + '/imports/' + receiptDoc._id + '/edit'));
+    }
+
     const ensuredCode = receiptDoc.maphieu || receiptDoc.ma_phieu || taoMaPhieuNhap();
     if (!receiptDoc.code) receiptDoc.code = ensuredCode;
     if (!receiptDoc.maphieu) receiptDoc.maphieu = ensuredCode;
@@ -471,8 +582,18 @@ const chinhSuaPost = async (req, res) => {
     receiptDoc.ghichu = ghichu;
     receiptDoc.tongtiennhap = tinhTongTienNhap(normalizedItems);
     receiptDoc.chitiet = normalizedItems;
+    if (!receiptDoc.nhanvienky || !receiptDoc.nhanvienky.thoigianky) {
+      receiptDoc.nhanvienky = taoThongTinNhanVienKy(req, receiptDoc.nhanvienky || {});
+    }
     receiptDoc.ngaycapnhat = new Date();
     await receiptDoc.save();
+
+    await TonKhoLo.deleteMany({ phieunhap_id: receiptDoc._id });
+    await taoLoNhapChoPhieu({
+      receiptDoc,
+      items: normalizedItems,
+      productDocMap
+    });
 
     req.flash('success', 'Đã cập nhật phiếu nhập và điều chỉnh tồn kho theo chênh lệch');
     return res.redirect(req.app.locals.admin + '/imports/' + receiptDoc._id);
@@ -483,11 +604,71 @@ const chinhSuaPost = async (req, res) => {
   }
 };
 
+const xoaPhieu = async (req, res) => {
+  try {
+    const id = String(req.params.id || '').trim();
+    const receiptDoc = await findReceiptByIdOrCode(id);
+    if (!receiptDoc) {
+      req.flash('error', 'Không tìm thấy phiếu nhập');
+      return res.redirect(req.app.locals.admin + '/imports');
+    }
+
+    const lots = await TonKhoLo.find({ phieunhap_id: receiptDoc._id })
+      .select('soluongnhap soluongconlai')
+      .lean();
+    const daPhatSinhXuat = lots.some((lot) => Number(lot.soluongconlai || 0) < Number(lot.soluongnhap || 0));
+
+    if (daPhatSinhXuat) {
+      req.flash('error', 'Không thể xóa phiếu nhập vì đã phát sinh xuất kho theo FIFO');
+      return res.redirect(req.app.locals.admin + '/imports/' + receiptDoc._id);
+    }
+
+    const items = receiptDoc.chitiet || receiptDoc.chi_tiet || [];
+    const productIds = Array.from(new Set(items
+      .map((it) => String(it.sanphamid || it.san_pham_id || ''))
+      .filter((x) => mongoose.Types.ObjectId.isValid(x))));
+
+    const productDocs = await Sanpham.find({ _id: { $in: productIds } });
+    const productDocMap = new Map(productDocs.map((p) => [String(p._id), p]));
+
+    for (const it of items) {
+      const pid = String(it.sanphamid || it.san_pham_id || '');
+      const productDoc = productDocMap.get(pid);
+      if (!productDoc) continue;
+
+      const qty = Number(it.soluong ?? it.so_luong ?? 0);
+      if (!Number.isFinite(qty) || qty <= 0) continue;
+
+      applyDeltaToProductDoc(productDoc, {
+        bientheid: it.bientheid || it.bien_the_id || 'main',
+        kichco: it.kichco || it.kich_co || ''
+      }, -qty);
+    }
+
+    for (const productDoc of productDocs) {
+      productDoc.soluongton = tinhTongTon(productDoc);
+      productDoc.ngaycapnhat = new Date();
+      await productDoc.save();
+    }
+
+    await TonKhoLo.deleteMany({ phieunhap_id: receiptDoc._id });
+    await PhieuNhapKho.deleteOne({ _id: receiptDoc._id });
+
+    req.flash('success', 'Đã xóa phiếu nhập và hoàn tác tồn kho thành công');
+    return res.redirect(req.app.locals.admin + '/imports');
+  } catch (error) {
+    console.error('Delete import receipt error:', error);
+    req.flash('error', 'Không thể xóa phiếu nhập: ' + error.message);
+    return res.redirect(req.get('Referrer') || (req.app.locals.admin + '/imports'));
+  }
+};
+
 module.exports = {
   danhSach,
   taoMoi,
   taoMoiPost,
   chiTiet,
   chinhSua,
-  chinhSuaPost
+  chinhSuaPost,
+  xoaPhieu
 };

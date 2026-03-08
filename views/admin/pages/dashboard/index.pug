@@ -1,6 +1,6 @@
 extends ../../layouts/default.pug
 block main
-    - const s = stats || { totalProducts: 0, activeProducts: 0, inactiveProducts: 0, outOfStockCount: 0 }
+    - const s = stats || { totalProducts: 0, activeProducts: 0, inactiveProducts: 0, outOfStockCount: 0, totalRevenue: 0, totalCOGS: 0, totalProfit: 0, totalSoldItems: 0, totalExportOrders: 0, profitMarginPct: 0 }
     .dashboard-container
         .dashboard-hero
             .hero-left
@@ -41,6 +41,44 @@ block main
                 .stat-content
                     .stat-value #{s.outOfStockCount || 0}
                     .stat-label Hết hàng
+
+        .stats-grid.mt-3
+            .stat-card.stat-primary
+                .stat-icon
+                    i.bi.bi-cash-coin
+                .stat-content
+                    .stat-value #{Number(s.totalRevenue || 0).toLocaleString('vi-VN')}đ
+                    .stat-label Tổng doanh thu
+            .stat-card.stat-warning
+                .stat-icon
+                    i.bi.bi-boxes
+                .stat-content
+                    .stat-value #{Number(s.totalSoldItems || 0).toLocaleString('vi-VN')}
+                    .stat-label Tổng sản phẩm đã bán
+            .stat-card.stat-secondary
+                .stat-icon
+                    i.bi.bi-receipt
+                .stat-content
+                    .stat-value #{Number(s.totalExportOrders || 0).toLocaleString('vi-VN')}
+                    .stat-label Tổng đơn hàng
+            .stat-card.stat-danger
+                .stat-icon
+                    i.bi.bi-wallet2
+                .stat-content
+                    .stat-value #{Number(s.totalCOGS || 0).toLocaleString('vi-VN')}đ
+                    .stat-label Tổng giá vốn
+            .stat-card.stat-success
+                .stat-icon
+                    i.bi.bi-graph-up-arrow
+                .stat-content
+                    .stat-value #{Number(s.totalProfit || 0).toLocaleString('vi-VN')}đ
+                    .stat-label Tổng lợi nhuận
+            .stat-card.stat-info
+                .stat-icon
+                    i.bi.bi-percent
+                .stat-content
+                    .stat-value #{Number(s.profitMarginPct || 0).toFixed(2)}%
+                    .stat-label Tỷ suất lợi nhuận
 
         .dashboard-row
             .dashboard-col.col-main

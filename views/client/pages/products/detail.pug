@@ -205,6 +205,12 @@ block main
                                                                 i.bi.bi-x-circle-fill.me-1
                                                                 | Hết hàng
 
+                                    if sizeGuide
+                                        .option-section
+                                            button.btn.btn-outline-primary.btn-sm(type='button' data-bs-toggle='modal' data-bs-target='#sizeGuideModal')
+                                                i.bi.bi-rulers.me-1
+                                                | Bảng hướng dẫn chọn size
+
                                     //- Quantity
                                     .option-section
                                         .option-label Số lượng:
@@ -236,6 +242,36 @@ block main
                                         i.bi.bi-shield-check
                                         span Cam kết hàng chính hãng
 
+                if sizeGuide
+                    .modal.fade#sizeGuideModal(tabindex='-1' aria-hidden='true')
+                        .modal-dialog.modal-lg.modal-dialog-centered.modal-dialog-scrollable
+                            .modal-content
+                                .modal-header
+                                    h5.modal-title
+                                        i.bi.bi-rulers.me-2
+                                        | #{sizeGuide.tenbang || 'Bảng hướng dẫn chọn size'}
+                                    button.btn-close(type='button' data-bs-dismiss='modal' aria-label='Close')
+                                .modal-body
+                                    .table-responsive
+                                        table.table.table-bordered.table-sm.align-middle.mb-0
+                                            thead.table-light
+                                                tr
+                                                    th Size
+                                                    each col in (sizeGuide.cot || [])
+                                                        th #{col}
+                                            tbody
+                                                each row in (sizeGuide.dong || [])
+                                                    tr
+                                                        td.fw-semibold #{row.size}
+                                                        each val in (row.giatri || [])
+                                                            td #{val}
+                                    if sizeGuide.goiy
+                                        .alert.alert-info.mt-3.mb-0
+                                            i.bi.bi-lightbulb.me-2
+                                            | #{sizeGuide.goiy}
+                                .modal-footer
+                                    button.btn.btn-secondary(type='button' data-bs-dismiss='modal') Đóng
+
                 //- Description Section
                 if product.mota
                     .section-block
@@ -243,6 +279,9 @@ block main
                             i.bi.bi-file-text
                             h3 Mô tả sản phẩm
                         .section-content
+                            if product.mota_hinhanh
+                                .mb-3
+                                    img.img-fluid.rounded.border(src=product.mota_hinhanh alt='Ảnh mô tả sản phẩm' style='max-height:420px;object-fit:cover;')
                             .description-content!= product.mota
 
                 //- Reviews Section
