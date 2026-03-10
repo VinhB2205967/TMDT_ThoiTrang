@@ -18,6 +18,7 @@ html(lang="vi")
     link(rel="stylesheet", href="/css/filter-bar.css")
     link(rel="stylesheet", href="/css/ui-enhancements.css")
     link(rel="stylesheet", href="/css/chat-client.css")
+    link(rel="stylesheet", href="/css/chat-ai.css")
     meta(name="csrf-token" content=csrfToken)
     block styles
   body
@@ -26,6 +27,40 @@ html(lang="vi")
     main.main-content
       block main
     include ../partials/quick_add_modal.pug
+    .ai-chatbox
+      button#aiChatToggle.ai-chatbox-toggle(type="button" aria-label="Mở trợ lý AI")
+        i.bi.bi-stars
+        span Trợ lý AI
+      .ai-chatbox-panel#aiChatPanel
+        .ai-chatbox-header
+          .ai-chatbox-title
+            strong Trợ lý AI mua sắm
+            small Hỏi đáp sản phẩm, khuyến mại, đơn hàng
+          .ai-chatbox-actions
+            button#aiChatClear.btn.btn-sm.btn-outline-secondary(type="button") Xóa
+            button#aiChatExpand.btn.btn-sm.btn-outline-secondary(type="button" title="Phóng to chat" aria-label="Phóng to chat")
+              i.bi.bi-arrows-angle-expand
+            button#aiChatClose.btn.btn-sm.btn-outline-secondary(type="button" aria-label="Đóng")
+              i.bi.bi-x-lg
+        #aiChatList.ai-chatbox-list
+        form#aiChatForm.ai-chatbox-form
+          .ai-chatbox-provider-row
+            label.form-label(for="aiChatProvider") AI
+            select#aiChatProvider.form-select.form-select-sm
+              option(value="ollama") Ollama
+              option(value="gemini") Gemini
+              option(value="openrouter") OpenRouter (Gemma 3 12B Free)
+          .ai-chatbox-provider-row#aiChatModelRow
+            label.form-label(for="aiChatModel") Model
+            select#aiChatModel.form-select.form-select-sm
+              option(value="gemma-3-4b-it") Gemma 3 4B
+              option(value="gemma-3-12b-it") Gemma 3 12B
+              option(value="gemma-3-27b-it") Gemma 3 27B
+              option(value="gemini-2.5-flash") Gemini Flash 2.5
+          textarea#aiChatInput.form-control(rows="2" placeholder="Nhập câu hỏi... (Shift+Enter xuống dòng)")
+          .ai-chatbox-footer
+            span#aiChatStatus.ai-chatbox-status
+            button#aiChatSend.btn.btn-primary(type="submit") Gửi
     if isAuthenticated && !isAdmin
       button#chatWidgetToggle.btn.btn-primary.chat-widget-toggle(type="button" aria-label="Mở chat")
         i.bi.bi-chat-dots.fs-4
@@ -62,6 +97,11 @@ html(lang="vi")
     script(src="/js/shared/utils.js")
     script(src="/js/shared/flash.js")
     script(src="/js/script.js")
+    script.
+      window.AIChatRuntime = {
+        isAuthenticated: !{JSON.stringify(Boolean(isAuthenticated))}
+      };
+    script(src="/js/chat-ai.js")
     if isAuthenticated && !isAdmin
       script.
         window.ChatRuntime = {

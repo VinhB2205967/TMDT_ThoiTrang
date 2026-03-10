@@ -66,7 +66,6 @@ const couponSchema = new mongoose.Schema({
   minimize: false
 });
 
-couponSchema.index({ code: 1 }, { unique: true });
 couponSchema.index({ daxoa: 1, trangthai: 1, ngay_ketthuc: 1 });
 
 couponSchema.pre('save', function () {

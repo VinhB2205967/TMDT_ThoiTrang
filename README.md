@@ -48,11 +48,26 @@ SMTP_USER=your_email@gmail.com
 SMTP_PASS=your_app_password
 SMTP_FROM_NAME=Fashion Store
 SMTP_FROM_EMAIL=your_email@gmail.com
+
+# Ollama AI Chat
+OLLAMA_API_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=gemma3:4b
+OLLAMA_TIMEOUT_MS=30000
 ```
 
 3) Chạy:
 
 `npm start`
+
+4) Chạy Ollama cho AI chatbox:
+
+`ollama serve`
+
+Roi pull model (neu chua co):
+
+`ollama pull gemma3:4b`
+
+Co the doi model bang bien `OLLAMA_MODEL` trong `.env`.
 
 ## Backfill Lo FIFO
 
