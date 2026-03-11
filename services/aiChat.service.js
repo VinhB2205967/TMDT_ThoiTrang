@@ -93,6 +93,26 @@ function normalizeImageUrl(value) {
   return `/${raw.replace(/^\/+/, '')}`;
 }
 
+function normalizeInternalPath(pathValue) {
+  const path = String(pathValue || '').trim();
+  if (!path) return '/products';
+
+  const norm = path
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+
+  if (norm.includes('/orders') || norm.includes('don hang') || norm.includes('/don-hang')) return '/orders';
+  if (norm.includes('/vouchers') || norm.includes('/voucher')) return '/vouchers';
+  if (norm.includes('/size-guide') || norm.includes('bang size') || norm.includes('/size')) return '/size-guide';
+  if (norm.includes('/cart') || norm.includes('gio hang') || norm.includes('/gio-hang')) return '/cart';
+
+  const idMatch = path.match(/([a-f0-9]{24})/i);
+  if (idMatch) return `/products/${idMatch[1]}`;
+  return '/products';
+}
+
 function humanizeReply(text) {
   let output = String(text || '').trim();
   if (!output) return output;
@@ -106,7 +126,9 @@ function humanizeReply(text) {
     .replace(/\bmyorders\b/gi, 'đơn hàng của bạn')
     .replace(/\bmyvouchers\b/gi, 'voucher của bạn')
     .replace(/\bproducts\b/gi, 'sản phẩm')
-    .replace(/\bvouchers\b/gi, 'voucher');
+    .replace(/\bvouchers\b/gi, 'voucher')
+    .replace(/https?:\/\/(?:www\.)?(?:website|example\.com|localhost(?::\d+)?)(\/[\w\-À-ỹ\/%]*)?/gi, (_, path) => normalizeInternalPath(path))
+    .replace(/\bwebsite\/(orders|products|vouchers|size-guide|cart)\b/gi, (_, segment) => normalizeInternalPath(`/${segment}`));
 
   return output.replace(/\s{2,}/g, ' ').trim();
 }
@@ -145,6 +167,8 @@ function buildSystemPrompt() {
 
 'Nếu không có sản phẩm phù hợp với mùa hoặc dịp được hỏi, phải nói rõ là hiện chưa có.',
 'Không được gợi ý sản phẩm không liên quan. và gửi các đường link không liên quan',
+'Nếu cần đưa link, chỉ dùng đường dẫn nội bộ của website: /orders, /products/{id}, /vouchers, /size-guide, /cart.',
+'Không dùng domain giả hoặc link mẫu như https://website/...',
 
 'Mỗi lần chỉ gợi ý tối đa 4 sản phẩm tiêu biểu.',
 'Nếu có nhiều sản phẩm phù hợp, hãy chọn những sản phẩm nổi bật nhất.',
@@ -155,6 +179,11 @@ function buildSystemPrompt() {
 'Không giải thích cách hệ thống hoạt động.',
 'Chỉ trả lời kết quả cuối cùng cho người dùng như một nhân viên tư vấn thực sự.'
   ].join(' ');
+}
+
+function resolveSystemPrompt(systemPrompt) {
+  const custom = compactWhitespace(systemPrompt);
+  return custom || buildSystemPrompt();
 }
 
 function takeRecentMessages(messages, limit = 8) {
@@ -238,6 +267,14 @@ function relatedKeywordsBySeason(seasonTerms) {
     if (Array.isArray(arr)) arr.forEach((k) => out.add(k));
   });
   return Array.from(out);
+}
+
+function extractOrderCodes(question) {
+  const text = String(question || '').toUpperCase();
+  if (!text) return [];
+  const regex = /\bDH\d{8,}\b/g;
+  const found = text.match(regex) || [];
+  return Array.from(new Set(found)).slice(0, 5);
 }
 
 function buildSystemPrompt() {
@@ -732,25 +769,48 @@ async function getActiveFlashSaleContext() {
   };
 }
 
-async function getMyOrderSummary(userId) {
+async function getMyOrderSummary(userId, question) {
   if (!userId) return null;
 
-  const [totalOrders, latestOrders] = await Promise.all([
+  const orderCodes = extractOrderCodes(question);
+  const codeFilter = orderCodes.length > 0
+    ? { madonhang: { $in: orderCodes } }
+    : null;
+
+  const [totalOrders, latestOrders, matchedOrders] = await Promise.all([
     Donhang.countDocuments({ nguoidung_id: userId, daxoa: { $ne: true } }),
     Donhang.find({ nguoidung_id: userId, daxoa: { $ne: true } })
-      .select('madonhang trangthai tongtien ngaytao')
+      .select('madonhang trangthai tongtien ngaytao lydohuy phuongthucthanhtoan')
       .sort({ ngaytao: -1 })
       .limit(5)
-      .lean()
+      .lean(),
+    codeFilter
+      ? Donhang.find({ nguoidung_id: userId, daxoa: { $ne: true }, ...codeFilter })
+        .select('madonhang trangthai tongtien ngaytao lydohuy phuongthucthanhtoan')
+        .sort({ ngaytao: -1 })
+        .limit(5)
+        .lean()
+      : Promise.resolve([])
   ]);
 
   return {
     totalOrders,
+    requestedOrderCodes: orderCodes,
     latestOrders: (latestOrders || []).map((order) => ({
       madonhang: order.madonhang,
       trangthai: order.trangthai,
       tongtien: Number(order.tongtien || 0),
-      ngaytao: order.ngaytao
+      ngaytao: order.ngaytao,
+      lydohuy: order.lydohuy || '',
+      phuongthucthanhtoan: order.phuongthucthanhtoan || ''
+    })),
+    matchedOrders: (matchedOrders || []).map((order) => ({
+      madonhang: order.madonhang,
+      trangthai: order.trangthai,
+      tongtien: Number(order.tongtien || 0),
+      ngaytao: order.ngaytao,
+      lydohuy: order.lydohuy || '',
+      phuongthucthanhtoan: order.phuongthucthanhtoan || ''
     }))
   };
 }
@@ -774,7 +834,7 @@ async function buildDataContext({ question, userId }) {
     getOpsStats(),
     getProductContext(question),
     getActiveFlashSaleContext(),
-    getMyOrderSummary(userId),
+    getMyOrderSummary(userId, question),
     getVoucherContext(),
     getMyVoucherSummary(userId),
     getSizeGuideContext(question),
@@ -801,13 +861,13 @@ async function buildDataContext({ question, userId }) {
   };
 }
 
-async function askOllama({ question, history, context }) {
+async function askOllama({ question, history, context, systemPrompt }) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
-  const systemPrompt = buildSystemPrompt();
+  const finalSystemPrompt = resolveSystemPrompt(systemPrompt);
 
   const messages = [
-    { role: 'system', content: systemPrompt },
+    { role: 'system', content: finalSystemPrompt },
     {
       role: 'system',
       content: `Context JSON: ${JSON.stringify(context)}`
@@ -852,7 +912,7 @@ async function askOllama({ question, history, context }) {
   }
 }
 
-async function askGemini({ question, history, context, model }) {
+async function askGemini({ question, history, context, model, systemPrompt }) {
   if (!GEMINI_API_KEY) {
     throw new Error('GEMINI_API_KEY_MISSING');
   }
@@ -860,6 +920,7 @@ async function askGemini({ question, history, context, model }) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
 
+  const finalSystemPrompt = resolveSystemPrompt(systemPrompt);
   const callGeminiByModel = async (modelName, maxAttempts = 2) => {
     let lastError = null;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -891,10 +952,10 @@ async function askGemini({ question, history, context, model }) {
       const firstText = contents[0] && contents[0].parts && contents[0].parts[0] && contents[0].parts[0].text
         ? String(contents[0].parts[0].text)
         : '';
-      contents[0].parts[0].text = `${buildSystemPrompt()}\n\n${firstText}`;
+      contents[0].parts[0].text = `${finalSystemPrompt}\n\n${firstText}`;
     } else {
       payload.systemInstruction = {
-        parts: [{ text: buildSystemPrompt() }]
+        parts: [{ text: finalSystemPrompt }]
       };
     }
 
@@ -981,7 +1042,7 @@ async function askGemini({ question, history, context, model }) {
   }
 }
 
-async function askOpenRouter({ question, history, context }) {
+async function askOpenRouter({ question, history, context, systemPrompt }) {
   if (!OPENROUTER_API_KEY) {
     throw new Error('OPENROUTER_API_KEY_MISSING');
   }
@@ -989,8 +1050,9 @@ async function askOpenRouter({ question, history, context }) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), OPENROUTER_TIMEOUT_MS);
 
+  const finalSystemPrompt = resolveSystemPrompt(systemPrompt);
   const messages = [
-    { role: 'system', content: buildSystemPrompt() },
+    { role: 'system', content: finalSystemPrompt },
     {
       role: 'system',
       content: `Context JSON: ${JSON.stringify(context)}`
@@ -1058,15 +1120,15 @@ async function askOpenRouter({ question, history, context }) {
   }
 }
 
-async function askAI({ question, history, context, provider, model }) {
+async function askAI({ question, history, context, provider, model, systemPrompt }) {
   const selected = String(provider || '').toLowerCase().trim();
   if (selected === 'gemini') {
-    return askGemini({ question, history, context, model });
+    return askGemini({ question, history, context, model, systemPrompt });
   }
   if (selected === 'openrouter') {
-    return askOpenRouter({ question, history, context });
+    return askOpenRouter({ question, history, context, systemPrompt });
   }
-  return askOllama({ question, history, context });
+  return askOllama({ question, history, context, systemPrompt });
 }
 
 module.exports = {

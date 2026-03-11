@@ -1,0 +1,217 @@
+extends ../../layouts/default.pug
+
+block main
+    .dashboard-container
+        .dashboard-hero
+            .hero-left
+                h1.dashboard-title(style="color: #fff")
+                    i.bi.bi-robot.me-2
+                    | AI Assistant (Admin)
+                p.dashboard-subtitle(style="color: #e2e8f0") Hỏi đáp dữ liệu kinh doanh, đơn hàng, kho và khách hàng
+            .hero-actions
+                a.btn.btn-light.btn-sm(href="/admin/dashboard")
+                    i.bi.bi-speedometer2.me-1
+                    | Về Dashboard
+
+        .dashboard-row.mt-3
+            .dashboard-col.col-main
+                .dashboard-card
+                    .card-header
+                        h3.card-title
+                            i.bi.bi-chat-square-text.me-2
+                            | Hỏi AI theo dữ liệu hệ thống
+                    .card-body
+                        form#adminAiForm
+                            .mb-2
+                                textarea#adminAiQuestion.form-control(rows="4" placeholder="Ví dụ: Báo cáo doanh thu tháng 2 năm 2026")
+                            .d-flex.gap-2.flex-wrap.mb-2
+                                .flex-grow-1(style="min-width: 180px;")
+                                    label.form-label.small.mb-1(for="adminAiProvider") Provider
+                                    select#adminAiProvider.form-select.form-select-sm
+                                        option(value="ollama") Ollama
+                                        option(value="gemini") Gemini
+                                        option(value="openrouter") OpenRouter (Gemma 3 12B Free)
+                                .flex-grow-1#adminAiModelWrap(style="min-width: 180px;")
+                                    label.form-label.small.mb-1(for="adminAiModel") Model (Gemini)
+                                    select#adminAiModel.form-select.form-select-sm
+                                        option(value="gemma-3-4b-it") Gemma 3 4B
+                                        option(value="gemma-3-12b-it") Gemma 3 12B
+                                        option(value="gemma-3-27b-it") Gemma 3 27B
+                                        option(value="gemini-2.5-flash") Gemini Flash 2.5
+                            .d-flex.justify-content-between.align-items-center.gap-2.flex-wrap
+                                button#adminAiAskBtn.btn.btn-primary(type="submit") Hỏi AI
+                                span#adminAiStatus.text-muted.small
+
+                        .mt-3
+                            .small.text-muted.mb-1 Gợi ý câu hỏi:
+                            ul.mb-0.ps-3
+                                li Báo cáo doanh thu tháng 2 năm 2026
+                                li Top sản phẩm bán chạy trong tháng 2
+                                li Tỷ lệ hủy đơn trong tháng 2
+                                li Khách hàng chi tiêu cao nhất theo tháng
+
+                        hr
+                        .small.text-muted.mb-2 Kết quả:
+                        #adminAiResult.admin-ai-result
+                            .text-muted AI trả lời ở đây...
+
+            .dashboard-col.col-side
+                .dashboard-card
+                    .card-header
+                        h3.card-title
+                            i.bi.bi-list-check.me-2
+                            | Mẫu hiển thị
+                    .card-body
+                        ul.stat-list
+                            li.stat-list-item
+                                span.stat-name 📌 Tóm tắt tình hình chính
+                            li.stat-list-item
+                                span.stat-name 📊 Phân tích số liệu quan trọng
+                            li.stat-list-item
+                                span.stat-name ⚠️ Vấn đề cần chú ý
+                            li.stat-list-item
+                                span.stat-name ✅ Khuyến nghị hành động
+
+block styles
+    style.
+        .admin-ai-result {
+            min-height: 220px;
+            max-height: 520px;
+            overflow: auto;
+            padding: 14px;
+            border-radius: 10px;
+            border: 1px solid #dbe5f0;
+            background: #f8fbff;
+            color: #1f2d3d;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .admin-ai-section-title {
+            font-weight: 700;
+            margin-top: 10px;
+            margin-bottom: 6px;
+            color: #0b2942;
+        }
+
+        .admin-ai-list {
+            margin: 0;
+            padding-left: 18px;
+        }
+
+        .admin-ai-list li {
+            margin-bottom: 4px;
+        }
+
+block scripts
+    script.
+        (() => {
+            const form = document.getElementById('adminAiForm');
+            const input = document.getElementById('adminAiQuestion');
+            const result = document.getElementById('adminAiResult');
+            const status = document.getElementById('adminAiStatus');
+            const askBtn = document.getElementById('adminAiAskBtn');
+            const providerEl = document.getElementById('adminAiProvider');
+            const modelEl = document.getElementById('adminAiModel');
+            const modelWrap = document.getElementById('adminAiModelWrap');
+            if (!form || !input || !result || !status || !askBtn || !providerEl || !modelEl || !modelWrap) return;
+
+            const history = [];
+
+            const escapeHtml = (value) => String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+
+            const syncModelVisibility = () => {
+                modelWrap.style.display = providerEl.value === 'gemini' ? '' : 'none';
+            };
+
+            const prettifyAnswer = (raw) => {
+                const text = String(raw || '')
+                    .replace(/\*\*/g, '')
+                    .replace(/\s*1\.\s*(Tóm tắt[^:]*):?/i, '\n📌 $1:\n')
+                    .replace(/\s*2\.\s*(Phân tích[^:]*):?/i, '\n📊 $1:\n')
+                    .replace(/\s*3\.\s*(Vấn đề[^:]*):?/i, '\n⚠️ $1:\n')
+                    .replace(/\s*4\.\s*(Khuyến nghị[^:]*):?/i, '\n✅ $1:\n')
+                    .replace(/\s\*\s+/g, '\n- ')
+                    .replace(/\n{3,}/g, '\n\n')
+                    .trim();
+
+                const lines = text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+                let html = '';
+                let listBuffer = [];
+
+                const flushList = () => {
+                    if (!listBuffer.length) return;
+                    html += `<ul class="admin-ai-list">${listBuffer.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
+                    listBuffer = [];
+                };
+
+                lines.forEach((line) => {
+                    const isHeading = /^(📌|📊|⚠️|✅)\s/.test(line);
+                    if (isHeading) {
+                        flushList();
+                        html += `<div class="admin-ai-section-title">${escapeHtml(line)}</div>`;
+                        return;
+                    }
+
+                    if (line.startsWith('- ')) {
+                        listBuffer.push(line.replace(/^-\s*/, ''));
+                        return;
+                    }
+
+                    flushList();
+                    html += `<p class="mb-2">${escapeHtml(line)}</p>`;
+                });
+
+                flushList();
+                return html || `<p class="mb-0 text-muted">Không có dữ liệu để hiển thị.</p>`;
+            };
+
+            providerEl.addEventListener('change', syncModelVisibility);
+            syncModelVisibility();
+
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const question = String(input.value || '').trim();
+                if (!question) return;
+
+                const provider = String(providerEl.value || 'ollama').trim().toLowerCase();
+                const model = provider === 'gemini' ? String(modelEl.value || '').trim() : '';
+
+                askBtn.disabled = true;
+                status.textContent = 'AI đang phân tích dữ liệu...';
+                history.push({ role: 'user', content: question });
+
+                try {
+                    const res = await fetch(window.location.pathname, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ question, provider, model, history })
+                    });
+
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok || !data || !data.success || !data.data || !data.data.answer) {
+                        throw new Error((data && data.message) || 'Không nhận được phản hồi từ AI.');
+                    }
+
+                    const answer = String(data.data.answer || '').trim();
+                    result.innerHTML = prettifyAnswer(answer);
+                    history.push({ role: 'assistant', content: answer });
+
+                    const modelName = String(data.data.model || '').trim();
+                    const providerName = String(data.data.provider || provider).trim();
+                    status.textContent = modelName ? `Hoàn tất • ${providerName} / ${modelName}` : `Hoàn tất • ${providerName}`;
+                } catch (error) {
+                    result.innerHTML = `<p class="mb-0 text-danger">${escapeHtml(error && error.message ? error.message : 'Không thể xử lý lúc này.')}</p>`;
+                    status.textContent = 'Lỗi';
+                    history.pop();
+                } finally {
+                    askBtn.disabled = false;
+                }
+            });
+        })();

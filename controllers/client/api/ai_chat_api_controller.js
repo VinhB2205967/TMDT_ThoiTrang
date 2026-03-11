@@ -126,6 +126,64 @@ function toSuggestedProducts(context, answerText) {
   return (matched.length > 0 ? matched : candidates).slice(0, 4);
 }
 
+function extractOrderCodes(message) {
+  const text = String(message || '').toUpperCase();
+  if (!text) return [];
+  const matches = text.match(/\bDH\d{8,}\b/g) || [];
+  return Array.from(new Set(matches));
+}
+
+function getOrderStatusLabel(status) {
+  const map = {
+    choxacnhan: 'Chờ xác nhận',
+    daxacnhan: 'Đã xác nhận',
+    dangchuanbi: 'Đang chuẩn bị',
+    danggiao: 'Đang giao',
+    dagiao: 'Đã giao',
+    dahuy: 'Đã hủy',
+    hoanhang: 'Hoàn hàng'
+  };
+  return map[String(status || '').toLowerCase()] || String(status || 'Không rõ');
+}
+
+function formatMoney(value) {
+  return `${Number(value || 0).toLocaleString('vi-VN')}đ`;
+}
+
+function buildExactOrderAnswer(orderCode, myOrders) {
+  const codes = extractOrderCodes(orderCode);
+  if (!myOrders || !Array.isArray(myOrders.matchedOrders) || codes.length === 0) return null;
+
+  const orderMap = new Map((myOrders.matchedOrders || [])
+    .filter((item) => item && item.madonhang)
+    .map((item) => [String(item.madonhang || '').toUpperCase(), item]));
+
+  const targetCode = codes[0];
+  const target = orderMap.get(targetCode);
+  if (!target) {
+    return {
+      answer: `Mình không tìm thấy đơn ${targetCode} trong tài khoản của bạn. Bạn vui lòng kiểm tra lại mã đơn hoặc vào trang /orders để xem danh sách đơn hiện có.`
+    };
+  }
+
+  const created = target.ngaytao ? new Date(target.ngaytao).toLocaleString('vi-VN') : 'Không rõ';
+  const statusLabel = getOrderStatusLabel(target.trangthai);
+  const reasonText = target.trangthai === 'dahuy' && target.lydohuy
+    ? `\n- Lý do hủy: ${String(target.lydohuy).trim()}`
+    : '';
+
+  return {
+    answer: [
+      `📌 Thông tin đơn ${targetCode}`,
+      `- Trạng thái: ${statusLabel}`,
+      `- Tổng tiền: ${formatMoney(target.tongtien)}`,
+      `- Ngày tạo: ${created}`,
+      `- Phương thức thanh toán: ${target.phuongthucthanhtoan || 'Không rõ'}`,
+      reasonText
+    ].filter(Boolean).join('\n')
+  };
+}
+
 module.exports.sendMessage = async (req, res) => {
   try {
     const question = normalizeMessage(req.body && req.body.message);
@@ -145,6 +203,35 @@ module.exports.sendMessage = async (req, res) => {
       question,
       userId: req.user && req.user._id ? req.user._id : null
     });
+
+    const exactOrder = buildExactOrderAnswer(question, context && context.myOrders);
+    if (exactOrder) {
+      return res.json({
+        success: true,
+        data: {
+          answer: exactOrder.answer,
+          model: 'db-verified',
+          provider: 'system',
+          suggestedProducts: [],
+          contextMeta: {
+            products: Array.isArray(context.products) ? context.products.length : 0,
+            hasFlashSale: Boolean(context.flashSale),
+            vouchers: Array.isArray(context.vouchers) ? context.vouchers.length : 0,
+            sizeGuides: Array.isArray(context.sizeGuides) ? context.sizeGuides.length : 0,
+            topSelling: Array.isArray(context.topSelling) ? context.topSelling.length : 0,
+            topRated: Array.isArray(context.topRated) ? context.topRated.length : 0,
+            reviewsRecent: context.reviews && Array.isArray(context.reviews.recent) ? context.reviews.recent.length : 0,
+            reviewsMine: context.reviews && Array.isArray(context.reviews.mine) ? context.reviews.mine.length : 0,
+            settings: Array.isArray(context.settings) ? context.settings.length : 0,
+            myOrders: context.myOrders ? Number(context.myOrders.totalOrders || 0) : 0,
+            myVouchers: context.myVouchers ? Number(context.myVouchers.totalSaved || 0) : 0,
+            matchedOrders: context.myOrders && Array.isArray(context.myOrders.matchedOrders)
+              ? context.myOrders.matchedOrders.length
+              : 0
+          }
+        }
+      });
+    }
 
     const ai = await askAI({ question, history, context, provider, model });
 

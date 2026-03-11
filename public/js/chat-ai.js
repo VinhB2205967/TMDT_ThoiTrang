@@ -12,13 +12,16 @@
 	const providerEl = document.getElementById('aiChatProvider');
 	const modelRowEl = document.getElementById('aiChatModelRow');
 	const modelEl = document.getElementById('aiChatModel');
+	const modelToggleEl = document.getElementById('aiChatModelToggle');
 	if (!toggleBtn || !panel || !form || !input || !list || !sendBtn || !statusEl) return;
 
 	const STORAGE_KEY = 'fashion_ai_chat_history_v1';
 	const PROVIDER_STORAGE_KEY = 'fashion_ai_provider_v1';
 	const MODEL_STORAGE_KEY = 'fashion_ai_gemini_model_v1';
+	const MODEL_VISIBLE_STORAGE_KEY = 'fashion_ai_model_visible_v1';
 	const EXPANDED_STORAGE_KEY = 'fashion_ai_chat_expanded_v1';
 	const history = [];
+	let manualModelVisible = localStorage.getItem(MODEL_VISIBLE_STORAGE_KEY) !== '0';
 
 	function setExpanded(expanded) {
 		panel.classList.toggle('expanded', Boolean(expanded));
@@ -33,7 +36,12 @@
 	function syncModelVisibility() {
 		if (!modelRowEl || !providerEl) return;
 		const provider = String(providerEl.value || 'ollama').toLowerCase();
-		modelRowEl.style.display = provider === 'gemini' ? '' : 'none';
+		const shouldShow = provider === 'gemini' && manualModelVisible;
+		modelRowEl.style.display = shouldShow ? '' : 'none';
+		if (modelToggleEl) {
+			modelToggleEl.textContent = shouldShow ? 'Ẩn model' : 'Hiện model';
+			modelToggleEl.classList.toggle('active', shouldShow);
+		}
 	}
 
 	function escapeHtml(value) {
@@ -58,13 +66,38 @@
 		return /\.(png|jpe?g|gif|webp|avif|svg)$/.test(clean);
 	}
 
+	function sanitizeLinkCandidate(value) {
+		let url = String(value || '').trim();
+		if (!url) return '';
+
+		// Remove wrapping quotes/backticks and leaked HTML attributes.
+		url = url.replace(/^['"`(]+|['"`)]+$/g, '');
+		url = url.split(/\s+(?:target|rel|class|id|style)\s*=|\s+on\w+\s*=|\s+data-[\w-]+\s*=/i)[0];
+		url = url.replace(/\bnoopener\b|\bnoreferrer\b/gi, '');
+		url = url.replace(/["'`]+$/g, '');
+		return url.replace(/\s{2,}/g, ' ').trim();
+	}
+
 	function normalizeProductUrl(url) {
-		const raw = String(url || '').trim();
+		let raw = String(url || '').trim();
 		if (!raw) return '';
 
+		try {
+			raw = decodeURIComponent(raw);
+		} catch {
+			// Keep original string when decode fails.
+		}
+
+		raw = raw
+			.replace(/\\/g, '/')
+			.replace(/\bnoopener\b|\bnoreferrer\b/gi, '')
+			.replace(/\s{2,}/g, ' ')
+			.trim();
+
+		const queryMatch = raw.match(/\?[^\s#)]+/);
+		const query = queryMatch ? queryMatch[0] : '';
+
 		const byId = raw.match(/([a-f0-9]{24})/i);
-		if (!byId) return raw;
-		const id = byId[1];
 
 		const lower = raw
 			.toLowerCase()
@@ -73,8 +106,15 @@
 			.replace(/\s+/g, ' ')
 			.trim();
 
-		if (lower.includes('/san pham/') || lower.includes('/products/')) {
+		const mentionsProductPath = /\/(?:san\s*pham|sản\s*phẩm|products?)\b/i.test(lower);
+
+		if (byId && mentionsProductPath) {
+			const id = byId[1];
 			return `/products/${id}`;
+		}
+
+		if (lower.includes('/san pham') || lower.includes('/sản phẩm') || /\/products?\s*pham\b/i.test(lower)) {
+			return `/products${query}`;
 		}
 
 		return raw;
@@ -84,9 +124,29 @@
 		const raw = String(text || '').trim();
 		if (!raw) return '';
 
-		const lines = raw.split('\n');
-		const htmlLines = lines.map((line) => {
-			const trimmed = line.trim();
+		const normalized = raw
+			.replace(/\*\*/g, '')
+			.replace(/^\s*#{1,6}\s*/gm, '')
+			.replace(/:\s*(?=\d+\.\s)/g, ':\n')
+			.replace(/([\p{L}\)])\s(?=\d+\.\s)/gu, '$1\n')
+			.replace(/(tại\s+đây)\s(?=\d+\.)/gi, '$1\n')
+			.replace(/\s*1\.\s*(Tóm tắt[^:]*):?/i, '\n📌 $1:\n')
+			.replace(/\s*2\.\s*(Phân tích[^:]*):?/i, '\n📊 $1:\n')
+			.replace(/\s*3\.\s*(Vấn đề[^:]*):?/i, '\n⚠️ $1:\n')
+			.replace(/\s*4\.\s*(Khuyến nghị[^:]*):?/i, '\n✅ $1:\n')
+			.replace(/\s\*\s+/g, '\n- ')
+			.replace(/\n{3,}/g, '\n\n')
+			.trim();
+
+		const lines = normalized.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+
+		const formatInline = (line) => {
+			const cleanedLine = String(line || '')
+				.replace(/<a\b[^>]*>(.*?)<\/a>/gi, '$1')
+				.replace(/\s*(target|rel)\s*=\s*["'][^"']*["']/gi, '')
+				.replace(/\bnoreferrer\b/gi, '')
+				.trim();
+			const trimmed = cleanedLine.trim();
 
 			// Markdown image: ![alt](url)
 			const imageMatch = trimmed.match(/^!\[(.*?)\]\((.*?)\)$/);
@@ -96,38 +156,147 @@
 				return `<img class="ai-chat-inline-image" src="${src}" alt="${alt}">`;
 			}
 
-			let output = escapeHtml(line);
+			const tokens = [];
+			const putToken = (html) => {
+				const key = `__AI_TOKEN_${tokens.length}__`;
+				tokens.push({ key, html });
+				return key;
+			};
 
-			// Render markdown links as clickable anchors.
-			output = output.replace(/\[(.*?)\]\((.*?)\)/g, (_, label, url) => {
-				const normUrl = normalizeProductUrl(String(url || '').trim());
-				const safeLabel = escapeHtml(String(label || '').trim() || normUrl);
-				const safeUrl = escapeHtml(normUrl);
-				if (!safeUrl || !isSafeUrl(normUrl)) return safeLabel;
-				return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeLabel}</a>`;
-			});
-
-			// Auto-link raw product paths like /sản phẩm/{id} or /products/{id}.
-			output = output.replace(/(tại\s+đây|tai\s+day)\s*:\s*(\/(?:sản\s*phẩm|san\s*pham|products)\/[a-f0-9]{24})/gi, (_, label, rawUrl) => {
-				const normUrl = normalizeProductUrl(rawUrl);
-				if (!isSafeUrl(normUrl)) return escapeHtml(`${label}: ${rawUrl}`);
-				const safeUrl = escapeHtml(normUrl);
+			const toAnchor = (label, url) => {
+				const cleanUrl = sanitizeLinkCandidate(url).replace(/\bnoreferrer\b/gi, '').trim();
+				const normUrl = normalizeProductUrl(cleanUrl);
+				if (!normUrl || !isSafeUrl(normUrl)) return escapeHtml(label || 'tại đây');
 				const safeLabel = escapeHtml(label || 'tại đây');
+				const safeUrl = escapeHtml(normUrl);
 				return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeLabel}</a>`;
+			};
+
+			let textWork = cleanedLine;
+
+			// Markdown links.
+			textWork = textWork.replace(/\[(.*?)\]\((.*?)\)/g, (_, label, url) => {
+				const rawLabel = String(label || '').trim();
+				const compactLabel = (!rawLabel || /^(https?:\/\/|\/)/i.test(rawLabel) || /(san\s*pham|sản\s*phẩm|products|orders|vouchers|size-guide|cart)/i.test(rawLabel))
+					? 'tại đây'
+					: rawLabel;
+				return putToken(toAnchor(compactLabel, url));
 			});
 
-			output = output.replace(/(\/(?:sản\s*phẩm|san\s*pham|products)\/[a-f0-9]{24})/gi, (match) => {
-				const normUrl = normalizeProductUrl(match);
-				if (!isSafeUrl(normUrl)) return escapeHtml(match);
-				const safeUrl = escapeHtml(normUrl);
-				const safeLabel = 'tại đây';
-				return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeLabel}</a>`;
+			// "tại đây: /products/{id}" style.
+			textWork = textWork.replace(/(tại\s+đây|tai\s+day)\s*:\s*(\/(?:sản\s*phẩm|san\s*pham|products)\/[a-f0-9]{24})/gi, (_, label, rawUrl) => {
+				return putToken(toAnchor(String(label || 'tại đây').trim(), rawUrl));
+			});
+
+			// Standalone internal paths.
+			textWork = textWork.replace(/(\/(?:sản\s*phẩm|san\s*pham|products|orders|vouchers|size-guide|cart)(?:\/[a-f0-9]{24})?(?:\?[^\s<]+)?)/gi, (rawPath) => {
+				return putToken(toAnchor('tại đây', rawPath));
+			});
+
+			let output = escapeHtml(textWork);
+			tokens.forEach((token) => {
+				output = output.replace(token.key, token.html);
 			});
 
 			return output;
+		};
+
+		let html = '';
+		let listBuffer = [];
+
+		const flushList = () => {
+			if (!listBuffer.length) return;
+			html += `<ul class="ai-chat-list">${listBuffer.map((item) => `<li>${formatInline(item)}</li>`).join('')}</ul>`;
+			listBuffer = [];
+		};
+
+		lines.forEach((line) => {
+			if (/^(📌|📊|⚠️|✅)\s/.test(line)) {
+				flushList();
+				html += `<div class="ai-chat-section-title">${formatInline(line)}</div>`;
+				return;
+			}
+
+			if (/^\d+\.\s/.test(line)) {
+				const itemLine = line.replace(/^\d+\.\s*/, '🛍️ ');
+				listBuffer.push(itemLine);
+				return;
+			}
+
+			if (line.startsWith('- ')) {
+				listBuffer.push(line.replace(/^-\s*/, ''));
+				return;
+			}
+
+			flushList();
+			html += `<div class="ai-chat-line">${formatInline(line)}</div>`;
 		});
 
-		return htmlLines.join('<br>');
+		flushList();
+		return html;
+	}
+
+	function injectSuggestedLinks(answer, suggestedProducts) {
+		let output = String(answer || '');
+		const products = Array.isArray(suggestedProducts)
+			? suggestedProducts.filter((item) => item && /^\/products\/[a-f0-9]{24}$/i.test(String(item.url || '')))
+			: [];
+		if (!output || products.length === 0) return output;
+
+		const normalizeForCompare = (value) => String(value || '')
+			.toLowerCase()
+			.normalize('NFD')
+			.replace(/[\u0300-\u036f]/g, '')
+			.replace(/[^a-z0-9\s]/g, ' ')
+			.replace(/\s+/g, ' ')
+			.trim();
+
+		const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+		// If answer is numbered list, keep exactly one link per item based on product name mention.
+		const blocks = output.match(/\d+\.[\s\S]*?(?=\n\d+\.|$)/g);
+		if (blocks && blocks.length > 0) {
+			const rebuilt = blocks.map((block) => {
+				const cleanBlock = String(block || '')
+					.replace(/\[tại\s+đây\]\([^)]*\)/gi, '')
+					.replace(/\btại\s+đây\b/gi, '')
+					.replace(/\s{2,}/g, ' ')
+					.replace(/\s+([.,!?;:])/g, '$1')
+					.trim();
+
+				const blockNorm = normalizeForCompare(cleanBlock);
+				let picked = null;
+				for (let i = 0; i < products.length; i += 1) {
+					const item = products[i];
+					const itemNameNorm = normalizeForCompare(item && item.name ? item.name : '');
+					if (itemNameNorm && blockNorm.includes(itemNameNorm)) {
+						picked = item;
+						break;
+					}
+				}
+
+				if (!picked || !picked.url) return cleanBlock;
+				const detailUrl = normalizeProductUrl(String(picked.url));
+				return `${cleanBlock} Xem thêm: [tại đây](${detailUrl})`;
+			});
+
+			const prefix = output.split(/\d+\./)[0] || '';
+			return `${prefix}${rebuilt.join('\n')}`.trim();
+		}
+
+		// Non-numbered answer fallback.
+		products.forEach((item) => {
+			const name = String(item && item.name ? item.name : '').trim();
+			const url = String(item && item.url ? item.url : '').trim();
+			if (!name || !url) return;
+
+			const nameRegex = new RegExp(`(${escapeRegex(name)})(?![^\\n]*\\[tại\\s+đây\\]\\()`, 'i');
+			if (nameRegex.test(output)) {
+				const detailUrl = normalizeProductUrl(url);
+				output = output.replace(nameRegex, `$1 - Xem thêm: [tại đây](${detailUrl})`);
+			}
+		});
+
+		return output;
 	}
 
 	function setStatus(message, loading = false) {
@@ -306,6 +475,14 @@
 
 		syncModelVisibility();
 
+		if (modelToggleEl) {
+			modelToggleEl.addEventListener('click', () => {
+				manualModelVisible = !manualModelVisible;
+				localStorage.setItem(MODEL_VISIBLE_STORAGE_KEY, manualModelVisible ? '1' : '0');
+				syncModelVisibility();
+			});
+		}
+
 		providerEl.addEventListener('change', () => {
 			const selected = String(providerEl.value || 'ollama').toLowerCase();
 			localStorage.setItem(PROVIDER_STORAGE_KEY, selected);
@@ -339,9 +516,10 @@
 		try {
 			const ai = await askAI(question);
 			if (!ai.answer) throw new Error('AI chưa có câu trả lời');
-			renderMessage('assistant', ai.answer);
+			const answerWithLinks = injectSuggestedLinks(ai.answer, ai.suggestedProducts);
+			renderMessage('assistant', answerWithLinks);
 			renderProductCards(ai.suggestedProducts);
-			history.push({ role: 'assistant', content: ai.answer, suggestedProducts: ai.suggestedProducts });
+			history.push({ role: 'assistant', content: answerWithLinks, suggestedProducts: ai.suggestedProducts });
 			saveHistory();
 			const providerName = ai.provider === 'gemini'
 				? 'Gemini'
@@ -358,7 +536,7 @@
 
 	input.addEventListener('input', () => {
 		input.style.height = 'auto';
-		input.style.height = `${Math.min(input.scrollHeight, 120)}px`;
+		input.style.height = `${Math.min(input.scrollHeight, 96)}px`;
 	});
 
 	loadHistory();

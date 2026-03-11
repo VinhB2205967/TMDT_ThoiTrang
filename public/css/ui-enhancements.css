@@ -134,6 +134,21 @@ body {
   object-fit: cover;
 }
 
+/* Home section spacing */
+.features-section,
+.categories-section,
+.flash-sale-section,
+.brand-section,
+.lookbook-section,
+.blog-section,
+.products-section {
+  margin-top: 18px;
+}
+
+.section-header {
+  margin-bottom: 20px;
+}
+
 /* Flash alerts under header */
 .flash-alert {
   border-radius: 14px;

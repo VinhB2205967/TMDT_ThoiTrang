@@ -28,6 +28,7 @@ module.exports =(app)=>{
     app.use(PATH_ADMIN, requireAdmin);
     app.use(PATH_ADMIN + '/', dashboardRoutes);
     app.use(PATH_ADMIN + '/dashboard', dashboardRoutes);  
+    app.use(PATH_ADMIN + '/ai-assistant', dashboardRoutes);
     app.use(PATH_ADMIN + '/products', productsdRoutes); 
     app.use(PATH_ADMIN + '/imports', importsRoutes);
     app.use(PATH_ADMIN + '/exports', exportsRoutes);
