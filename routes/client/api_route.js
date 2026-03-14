@@ -4,6 +4,7 @@ const rateLimit = require('express-rate-limit');
 const homeApi = require('../../controllers/client/api/home_api_controller');
 const contentApi = require('../../controllers/client/api/content_api_controller');
 const aiChatApi = require('../../controllers/client/api/ai_chat_api_controller');
+const { uploadOpenclipQuery } = require('../../middlewares/openclipUpload');
 
 const aiChatLimiter = rateLimit({
 	windowMs: 60 * 1000,
@@ -24,5 +25,18 @@ router.get('/lookbooks/:id', contentApi.getLookbookDetail);
 router.get('/brands/featured', contentApi.getFeaturedBrands);
 router.get('/blog', contentApi.getBlogs);
 router.post('/ai-chat/message', aiChatLimiter, aiChatApi.sendMessage);
+router.post('/openclip/search', aiChatLimiter, aiChatApi.searchOpenClip);
+router.post('/openclip/search-by-image', aiChatLimiter, (req, res, next) => {
+	uploadOpenclipQuery.single('image')(req, res, (err) => {
+		if (!err) return next();
+		if (err && err.message === 'ONLY_IMAGE') {
+			return res.status(400).json({ success: false, message: 'Chỉ hỗ trợ file ảnh (jpg, png, webp...)' });
+		}
+		if (err && err.code === 'LIMIT_FILE_SIZE') {
+			return res.status(400).json({ success: false, message: 'Ảnh quá lớn (tối đa 10MB)' });
+		}
+		return res.status(400).json({ success: false, message: 'Upload ảnh thất bại' });
+	});
+}, aiChatApi.searchOpenClipByImage);
 
 module.exports = router;

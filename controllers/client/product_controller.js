@@ -12,6 +12,7 @@ const SizeGuide = require('../../models/size_guide_model');
 const { getCategoryTree, flattenTreeOptions } = require('../../services/category.service');
 const { getFlashSalePercentMap, tinhGiaFlash } = require('../../services/flashSale.service');
 const { normalizeGuideTypeFromProductType, ensureDefaultSizeGuides } = require('../../services/sizeGuide.service');
+const { rankProductsByImage } = require('../../services/openClip.service');
 
 async function timHoacTaoDanhMuc({ name, slug, type, parentId = null, order = 0 }) {
     const existed = await Danhmuc.findOne({ slug, daxoa: { $ne: true } }).select('_id').lean();
@@ -159,9 +160,103 @@ function ganGiaFlashSaleChoSanPham(product, flashPercentMap) {
     return product;
 }
 
+function parseOpenclipIds(raw) {
+    const text = String(raw || '').trim();
+    if (!text) return [];
+    const ids = text
+        .split(',')
+        .map((item) => String(item || '').trim())
+        .filter((item) => mongoose.Types.ObjectId.isValid(item));
+    return Array.from(new Set(ids)).slice(0, 80);
+}
+
+function buildOpenclipPreviewUrl(filePath) {
+    const normalized = String(filePath || '').replace(/\\/g, '/');
+    const marker = '/public/uploads/openclip-query/';
+    const index = normalized.lastIndexOf(marker);
+    if (index >= 0) {
+        return normalized.slice(index + '/public'.length);
+    }
+
+    const fileName = normalized.split('/').pop();
+    return fileName ? `/uploads/openclip-query/${fileName}` : '';
+}
+
+function parseOpenclipPreview(raw) {
+    const value = String(raw || '').trim();
+    if (!value.startsWith('/uploads/openclip-query/')) return '';
+    return value;
+}
+
+function parseSortOption(raw) {
+    const text = String(raw || '').trim();
+    if (!text) return { key: 'ngaytao', direction: 'desc', isDefault: true };
+
+    const [key, direction] = text.split('-');
+    const allowedKeys = new Set(['gia', 'ngaytao', 'tensanpham']);
+    const allowedDirections = new Set(['asc', 'desc']);
+    if (!allowedKeys.has(key) || !allowedDirections.has(direction)) {
+        return { key: 'ngaytao', direction: 'desc', isDefault: true };
+    }
+
+    return { key, direction, isDefault: false };
+}
+
+function getDisplayedPrice(product) {
+    const flashPrice = Number(product && product.flashSalePrice);
+    if (Number.isFinite(flashPrice) && flashPrice > 0) return flashPrice;
+
+    const salePrice = Number(product && product.giamoi);
+    if (Number.isFinite(salePrice) && salePrice > 0) return salePrice;
+
+    return Number(product && product.gia) || 0;
+}
+
+function compareProductsBySort(a, b, sortOption, openclipOrderMap) {
+    if (sortOption.isDefault && openclipOrderMap instanceof Map) {
+        const ai = openclipOrderMap.has(String(a && a._id ? a._id : '')) ? openclipOrderMap.get(String(a._id)) : Number.MAX_SAFE_INTEGER;
+        const bi = openclipOrderMap.has(String(b && b._id ? b._id : '')) ? openclipOrderMap.get(String(b._id)) : Number.MAX_SAFE_INTEGER;
+        if (ai !== bi) return ai - bi;
+    }
+
+    const direction = sortOption.direction === 'asc' ? 1 : -1;
+
+    if (sortOption.key === 'gia') {
+        const diff = getDisplayedPrice(a) - getDisplayedPrice(b);
+        if (diff !== 0) return diff * direction;
+    }
+
+    if (sortOption.key === 'tensanpham') {
+        const diff = String(a && a.tensanpham ? a.tensanpham : '').localeCompare(
+            String(b && b.tensanpham ? b.tensanpham : ''),
+            'vi',
+            { sensitivity: 'base' }
+        );
+        if (diff !== 0) return diff * direction;
+    }
+
+    if (sortOption.key === 'ngaytao') {
+        const aTime = new Date(a && a.ngaytao ? a.ngaytao : 0).getTime();
+        const bTime = new Date(b && b.ngaytao ? b.ngaytao : 0).getTime();
+        const diff = aTime - bTime;
+        if (diff !== 0) return diff * direction;
+    }
+
+    if (openclipOrderMap instanceof Map) {
+        const ai = openclipOrderMap.has(String(a && a._id ? a._id : '')) ? openclipOrderMap.get(String(a._id)) : Number.MAX_SAFE_INTEGER;
+        const bi = openclipOrderMap.has(String(b && b._id ? b._id : '')) ? openclipOrderMap.get(String(b._id)) : Number.MAX_SAFE_INTEGER;
+        if (ai !== bi) return ai - bi;
+    }
+
+    return String(a && a._id ? a._id : '').localeCompare(String(b && b._id ? b._id : ''));
+}
+
 module.exports.danhSach = async (req, res) => {
     try {
         const filterOptions = await layBoLocNangCao();
+        const openclipIds = parseOpenclipIds(req.query.openclip_ids);
+        const openclipPreview = parseOpenclipPreview(req.query.openclip_preview);
+        const sortOption = parseSortOption(req.query.sort);
         // Search
         const doituongtimkiem = searchHelper(req.query, { keywordKey: 'keyword' });
         
@@ -172,8 +267,12 @@ module.exports.danhSach = async (req, res) => {
         };
         
         // Tìm kiếm theo từ khóa
-        if (doituongtimkiem.keyword) {
+        if (doituongtimkiem.keyword && openclipIds.length === 0) {
             boloc.tensanpham = doituongtimkiem.regex;
+        }
+
+        if (openclipIds.length > 0) {
+            boloc._id = { $in: openclipIds.map((id) => new mongoose.Types.ObjectId(id)) };
         }
         
         // Lọc theo loại sản phẩm
@@ -230,15 +329,11 @@ module.exports.danhSach = async (req, res) => {
         }
         
         // Sắp xếp (whitelist)
-        let sapxep = { ngaytao: -1 };
-        if (req.query.sort) {
-            const [khoa, huong] = String(req.query.sort).split('-');
-            const tapkhoasapxep = new Set(['gia', 'ngaytao', 'tensanpham']);
-            const tapchieusapxep = new Set(['asc', 'desc']);
-            if (tapkhoasapxep.has(khoa) && tapchieusapxep.has(huong)) {
-                sapxep = { [khoa]: huong === 'asc' ? 1 : -1 };
-            }
-        }
+        const sapxep = openclipIds.length > 0 && sortOption.isDefault
+            ? { _id: 1 }
+            : sortOption.key === 'tensanpham'
+                ? { tensanpham: sortOption.direction === 'asc' ? 1 : -1 }
+                : { ngaytao: sortOption.direction === 'asc' ? 1 : -1 };
         
         const danhsachsanpham = await sanpham.find(boloc).sort(sapxep).lean();
         const ids = (danhsachsanpham || []).map(p => p && p._id).filter(Boolean);
@@ -247,12 +342,30 @@ module.exports.danhSach = async (req, res) => {
             .map(chuanHoaSanPhamDanhSach)
             .map((item) => ganGiaFlashSaleChoSanPham(item, flashPercentMap));
         const { ratingMap, soldMap } = await buildProductStats(ids);
-        const capnhatspDayDu = applyProductStats(capnhatsp, ratingMap, soldMap);
+        let capnhatspDayDu = applyProductStats(capnhatsp, ratingMap, soldMap);
+
+        const openclipOrderMap = openclipIds.length > 0
+            ? new Map(openclipIds.map((id, index) => [String(id), index]))
+            : null;
+
+        if (openclipOrderMap || sortOption.key === 'gia' || sortOption.key === 'tensanpham' || sortOption.key === 'ngaytao') {
+            capnhatspDayDu = capnhatspDayDu.sort((a, b) => compareProductsBySort(a, b, sortOption, openclipOrderMap));
+        }
+
+        const openclipMode = openclipIds.length > 0;
+        const openclipStatus = String(req.query.openclip_status || '').trim();
+        const openclipMessage = openclipStatus === 'empty'
+            ? 'Không tìm thấy sản phẩm phù hợp từ ảnh.'
+            : openclipStatus === 'error'
+                ? 'Không thể tìm kiếm bằng ảnh lúc này. Vui lòng thử lại.'
+                : (openclipMode ? 'Kết quả tìm kiếm sản phẩm bằng ảnh (OpenCLIP).' : '');
 
         res.render("client/pages/products/index.pug", {
             titlePage: "Danh sách sản phẩm",
             products: capnhatspDayDu,
-            keyword: doituongtimkiem.keyword,
+            keyword: openclipMode ? '' : doituongtimkiem.keyword,
+            openclipIdsValue: openclipIds.join(','),
+            openclipPreview,
             currentSort: req.query.sort,
             currentLoai: req.query.loaisanpham,
             currentGioiTinh: req.query.gioitinh,
@@ -261,6 +374,8 @@ module.exports.danhSach = async (req, res) => {
             currentAgeGroup: req.query.ageGroup,
             priceMin: req.query.priceMin,
             priceMax: req.query.priceMax,
+            openclipMode,
+            openclipMessage,
             ...filterOptions
         });
     } catch (error) {
@@ -486,5 +601,62 @@ module.exports.tuyChon = async (req, res) => {
     } catch (error) {
         console.error('options error:', error);
         return res.status(500).json({ success: false, message: 'Lỗi server' });
+    }
+};
+
+module.exports.timBangAnh = async (req, res) => {
+    const uploadedPath = req.file && req.file.path ? String(req.file.path) : '';
+    try {
+        if (!uploadedPath) {
+            return res.redirect('/products?openclip_status=empty');
+        }
+
+        const rows = await sanpham.find({
+            daxoa: { $ne: true },
+            trangthai: 'dangban',
+            hinhanh: { $exists: true, $ne: '' }
+        })
+            .select('_id tensanpham hinhanh bienthe gia phantramgiamgia soluongton gioitinh loaisanpham')
+            .sort({ ngaycapnhat: -1, ngaytao: -1 })
+            .limit(600)
+            .lean();
+
+        const products = (rows || []).map((item) => {
+            const basePrice = Number(item.gia || 0);
+            const percent = Number(item.phantramgiamgia || 0);
+            return {
+                id: String(item._id || ''),
+                tensanpham: String(item.tensanpham || 'Sản phẩm'),
+                imageUrl: String(item.hinhanh || '/images/shopping.png'),
+                url: item._id ? `/products/${item._id}` : '',
+                gia: basePrice,
+                giaSauGiam: percent > 0 ? Math.round(basePrice * (1 - percent / 100)) : basePrice,
+                phantramgiamgia: percent,
+                soluongton: Number(item.soluongton || 0),
+                gioitinh: String(item.gioitinh || ''),
+                loaisanpham: String(item.loaisanpham || ''),
+                variantImages: Array.isArray(item.bienthe)
+                    ? item.bienthe
+                        .map(bt => String(bt && bt.hinhanh ? bt.hinhanh : ''))
+                        .filter(img => img && img !== '' && img !== '/images/shopping.png')
+                        .slice(0, 5)
+                    : []
+            };
+        });
+
+        const ranked = await rankProductsByImage({ imagePath: uploadedPath, products, topK: 60 });
+        const ids = Array.isArray(ranked.matches)
+            ? ranked.matches.map((item) => String(item && item.id ? item.id : '')).filter(Boolean)
+            : [];
+
+        if (ids.length === 0) {
+            return res.redirect('/products?openclip_status=empty');
+        }
+
+        const previewUrl = buildOpenclipPreviewUrl(uploadedPath);
+        return res.redirect(`/products?openclip_ids=${encodeURIComponent(ids.join(','))}&openclip_preview=${encodeURIComponent(previewUrl)}`);
+    } catch (error) {
+        console.error('Product image search error:', error);
+        return res.redirect('/products?openclip_status=error');
     }
 };

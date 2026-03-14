@@ -73,10 +73,57 @@ const orderSchema = new mongoose.Schema({
   // Trạng thái đơn hàng
   trangthai: {
     type: String,
-    enum: ['choxacnhan', 'daxacnhan', 'dangchuanbi', 'danggiao', 'dagiao', 'dahuy', 'hoanhang'],
+    enum: [
+      'choxacnhan',
+      'daxacnhan',
+      'dangchuanbi',
+      'danggiao',
+      'dagiao',
+      // Tên trạng thái tiếng Việt (ưu tiên dùng cho model)
+      'yeucau_hoanhang',
+      'daduyet_hoanhang',
+      'tuchoi_hoanhang',
+      'danggui_hanghoan',
+      'danhan_hanghoan',
+      'dahoantien',
+   
+      'requested_return',
+      'approved_return',
+      'rejected_return',
+      'return_shipping',
+      'returned',
+      'refunded',
+      'dahuy',
+      'hoanhang'
+    ],
     default: 'choxacnhan'
   },
   lydohuy: String,                  // Lý do hủy đơn
+  ngaygiaohang: Date,
+
+  // Luồng hoàn hàng / hoàn tiền
+  yeucauhoanhang: {
+    requestedAt: Date,
+    reason: {
+      type: String,
+      enum: ['sai_size', 'loi_san_pham', 'khong_giong_mo_ta', 'khac']
+    },
+    reasonLabel: String,
+    detail: String,
+    proofMedias: [String],
+    proofMedia: String,
+    proofImage: String,
+    refundMethod: {
+      type: String,
+      enum: ['momo', 'bank', 'wallet']
+    },
+    adminNote: String,
+    reviewedAt: Date,
+    approvedAt: Date,
+    rejectedAt: Date,
+    returnedAt: Date,
+    refundedAt: Date
+  },
 
   daxoa: {
     type: Boolean,

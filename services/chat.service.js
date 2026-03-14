@@ -148,7 +148,15 @@ async function getAdminUnreadTotal() {
   });
 }
 
-async function getAdminConversationSummaries() {
+function normalizeSearchText(input) {
+  return String(input || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+async function getAdminConversationSummaries({ query = '' } = {}) {
   const rows = await ChatMessage.aggregate([
     { $match: { daxoa: { $ne: true } } },
     { $sort: { sentAt: -1, _id: -1 } },
@@ -196,18 +204,61 @@ async function getAdminConversationSummaries() {
     { $sort: { lastAt: -1 } }
   ]);
 
-  return rows.map((item) => {
+  const summaryByClientId = new Map(rows.map((item) => [String(item.clientId || item._id || ''), item]));
+  const allUsers = await Nguoidung.find({ daxoa: { $ne: true } })
+    .select('_id hoten email sodienthoai avatar')
+    .lean();
+
+  const merged = [];
+
+  for (const user of (allUsers || [])) {
+    const clientId = String(user._id);
+    const item = summaryByClientId.get(clientId) || {};
     const summaryMessage = item.lastMessage || '';
     const mediaFallback = item.lastMediaType === 'video' ? '[Video]' : item.lastMediaType === 'image' ? '[Hình ảnh]' : '';
-    return {
-      clientId: String(item.clientId),
+    merged.push({
+      clientId,
+      userName: user.hoten || 'Khách hàng',
+      userEmail: user.email || '',
+      userPhone: user.sodienthoai || '',
+      avatar: user.avatar || '/images/avatar/avatar.png',
+      lastMessage: summaryMessage || mediaFallback,
+      lastAt: item.lastAt || null,
+      unreadCount: Number(item.unreadCount || 0)
+    });
+  }
+
+  // Keep orphan conversations (if user document was deleted) so admin can still review history.
+  for (const item of (rows || [])) {
+    const clientId = String(item.clientId || item._id || '');
+    if (!clientId || merged.some((x) => x.clientId === clientId)) continue;
+    const summaryMessage = item.lastMessage || '';
+    const mediaFallback = item.lastMediaType === 'video' ? '[Video]' : item.lastMediaType === 'image' ? '[Hình ảnh]' : '';
+    merged.push({
+      clientId,
       userName: item.user && item.user.hoten ? item.user.hoten : 'Khách hàng',
       userEmail: item.user && item.user.email ? item.user.email : '',
+      userPhone: item.user && item.user.sodienthoai ? item.user.sodienthoai : '',
       avatar: item.user && item.user.avatar ? item.user.avatar : '/images/avatar/avatar.png',
       lastMessage: summaryMessage || mediaFallback,
       lastAt: item.lastAt || null,
       unreadCount: Number(item.unreadCount || 0)
-    };
+    });
+  }
+
+  const q = normalizeSearchText(query);
+  const filtered = !q
+    ? merged
+    : merged.filter((item) => {
+      const hay = normalizeSearchText(`${item.userName} ${item.userEmail} ${item.userPhone} ${item.lastMessage}`);
+      return hay.includes(q);
+    });
+
+  return filtered.sort((a, b) => {
+    const ta = a.lastAt ? new Date(a.lastAt).getTime() : 0;
+    const tb = b.lastAt ? new Date(b.lastAt).getTime() : 0;
+    if (tb !== ta) return tb - ta;
+    return String(a.userName || '').localeCompare(String(b.userName || ''), 'vi');
   });
 }
 

@@ -187,6 +187,18 @@
   background: #fff;
 }
 
+.ai-query-image {
+  display: block;
+  max-width: 180px;
+  max-height: 180px;
+  width: 100%;
+  object-fit: contain;
+  border-radius: 12px;
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
 .ai-chat-row.user .ai-chat-bubble {
   background: linear-gradient(135deg, var(--ai-primary) 0%, var(--ai-primary-dark) 100%);
   color: #fff;

@@ -1,4 +1,7 @@
+const fs = require('fs');
+const { Sanpham } = require('../../../models');
 const { buildDataContext, askAI } = require('../../../services/aiChat.service');
+const { rankProductsByQuery, rankProductsByImage } = require('../../../services/openClip.service');
 
 function normalizeMessage(input) {
   return String(input || '').trim();
@@ -140,6 +143,18 @@ function getOrderStatusLabel(status) {
     dangchuanbi: 'Đang chuẩn bị',
     danggiao: 'Đang giao',
     dagiao: 'Đã giao',
+    requested_return: 'Yêu cầu hoàn hàng',
+    approved_return: 'Đã duyệt hoàn hàng',
+    rejected_return: 'Từ chối hoàn hàng',
+    return_shipping: 'Đang gửi hàng hoàn',
+    returned: 'Đã nhận hàng hoàn',
+    refunded: 'Đã hoàn tiền',
+    yeucau_hoanhang: 'Yêu cầu hoàn hàng',
+    daduyet_hoanhang: 'Đã duyệt hoàn hàng',
+    tuchoi_hoanhang: 'Từ chối hoàn hàng',
+    danggui_hanghoan: 'Đang gửi hàng hoàn',
+    danhan_hanghoan: 'Đã nhận hàng hoàn',
+    dahoantien: 'Đã hoàn tiền',
     dahuy: 'Đã hủy',
     hoanhang: 'Hoàn hàng'
   };
@@ -201,7 +216,8 @@ module.exports.sendMessage = async (req, res) => {
 
     const context = await buildDataContext({
       question,
-      userId: req.user && req.user._id ? req.user._id : null
+      userId: req.user && req.user._id ? req.user._id : null,
+      useOpenClip: provider === 'openclip'
     });
 
     const exactOrder = buildExactOrderAnswer(question, context && context.myOrders);
@@ -241,7 +257,7 @@ module.exports.sendMessage = async (req, res) => {
         answer: ai.content,
         model: ai.model,
         provider: ai.provider || provider,
-        suggestedProducts: shouldSuggestProducts(question) ? toSuggestedProducts(context, ai.content) : [],
+        suggestedProducts: (provider === 'openclip' || shouldSuggestProducts(question)) ? toSuggestedProducts(context, ai.content) : [],
         contextMeta: {
           products: Array.isArray(context.products) ? context.products.length : 0,
           hasFlashSale: Boolean(context.flashSale),
@@ -249,6 +265,8 @@ module.exports.sendMessage = async (req, res) => {
           sizeGuides: Array.isArray(context.sizeGuides) ? context.sizeGuides.length : 0,
           topSelling: Array.isArray(context.topSelling) ? context.topSelling.length : 0,
           topRated: Array.isArray(context.topRated) ? context.topRated.length : 0,
+          openClipUsed: Boolean(context.openClip && context.openClip.used),
+          openClipModel: context.openClip && context.openClip.model ? context.openClip.model : '',
           reviewsRecent: context.reviews && Array.isArray(context.reviews.recent) ? context.reviews.recent.length : 0,
           reviewsMine: context.reviews && Array.isArray(context.reviews.mine) ? context.reviews.mine.length : 0,
           settings: Array.isArray(context.settings) ? context.settings.length : 0,
@@ -318,5 +336,130 @@ module.exports.sendMessage = async (req, res) => {
 
     console.error('AI chat error:', error);
     return res.status(500).json({ success: false, message: 'Không thể xử lý câu hỏi lúc này' });
+  }
+};
+
+module.exports.searchOpenClip = async (req, res) => {
+  try {
+    const query = normalizeMessage(req.body && req.body.query);
+    if (!query) {
+      return res.status(400).json({ success: false, message: 'Vui lòng nhập mô tả sản phẩm' });
+    }
+
+    if (query.length > 500) {
+      return res.status(400).json({ success: false, message: 'Mô tả quá dài (tối đa 500 ký tự)' });
+    }
+
+    const rows = await Sanpham.find({
+      daxoa: { $ne: true },
+      trangthai: { $in: ['active', 'dangban'] },
+      hinhanh: { $exists: true, $ne: '' }
+    })
+      .select('_id tensanpham hinhanh gia phantramgiamgia soluongton gioitinh loaisanpham')
+      .sort({ ngaycapnhat: -1, ngaytao: -1 })
+      .limit(500)
+      .lean();
+
+    const products = (rows || []).map((item) => {
+      const basePrice = Number(item.gia || 0);
+      const percent = Number(item.phantramgiamgia || 0);
+      return {
+        id: String(item._id || ''),
+        tensanpham: String(item.tensanpham || 'Sản phẩm'),
+        imageUrl: String(item.hinhanh || '/images/shopping.png'),
+        url: item._id ? `/products/${item._id}` : '',
+        gia: basePrice,
+        giaSauGiam: percent > 0 ? Math.round(basePrice * (1 - percent / 100)) : basePrice,
+        phantramgiamgia: percent,
+        soluongton: Number(item.soluongton || 0),
+        gioitinh: String(item.gioitinh || ''),
+        loaisanpham: String(item.loaisanpham || ''),
+        openClipScore: 0
+      };
+    });
+
+    const ranked = await rankProductsByQuery({ query, products, topK: 12 });
+
+    return res.json({
+      success: true,
+      data: {
+        query,
+        products: Array.isArray(ranked.matches) ? ranked.matches : [],
+        openClipMeta: {
+          used: Boolean(ranked.used),
+          model: ranked.meta && ranked.meta.model ? ranked.meta.model : '',
+          pretrained: ranked.meta && ranked.meta.pretrained ? ranked.meta.pretrained : '',
+          device: ranked.meta && ranked.meta.device ? ranked.meta.device : '',
+          candidates: Number(ranked.meta && ranked.meta.candidates ? ranked.meta.candidates : 0)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('OpenCLIP search error:', error);
+    return res.status(500).json({ success: false, message: 'Không thể tìm kiếm OpenCLIP lúc này' });
+  }
+};
+
+module.exports.searchOpenClipByImage = async (req, res) => {
+  const uploadedPath = req.file && req.file.path ? String(req.file.path) : '';
+  try {
+    if (!uploadedPath) {
+      return res.status(400).json({ success: false, message: 'Vui lòng chọn ảnh để tìm kiếm' });
+    }
+
+    const rows = await Sanpham.find({
+      daxoa: { $ne: true },
+      trangthai: { $in: ['active', 'dangban'] },
+      hinhanh: { $exists: true, $ne: '' }
+    })
+      .select('_id tensanpham hinhanh gia phantramgiamgia soluongton gioitinh loaisanpham')
+      .sort({ ngaycapnhat: -1, ngaytao: -1 })
+      .limit(500)
+      .lean();
+
+    const products = (rows || []).map((item) => {
+      const basePrice = Number(item.gia || 0);
+      const percent = Number(item.phantramgiamgia || 0);
+      return {
+        id: String(item._id || ''),
+        tensanpham: String(item.tensanpham || 'Sản phẩm'),
+        imageUrl: String(item.hinhanh || '/images/shopping.png'),
+        url: item._id ? `/products/${item._id}` : '',
+        gia: basePrice,
+        giaSauGiam: percent > 0 ? Math.round(basePrice * (1 - percent / 100)) : basePrice,
+        phantramgiamgia: percent,
+        soluongton: Number(item.soluongton || 0),
+        gioitinh: String(item.gioitinh || ''),
+        loaisanpham: String(item.loaisanpham || '')
+      };
+    });
+
+    const ranked = await rankProductsByImage({
+      imagePath: uploadedPath,
+      products,
+      topK: 12
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        products: Array.isArray(ranked.matches) ? ranked.matches : [],
+        openClipMeta: {
+          used: Boolean(ranked.used),
+          model: ranked.meta && ranked.meta.model ? ranked.meta.model : '',
+          pretrained: ranked.meta && ranked.meta.pretrained ? ranked.meta.pretrained : '',
+          device: ranked.meta && ranked.meta.device ? ranked.meta.device : '',
+          mode: ranked.meta && ranked.meta.mode ? ranked.meta.mode : 'image',
+          candidates: Number(ranked.meta && ranked.meta.candidates ? ranked.meta.candidates : 0)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('OpenCLIP image search error:', error);
+    return res.status(500).json({ success: false, message: 'Không thể tìm kiếm theo ảnh lúc này' });
+  } finally {
+    if (uploadedPath && fs.existsSync(uploadedPath)) {
+      fs.unlink(uploadedPath, () => {});
+    }
   }
 };

@@ -1,0 +1,48 @@
+extends ../../layouts/default.pug
+
+block styles
+  link(rel='stylesheet' href='/css/openclip.css')
+
+block main
+  .container.py-4
+    .openclip-hero.p-4.p-md-5.mb-4
+      h1.openclip-title.mb-2 OpenCLIP Product Search
+      p.openclip-subtitle.mb-0
+        | Tim san pham bang mo ta tu nhien nhu: "dam du tiec mau den", "ao khoac ni am cho mua dong".
+        |  He thong se so khop mo ta voi hinh anh san pham bang OpenCLIP.
+
+    .openclip-search-card.p-3.p-md-4
+      form#openclipSearchForm.d-flex.flex-column.flex-md-row.gap-2.mb-3
+        input#openclipQuery.form-control.form-control-lg(type='text' placeholder='Nhap mo ta san pham can tim...' value=queryDefault)
+        button.btn.btn-warning.btn-lg(type='submit') Tim bang OpenCLIP
+
+      form#openclipImageForm.mb-3
+        .d-flex.flex-column.flex-md-row.gap-2
+          input#openclipImage.form-control.form-control-lg(type='file' accept='image/*')
+          button.btn.btn-outline-dark.btn-lg(type='submit') Tim theo anh
+        #openclipImagePreviewWrap.mt-2.d-none
+          img#openclipImagePreview.openclip-query-preview(src='' alt='preview')
+
+      .d-flex.flex-wrap.justify-content-between.gap-2.mb-3
+        .small.text-muted#openclipStatus San sang tim kiem.
+        .small.text-muted#openclipModel Model: ViT-B-32
+
+      #openclipResultList.openclip-result-grid
+        if initialProducts && initialProducts.length
+          each item in initialProducts
+            a.openclip-item(href=(item.url || '/products') target='_blank' rel='noopener noreferrer')
+              img.openclip-item-image(src=(item.imageUrl || '/images/shopping.png') alt=(item.tensanpham || 'San pham') onerror="this.onerror=null;this.src='/images/shopping.png';")
+              .openclip-item-body
+                .openclip-item-name #{item.tensanpham || 'San pham'}
+                .openclip-item-price #{(Number(item.giaSauGiam || item.gia || 0) > 0 ? Number(item.giaSauGiam || item.gia || 0).toLocaleString('vi-VN') + 'đ' : 'Lien he')}
+                .openclip-item-score OpenCLIP score: #{Number(item.openClipScore || 0).toFixed(4)}
+        else
+          .openclip-empty Nhap mo ta va bam "Tim bang OpenCLIP" de hien thi ket qua.
+
+block scripts
+  script.
+    window.OpenClipInitialData = {
+      products: !{JSON.stringify(initialProducts || [])},
+      meta: !{JSON.stringify(initialMeta || null)}
+    };
+  script(src='/js/openclip-search.js')

@@ -8,6 +8,8 @@ const { thoatBieuThuc } = require('../../helpers/validators');
 const { layTrangThaiChoPhep } = require('../../helpers/orderStatus');
 const { laLoaiKhongSize, tinhTongTon } = require('../../services/productStock.service');
 const { danhDauThatBaiTatCaPendingTheoDonHang } = require('../../services/payment.service');
+const { capNhatGiaoDichThanhToan } = require('../../services/payment.service');
+const { taoHoanTienMoMo } = require('../../services/momo.service');
 const { sendOrderConfirmedEmail, sendOrderDeliveredEmail } = require('../../services/orderEmail.service');
 const { createExportReceiptFromOrder } = require('../../services/exportReceipt.service');
 
@@ -19,7 +21,13 @@ const CHUYEN_TRANG_THAI = {
   daxacnhan: ['dangchuanbi', 'dahuy'],
   dangchuanbi: ['danggiao'],
   danggiao: ['dagiao'],
-  dagiao: [],
+  dagiao: ['requested_return'],
+  requested_return: ['approved_return', 'rejected_return'],
+  approved_return: ['return_shipping', 'returned'],
+  rejected_return: [],
+  return_shipping: ['returned'],
+  returned: ['refunded'],
+  refunded: [],
   dahuy: [],
   hoanhang: []
 };
@@ -31,6 +39,12 @@ const ADMIN_STATUS_LABELS = {
   dangchuanbi: 'Đang đóng gói',
   danggiao: 'Đang giao hàng',
   dagiao: 'Hoàn thành',
+  requested_return: 'Yêu cầu hoàn hàng',
+  approved_return: 'Đã duyệt hoàn hàng',
+  rejected_return: 'Từ chối hoàn hàng',
+  return_shipping: 'Đang gửi hàng hoàn',
+  returned: 'Đã nhận hàng hoàn',
+  refunded: 'Đã hoàn tiền',
   dahuy: 'Đã hủy',
   hoanhang: 'Hoàn trả'
 };
@@ -112,6 +126,18 @@ function buildBadgeClass(status) {
       return 'bg-warning';
     case 'dagiao':
       return 'bg-success';
+    case 'requested_return':
+      return 'bg-warning text-dark';
+    case 'approved_return':
+      return 'bg-info text-dark';
+    case 'rejected_return':
+      return 'bg-danger';
+    case 'return_shipping':
+      return 'bg-primary';
+    case 'returned':
+      return 'bg-secondary';
+    case 'refunded':
+      return 'bg-dark';
     case 'dahuy':
       return 'bg-danger';
     case 'hoanhang':
@@ -470,7 +496,13 @@ module.exports.capNhatTrangThai = async (req, res) => {
 
     const updateResult = await Donhang.updateOne(
       { _id: id, trangthai: order.trangthai, daxoa: { $ne: true } },
-      { $set: { trangthai: nextStatus, ngaycapnhat: new Date() } }
+      {
+        $set: {
+          trangthai: nextStatus,
+          ngaycapnhat: new Date(),
+          ...(nextStatus === 'dagiao' ? { ngaygiaohang: new Date() } : {})
+        }
+      }
     );
 
     if (!updateResult || Number(updateResult.modifiedCount || 0) === 0) {
@@ -520,6 +552,171 @@ module.exports.capNhatTrangThai = async (req, res) => {
       layDuongDanDanhSachHopLe(req.body.returnTo) ||
       layDuongDanDanhSachHopLe(req.get('referer'));
     if (returnToListPath) return res.redirect(returnToListPath);
+    return res.redirect(`/admin/orders/${req.params.id}`);
+  }
+};
+
+module.exports.duyetHoanHang = async (req, res) => {
+  try {
+    const id = req.params.id;
+    const note = String(req.body.note || '').trim();
+    const order = await Donhang.findOne({ _id: id, daxoa: { $ne: true } });
+    if (!order) {
+      req.flash('error', 'Không tìm thấy đơn hàng');
+      return res.redirect('/admin/orders');
+    }
+    if (String(order.trangthai) !== 'requested_return') {
+      req.flash('error', 'Đơn không ở trạng thái chờ duyệt hoàn hàng');
+      return res.redirect(`/admin/orders/${id}`);
+    }
+
+    order.trangthai = 'approved_return';
+    order.ngaycapnhat = new Date();
+    order.yeucauhoanhang = {
+      ...(order.yeucauhoanhang || {}),
+      reviewedAt: new Date(),
+      approvedAt: new Date(),
+      adminNote: note || (order.yeucauhoanhang && order.yeucauhoanhang.adminNote) || ''
+    };
+    await order.save();
+
+    req.flash('success', 'Đã duyệt yêu cầu hoàn hàng.');
+    return res.redirect(`/admin/orders/${id}`);
+  } catch (err) {
+    console.error('approve return error:', err);
+    req.flash('error', 'Không thể duyệt yêu cầu hoàn hàng.');
+    return res.redirect(`/admin/orders/${req.params.id}`);
+  }
+};
+
+module.exports.tuChoiHoanHang = async (req, res) => {
+  try {
+    const id = req.params.id;
+    const note = String(req.body.note || '').trim();
+    const order = await Donhang.findOne({ _id: id, daxoa: { $ne: true } });
+    if (!order) {
+      req.flash('error', 'Không tìm thấy đơn hàng');
+      return res.redirect('/admin/orders');
+    }
+    if (String(order.trangthai) !== 'requested_return') {
+      req.flash('error', 'Đơn không ở trạng thái chờ duyệt hoàn hàng');
+      return res.redirect(`/admin/orders/${id}`);
+    }
+
+    order.trangthai = 'rejected_return';
+    order.ngaycapnhat = new Date();
+    order.yeucauhoanhang = {
+      ...(order.yeucauhoanhang || {}),
+      reviewedAt: new Date(),
+      rejectedAt: new Date(),
+      adminNote: note || 'Yêu cầu hoàn hàng chưa đủ điều kiện'
+    };
+    await order.save();
+
+    req.flash('success', 'Đã từ chối yêu cầu hoàn hàng.');
+    return res.redirect(`/admin/orders/${id}`);
+  } catch (err) {
+    console.error('reject return error:', err);
+    req.flash('error', 'Không thể từ chối yêu cầu hoàn hàng.');
+    return res.redirect(`/admin/orders/${req.params.id}`);
+  }
+};
+
+module.exports.xacNhanDaNhanHangHoan = async (req, res) => {
+  try {
+    const id = req.params.id;
+    const order = await Donhang.findOne({ _id: id, daxoa: { $ne: true } });
+    if (!order) {
+      req.flash('error', 'Không tìm thấy đơn hàng');
+      return res.redirect('/admin/orders');
+    }
+
+    if (!['approved_return', 'return_shipping'].includes(String(order.trangthai))) {
+      req.flash('error', 'Đơn chưa ở trạng thái nhận hàng hoàn.');
+      return res.redirect(`/admin/orders/${id}`);
+    }
+
+    order.trangthai = 'returned';
+    order.ngaycapnhat = new Date();
+    order.yeucauhoanhang = {
+      ...(order.yeucauhoanhang || {}),
+      returnedAt: new Date()
+    };
+    await order.save();
+
+    req.flash('success', 'Đã xác nhận nhận hàng hoàn.');
+    return res.redirect(`/admin/orders/${id}`);
+  } catch (err) {
+    console.error('confirm returned error:', err);
+    req.flash('error', 'Không thể xác nhận nhận hàng hoàn.');
+    return res.redirect(`/admin/orders/${req.params.id}`);
+  }
+};
+
+module.exports.hoanTienDon = async (req, res) => {
+  try {
+    const id = req.params.id;
+    const order = await Donhang.findOne({ _id: id, daxoa: { $ne: true } });
+    if (!order) {
+      req.flash('error', 'Không tìm thấy đơn hàng');
+      return res.redirect('/admin/orders');
+    }
+    if (String(order.trangthai) !== 'returned') {
+      req.flash('error', 'Đơn hàng chưa ở trạng thái đã nhận hàng hoàn.');
+      return res.redirect(`/admin/orders/${id}`);
+    }
+
+    const refundMethod = String((order.yeucauhoanhang && order.yeucauhoanhang.refundMethod) || order.phuongthucthanhtoan || 'bank');
+    const soTienHoan = Number(order.tongtien || order.tamtinh || 0);
+
+    if (refundMethod === 'momo' || String(order.phuongthucthanhtoan || '') === 'momo') {
+      if (!order.momoTransId) {
+        req.flash('error', 'Không tìm thấy mã giao dịch MoMo để hoàn tiền.');
+        return res.redirect(`/admin/orders/${id}`);
+      }
+
+      if (!order.momoRefunded) {
+        const ketqua = await taoHoanTienMoMo({
+          orderId: String(order._id),
+          requestId: `${String(order._id)}-refund-admin-${Date.now()}`,
+          amount: String(Math.max(0, Math.round(soTienHoan))),
+          transId: String(order.momoTransId),
+          description: `Hoàn tiền đơn hàng ${order.madonhang || String(order._id)}`
+        });
+
+        if (!(ketqua && (ketqua.resultCode === 0 || ketqua.message === 'Success'))) {
+          req.flash('error', ketqua?.message || 'Yêu cầu hoàn tiền MoMo thất bại.');
+          return res.redirect(`/admin/orders/${id}`);
+        }
+
+        order.momoRefunded = true;
+        order.momoRefundAt = new Date();
+      }
+    }
+
+    await capNhatGiaoDichThanhToan({
+      donhangId: order._id,
+      nguoidungId: order.nguoidung_id,
+      phuongthuc: refundMethod === 'wallet' ? 'banking' : refundMethod,
+      sotien: soTienHoan,
+      trangthai: 'refunded',
+      ghichu: 'Hoàn tiền đơn hàng sau khi nhận hàng hoàn',
+      response: { manualRefundByAdmin: true, refundedAt: new Date().toISOString() }
+    });
+
+    order.trangthai = 'refunded';
+    order.ngaycapnhat = new Date();
+    order.yeucauhoanhang = {
+      ...(order.yeucauhoanhang || {}),
+      refundedAt: new Date()
+    };
+    await order.save();
+
+    req.flash('success', 'Đã hoàn tiền thành công.');
+    return res.redirect(`/admin/orders/${id}`);
+  } catch (err) {
+    console.error('refund order error:', err);
+    req.flash('error', 'Không thể hoàn tiền đơn hàng.');
     return res.redirect(`/admin/orders/${req.params.id}`);
   }
 };

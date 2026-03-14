@@ -13,8 +13,22 @@ header.header
                 form.search-form(method="GET" action="/products")
                     .input-group
                         input.form-control(type="text" name="keyword" placeholder="Tìm kiếm sản phẩm..." value=keyword || '')
+                        button.btn-image-search#headerImageSearchBtn(type="button" title="Tìm bằng ảnh" aria-label="Tìm bằng ảnh")
+                            i.bi.bi-camera
                         button.btn-search(type="submit")
                             i.bi.bi-search
+                form#headerImageSearchForm.search-image-form(method="POST" action=`/products/image-search?_csrf=${encodeURIComponent(csrfToken || '')}` enctype="multipart/form-data")
+                    input(type="hidden" name="_csrf" value=csrfToken)
+                    input#headerImageSearchInput(type="file" name="image" accept="image/*" hidden)
+                #openclipLoadingOverlay.openclip-loading-overlay(hidden)
+                    .openclip-loading-overlay__backdrop
+                    .openclip-loading-overlay__dialog(role="status" aria-live="polite")
+                        .openclip-loading-overlay__spinner
+                        strong.openclip-loading-overlay__title Đang phân tích ảnh
+                        p.openclip-loading-overlay__text Hệ thống đang so khớp ảnh với sản phẩm phù hợp nhất.
+                        .openclip-loading-overlay__preview-wrap
+                            img#openclipLoadingPreview.openclip-loading-overlay__preview(src="/images/shopping.png" alt="Ảnh đang tìm kiếm")
+                        span.openclip-loading-overlay__hint Vui lòng chờ trong giây lát...
 
             //- Menu toggle (mobile)
             button.menu-toggle#menuToggle(type="button")
@@ -58,6 +72,10 @@ header.header
                                 a.dropdown-item(href="/vouchers")
                                     i.bi.bi-ticket-perforated
                                     span Nhận voucher
+                            li
+                                a.dropdown-item(href="/ai/openclip")
+                                    i.bi.bi-stars
+                                    span OpenCLIP Search
 
                     
                         
@@ -161,4 +179,35 @@ script.
                 document.querySelectorAll('.header-nav li.dropdown.show').forEach(li => li.classList.remove('show'));
             }
         });
+
+        const imageBtn = document.getElementById('headerImageSearchBtn');
+        const imageInput = document.getElementById('headerImageSearchInput');
+        const imageForm = document.getElementById('headerImageSearchForm');
+        const loadingOverlay = document.getElementById('openclipLoadingOverlay');
+        const loadingPreview = document.getElementById('openclipLoadingPreview');
+        const showLoadingOverlay = function(file) {
+            if (!loadingOverlay) return;
+            loadingOverlay.hidden = false;
+            document.body.classList.add('openclip-loading');
+            if (loadingPreview && file) {
+                const objectUrl = URL.createObjectURL(file);
+                loadingPreview.src = objectUrl;
+                loadingPreview.onload = function() {
+                    URL.revokeObjectURL(objectUrl);
+                };
+            }
+        };
+
+        if (imageBtn && imageInput && imageForm) {
+            imageBtn.addEventListener('click', function() {
+                imageInput.click();
+            });
+
+            imageInput.addEventListener('change', function() {
+                if (imageInput.files && imageInput.files[0]) {
+                    showLoadingOverlay(imageInput.files[0]);
+                    imageForm.submit();
+                }
+            });
+        }
     });

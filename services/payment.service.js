@@ -117,6 +117,14 @@ async function capNhatGiaoDichThanhToan({
   if (typeof response !== 'undefined') $setOnInsert.response = response;
   if (typeof ghichu !== 'undefined') $setOnInsert.ghichu = ghichu;
 
+  // Mongo does not allow the same path to exist in both $set and $setOnInsert.
+  // Keep runtime updates in $set, and insert-only defaults in $setOnInsert.
+  Object.keys($set).forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call($setOnInsert, key)) {
+      delete $setOnInsert[key];
+    }
+  });
+
   return Thanhtoan.findOneAndUpdate(
     query,
     { $set, $setOnInsert },

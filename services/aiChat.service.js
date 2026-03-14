@@ -21,6 +21,7 @@ const {
   Setting
 } = require('../models');
 const ImportReceipt = require('../models/import_receipt_model');
+const { rankProductsByQuery } = require('./openClip.service');
 
 const OLLAMA_URL = process.env.OLLAMA_API_URL || 'http://127.0.0.1:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'gemma3:4b';
@@ -95,7 +96,7 @@ function normalizeImageUrl(value) {
 
 function normalizeInternalPath(pathValue) {
   const path = String(pathValue || '').trim();
-  if (!path) return '/products';
+  if (!path) return '';
 
   const norm = path
     .toLowerCase()
@@ -110,7 +111,7 @@ function normalizeInternalPath(pathValue) {
 
   const idMatch = path.match(/([a-f0-9]{24})/i);
   if (idMatch) return `/products/${idMatch[1]}`;
-  return '/products';
+  return '';
 }
 
 function humanizeReply(text) {
@@ -435,7 +436,7 @@ async function getTopSellingProducts() {
       id: item.sanpham_id ? String(item.sanpham_id) : '',
       tensanpham: item.tensanpham || 'Sản phẩm',
       imageUrl: normalizeImageUrl(item.hinhanh),
-      url: item.sanpham_id ? `/products/${item.sanpham_id}` : '/products',
+      url: item.sanpham_id ? `/products/${item.sanpham_id}` : '',
       totalSold: Number(item.totalSold || 0),
       gia,
       giaSauGiam,
@@ -644,7 +645,7 @@ async function getProductContext(question) {
       id: String(item._id || ''),
       tensanpham: item.tensanpham || 'San pham',
       imageUrl: normalizeImageUrl(item.hinhanh),
-      url: item._id ? `/products/${item._id}` : '/products',
+      url: item._id ? `/products/${item._id}` : '',
       gia: basePrice,
       phantramgiamgia: percent,
       giaSauGiam: finalPrice,
@@ -654,6 +655,37 @@ async function getProductContext(question) {
       sizeCoSan: Array.from(sizeSet).slice(0, 12)
     };
   });
+}
+
+function buildOpenClipReply(question, products, openClipMeta) {
+  const q = normalizeText(question);
+  const list = Array.isArray(products) ? products.slice(0, 4) : [];
+  if (list.length === 0) {
+    return {
+      content: 'Mình chưa tìm thấy sản phẩm phù hợp theo mô tả này. Bạn thử mô tả rõ hơn về kiểu dáng, màu sắc hoặc chất liệu nhé.',
+      model: (openClipMeta && openClipMeta.model) || 'ViT-B-32',
+      provider: 'openclip'
+    };
+  }
+
+  const lines = [
+    q ? `Mình đã tìm bằng OpenCLIP theo mô tả: "${q}".` : 'Mình đã tìm bằng OpenCLIP theo mô tả của bạn.',
+    'Gợi ý phù hợp nhất:'
+  ];
+
+  list.forEach((item, index) => {
+    const finalPrice = Number(item.giaSauGiam || item.gia || 0);
+    const priceText = finalPrice > 0 ? `${finalPrice.toLocaleString('vi-VN')}đ` : 'Liên hệ';
+    lines.push(`${index + 1}. ${item.tensanpham || 'Sản phẩm'} - ${priceText}`);
+  });
+
+  lines.push('Bạn muốn mình lọc thêm theo tầm giá, giới tính hoặc loại sản phẩm không?');
+
+  return {
+    content: lines.join('\n'),
+    model: (openClipMeta && openClipMeta.model) || 'ViT-B-32',
+    provider: 'openclip'
+  };
 }
 
 function formatVoucherValue(voucher) {
@@ -815,7 +847,7 @@ async function getMyOrderSummary(userId, question) {
   };
 }
 
-async function buildDataContext({ question, userId }) {
+async function buildDataContext({ question, userId, useOpenClip = false }) {
   const [
     stats,
     opsStats,
@@ -844,7 +876,7 @@ async function buildDataContext({ question, userId }) {
     getReviewContext(question, userId)
   ]);
 
-  return {
+  const context = {
     generatedAt: new Date().toISOString(),
     stats,
     opsStats,
@@ -859,6 +891,87 @@ async function buildDataContext({ question, userId }) {
     settings,
     reviews
   };
+
+  if (useOpenClip) {
+    try {
+      const baseCandidates = await Sanpham.find({
+        daxoa: { $ne: true },
+        trangthai: { $in: ['active', 'dangban'] }
+      })
+        .select('_id tensanpham hinhanh gia phantramgiamgia soluongton gioitinh loaisanpham sizes bienthe ngaycapnhat ngaytao')
+        .sort({ ngaycapnhat: -1, ngaytao: -1 })
+        .limit(48)
+        .lean();
+
+      const mappedCandidates = (baseCandidates || []).map((item) => {
+        const basePrice = Number(item.gia || 0);
+        const percent = Number(item.phantramgiamgia || 0);
+        const finalPrice = percent > 0 ? Math.round(basePrice * (1 - percent / 100)) : basePrice;
+
+        const sizeSet = new Set();
+        if (Array.isArray(item.sizes)) {
+          item.sizes.forEach((s) => {
+            if (s && s.size && Number(s.soluong || 0) > 0) sizeSet.add(String(s.size));
+          });
+        }
+        if (Array.isArray(item.bienthe)) {
+          item.bienthe.forEach((variant) => {
+            if (!variant || !Array.isArray(variant.sizes)) return;
+            variant.sizes.forEach((s) => {
+              if (s && s.size && Number(s.soluong || 0) > 0) sizeSet.add(String(s.size));
+            });
+          });
+        }
+
+        return {
+          id: String(item._id || ''),
+          tensanpham: item.tensanpham || 'San pham',
+          imageUrl: normalizeImageUrl(item.hinhanh),
+          url: item._id ? `/products/${item._id}` : '',
+          gia: basePrice,
+          phantramgiamgia: percent,
+          giaSauGiam: finalPrice,
+          soluongton: Number(item.soluongton || 0),
+          gioitinh: item.gioitinh || '',
+          loaisanpham: item.loaisanpham || '',
+          sizeCoSan: Array.from(sizeSet).slice(0, 12)
+        };
+      });
+
+      const ranked = await rankProductsByQuery({
+        query: question,
+        products: mappedCandidates,
+        topK: 6
+      });
+
+      if (ranked && ranked.used && Array.isArray(ranked.matches) && ranked.matches.length > 0) {
+        context.products = ranked.matches;
+        context.openClip = {
+          enabled: true,
+          used: true,
+          model: ranked.meta && ranked.meta.model ? ranked.meta.model : '',
+          pretrained: ranked.meta && ranked.meta.pretrained ? ranked.meta.pretrained : '',
+          device: ranked.meta && ranked.meta.device ? ranked.meta.device : '',
+          candidates: Number(ranked.meta && ranked.meta.candidates ? ranked.meta.candidates : 0)
+        };
+      } else {
+        context.openClip = {
+          enabled: true,
+          used: false,
+          reason: ranked && ranked.reason ? ranked.reason : 'NO_MATCH'
+        };
+      }
+    } catch (error) {
+      context.openClip = {
+        enabled: true,
+        used: false,
+        reason: 'ERROR',
+        error: String(error && error.message ? error.message : 'OPENCLIP_FAILED')
+      };
+    }
+  }
+
+  return context;
 }
 
 async function askOllama({ question, history, context, systemPrompt }) {
@@ -1122,6 +1235,9 @@ async function askOpenRouter({ question, history, context, systemPrompt }) {
 
 async function askAI({ question, history, context, provider, model, systemPrompt }) {
   const selected = String(provider || '').toLowerCase().trim();
+  if (selected === 'openclip') {
+    return buildOpenClipReply(question, context && context.products, context && context.openClip);
+  }
   if (selected === 'gemini') {
     return askGemini({ question, history, context, model, systemPrompt });
   }

@@ -64,6 +64,38 @@ const tinhTonKho = (sizes, bienthe, soluongton, soluong_chinh) => {
     return total;
 };
 
+const taoDanhSachAnhNho = (hinhChinh, bienthe) => {
+    const mainImage = chuanHoaAnh(hinhChinh);
+    const thumbs = [];
+    const seen = new Set();
+
+    if (mainImage && mainImage !== '/images/shopping.png') {
+        thumbs.push({
+            src: mainImage,
+            alt: 'Ảnh chính',
+            title: 'Ảnh chính',
+            isMain: true
+        });
+        seen.add(mainImage);
+    }
+
+    if (Array.isArray(bienthe) && bienthe.length) {
+        bienthe.forEach((bt, idx) => {
+            const variantImage = chuanHoaAnh(bt && bt.hinhanh);
+            if (!variantImage || variantImage === '/images/shopping.png' || seen.has(variantImage)) return;
+            thumbs.push({
+                src: variantImage,
+                alt: (bt && bt.mausac) || `Màu ${idx + 1}`,
+                title: (bt && bt.mausac) || `Màu ${idx + 1}`,
+                isMain: false
+            });
+            seen.add(variantImage);
+        });
+    }
+
+    return thumbs;
+};
+
 // Export hàm normalize chính
 module.exports = (item) => {
     const p = { ...item };
@@ -82,6 +114,8 @@ module.exports = (item) => {
             hinhanh: chuanHoaAnh(bt.hinhanh)
         }));
     }
+
+    p.thumbImages = taoDanhSachAnhNho(p.displayImage || p.hinhanh, p.bienthe);
 
     return p;
 };

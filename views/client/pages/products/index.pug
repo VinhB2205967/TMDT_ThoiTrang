@@ -1,5 +1,8 @@
 extends ../../layouts/default.pug
 include ../../mixins/box_head.pug
+block styles
+    link(rel="stylesheet" href="/css/products.css")
+
 block main
     .products-section
         .container
@@ -7,7 +10,21 @@ block main
             
             //- Filter & Sort bar (responsive)
             .filter-bar.mb-4
+                if openclipMessage
+                    .alert(class=(openclipMode ? 'alert-success' : 'alert-warning')) #{openclipMessage}
+                if openclipMode && openclipPreview
+                    .openclip-query-preview.mb-3
+                        .openclip-query-preview__media
+                            img(src=openclipPreview alt="Ảnh tìm kiếm" loading="lazy")
+                        .openclip-query-preview__content
+                            span.openclip-query-preview__eyebrow Ảnh đang dùng để tìm
+                            strong.openclip-query-preview__title Kết quả được sắp xếp từ ảnh bạn vừa tải lên
+                            p.openclip-query-preview__text Bạn có thể tiếp tục lọc theo loại, giá, giới tính hoặc thương hiệu mà vẫn giữ nguyên ảnh tìm kiếm.
                 form#filterForm(method="GET" action="/products")
+                    if openclipMode && openclipIdsValue
+                        input(type="hidden" name="openclip_ids" value=openclipIdsValue)
+                    if openclipMode && openclipPreview
+                        input(type="hidden" name="openclip_preview" value=openclipPreview)
                     .row.g-3
                         //- Search
                         .col-md-4
@@ -91,14 +108,15 @@ block main
                                         h3.product-name #{item.tensanpham}
                                         if item.bienthe && item.bienthe.length
                                             .product-variants
-                                                each variant, idx in item.bienthe
-                                                    if idx < 5
-                                                        if variant.hinhanh && variant.hinhanh !== '/images/shopping.png'
-                                                            img.variant-img(src=variant.hinhanh alt=variant.mausac title=variant.mausac)
-                                                        else
-                                                            span.variant-dot(style=`background-color: ${variant.colorCode || '#ccc'}` title=variant.mausac)
-                                                if item.bienthe.length > 5
-                                                    span.variant-more +#{item.bienthe.length - 5}
+                                                - const allProductThumbs = Array.isArray(item.thumbImages) ? item.thumbImages : []
+                                                - const productThumbs = allProductThumbs.slice(0, 5)
+                                                - const hasMainThumb = allProductThumbs.length > 0 && allProductThumbs[0].isMain
+                                                - const totalVariantThumbs = Math.max(0, allProductThumbs.length - (hasMainThumb ? 1 : 0))
+                                                - const shownVariantThumbs = Math.max(0, productThumbs.length - (hasMainThumb ? 1 : 0))
+                                                each thumb in productThumbs
+                                                    img.variant-img(src=thumb.src alt=thumb.alt title=thumb.title)
+                                                if totalVariantThumbs > shownVariantThumbs
+                                                    span.variant-more +#{totalVariantThumbs - shownVariantThumbs}
                                         .product-price
                                             if item.phantramgiamgia && item.phantramgiamgia > 0
                                                 span.original-price #{item.giaText}

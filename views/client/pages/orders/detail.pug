@@ -1,20 +1,23 @@
 extends ../../layouts/default.pug
 
 block main
-  .container.py-4
+  .container.py-4.order-detail-page
     if !order
       h1.mb-3 Không tìm thấy đơn hàng
       p.text-muted Đơn hàng không tồn tại hoặc bạn không có quyền xem.
       a.btn.btn-primary(href='/orders') Quay lại danh sách đơn hàng
     else
-      - const statusLabels = locals.statusLabels || { all: 'Tất cả', choxacnhan: 'Chờ xác nhận', daxacnhan: 'Đã xác nhận', dangchuanbi: 'Đang chuẩn bị', danggiao: 'Đang giao', dagiao: 'Đã giao', dahuy: 'Đã hủy', hoanhang: 'Hoàn hàng' }
+      - const statusLabels = locals.statusLabels || { all: 'Tất cả', choxacnhan: 'Chờ xác nhận', daxacnhan: 'Đã xác nhận', dangchuanbi: 'Đang chuẩn bị', danggiao: 'Đang giao', dagiao: 'Đã giao', requested_return: 'Yêu cầu hoàn hàng', approved_return: 'Đã duyệt hoàn hàng', rejected_return: 'Từ chối hoàn hàng', return_shipping: 'Đang gửi hàng hoàn', returned: 'Đã nhận hàng hoàn', refunded: 'Đã hoàn tiền', dahuy: 'Đã hủy', hoanhang: 'Hoàn hàng' }
       - const isChoThanhToan = order.trangthai === 'choxacnhan' && (order.phuongthucthanhtoan === 'momo' || order.phuongthucthanhtoan === 'vnpay') && !order.dathanhtoan
       - const label = isChoThanhToan ? 'Chờ thanh toán' : (statusLabels[order.trangthai] || order.trangthai || '—')
 
       .d-flex.flex-wrap.justify-content-between.align-items-center.gap-2.mb-3
         div
           h1.mb-1 Chi tiết đơn hàng
-          .text-muted.small #{order.madonhang || order._id}
+          .text-muted.small.d-inline-flex.align-items-center.gap-2
+            span #{order.madonhang || order._id}
+            button.copy-order-btn(type='button' data-copy-text=(order.madonhang || order._id) data-copy-label='Mã đơn' title='Sao chép mã đơn' aria-label='Sao chép mã đơn')
+              i.bi.bi-clipboard
         .d-flex.align-items-center.gap-2
           span.badge.order-status(data-status=order.trangthai) #{label}
           a.btn.btn-sm.btn-outline-secondary(href='/orders') Quay lại
@@ -40,6 +43,19 @@ block main
             button.btn.btn-sm.btn-outline-success(type='submit')
               i.bi.bi-arrow-repeat.me-1
               | Mua lại
+
+        if returnEligible
+          button.btn.btn-sm.btn-outline-warning(type='button' data-bs-toggle='modal' data-bs-target='#returnRequestModal')
+            i.bi.bi-arrow-counterclockwise.me-1
+            | Yêu cầu hoàn hàng
+
+      if ['requested_return','approved_return','rejected_return','return_shipping','returned','refunded'].includes(order.trangthai)
+        .alert.alert-warning.py-2.small
+          strong Trạng thái hoàn hàng:
+          |  #{statusLabels[order.trangthai] || order.trangthai}
+          if order.yeucauhoanhang && order.yeucauhoanhang.adminNote
+            br
+            | Ghi chú admin: #{order.yeucauhoanhang.adminNote}
 
       .row.g-3
         .col-lg-7
@@ -113,6 +129,63 @@ block main
               .d-flex.justify-content-between.fw-semibold
                 span Tổng
                 span #{(order.tongtien || order.tamtinh || 0).toLocaleString('vi-VN')}₫
+
+      if returnEligible
+        - const firstItem = items && items.length ? items[0] : null
+        - const returnCsrf = typeof csrfToken !== 'undefined' ? csrfToken : ''
+        .modal.fade#returnRequestModal(tabindex='-1' aria-hidden='true')
+          .modal-dialog.modal-dialog-scrollable.modal-fullscreen-sm-down
+            .modal-content
+              form.return-request-form(method='POST' action=`/orders/${order._id}/return-request?_csrf=${encodeURIComponent(returnCsrf || '')}` enctype='multipart/form-data')
+                input(type='hidden' name='_csrf' value=returnCsrf)
+                .modal-header
+                  h5.modal-title Yêu cầu hoàn hàng
+                  button.btn-close(type='button' data-bs-dismiss='modal' aria-label='Close')
+                .modal-body
+                  if firstItem
+                    .small.text-muted.mb-2 Sản phẩm: #{firstItem.tensanpham || 'Sản phẩm'}
+                  .small.text-muted.mb-3 Mã đơn: #{order.madonhang || order._id}
+
+                  .mb-3
+                    label.form-label Lý do hoàn hàng
+                    .form-check
+                      input#reasonSize.form-check-input(type='radio' name='reason' value='sai_size' checked)
+                      label.form-check-label(for='reasonSize') Sai size
+                    .form-check
+                      input#reasonFault.form-check-input(type='radio' name='reason' value='loi_san_pham')
+                      label.form-check-label(for='reasonFault') Lỗi sản phẩm
+                    .form-check
+                      input#reasonDesc.form-check-input(type='radio' name='reason' value='khong_giong_mo_ta')
+                      label.form-check-label(for='reasonDesc') Không giống mô tả
+                    .form-check
+                      input#reasonOther.form-check-input(type='radio' name='reason' value='khac')
+                      label.form-check-label(for='reasonOther') Khác
+
+                  .mb-3
+                    label.form-label(for='returnDetail') Mô tả chi tiết
+                    textarea#returnDetail.form-control(name='detail' rows='3' placeholder='Mô tả thêm về lý do hoàn hàng')
+
+                  .mb-3
+                    label.form-label(for='proofMedia') Minh chứng (ảnh hoặc video)
+                    input#proofMedia.form-control(type='file' name='proofMedia' accept='image/*,video/*' multiple)
+                    .form-text Hỗ trợ ảnh/video, tối đa 5 file, mỗi file tối đa 20MB.
+                    #proofMediaPreview.row.g-2.mt-2
+
+                  .mb-2
+                    label.form-label Phương thức hoàn tiền
+                    .form-check
+                      input#refundMomo.form-check-input(type='radio' name='refundMethod' value='momo' checked)
+                      label.form-check-label(for='refundMomo') Ví MOMO
+                    .form-check
+                      input#refundBank.form-check-input(type='radio' name='refundMethod' value='bank')
+                      label.form-check-label(for='refundBank') Chuyển khoản ngân hàng
+                    .form-check
+                      input#refundWallet.form-check-input(type='radio' name='refundMethod' value='wallet')
+                      label.form-check-label(for='refundWallet') Hoàn vào ví hệ thống
+
+                .modal-footer
+                  button.btn.btn-outline-secondary(type='button' data-bs-dismiss='modal') Đóng
+                  button.btn.btn-primary(type='submit') Gửi yêu cầu
 
 block scripts
   script(src='/js/orders.js')

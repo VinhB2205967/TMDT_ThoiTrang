@@ -16,7 +16,8 @@ module.exports.trangChat = async (req, res) => {
 };
 
 module.exports.layDanhSachHoiThoai = async (req, res) => {
-  const conversations = await getAdminConversationSummaries();
+  const q = String(req.query.q || '').trim();
+  const conversations = await getAdminConversationSummaries({ query: q });
   return res.json({
     success: true,
     conversations: conversations.map((item) => ({

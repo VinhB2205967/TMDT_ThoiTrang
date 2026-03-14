@@ -4,6 +4,7 @@
 
   const pageEl = document.querySelector('.chat-admin-page');
   const listEl = document.getElementById('adminChatList');
+  const searchEl = document.getElementById('adminChatSearch');
   const emptyEl = document.getElementById('adminChatEmpty');
   const messagesEl = document.getElementById('adminChatMessages');
   const titleEl = document.getElementById('adminChatUserName');
@@ -35,6 +36,8 @@
   let lastToastAt = 0;
   let previewObjectUrl = null;
   let imageViewerModal = null;
+  let searchKeyword = '';
+  let searchTimer = null;
 
   function isMobileView() {
     return window.matchMedia('(max-width: 767.98px)').matches;
@@ -222,6 +225,7 @@
         <div class="row-2 mt-1">
           <div class="left">
             <div class="meta text-truncate">${item.lastMessage || ''}</div>
+            ${item.userPhone ? `<div class="meta text-truncate">${item.userPhone}</div>` : ''}
           </div>
           <div class="d-flex align-items-center gap-2">
             <small class="text-muted">${formatTime(item.lastAt)}</small>
@@ -330,7 +334,8 @@
   }
 
   async function loadConversations() {
-    const { ok, data } = await fetchJson(`${runtime.adminPath}/chats/api/conversations`);
+    const q = searchKeyword ? `?q=${encodeURIComponent(searchKeyword)}` : '';
+    const { ok, data } = await fetchJson(`${runtime.adminPath}/chats/api/conversations${q}`);
     if (!ok || !data.success) return;
     conversations = data.conversations || [];
     renderConversationList();
@@ -338,6 +343,17 @@
     if (conversations.length && !activeUserId && !isMobileView()) {
       openConversation(conversations[0].clientId);
     }
+  }
+
+  if (searchEl) {
+    searchEl.addEventListener('input', () => {
+      const next = String(searchEl.value || '').trim();
+      searchKeyword = next;
+      if (searchTimer) clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        loadConversations();
+      }, 250);
+    });
   }
 
   formEl.addEventListener('submit', (e) => {

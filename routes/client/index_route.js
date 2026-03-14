@@ -12,6 +12,7 @@ const chatRoutes = require('./chat_route');
 const lookbookRoutes = require('./lookbook_route');
 const blogRoutes = require('./blog_route');
 const brandsRoutes = require('./brands_route');
+const openclipRoutes = require('./openclip_route');
 
 module.exports = (app) => {
     app.use('/api', apiRoutes);
@@ -20,6 +21,7 @@ module.exports = (app) => {
     app.use('/products', productsRoutes);
     app.use('/lookbook', lookbookRoutes);
     app.use('/lookbooks', lookbookRoutes);
+    app.use('/ai', openclipRoutes);
     app.use('/brands', brandsRoutes);
     app.use('/blog', blogRoutes);
     app.use('/favorites', favoritesRoutes);

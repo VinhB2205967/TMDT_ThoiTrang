@@ -250,11 +250,15 @@ mixin productCard(product)
             h3.product-name #{product.tensanpham}
             if product.bienthe && product.bienthe.length
                 .variant-thumbs
-                    each bt, idx in product.bienthe.slice(0, 4)
-                        - const btImg = bt.hinhanh ? (bt.hinhanh.startsWith('/public') ? bt.hinhanh.replace('/public', '') : bt.hinhanh) : (product.displayImage || product.hinhanh || '/images/shopping.png')
-                        img.variant-thumb(src=btImg alt=bt.mausac title=bt.mausac)
-                    if product.bienthe.length > 4
-                        span.more-variants +#{product.bienthe.length - 4}
+                    - const allHomeThumbs = Array.isArray(product.thumbImages) ? product.thumbImages : []
+                    - const homeThumbs = allHomeThumbs.slice(0, 5)
+                    - const hasHomeMainThumb = allHomeThumbs.length > 0 && allHomeThumbs[0].isMain
+                    - const totalHomeVariantThumbs = Math.max(0, allHomeThumbs.length - (hasHomeMainThumb ? 1 : 0))
+                    - const shownHomeVariantThumbs = Math.max(0, homeThumbs.length - (hasHomeMainThumb ? 1 : 0))
+                    each thumb in homeThumbs
+                        img.variant-thumb(src=thumb.src alt=thumb.alt title=thumb.title)
+                    if totalHomeVariantThumbs > shownHomeVariantThumbs
+                        span.more-variants +#{totalHomeVariantThumbs - shownHomeVariantThumbs}
             .product-price
                 if flashGiaHienThi > 0
                     - const flashText = flashGiaHienThi.toLocaleString('vi-VN') + '₫'

@@ -11,6 +11,29 @@ const { nhantrangthai, layTrangThaiChoPhep } = require('../../helpers/orderStatu
 const phanTrangHelper = require('../../helpers/pagination');
 
 const THOI_GIAN_CHO_THANH_TOAN_MS = 24 * 60 * 60 * 1000;
+const CUA_SO_HOAN_HANG_MS = 7 * 24 * 60 * 60 * 1000;
+
+const LY_DO_HOAN_LABELS = {
+  sai_size: 'Sai size',
+  loi_san_pham: 'Lỗi sản phẩm',
+  khong_giong_mo_ta: 'Không giống mô tả',
+  khac: 'Khác'
+};
+
+function layMocDaGiao(order) {
+  if (!order) return null;
+  return order.ngaygiaohang || order.ngaycapnhat || order.ngaytao || null;
+}
+
+function coTheYeuCauHoan(order) {
+  if (!order) return false;
+  if (String(order.trangthai || '') !== 'dagiao') return false;
+  if (order && order.yeucauhoanhang && order.yeucauhoanhang.requestedAt) return false;
+  const moc = layMocDaGiao(order);
+  if (!moc) return false;
+  const delta = Date.now() - new Date(moc).getTime();
+  return Number.isFinite(delta) && delta >= 0 && delta <= CUA_SO_HOAN_HANG_MS;
+}
 
 function laDonChoThanhToanOnline(don) {
   return don
@@ -251,8 +274,79 @@ module.exports.chiTiet = async (req, res) => {
     titlePage: `Chi tiết ${donhangdoc.madonhang || 'đơn hàng'}`,
     order: donhangdoc,
     items: danhsachdaxuly,
-    statusLabels: nhantrangthai
+    statusLabels: nhantrangthai,
+    returnEligible: coTheYeuCauHoan(donhangdoc),
+    returnReasonLabels: LY_DO_HOAN_LABELS
   });
+};
+
+module.exports.yeuCauHoanHang = async (req, res) => {
+  try {
+    const order = await donhang.findOne({
+      _id: req.params.id,
+      nguoidung_id: req.user._id,
+      daxoa: { $ne: true }
+    });
+
+    if (!order) {
+      req.flash?.('error', 'Không tìm thấy đơn hàng.');
+      return res.redirect('/orders');
+    }
+
+    if (!coTheYeuCauHoan(order)) {
+      req.flash?.('error', 'Đơn hàng này không đủ điều kiện gửi yêu cầu hoàn hàng.');
+      return res.redirect(`/orders/${order._id}`);
+    }
+
+    const reason = String(req.body.reason || '').trim();
+    const detail = String(req.body.detail || '').trim();
+    const refundMethod = String(req.body.refundMethod || '').trim();
+
+    if (!LY_DO_HOAN_LABELS[reason]) {
+      req.flash?.('error', 'Lý do hoàn hàng không hợp lệ.');
+      return res.redirect(`/orders/${order._id}`);
+    }
+
+    if (!['momo', 'bank', 'wallet'].includes(refundMethod)) {
+      req.flash?.('error', 'Phương thức hoàn tiền không hợp lệ.');
+      return res.redirect(`/orders/${order._id}`);
+    }
+
+    const proofMedias = Array.isArray(req.files)
+      ? req.files
+        .filter((f) => f && f.filename)
+        .map((f) => `/uploads/returns/${f.filename}`)
+      : [];
+    const proofMedia = proofMedias.length ? proofMedias[0] : '';
+
+    order.trangthai = 'requested_return';
+    order.yeucauhoanhang = {
+      ...(order.yeucauhoanhang || {}),
+      requestedAt: new Date(),
+      reason,
+      reasonLabel: LY_DO_HOAN_LABELS[reason],
+      detail: detail || '',
+      proofMedias,
+      proofMedia,
+      proofImage: proofMedia,
+      refundMethod,
+      adminNote: '',
+      reviewedAt: null,
+      approvedAt: null,
+      rejectedAt: null,
+      returnedAt: null,
+      refundedAt: null
+    };
+    order.ngaycapnhat = new Date();
+    await order.save();
+
+    req.flash?.('success', 'Đã gửi yêu cầu hoàn hàng. Vui lòng chờ admin duyệt.');
+    return res.redirect(`/orders/${order._id}`);
+  } catch (err) {
+    console.error('client return request error:', err);
+    req.flash?.('error', 'Không thể gửi yêu cầu hoàn hàng lúc này.');
+    return res.redirect(`/orders/${req.params.id}`);
+  }
 };
 
 module.exports.huyDon = async (req, res) => {

@@ -25,3 +25,10 @@ build/
 
 # Misc
 *.log
+
+# AI Model files (too large for GitHub)
+AI/huggingface_cache/
+*.safetensors
+*.bin
+*.pt
+*.pth

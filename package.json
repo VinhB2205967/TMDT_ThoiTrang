@@ -11,6 +11,7 @@
     "migrate:imports:vn": "node scripts/migrate-import-receipts-vn.js",
     "backfill:inventory:lots": "node scripts/backfill-inventory-lots.js",
     "seed:home": "node scripts/seed-home.js",
+    "openclip:warmup": "python scripts/openclip_warmup.py",
     "postinstall": "patch-package",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

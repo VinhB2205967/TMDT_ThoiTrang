@@ -44,6 +44,33 @@
 		}
 	}
 
+	function mapOpenClipProducts(products) {
+		return Array.isArray(products)
+			? products.map((item) => {
+				const finalPrice = Number(item.giaSauGiam || item.gia || 0);
+				const originalPrice = Number(item.gia || 0);
+				const hasDiscount = originalPrice > 0 && finalPrice > 0 && finalPrice < originalPrice;
+				return {
+					id: String(item.id || ''),
+					name: String(item.tensanpham || 'Sản phẩm'),
+					url: String(item.url || ''),
+					imageUrl: String(item.imageUrl || '/images/shopping.png'),
+					price: finalPrice,
+					originalPrice,
+					hasDiscount,
+					priceText: finalPrice > 0 ? `${finalPrice.toLocaleString('vi-VN')}đ` : '',
+					originalPriceText: hasDiscount ? `${originalPrice.toLocaleString('vi-VN')}đ` : ''
+				};
+			})
+			: [];
+	}
+
+	function buildOpenClipImageAnswer(products) {
+		const count = Array.isArray(products) ? products.length : 0;
+		if (count === 0) return 'Mình chưa tìm thấy sản phẩm phù hợp từ ảnh này.';
+		return `Tìm thấy ${count} sản phẩm tương tự từ ảnh:`;
+	}
+
 	function escapeHtml(value) {
 		return String(value || '')
 			.replace(/&/g, '&amp;')
@@ -114,10 +141,10 @@
 		}
 
 		if (lower.includes('/san pham') || lower.includes('/sản phẩm') || /\/products?\s*pham\b/i.test(lower)) {
-			return `/products${query}`;
+			return byId ? `/products/${byId[1]}` : '';
 		}
 
-		return raw;
+		return '';
 	}
 
 	function formatMessageContent(text) {
@@ -292,6 +319,7 @@
 			const nameRegex = new RegExp(`(${escapeRegex(name)})(?![^\\n]*\\[tại\\s+đây\\]\\()`, 'i');
 			if (nameRegex.test(output)) {
 				const detailUrl = normalizeProductUrl(url);
+				if (!detailUrl) return;
 				output = output.replace(nameRegex, `$1 - Xem thêm: [tại đây](${detailUrl})`);
 			}
 		});
@@ -321,7 +349,9 @@
 	}
 
 	function renderProductCards(products) {
-		const items = Array.isArray(products) ? products.filter(Boolean).slice(0, 4) : [];
+		const items = Array.isArray(products)
+			? products.filter((item) => item && /^\/products\/[a-f0-9]{24}$/i.test(String(item.url || ''))).slice(0, 4)
+			: [];
 		if (items.length === 0) return;
 
 		const row = document.createElement('div');
@@ -332,14 +362,51 @@
 		items.forEach((item) => {
 			const card = document.createElement('a');
 			card.className = 'ai-product-card';
-			card.href = item.url || '/products';
+			card.href = item.url;
 			card.target = '_blank';
 			card.rel = 'noopener noreferrer';
 			const originalPriceHtml = item.hasDiscount && item.originalPriceText
 				? `<span class="ai-product-card-old-price">${escapeHtml(item.originalPriceText)}</span>`
 				: '';
 			card.innerHTML = `
-				<img class="ai-product-card-image" src="${escapeHtml(item.imageUrl || '/images/shopping.png')}" alt="${escapeHtml(item.name || 'Sản phẩm')}">
+				<img class="ai-product-card-image" src="${escapeHtml(item.imageUrl || '/images/shopping.png')}" alt="${escapeHtml(item.name || 'Sản phẩm')}" onerror="this.onerror=null;this.src='/images/shopping.png';">
+				<div class="ai-product-card-body">
+					<div class="ai-product-card-name">${escapeHtml(item.name || 'Sản phẩm')}</div>
+					<div class="ai-product-card-price-wrap">
+						<div class="ai-product-card-price">${escapeHtml(item.priceText || '')}</div>
+						${originalPriceHtml}
+					</div>
+				</div>
+			`;
+			wrap.appendChild(card);
+		});
+
+		row.appendChild(wrap);
+		list.appendChild(row);
+		scrollToBottom();
+	}
+
+	function renderOpenClipImageCards(products) {
+		const items = Array.isArray(products) ? products.slice(0, 6) : [];
+		if (items.length === 0) return;
+
+		const row = document.createElement('div');
+		row.className = 'ai-chat-row assistant';
+		const wrap = document.createElement('div');
+		wrap.className = 'ai-product-suggest-list';
+
+		items.forEach((item) => {
+			const card = document.createElement('a');
+			card.className = 'ai-product-card';
+			const safeUrl = item && item.url && isSafeUrl(String(item.url)) ? String(item.url) : '/products';
+			card.href = safeUrl;
+			card.target = '_blank';
+			card.rel = 'noopener noreferrer';
+			const originalPriceHtml = item.hasDiscount && item.originalPriceText
+				? `<span class="ai-product-card-old-price">${escapeHtml(item.originalPriceText)}</span>`
+				: '';
+			card.innerHTML = `
+				<img class="ai-product-card-image" src="${escapeHtml(item.imageUrl || '/images/shopping.png')}" alt="${escapeHtml(item.name || 'Sản phẩm')}" onerror="this.onerror=null;this.src='/images/shopping.png';">
 				<div class="ai-product-card-body">
 					<div class="ai-product-card-name">${escapeHtml(item.name || 'Sản phẩm')}</div>
 					<div class="ai-product-card-price-wrap">
@@ -431,6 +498,35 @@
 		};
 	}
 
+	async function askOpenClipByImage(file) {
+		const fd = new FormData();
+		fd.append('image', file);
+
+		const res = await fetch('/api/openclip/search-by-image', {
+			method: 'POST',
+			credentials: 'same-origin',
+			body: fd
+		});
+
+		const data = await res.json().catch(() => ({}));
+		if (!res.ok || !data || data.success !== true || !data.data) {
+			throw new Error((data && data.message) || 'Không thể tìm theo ảnh lúc này');
+		}
+
+		const productsRaw = Array.isArray(data.data.products) ? data.data.products : [];
+		const suggestedProducts = mapOpenClipProducts(productsRaw).slice(0, 6);
+		const modelName = data.data && data.data.openClipMeta && data.data.openClipMeta.model
+			? String(data.data.openClipMeta.model)
+			: 'ViT-B-32';
+
+		return {
+			answer: buildOpenClipImageAnswer(productsRaw),
+			model: modelName,
+			provider: 'openclip',
+			suggestedProducts
+		};
+	}
+
 	function togglePanel(forceOpen) {
 		const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : !panel.classList.contains('open');
 		panel.classList.toggle('open', shouldOpen);
@@ -504,10 +600,12 @@
 	form.addEventListener('submit', async (event) => {
 		event.preventDefault();
 		const question = String(input.value || '').trim();
+		const currentProvider = providerEl ? String(providerEl.value || 'ollama').toLowerCase() : 'ollama';
 		if (!question) return;
 
-		renderMessage('user', question);
-		history.push({ role: 'user', content: question });
+		const userMessage = question;
+		renderMessage('user', userMessage);
+		history.push({ role: 'user', content: userMessage });
 		input.value = '';
 		input.style.height = 'auto';
 		setStatus('Đang trả lời...', true);

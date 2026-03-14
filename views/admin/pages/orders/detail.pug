@@ -56,6 +56,41 @@ block main
                   span.text-muted Cập nhật
                   span.fw-semibold #{new Date(order.ngaycapnhat).toLocaleString('vi-VN')}
 
+          .card.border-0.shadow-sm.mt-3
+            .card-body
+              .fw-semibold.mb-2 Sản phẩm
+              if items && items.length
+                .table-responsive
+                  table.table.align-middle
+                    thead
+                      tr
+                        th Ảnh
+                        th Tên sản phẩm
+                        th SL
+                        th Giá gốc
+                        th Giá giảm
+                        th Thành tiền
+                    tbody
+                      each it in items
+                        - const _line = (it.thanhtien || ((it.giaban || it.giagoc || 0) * (it.soluong || 1)) || 0)
+                        - const skuValue = it.masku || it.ma_sku || ''
+                        - const sizeColorParts = [it.kichco, it.mausac].filter(Boolean)
+                        tr
+                          td
+                            img.rounded.border(src=(it.hinhanh || '/images/shopping.png') alt=(it.tensanpham || 'Sản phẩm') width='56' height='56' style='object-fit:cover;')
+                          td
+                            .fw-semibold #{it.tensanpham || ''}
+                            if skuValue
+                              .small.text-muted SKU: #{skuValue}
+                            if sizeColorParts.length
+                              .small.text-muted Size/Màu: #{sizeColorParts.join(' / ')}
+                          td #{it.soluong || 1}
+                          td #{(it.giagoc || 0).toLocaleString('vi-VN')}₫
+                          td #{(it.giaban || 0).toLocaleString('vi-VN')}₫
+                          td #{_line.toLocaleString('vi-VN')}₫
+              else
+                .text-muted Không có sản phẩm.
+
         .col-lg-5
           .card.border-0.shadow-sm.mb-3
             .card-body
@@ -82,6 +117,44 @@ block main
                   label.form-label.small Lý do hủy
                   textarea.form-control.mb-2(name='reason' rows='2' placeholder='Nhập lý do hủy' required)
                   button.btn.btn-outline-danger(type='submit') Hủy đơn
+
+              if order.yeucauhoanhang && order.yeucauhoanhang.requestedAt
+                hr
+                .return-card.p-3.rounded-4.mb-2
+                  .fw-semibold.mb-2 Yêu cầu hoàn hàng
+                  .small.text-muted.mb-1 Lý do: #{order.yeucauhoanhang.reasonLabel || order.yeucauhoanhang.reason || '—'}
+                  if order.yeucauhoanhang.detail
+                    .small.mb-1 Mô tả: #{order.yeucauhoanhang.detail}
+                  if order.yeucauhoanhang.refundMethod
+                    .small.mb-2 Hoàn tiền: #{order.yeucauhoanhang.refundMethod}
+                - const returnProofMedias = (order.yeucauhoanhang.proofMedias && order.yeucauhoanhang.proofMedias.length ? order.yeucauhoanhang.proofMedias : [order.yeucauhoanhang.proofMedia || order.yeucauhoanhang.proofImage]).filter(Boolean)
+                if returnProofMedias.length
+                  .return-media-grid.mb-2
+                    each media, idx in returnProofMedias
+                      - const isVideo = /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(media)
+                      a.return-media-item(href=media target='_blank' rel='noopener noreferrer' title=`Mở minh chứng ${idx + 1}`)
+                        if isVideo
+                          video(src=media muted controls preload='metadata')
+                        else
+                          img(src=media alt=`Minh chứng ${idx + 1}` loading='lazy')
+                        span.badge.rounded-pill.text-bg-dark Minh chứng #{idx + 1}
+
+                if order.trangthai === 'requested_return'
+                  form.mb-2(method='POST', action=`${admin}/orders/${order._id}/return/approve`)
+                    textarea.form-control.form-control-sm.mb-2(name='note' rows='2' placeholder='Ghi chú cho khách (không bắt buộc)')
+                    button.btn.btn-sm.btn-success(type='submit' onclick="return confirm('Duyệt yêu cầu hoàn hàng?')") Duyệt hoàn hàng
+
+                  form(method='POST', action=`${admin}/orders/${order._id}/return/reject`)
+                    textarea.form-control.form-control-sm.mb-2(name='note' rows='2' placeholder='Lý do từ chối' required)
+                    button.btn.btn-sm.btn-outline-danger(type='submit' onclick="return confirm('Từ chối yêu cầu hoàn hàng?')") Từ chối
+
+                if ['approved_return', 'return_shipping'].includes(order.trangthai)
+                  form.mb-2(method='POST', action=`${admin}/orders/${order._id}/return/received`)
+                    button.btn.btn-sm.btn-primary(type='submit' onclick="return confirm('Xác nhận đã nhận hàng hoàn?')") Đã nhận hàng hoàn
+
+                if order.trangthai === 'returned'
+                  form(method='POST', action=`${admin}/orders/${order._id}/return/refund`)
+                    button.btn.btn-sm.btn-dark(type='submit' onclick="return confirm('Xác nhận hoàn tiền đơn hàng này?')") Hoàn tiền
 
               hr
               .fw-semibold.mb-2 Timeline trạng thái
@@ -118,34 +191,3 @@ block main
                 span Tổng thanh toán
                 span #{(order.tongtien || order.tamtinh || 0).toLocaleString('vi-VN')}₫
 
-      .card.border-0.shadow-sm.mt-3
-        .card-body
-          .fw-semibold.mb-2 Sản phẩm
-          if items && items.length
-            .table-responsive
-              table.table.align-middle
-                thead
-                  tr
-                    th Ảnh
-                    th Tên sản phẩm
-                    th SKU
-                    th Size / Màu
-                    th SL
-                    th Giá gốc
-                    th Giá giảm
-                    th Thành tiền
-                tbody
-                  each it in items
-                    - const _line = (it.thanhtien || ((it.giaban || it.giagoc || 0) * (it.soluong || 1)) || 0)
-                    tr
-                      td
-                        img.rounded.border(src=(it.hinhanh || '/images/shopping.png') alt=(it.tensanpham || 'Sản phẩm') width='56' height='56' style='object-fit:cover;')
-                      td #{it.tensanpham || '—'}
-                      td #{it.masku || it.ma_sku || '—'}
-                      td #{(it.kichco || '') + (it.mausac ? ' / ' + it.mausac : '')}
-                      td #{it.soluong || 1}
-                      td #{(it.giagoc || 0).toLocaleString('vi-VN')}₫
-                      td #{(it.giaban || 0).toLocaleString('vi-VN')}₫
-                      td #{_line.toLocaleString('vi-VN')}₫
-          else
-            .text-muted Không có sản phẩm.
