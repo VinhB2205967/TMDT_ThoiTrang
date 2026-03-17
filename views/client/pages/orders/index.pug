@@ -70,11 +70,19 @@ block main
                       | Mua lại
                 if o.trangthai === 'dagiao'
                   - let reviewHref = `/orders/${o._id}`
+                  - let reviewLabel = 'Đánh giá'
+                  - let reviewClass = 'btn-review'
                   if o.preview && o.preview.itemId && o.preview.productId
                     - reviewHref = `/reviews/new?orderId=${o._id}&itemId=${o.preview.itemId}&productId=${o.preview.productId}#review-form`
-                  a.btn.btn-sm.btn-review(href=reviewHref)
+                    if o.preview.reviewed && o.preview.reviewId
+                      - reviewHref = `/reviews/${o.preview.reviewId}/edit#review-form`
+                      - reviewLabel = 'Chỉnh sửa đánh giá'
+                      - reviewClass = 'btn-outline-success'
+                  if o.preview && o.preview.reviewed
+                    span.badge.bg-success-subtle.text-success.border.me-1 Đã đánh giá
+                  a.btn.btn-sm(class=reviewClass href=reviewHref)
                     i.bi.bi-star-fill.me-1
-                    | Đánh giá
+                    | #{reviewLabel}
       if pagination && pagination.totalPages > 1
         - const statusParam = current && current !== 'all' ? `&status=${current}` : ''
         nav.mt-3

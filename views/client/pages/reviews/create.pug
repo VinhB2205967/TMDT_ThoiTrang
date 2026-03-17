@@ -1,6 +1,8 @@
 extends ../../layouts/default.pug
 
 block main
+  - const existingImages = Array.isArray(reviewImages) ? reviewImages : []
+  - const existingVideos = Array.isArray(reviewVideos) ? reviewVideos : []
   .container.py-4
     if !item || !order
       h1.mb-3 Không thể đánh giá
@@ -33,7 +35,7 @@ block main
 
               .mb-3
                 label.form-label.fw-semibold Nội dung đánh giá
-                textarea.form-control(name='noidung' rows='4' minlength='10' required placeholder='Hãy chia sẻ trải nghiệm của bạn') #{review ? review.noidung : ''}
+                textarea#reviewContent.form-control(name='noidung' rows='4' minlength='10' required placeholder='Hãy chia sẻ trải nghiệm của bạn') #{review ? review.noidung : ''}
 
               .mb-3
                 label.form-label.fw-semibold Tag nhanh (tuỳ chọn)
@@ -45,12 +47,166 @@ block main
 
               .mb-3
                 label.form-label.fw-semibold Ảnh đánh giá (tối đa 5 ảnh)
-                input.form-control(type='file' name='hinhanh' accept='image/*' multiple)
-                if review && review.hinhanh && review.hinhanh.length
-                  .d-flex.flex-wrap.gap-2.mt-2
-                    each img in review.hinhanh
-                      img.rounded.border(src=img alt='review' width='64' height='64' style='object-fit:cover;')
+                input#reviewImagesInput.form-control(type='file' name='images' accept='image/*' multiple)
+                .form-text Có thể upload nhiều lần khi sửa. Ảnh tối đa 20MB/file.
+                if existingImages.length
+                  .mt-2
+                    .small.fw-semibold.mb-2 Ảnh hiện có
+                    .d-flex.flex-wrap.gap-2
+                      each img in existingImages
+                        .border.rounded.p-1(style='width:120px;')
+                          img.rounded.border.w-100(src=img alt='review-image' height='84' style='object-fit:cover;')
+                          label.form-check.mt-1.mb-0.small
+                            input.form-check-input(type='checkbox' name='removeImages' value=img)
+                            span.form-check-label Xóa
+
+              .mb-3
+                label.form-label.fw-semibold Video đánh giá (tối đa 1 video)
+                input#reviewVideoInput.form-control(type='file' name='videos' accept='video/*')
+                .form-text Video tối đa 100MB/file. Có thể xóa video cũ rồi chọn video mới.
+                if existingVideos.length
+                  .mt-2
+                    .small.fw-semibold.mb-2 Video hiện có
+                    each videoUrl in existingVideos
+                      .border.rounded.p-1(style='max-width:320px;')
+                        video.rounded.border.w-100(src=videoUrl controls preload='metadata')
+                        label.form-check.mt-1.mb-0.small
+                          input.form-check-input(type='checkbox' name='removeVideos' value=videoUrl)
+                          span.form-check-label Xóa video này
+
+              .mb-3
+                .fw-semibold.mb-2 File mới đã chọn
+                #selectedImagesPreview.d-flex.flex-wrap.gap-2
+                #selectedVideoPreview.mt-2
+
+              .mb-3
+                .card.bg-light.border-0
+                  .card-body
+                    .fw-semibold.mb-2 Xem trước trước khi gửi
+                    .d-flex.align-items-center.gap-2.mb-2
+                      span.small.text-muted Đánh giá:
+                      #previewRating.small.fw-semibold Chưa chọn
+                    #previewContent.small.text-muted Chưa có nội dung
+                    #previewImagesGrid.d-flex.flex-wrap.gap-2.mt-2
+                    #previewVideoBox.mt-2
 
               .d-flex.gap-2
                 button.btn.btn-primary(type='submit') #{isEdit ? 'Cập nhật đánh giá' : 'Gửi đánh giá'}
                 a.btn.btn-outline-secondary(href=`/orders/${order._id}`) Hủy
+
+  script.
+    (function () {
+      const imageInput = document.getElementById('reviewImagesInput');
+      const videoInput = document.getElementById('reviewVideoInput');
+      const contentInput = document.getElementById('reviewContent');
+      const selectedImagesPreview = document.getElementById('selectedImagesPreview');
+      const selectedVideoPreview = document.getElementById('selectedVideoPreview');
+      const previewRating = document.getElementById('previewRating');
+      const previewContent = document.getElementById('previewContent');
+      const previewImagesGrid = document.getElementById('previewImagesGrid');
+      const previewVideoBox = document.getElementById('previewVideoBox');
+      const ratingInputs = Array.from(document.querySelectorAll('input[name="diem"]'));
+
+      function clearNode(el) {
+        if (!el) return;
+        while (el.firstChild) el.removeChild(el.firstChild);
+      }
+
+      function buildImageThumb(fileOrUrl, isFile) {
+        const img = document.createElement('img');
+        img.className = 'rounded border';
+        img.width = 92;
+        img.height = 92;
+        img.style.objectFit = 'cover';
+        img.alt = 'preview';
+        img.src = isFile ? URL.createObjectURL(fileOrUrl) : String(fileOrUrl || '');
+        return img;
+      }
+
+      function buildVideoPlayer(fileOrUrl, isFile) {
+        const video = document.createElement('video');
+        video.className = 'rounded border w-100';
+        video.controls = true;
+        video.preload = 'metadata';
+        video.autoplay = false;
+        video.src = isFile ? URL.createObjectURL(fileOrUrl) : String(fileOrUrl || '');
+        return video;
+      }
+
+      function renderSelectedImages() {
+        clearNode(selectedImagesPreview);
+        const files = Array.from((imageInput && imageInput.files) || []);
+        files.forEach((f) => {
+          selectedImagesPreview.appendChild(buildImageThumb(f, true));
+        });
+      }
+
+      function renderSelectedVideo() {
+        clearNode(selectedVideoPreview);
+        const file = videoInput && videoInput.files && videoInput.files[0] ? videoInput.files[0] : null;
+        if (!file) return;
+        const wrap = document.createElement('div');
+        wrap.style.maxWidth = '320px';
+        wrap.appendChild(buildVideoPlayer(file, true));
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn btn-sm btn-outline-danger mt-2';
+        removeBtn.textContent = 'Bỏ video đã chọn';
+        removeBtn.addEventListener('click', function () {
+          videoInput.value = '';
+          renderSelectedVideo();
+          renderPreviewBlock();
+        });
+        wrap.appendChild(removeBtn);
+        selectedVideoPreview.appendChild(wrap);
+      }
+
+      function getSelectedRating() {
+        const checked = ratingInputs.find((i) => i.checked);
+        return checked ? Number(checked.value) : 0;
+      }
+
+      function renderPreviewBlock() {
+        const rating = getSelectedRating();
+        previewRating.textContent = rating ? `${rating}/5 sao` : 'Chưa chọn';
+
+        const text = (contentInput && contentInput.value ? contentInput.value : '').trim();
+        previewContent.textContent = text || 'Chưa có nội dung';
+
+        clearNode(previewImagesGrid);
+        const images = Array.from((imageInput && imageInput.files) || []);
+        images.forEach((f) => previewImagesGrid.appendChild(buildImageThumb(f, true)));
+
+        clearNode(previewVideoBox);
+        const video = videoInput && videoInput.files && videoInput.files[0] ? videoInput.files[0] : null;
+        if (video) {
+          const wrap = document.createElement('div');
+          wrap.style.maxWidth = '320px';
+          wrap.appendChild(buildVideoPlayer(video, true));
+          previewVideoBox.appendChild(wrap);
+        }
+      }
+
+      if (imageInput) {
+        imageInput.addEventListener('change', function () {
+          renderSelectedImages();
+          renderPreviewBlock();
+        });
+      }
+
+      if (videoInput) {
+        videoInput.addEventListener('change', function () {
+          renderSelectedVideo();
+          renderPreviewBlock();
+        });
+      }
+
+      if (contentInput) {
+        contentInput.addEventListener('input', renderPreviewBlock);
+      }
+
+      ratingInputs.forEach((i) => i.addEventListener('change', renderPreviewBlock));
+
+      renderPreviewBlock();
+    })();

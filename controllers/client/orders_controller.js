@@ -185,6 +185,13 @@ module.exports.danhSach = async (req, res) => {
   // Preview
   if (danhsachdon && danhsachdon.length) {
     const danhsachiddon = danhsachdon.map(o => o._id);
+    const reviewed = await danhgia.find({
+      nguoidung_id: req.user._id,
+      donhang_id: { $in: danhsachiddon },
+      daxoa: { $ne: true }
+    }).select('_id chitietdonhang_id').lean();
+    const reviewedMap = new Map((reviewed || []).map((r) => [String(r.chitietdonhang_id), String(r._id)]));
+
     const danhsachchitiet = await chitietdonhang.find({ donhang_id: { $in: danhsachiddon } })
       .select('_id donhang_id tensanpham hinhanh sanpham_id')
       .sort({ ngaytao: 1 })
@@ -212,7 +219,11 @@ module.exports.danhSach = async (req, res) => {
         image: normalizeImage(thongtin.first && thongtin.first.hinhanh ? String(thongtin.first.hinhanh) : ''),
         count: thongtin.count || 1,
         itemId: thongtin.first ? String(thongtin.first._id) : null,
-        productId: thongtin.first && thongtin.first.sanpham_id ? String(thongtin.first.sanpham_id) : null
+        productId: thongtin.first && thongtin.first.sanpham_id ? String(thongtin.first.sanpham_id) : null,
+        reviewed: thongtin.first ? reviewedMap.has(String(thongtin.first._id)) : false,
+        reviewId: thongtin.first && reviewedMap.has(String(thongtin.first._id))
+          ? reviewedMap.get(String(thongtin.first._id))
+          : null
       };
     }
   }

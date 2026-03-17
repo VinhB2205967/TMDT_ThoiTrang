@@ -4,14 +4,15 @@ const PhieuXuatKho = require('../../models/export_receipt_model');
 const { SIZE_LIST } = require('../../config/constants');
 const { tinhTongTon } = require('../../services/productStock.service');
 const {
-  calcFinanceForLine,
   calcTotals,
+  calcFinanceByAllocations,
   buildCostMapForProductIds,
   consumeLotsFIFO,
   resolveAvgCost,
   taoThongTinNhanVienKy,
   taoMaPhieuXuat,
-  truTonKhoTheoDong
+  truTonKhoTheoDong,
+  congTonKhoTheoDong
 } = require('../../services/exportReceipt.service');
 
 function normalizeItems(bodyItems) {
@@ -123,16 +124,6 @@ const taoMoiPost = async (req, res) => {
         ? (productDoc.bienthe || []).find((v) => String(v._id) === variantId)
         : null;
 
-      truTonKhoTheoDong(productDoc, {
-        variantId,
-        size: it.kichco,
-        qty: it.soluong
-      });
-
-      productDoc.soluongton = tinhTongTon(productDoc);
-      productDoc.ngaycapnhat = new Date();
-      await productDoc.save();
-
       if (!it.tensanpham) it.tensanpham = productDoc.tensanpham || '';
       if (!it.mausac) {
         it.mausac = !it.bientheid ? (productDoc.mausac_chinh || '') : (variant?.mausac || '');
@@ -167,22 +158,40 @@ const taoMoiPost = async (req, res) => {
         };
       }
 
-      const giaNhap = fifoCost.giaNhapBinhQuan;
-      const finance = calcFinanceForLine({
-        qty: it.soluong,
-        giaNhap,
-        giaBan,
-        phanTramGiam,
-        giaVon: fifoCost.tongGiaVon
+      congTonKhoTheoDong(productDoc, {
+        variantId,
+        size: it.kichco,
+        qty: it.soluong
       });
 
-      it.gianhap = giaNhap;
-      it.giaban = giaBan;
-      it.phantramgiam = phanTramGiam;
-      it.giasaugiam = finance.giaSauGiam;
-      it.doanhthu = finance.doanhThu;
-      it.giavon = finance.giaVon;
-      it.loinhuan = finance.loiNhuan;
+      productDoc.soluongton = tinhTongTon(productDoc);
+      productDoc.ngaycapnhat = new Date();
+      await productDoc.save();
+
+      const fallbackAllocations = fifoCost.allocations && fifoCost.allocations.length
+        ? fifoCost.allocations
+        : [{ soLuong: Number(it.soluong || 0), giaNhap: fifoCost.giaNhapBinhQuan, giaBanDeXuat: giaBan }];
+
+      const allocationFinance = calcFinanceByAllocations({
+        allocations: fallbackAllocations,
+        fallbackGiaBan: giaBan,
+        fallbackPhanTramGiam: phanTramGiam
+      });
+
+      const avgGiaBan = allocationFinance.giaban;
+      const avgGiaSauGiam = allocationFinance.giasaugiam;
+      const avgPhanTram = avgGiaBan > 0
+        ? Math.max(0, Number((((avgGiaBan - avgGiaSauGiam) / avgGiaBan) * 100).toFixed(2)))
+        : 0;
+
+      it.gianhap = allocationFinance.gianhap;
+      it.giaban = avgGiaBan;
+      it.phantramgiam = avgPhanTram;
+      it.giasaugiam = avgGiaSauGiam;
+      it.doanhthu = allocationFinance.tongDoanhThu;
+      it.giavon = allocationFinance.tongGiaVon;
+      it.loinhuan = allocationFinance.tongLoiNhuan;
+      it.allocations = allocationFinance.allocations;
     }
 
     const totals = calcTotals(normalizedItems);
@@ -203,7 +212,7 @@ const taoMoiPost = async (req, res) => {
 
     await receipt.save();
 
-    req.flash('success', 'Tạo phiếu xuất thành công và đã trừ tồn kho');
+    req.flash('success', 'Tạo phiếu xuất thành công và đã cập nhật tồn sản phẩm');
     return res.redirect(req.app.locals.admin + '/exports/' + receipt._id);
   } catch (error) {
     console.error('Create export receipt error:', error);

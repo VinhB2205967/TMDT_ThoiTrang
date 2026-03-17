@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const addressSchema = new mongoose.Schema({
-  label: String,
+  label: { type: String, alias: 'nhan' },
   tennguoinhan: String,
   sodienthoai: String,
   diachi: String
@@ -16,7 +16,8 @@ const userSchema = new mongoose.Schema({
   },
   sodienthoai: String,              
   diachi: String,                   
-  diachiList: {                    
+  diachiList: {
+    alias: 'danhsachdiachi',
     type: [addressSchema],
     default: []
   },
@@ -37,11 +38,11 @@ const userSchema = new mongoose.Schema({
   ngaycapnhat: Date
   ,
  
-  lastSeenAt: Date,
-  lastLoginAt: Date,
-  lastLoginProvider: String,
-  lastLoginIp: String,
-  lastLoginUserAgent: String
+  lastSeenAt: { type: Date, alias: 'lanhoatdongcuoi' },
+  lastLoginAt: { type: Date, alias: 'landangnhapcuoi' },
+  lastLoginProvider: { type: String, alias: 'phuongthucdangnhapcuoi' },
+  lastLoginIp: { type: String, alias: 'ipdangnhapcuoi' },
+  lastLoginUserAgent: { type: String, alias: 'trinhduyetdangnhapcuoi' }
 });
 
 const Nguoidung = mongoose.model("Nguoidung", userSchema, "users");

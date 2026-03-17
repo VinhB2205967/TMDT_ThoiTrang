@@ -515,7 +515,8 @@ module.exports.capNhatTrangThai = async (req, res) => {
         await createExportReceiptFromOrder({
           orderId: id,
           adminUser: req.adminUser || req.user,
-          note: 'Tự động tạo khi đơn hàng được xác nhận'
+          note: 'Tự động tạo khi đơn hàng được xác nhận',
+          skipInventoryAdjustments: true
         });
         const mailResult = await sendOrderConfirmedEmail({ orderId: id });
         if (!mailResult.sent && mailResult.reason === 'already-sent') {
@@ -782,7 +783,8 @@ module.exports.capNhatTrangThaiHangLoat = async (req, res) => {
           await createExportReceiptFromOrder({
             orderId: order._id,
             adminUser: req.adminUser || req.user,
-            note: 'Tự động tạo khi đơn hàng được xác nhận (bulk)'
+            note: 'Tự động tạo khi đơn hàng được xác nhận (bulk)',
+            skipInventoryAdjustments: true
           });
           await sendOrderConfirmedEmail({ orderId: order._id });
         }

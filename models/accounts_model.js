@@ -21,6 +21,7 @@ const accountSchema = new mongoose.Schema({
 	},
 	provider: {
 		type: String,
+		alias: 'phuongthucdangnhap',
 		default: 'local'
 	},
 	vaitro: {

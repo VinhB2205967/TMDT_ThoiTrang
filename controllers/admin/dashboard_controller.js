@@ -83,10 +83,23 @@ function detectReportPeriod(question) {
 function cleanAdminAnswer(text) {
     let output = String(text || '')
         .replace(/\*\*/g, '')
-    .replace(/^\s*#{1,6}\s*/gm, '')
-    .replace(/^\s*\*\s+/gm, '- ')
+        .replace(/^\s*#{1,6}\s*/gm, '')
+        .replace(/^\s*\*\s+/gm, '- ')
         .replace(/```[\s\S]*?```/g, '')
         .trim();
+
+    // Remove product id hints and raw ObjectId strings from the final admin-facing answer.
+    output = output
+        .replace(/\(?\s*productId\s*:\s*[a-f0-9]{24}\s*\)?/gi, '')
+        .replace(/\(?\s*productid\s*:\s*\)?\s*[\r\n\s]*[a-f0-9]{24}/gi, '')
+        .replace(/\(\s*ID\s*:\s*[a-f0-9]{24}\s*\)/gi, '')
+        .replace(/\bID\s*:\s*[a-f0-9]{24}\b/gi, '')
+        .replace(/\bproduct\s*id\s*:\s*[a-f0-9]{24}\b/gi, '')
+        .replace(/\b[a-f0-9]{24}\b/gi, '')
+        .replace(/^\s*[a-f0-9]{24}\s*$/gim, '')
+        .replace(/\(\s*\)/g, '')
+        .replace(/"\s*\"/g, '"')
+        .replace(/\s{2,}/g, ' ');
 
     output = output
         .replace(/\s*1\.\s*(Tóm tắt[^:]*):?/i, '\n📌 $1:\n')
@@ -96,6 +109,7 @@ function cleanAdminAnswer(text) {
         .replace(/\s\*\s+/g, '\n- ')
         .replace(/\s-\s+/g, '\n- ')
         .replace(/\s(\d+\.\s)/g, '\n$1')
+        .replace(/\n\s*\n\s*\n+/g, '\n\n')
         .replace(/\n{3,}/g, '\n\n')
         .trim();
 

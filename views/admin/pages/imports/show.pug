@@ -5,7 +5,7 @@ block main
     .d-flex.justify-content-between.align-items-center.mb-3
       h3.mb-0 Chi tiết phiếu nhập
       .d-flex.gap-2
-        form(method='POST' action=`${admin}/imports/${receipt._id}/delete` onsubmit='return confirm("Xóa phiếu nhập này? Hành động này sẽ hoàn tác tồn kho nếu chưa phát sinh xuất FIFO.")')
+        form(method='POST' action=`${admin}/imports/${receipt._id}/delete` onsubmit='return confirm("Xóa phiếu nhập này? Chỉ có thể xóa khi chưa phát sinh xuất FIFO.")')
           input(type='hidden' name='_csrf' value=_csrf)
           button.btn.btn-outline-danger(type='submit')
             i.bi.bi-trash
@@ -16,6 +16,16 @@ block main
         a.btn.btn-primary(href=`${admin}/imports/${receipt._id}/edit`)
           i.bi.bi-pencil
           |  Chỉnh sửa
+        if !receipt.daxuatkho
+          form(method='POST' action=`${admin}/imports/${receipt._id}/export` onsubmit='return confirm("Xuất kho phiếu nhập này? Hệ thống sẽ cập nhật số lượng và giá sản phẩm theo phiếu.")')
+            input(type='hidden' name='_csrf' value=_csrf)
+            button.btn.btn-success(type='submit')
+              i.bi.bi-box-arrow-up-right
+              |  Xuất kho
+        else
+          button.btn.btn-success(type='button' disabled)
+            i.bi.bi-check-circle
+            |  Đã xuất kho
 
     .card.mb-3
       .card-header Thông tin phiếu nhập
@@ -34,6 +44,16 @@ block main
           .col-12
             .fw-semibold Ghi chú
             div #{receipt.ghichu || receipt.ghi_chu || receipt.note || ''}
+
+          .col-md-4
+            .fw-semibold Trạng thái xuất kho
+            if receipt.daxuatkho
+              div.text-success Đã xuất kho
+            else
+              div.text-muted Chưa xuất kho
+          .col-md-4
+            .fw-semibold Ngày xuất kho
+            div #{receipt.ngayxuatkho ? new Date(receipt.ngayxuatkho).toLocaleString('vi-VN') : ''}
 
           .col-12
             .fw-semibold Tổng tiền nhập
@@ -76,7 +96,9 @@ block main
                     td #{it.soluong || it.so_luong || it.quantity || 0}
                     td #{((it.gianhap != null ? it.gianhap : (it.gia_nhap != null ? it.gia_nhap : it.import_price)) || 0).toLocaleString('vi-VN')}
                     td #{((it.giabandexuat != null ? it.giabandexuat : (it.gia_ban_de_xuat != null ? it.gia_ban_de_xuat : it.suggested_price)) || 0).toLocaleString('vi-VN')}
-                    td #{it.danhmuc || it.danh_muc || it.category || ''}
+                    - const _danhMucRaw = String(it.danhmuc || it.danh_muc || it.category || '').trim().toLowerCase()
+                    - const _danhMucLabel = _danhMucRaw === 'ao' ? 'Áo' : _danhMucRaw === 'quan' ? 'Quần' : _danhMucRaw === 'vay' ? 'Váy' : _danhMucRaw === 'phukien' ? 'Phụ kiện' : _danhMucRaw === 'giay' ? 'Giày' : _danhMucRaw === 'tui' ? 'Túi' : _danhMucRaw === 'aokhoac' ? 'Áo khoác' : (it.danhmuc || it.danh_muc || it.category || '')
+                    td #{_danhMucLabel}
                     td
                       - const _img = it.hinhanh || it.image
                       if _img

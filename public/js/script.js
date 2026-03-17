@@ -335,11 +335,9 @@
 			checkboxes.forEach((cb) => {
 				if (!(cb instanceof HTMLInputElement)) return;
 				const row = cb.closest('.border-bottom') || cb.closest('.d-flex');
-				const qtyInput = row ? row.querySelector('input[name="soluong"]') : null;
-				const qty = Math.max(1, parseInt(qtyInput && qtyInput.value ? qtyInput.value : '1', 10) || 1);
-				const unitRaw = cb.getAttribute('data-unit-price') || '0';
-				const unit = parseInt(unitRaw, 10) || 0;
-				const lineTotal = unit * qty;
+				const baseLineRaw = cb.getAttribute('data-line-total') || '';
+				const baseLine = Math.max(0, parseFloat(baseLineRaw) || 0);
+				const lineTotal = Math.round(baseLine);
 				const lineEl = row ? row.querySelector('.cart-line-total') : null;
 				if (lineEl) lineEl.textContent = dinhDangVND(lineTotal);
 
@@ -351,11 +349,6 @@
 
 		compute();
 		checkboxes.forEach((cb) => cb.addEventListener('change', compute));
-		// Recompute when quantity inputs change (even before submitting the form)
-		document.querySelectorAll('input[name="soluong"]').forEach((inp) => {
-			inp.addEventListener('input', compute);
-			inp.addEventListener('change', compute);
-		});
 
 		// Expose compute for other initializers
 		window.__cartComputeSubtotal = compute;
@@ -446,6 +439,29 @@
 				}
 				if (typeof data.quantity === 'number') {
 					inputEl.value = String(Math.max(1, data.quantity));
+				}
+
+				const checkbox = document.querySelector(`.cart-select[value="${itemId}"]`);
+				if (checkbox instanceof HTMLInputElement) {
+					if (typeof data.lineTotal === 'number' && Number.isFinite(data.lineTotal)) {
+						checkbox.setAttribute('data-line-total', String(Math.max(0, data.lineTotal)));
+					}
+					if (typeof data.quantity === 'number' && Number.isFinite(data.quantity)) {
+						checkbox.setAttribute('data-base-qty', String(Math.max(1, data.quantity)));
+					}
+					if (typeof data.unitPrice === 'number' && Number.isFinite(data.unitPrice)) {
+						checkbox.setAttribute('data-unit-price', String(Math.max(0, data.unitPrice)));
+					}
+				}
+
+				const row = inputEl.closest('.border-bottom') || inputEl.closest('.d-flex');
+				const lineEl = row ? row.querySelector('.cart-line-total') : null;
+				if (lineEl && typeof data.lineTotal === 'number' && Number.isFinite(data.lineTotal)) {
+					lineEl.textContent = dinhDangVND(Math.max(0, data.lineTotal));
+				}
+
+				if (typeof window.__cartComputeSubtotal === 'function') {
+					window.__cartComputeSubtotal();
 				}
 			}
 			return ok;

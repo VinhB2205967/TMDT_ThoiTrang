@@ -15,14 +15,15 @@ function taoSlug(input) {
 }
 
 const categorySchema = new mongoose.Schema({
-  name: { type: String, trim: true },
+  name: { type: String, trim: true, alias: 'ten' },
   tendanhmuc: { type: String, trim: true },
-  slug: { type: String, trim: true },
+  slug: { type: String, trim: true, alias: 'duongdan' },
   mota: { type: String, trim: true },
   hinhanh: { type: String, trim: true },
 
   parent_id: {
     type: mongoose.Schema.Types.ObjectId,
+    alias: 'danhmuccha_id',
     ref: "Danhmuc",
     default: null
   },
@@ -32,16 +33,20 @@ const categorySchema = new mongoose.Schema({
     default: null
   },
 
-  level: { type: Number, default: 1, min: 1 },
-  ancestors: [{ type: mongoose.Schema.Types.ObjectId, ref: "Danhmuc" }],
-  path: { type: String, trim: true, default: "" },
-  order: { type: Number, default: 0 },
+  level: { type: Number, default: 1, min: 1, alias: 'capdo' },
+  ancestors: {
+    type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Danhmuc" }],
+    alias: 'to_tien'
+  },
+  path: { type: String, trim: true, default: "", alias: 'duongdan_daydu' },
+  order: { type: Number, default: 0, alias: 'thutu_hienthi' },
   thutu: { type: Number, default: 0 },
 
-  isActive: { type: Boolean, default: true },
+  isActive: { type: Boolean, default: true, alias: 'kichhoat' },
   trangthai: { type: String, default: "active" },
   type: {
     type: String,
+    alias: 'loai',
     enum: ["gender", "category", "brand", "occasion", "age_group"],
     default: "category"
   },

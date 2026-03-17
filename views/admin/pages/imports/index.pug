@@ -8,6 +8,23 @@ block main
         i.bi.bi-plus-lg
         |  Tạo phiếu nhập
 
+    form.card.mb-3(method='GET' action=`${admin}/imports`)
+      .card-body
+        .row.g-2.align-items-end
+          .col-md-6
+            label.form-label Nhà cung cấp
+            input.form-control(type='text' name='supplier' value=(filters && filters.supplier) || '' placeholder='Lọc theo tên nhà cung cấp...')
+          .col-md-2
+            label.form-label Hiển thị
+            select.form-select(name='limit')
+              - const __limit = Number((filters && filters.limit) || 10)
+              option(value='10' selected=(__limit === 10)) 10 / trang
+              option(value='20' selected=(__limit === 20)) 20 / trang
+              option(value='50' selected=(__limit === 50)) 50 / trang
+          .col-md-4.d-flex.gap-2
+            button.btn.btn-primary(type='submit') Lọc
+            a.btn.btn-outline-secondary(href=`${admin}/imports`) Reset
+
     if !receipts || receipts.length === 0
       .alert.alert-info.mb-0 Chưa có phiếu nhập nào.
     else
@@ -37,14 +54,38 @@ block main
                   td #{(_tong || 0).toLocaleString('vi-VN')}đ
                   td #{((r.ngaytao || r.ngay_tao || r.created_at) ? new Date(r.ngaytao || r.ngay_tao || r.created_at).toLocaleString('vi-VN') : '')}
                   td.text-nowrap
+                    if r.daxuatkho
+                      span.badge.bg-success.me-1 Đã xuất kho
                     a.btn.btn-sm.btn-outline-primary.me-1(href=`${admin}/imports/${r._id}`)
                       i.bi.bi-eye
                       |  Xem
                     a.btn.btn-sm.btn-outline-secondary.me-1(href=`${admin}/imports/${r._id}/edit`)
                       i.bi.bi-pencil
                       |  Sửa
-                    form.d-inline(method='POST' action=`${admin}/imports/${r._id}/delete` onsubmit='return confirm("Xóa phiếu nhập này? Hành động này sẽ hoàn tác tồn kho nếu chưa phát sinh xuất FIFO.")')
+                    if !r.daxuatkho
+                      form.d-inline(method='POST' action=`${admin}/imports/${r._id}/export` onsubmit='return confirm("Xuất kho phiếu nhập này? Hệ thống sẽ cập nhật số lượng và giá sản phẩm theo phiếu.")')
+                        input(type='hidden' name='_csrf' value=_csrf)
+                        button.btn.btn-sm.btn-outline-success.me-1(type='submit')
+                          i.bi.bi-box-arrow-up-right
+                          |  Xuất kho
+                    form.d-inline(method='POST' action=`${admin}/imports/${r._id}/delete` onsubmit='return confirm("Xóa phiếu nhập này? Chỉ có thể xóa khi chưa phát sinh xuất FIFO.")')
                       input(type='hidden' name='_csrf' value=_csrf)
                       button.btn.btn-sm.btn-outline-danger(type='submit')
                         i.bi.bi-trash
                         |  Xóa
+
+      if pagination && pagination.totalPages > 1
+        nav.mt-3(aria-label='Phân trang phiếu nhập')
+          ul.pagination
+            - const __page = Number(pagination.currentPage || 1)
+            - const __total = Number(pagination.totalPages || 1)
+            - const __supplierQ = encodeURIComponent((filters && filters.supplier) || '')
+            - const __limitQ = encodeURIComponent(String((filters && filters.limit) || 10))
+            - const __baseQuery = `supplier=${__supplierQ}&limit=${__limitQ}`
+            li.page-item(class=__page <= 1 ? 'disabled' : '')
+              a.page-link(href=__page <= 1 ? '#' : `${admin}/imports?page=${__page - 1}&${__baseQuery}`) Trước
+            each p in Array(__total).fill(0).map((_, i) => i + 1)
+              li.page-item(class=p === __page ? 'active' : '')
+                a.page-link(href=`${admin}/imports?page=${p}&${__baseQuery}`)= p
+            li.page-item(class=__page >= __total ? 'disabled' : '')
+              a.page-link(href=__page >= __total ? '#' : `${admin}/imports?page=${__page + 1}&${__baseQuery}`) Sau

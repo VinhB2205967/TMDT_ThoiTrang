@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const readline = require('readline');
 const { spawn } = require('child_process');
 
 const OPENCLIP_ENABLED = String(process.env.OPENCLIP_ENABLED || '1') !== '0';
@@ -15,6 +16,14 @@ const OPENCLIP_IMAGE_CANDIDATE_LIMIT = Number(process.env.OPENCLIP_IMAGE_CANDIDA
 const OPENCLIP_TOP_K = Number(process.env.OPENCLIP_TOP_K || 6);
 
 const WINDOWS_PYTHON_FALLBACK = 'C:/Users/ADMIN/AppData/Local/Programs/Python/Python310/python.exe';
+const MAX_STDERR_BUFFER = 16000;
+
+let activeWorker = null;
+let activeWorkerStartup = null;
+let activeWorkerStartupBin = '';
+let requestSequence = 0;
+let workingPythonBin = '';
+let processCleanupBound = false;
 
 function isEnabled() {
   return OPENCLIP_ENABLED;
@@ -125,6 +134,8 @@ function aggregateScoresByPriority(products, rawMatches, topK) {
 function getPythonCandidates() {
   const bins = [];
 
+  if (workingPythonBin) bins.push(workingPythonBin);
+
   if (process.platform === 'win32') {
     const hasPinnedWindowsPython = fs.existsSync(WINDOWS_PYTHON_FALLBACK);
     const normalizedConfigured = String(OPENCLIP_PYTHON_BIN || '').toLowerCase();
@@ -144,78 +155,210 @@ function getPythonCandidates() {
   return Array.from(new Set(bins.filter(Boolean)));
 }
 
-function runPythonRankWithBin({ pythonBin, query, imageQueryPath, candidates, topK = OPENCLIP_TOP_K }) {
-  return new Promise((resolve, reject) => {
-    if (!fs.existsSync(OPENCLIP_SCRIPT_PATH)) {
-      reject(new Error('OPENCLIP_SCRIPT_NOT_FOUND'));
+function buildWorkerError(message, state, rawPayload) {
+  const suffix = state && state.stderr
+    ? `:${String(state.stderr).trim()}`
+    : '';
+  const error = new Error(`${message}${suffix}`);
+  error.rawPayload = rawPayload;
+  return error;
+}
+
+function isRetryableWorkerError(error) {
+  const msg = String(error && error.message ? error.message : '').toLowerCase();
+  return msg.includes('enoent')
+    || msg.includes('is not recognized')
+    || msg.includes('no module named')
+    || msg.includes('import_error')
+    || msg.includes('model_init_error')
+    || msg.includes('worker_exited')
+    || msg.includes('worker_start_failed');
+}
+
+function bindCleanupHandlers() {
+  if (processCleanupBound) return;
+  processCleanupBound = true;
+
+  const cleanup = () => {
+    if (!activeWorker || !activeWorker.child || activeWorker.exited) return;
+    try {
+      activeWorker.child.kill();
+    } catch {}
+  };
+
+  process.once('exit', cleanup);
+  process.once('SIGINT', () => {
+    cleanup();
+    process.exit(130);
+  });
+  process.once('SIGTERM', () => {
+    cleanup();
+    process.exit(143);
+  });
+}
+
+function createWorkerState(pythonBin) {
+  if (!fs.existsSync(OPENCLIP_SCRIPT_PATH)) {
+    throw new Error('OPENCLIP_SCRIPT_NOT_FOUND');
+  }
+
+  const child = spawn(pythonBin, ['-u', OPENCLIP_SCRIPT_PATH], {
+    cwd: process.cwd(),
+    stdio: ['pipe', 'pipe', 'pipe'],
+    windowsHide: true
+  });
+
+  const state = {
+    pythonBin,
+    child,
+    stderr: '',
+    pending: new Map(),
+    exited: false,
+    stdout: readline.createInterface({ input: child.stdout })
+  };
+
+  state.stdout.on('line', (line) => {
+    let parsed;
+    try {
+      parsed = JSON.parse(String(line || '').trim());
+    } catch {
       return;
     }
 
-    const child = spawn(pythonBin, [OPENCLIP_SCRIPT_PATH], {
-      cwd: process.cwd(),
-      stdio: ['pipe', 'pipe', 'pipe'],
-      windowsHide: true
-    });
+    const requestId = String(parsed && parsed.requestId ? parsed.requestId : '').trim();
+    if (!requestId || !state.pending.has(requestId)) return;
 
-    let stdout = '';
-    let stderr = '';
-    let settled = false;
+    const pending = state.pending.get(requestId);
+    state.pending.delete(requestId);
+    clearTimeout(pending.timer);
 
+    if (!parsed || parsed.success !== true) {
+      pending.reject(buildWorkerError(
+        parsed && parsed.error ? String(parsed.error) : `OPENCLIP_RANK_FAILED:${pythonBin}`,
+        state,
+        parsed
+      ));
+      return;
+    }
+
+    pending.resolve({ ...parsed, pythonBin });
+  });
+
+  child.stderr.on('data', (chunk) => {
+    state.stderr += chunk.toString('utf8');
+    if (state.stderr.length > MAX_STDERR_BUFFER) {
+      state.stderr = state.stderr.slice(-MAX_STDERR_BUFFER);
+    }
+  });
+
+  child.on('error', (error) => {
+    state.stderr += String(error && error.message ? error.message : error);
+  });
+
+  child.on('close', (code, signal) => {
+    state.exited = true;
+    if (activeWorker === state) activeWorker = null;
+    if (activeWorkerStartupBin === pythonBin) {
+      activeWorkerStartup = null;
+      activeWorkerStartupBin = '';
+    }
+
+    for (const [requestId, pending] of state.pending.entries()) {
+      clearTimeout(pending.timer);
+      pending.reject(buildWorkerError(`OPENCLIP_WORKER_EXITED:${pythonBin}:${code ?? 'null'}:${signal ?? 'null'}`, state, { requestId }));
+    }
+    state.pending.clear();
+
+    try {
+      state.stdout.close();
+    } catch {}
+  });
+
+  return state;
+}
+
+function stopWorker(state) {
+  if (!state || !state.child || state.exited) return;
+  try {
+    state.child.kill();
+  } catch {}
+}
+
+function sendWorkerRequest(state, payload, timeoutMs = OPENCLIP_TIMEOUT_MS) {
+  return new Promise((resolve, reject) => {
+    if (!state || !state.child || state.exited) {
+      reject(new Error('OPENCLIP_WORKER_NOT_RUNNING'));
+      return;
+    }
+
+    const requestId = String(++requestSequence);
     const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      child.kill();
-      reject(new Error('OPENCLIP_TIMEOUT'));
-    }, Math.max(5000, OPENCLIP_TIMEOUT_MS));
+      state.pending.delete(requestId);
+      reject(buildWorkerError('OPENCLIP_TIMEOUT', state, { requestId }));
+    }, Math.max(5000, timeoutMs));
 
-    child.stdout.on('data', (chunk) => {
-      stdout += chunk.toString('utf8');
-    });
+    state.pending.set(requestId, { resolve, reject, timer });
 
-    child.stderr.on('data', (chunk) => {
-      stderr += chunk.toString('utf8');
-    });
-
-    child.on('error', (error) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      reject(error);
-    });
-
-    child.on('close', () => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-
-      let parsed = null;
-      try {
-        parsed = JSON.parse(String(stdout || '{}'));
-      } catch {
-        reject(new Error(`OPENCLIP_INVALID_OUTPUT:${pythonBin}:${stderr || stdout}`));
-        return;
-      }
-
-      if (!parsed || parsed.success !== true) {
-        reject(new Error(parsed && parsed.error ? String(parsed.error) : `OPENCLIP_RANK_FAILED:${pythonBin}`));
-        return;
-      }
-
-      resolve({ ...parsed, pythonBin });
-    });
-
-    const payload = {
-      query: String(query || '').trim(),
-      imageQueryPath: String(imageQueryPath || '').trim(),
-      candidates,
-      topK,
+    const message = JSON.stringify({
+      ...payload,
+      requestId,
       modelName: OPENCLIP_MODEL_NAME,
       pretrained: OPENCLIP_PRETRAINED,
       rootDir: process.cwd()
-    };
+    }) + '\n';
 
-    child.stdin.write(JSON.stringify(payload));
-    child.stdin.end();
+    state.child.stdin.write(message, (error) => {
+      if (!error) return;
+      const pending = state.pending.get(requestId);
+      if (!pending) return;
+      clearTimeout(pending.timer);
+      state.pending.delete(requestId);
+      pending.reject(buildWorkerError(`OPENCLIP_WRITE_FAILED:${error.message}`, state, { requestId }));
+    });
+  });
+}
+
+async function ensureWorker(pythonBin) {
+  bindCleanupHandlers();
+
+  if (activeWorker && activeWorker.pythonBin === pythonBin && !activeWorker.exited) {
+    return activeWorker;
+  }
+
+  if (activeWorkerStartup && activeWorkerStartupBin === pythonBin) {
+    return activeWorkerStartup;
+  }
+
+  const nextWorker = createWorkerState(pythonBin);
+  activeWorkerStartupBin = pythonBin;
+  activeWorkerStartup = sendWorkerRequest(nextWorker, { command: 'ping', warm: true })
+    .then(() => {
+      const previous = activeWorker;
+      activeWorker = nextWorker;
+      activeWorkerStartup = null;
+      activeWorkerStartupBin = '';
+      workingPythonBin = pythonBin;
+      if (previous && previous !== nextWorker) stopWorker(previous);
+      return nextWorker;
+    })
+    .catch((error) => {
+      activeWorkerStartup = null;
+      activeWorkerStartupBin = '';
+      stopWorker(nextWorker);
+      throw buildWorkerError(`OPENCLIP_WORKER_START_FAILED:${pythonBin}:${error.message}`, nextWorker, error.rawPayload);
+    });
+
+  return activeWorkerStartup;
+}
+
+async function runPythonRankWithBin({ pythonBin, query, imageQueryPath, candidates, topK = OPENCLIP_TOP_K }) {
+  const worker = await ensureWorker(pythonBin);
+  return sendWorkerRequest(worker, {
+    command: 'rank',
+    query: String(query || '').trim(),
+    imageQueryPath: String(imageQueryPath || '').trim(),
+    candidates,
+    topK
   });
 }
 
@@ -228,12 +371,12 @@ async function runPythonRank({ query, imageQueryPath, candidates, topK = OPENCLI
       return await runPythonRankWithBin({ pythonBin, query, imageQueryPath, candidates, topK });
     } catch (error) {
       lastError = error;
-      const msg = String(error && error.message ? error.message : '').toLowerCase();
-      const shouldRetry = msg.includes('enoent')
-        || msg.includes('is not recognized')
-        || msg.includes('no module named')
-        || msg.includes('import_error');
+      const shouldRetry = isRetryableWorkerError(error);
       if (!shouldRetry) throw error;
+      if (activeWorker && activeWorker.pythonBin === pythonBin) {
+        stopWorker(activeWorker);
+        activeWorker = null;
+      }
     }
   }
 

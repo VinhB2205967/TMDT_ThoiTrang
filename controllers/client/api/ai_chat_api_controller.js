@@ -80,6 +80,79 @@ function extractMentionedProductIds(text) {
   return ids;
 }
 
+function extractRequestedColor(question) {
+  const q = normalizeForCompare(question);
+  if (!q) return '';
+  const colors = ['hong', 'xanh', 'xanh la', 'trang', 'den', 'do', 'vang', 'tim', 'cam', 'nau', 'be', 'xam'];
+  for (const color of colors) {
+    if (q.includes(color)) return color;
+  }
+  return '';
+}
+
+function normalizeColor(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function answerHasNegativeAvailability(answer) {
+  const t = normalizeForCompare(answer);
+  return /khong co|chua co|het hang|khong tim thay/.test(t);
+}
+
+function findProductsByRequestedColor(context, requestedColor) {
+  if (!requestedColor) return [];
+  const products = Array.isArray(context && context.products) ? context.products : [];
+
+  return products
+    .map((p) => {
+      const colorDetails = Array.isArray(p && p.mauSacChiTiet) ? p.mauSacChiTiet : [];
+      const matchedDetails = colorDetails.filter((c) => normalizeColor(c && c.ten).includes(requestedColor));
+      const matchedAny = matchedDetails.length > 0;
+      const hasSizeInMatchedColor = matchedDetails.some((c) => Boolean(c && c.conSize));
+
+      return {
+        product: p,
+        matchedAny,
+        hasSizeInMatchedColor
+      };
+    })
+    .filter((x) => x.matchedAny);
+}
+
+function buildColorAvailabilityAnswer(context, requestedColor) {
+  const matches = findProductsByRequestedColor(context, requestedColor);
+  if (!matches.length) return '';
+
+  const available = matches.filter((m) => m.hasSizeInMatchedColor).slice(0, 3);
+  const unavailable = matches.filter((m) => !m.hasSizeInMatchedColor).slice(0, 3);
+
+  const lines = [];
+  if (available.length) {
+    lines.push('Shop có màu bạn cần. Bạn tham khảo nhanh:');
+    available.forEach((m, idx) => {
+      const p = m.product || {};
+      const price = Number(p.giaSauGiam || p.gia || 0);
+      lines.push(`${idx + 1}. ${p.tensanpham || 'Sản phẩm'}${price > 0 ? ` - ${price.toLocaleString('vi-VN')}đ` : ''}${p.url ? ` (${p.url})` : ''}`);
+    });
+  }
+
+  if (!available.length && unavailable.length) {
+    lines.push('Shop có màu bạn hỏi nhưng hiện màu này đang hết size để đặt hàng.');
+  }
+
+  if (available.length && unavailable.length) {
+    lines.push('Một số mẫu khác có màu này hiện đang hết size.');
+  }
+
+  lines.push('Bạn muốn mình lọc thêm theo size còn hàng hoặc màu gần giống không?');
+  return lines.join('\n');
+}
+
 function toSuggestedProducts(context, answerText) {
   const byId = new Map();
 
@@ -251,13 +324,20 @@ module.exports.sendMessage = async (req, res) => {
 
     const ai = await askAI({ question, history, context, provider, model });
 
+    let answer = String(ai && ai.content ? ai.content : '').trim();
+    const requestedColor = extractRequestedColor(question);
+    if (requestedColor && answerHasNegativeAvailability(answer)) {
+      const corrected = buildColorAvailabilityAnswer(context, requestedColor);
+      if (corrected) answer = corrected;
+    }
+
     return res.json({
       success: true,
       data: {
-        answer: ai.content,
+        answer,
         model: ai.model,
         provider: ai.provider || provider,
-        suggestedProducts: (provider === 'openclip' || shouldSuggestProducts(question)) ? toSuggestedProducts(context, ai.content) : [],
+        suggestedProducts: (provider === 'openclip' || shouldSuggestProducts(question)) ? toSuggestedProducts(context, answer) : [],
         contextMeta: {
           products: Array.isArray(context.products) ? context.products.length : 0,
           hasFlashSale: Boolean(context.flashSale),

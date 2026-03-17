@@ -195,6 +195,36 @@ body.openclip-loading {
     overflow: hidden;
 }
 
+.openclip-loading-overlay__close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 34px;
+    height: 34px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(32, 48, 79, 0.1);
+    color: #20304f;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.openclip-loading-overlay__close:hover {
+    background: rgba(32, 48, 79, 0.2);
+}
+
+.openclip-loading-overlay__close:active {
+    transform: scale(0.96);
+}
+
+.openclip-loading-overlay__close:focus-visible {
+    outline: 2px solid rgba(53, 81, 199, 0.5);
+    outline-offset: 2px;
+}
+
 .openclip-loading-overlay__spinner {
     width: 54px;
     height: 54px;
@@ -3006,6 +3036,8 @@ body.openclip-loading {
 .description-content {
     line-height: 1.8;
     color: #444;
+    white-space: pre-line;
+    word-break: break-word;
 }
 
 /* Reviews */

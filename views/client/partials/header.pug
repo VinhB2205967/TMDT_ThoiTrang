@@ -23,6 +23,8 @@ header.header
                 #openclipLoadingOverlay.openclip-loading-overlay(hidden)
                     .openclip-loading-overlay__backdrop
                     .openclip-loading-overlay__dialog(role="status" aria-live="polite")
+                        button#openclipLoadingClose.openclip-loading-overlay__close(type="button" aria-label="Đóng")
+                            i.bi.bi-x-lg
                         .openclip-loading-overlay__spinner
                         strong.openclip-loading-overlay__title Đang phân tích ảnh
                         p.openclip-loading-overlay__text Hệ thống đang so khớp ảnh với sản phẩm phù hợp nhất.
@@ -72,10 +74,6 @@ header.header
                                 a.dropdown-item(href="/vouchers")
                                     i.bi.bi-ticket-perforated
                                     span Nhận voucher
-                            li
-                                a.dropdown-item(href="/ai/openclip")
-                                    i.bi.bi-stars
-                                    span OpenCLIP Search
 
                     
                         
@@ -185,18 +183,53 @@ script.
         const imageForm = document.getElementById('headerImageSearchForm');
         const loadingOverlay = document.getElementById('openclipLoadingOverlay');
         const loadingPreview = document.getElementById('openclipLoadingPreview');
+        const loadingBackdrop = loadingOverlay ? loadingOverlay.querySelector('.openclip-loading-overlay__backdrop') : null;
+        const loadingCloseBtn = document.getElementById('openclipLoadingClose');
+        let loadingPreviewObjectUrl = null;
+
+        const hideLoadingOverlay = function() {
+            if (!loadingOverlay) return;
+            loadingOverlay.hidden = true;
+            document.body.classList.remove('openclip-loading');
+            if (loadingPreviewObjectUrl) {
+                URL.revokeObjectURL(loadingPreviewObjectUrl);
+                loadingPreviewObjectUrl = null;
+            }
+        };
+
         const showLoadingOverlay = function(file) {
             if (!loadingOverlay) return;
             loadingOverlay.hidden = false;
             document.body.classList.add('openclip-loading');
+            if (loadingPreviewObjectUrl) {
+                URL.revokeObjectURL(loadingPreviewObjectUrl);
+                loadingPreviewObjectUrl = null;
+            }
             if (loadingPreview && file) {
-                const objectUrl = URL.createObjectURL(file);
-                loadingPreview.src = objectUrl;
+                loadingPreviewObjectUrl = URL.createObjectURL(file);
+                loadingPreview.src = loadingPreviewObjectUrl;
                 loadingPreview.onload = function() {
-                    URL.revokeObjectURL(objectUrl);
+                    if (loadingPreviewObjectUrl) {
+                        URL.revokeObjectURL(loadingPreviewObjectUrl);
+                        loadingPreviewObjectUrl = null;
+                    }
                 };
             }
         };
+
+        if (loadingCloseBtn) {
+            loadingCloseBtn.addEventListener('click', hideLoadingOverlay);
+        }
+
+        if (loadingBackdrop) {
+            loadingBackdrop.addEventListener('click', hideLoadingOverlay);
+        }
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' && loadingOverlay && !loadingOverlay.hidden) {
+                hideLoadingOverlay();
+            }
+        });
 
         if (imageBtn && imageInput && imageForm) {
             imageBtn.addEventListener('click', function() {

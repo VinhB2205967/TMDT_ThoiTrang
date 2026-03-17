@@ -26,7 +26,10 @@ block main
                     input.form-control(type="email" name="email" required autocomplete="email" value=((formData && formData.email) || rememberedEmail || ''))
                   .mb-3
                     label.form-label Mật khẩu
-                    input.form-control(type="password" name="password" required autocomplete="current-password")
+                    .input-group
+                      input#authPasswordLogin.form-control(type="password" name="password" required autocomplete="current-password")
+                      button.btn.btn-outline-secondary.auth-password-toggle(type="button" data-toggle-password="#authPasswordLogin" aria-label="Hiện mật khẩu" title="Hiện mật khẩu")
+                        i.bi.bi-eye
                   .d-flex.align-items-center.justify-content-between.mb-3
                     .form-check
                       input.form-check-input(type="checkbox" name="remember" id="rememberEmail" checked=Boolean((formData && formData.remember) || rememberedEmail))
@@ -43,7 +46,10 @@ block main
                     input.form-control(type="email" name="email" required autocomplete="email" value=((formData && formData.email) || ''))
                   .mb-3
                     label.form-label Mật khẩu
-                    input.form-control(type="password" name="password" required autocomplete="new-password" minlength="6")
+                    .input-group
+                      input#authPasswordRegister.form-control(type="password" name="password" required autocomplete="new-password" minlength="6")
+                      button.btn.btn-outline-secondary.auth-password-toggle(type="button" data-toggle-password="#authPasswordRegister" aria-label="Hiện mật khẩu" title="Hiện mật khẩu")
+                        i.bi.bi-eye
                   button.btn.btn-success.w-100(type="submit") Tạo tài khoản
 
               .text-center.my-3.text-muted hoặc

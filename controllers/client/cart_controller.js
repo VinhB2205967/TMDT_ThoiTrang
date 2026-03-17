@@ -2,6 +2,7 @@ const sanpham = require('../../models/product_model');
 const donhang = require('../../models/order_model');
 const chitietdonhang = require('../../models/order_item_model');
 const nguoidung = require('../../models/user_model');
+const TonKhoLo = require('../../models/inventory_lot_model');
 const mongoose = require('mongoose');
 const { getOrCreateCart } = require('../../services/cart.service');
 const { laLoaiKhongSize, tinhTongTon, layBienTheVaTon } = require('../../services/productStock.service');
@@ -10,6 +11,11 @@ const { taoThanhToanMoMo } = require('../../services/momo.service');
 const { taoThanhToanVnpay, kiemTraChuKyVnpay } = require('../../services/vnpay.service');
 const { taoGiaoDichThanhToan, capNhatGiaoDichThanhToan, danhDauThanhCongTheoDonHang } = require('../../services/payment.service');
 const { getFlashSalePercentMap, tinhGiaFlash } = require('../../services/flashSale.service');
+const {
+  consumeLotsFIFO,
+  resolveSuggestedPriceAfterConsume,
+  applySuggestedPriceToProductDoc
+} = require('../../services/exportReceipt.service');
 const SHIPPING_CONFIG = require('../../config/shipping');
 const {
   normalizeCode,
@@ -31,6 +37,95 @@ function tinhPhanTramTuGia(giaGoc, giaSauGiam) {
 function tinhSoLuongHienThiGio(giohang) {
   if (!giohang || !Array.isArray(giohang.sanpham)) return 0;
   return giohang.sanpham.length;
+}
+
+function taoDieuKienBienTheChoLo(variantId) {
+  const raw = String(variantId || '').trim();
+  if (!raw || raw === 'main') {
+    return {
+      $or: [
+        { bientheid: null },
+        { bientheid: { $exists: false } }
+      ]
+    };
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(raw)) return null;
+  return { bientheid: new mongoose.Types.ObjectId(raw) };
+}
+
+async function tinhGiaTheoLoFIFO({ productDoc, item, giaMacDinh }) {
+  const productId = String(item?.sanpham_id || '').trim();
+  if (!mongoose.Types.ObjectId.isValid(productId)) return null;
+
+  const soLuongCan = Math.max(1, Number(item?.soluong || 1));
+  const variantCond = taoDieuKienBienTheChoLo(item?.bienthe_id);
+  if (!variantCond) return null;
+
+  const hasSize = !laLoaiKhongSize(productDoc?.loaisanpham);
+  const sizeKey = hasSize ? String(item?.kichco || '').trim() : '';
+
+  const lots = await TonKhoLo.find({
+    sanphamid: new mongoose.Types.ObjectId(productId),
+    kichco: sizeKey,
+    soluongconlai: { $gt: 0 },
+    ...variantCond
+  })
+    .sort({ ngaynhap: 1, ngaytao: 1, _id: 1 })
+    .select('soluongconlai giabandexuat')
+    .lean();
+
+  if (!lots.length) return null;
+
+  let conLai = soLuongCan;
+  let tongTien = 0;
+  let daLay = 0;
+  const allocations = [];
+
+  for (const lot of lots) {
+    if (conLai <= 0) break;
+    const ton = Math.max(0, Number(lot?.soluongconlai || 0));
+    if (ton <= 0) continue;
+
+    const lay = Math.min(ton, conLai);
+    const giaLo = Math.max(0, Number(lot?.giabandexuat || 0)) || Math.max(0, Number(giaMacDinh || 0));
+
+    tongTien += (lay * giaLo);
+    daLay += lay;
+    conLai -= lay;
+    allocations.push({ soLuong: lay, gia: giaLo });
+  }
+
+  if (daLay <= 0) return null;
+
+  if (conLai > 0) {
+    const fallbackGia = Math.max(0, Number(giaMacDinh || 0));
+    tongTien += conLai * fallbackGia;
+    allocations.push({ soLuong: conLai, gia: fallbackGia });
+    daLay += conLai;
+  }
+
+  return {
+    tongTien,
+    donGiaBinhQuan: daLay > 0 ? (tongTien / daLay) : Math.max(0, Number(giaMacDinh || 0)),
+    allocations
+  };
+}
+
+function layPhanTramGiamMacDinh({ productDoc, item, ketqua }) {
+  const variantId = String(item?.bienthe_id || '').trim();
+  if (variantId && variantId !== 'main') {
+    const variant = (productDoc?.bienthe || []).find((v) => String(v?._id) === variantId);
+    if (Number.isFinite(Number(variant?.phantramgiamgia))) {
+      return Math.max(0, Number(variant.phantramgiamgia));
+    }
+  }
+
+  if (Number.isFinite(Number(productDoc?.phantramgiamgia))) {
+    return Math.max(0, Number(productDoc.phantramgiamgia));
+  }
+
+  return Math.max(0, tinhPhanTramTuGia(ketqua?.gia, ketqua?.giagiam));
 }
 
 async function dongBoGiaGioHang(giohang, { capNhatTonKho = false } = {}) {
@@ -75,11 +170,36 @@ async function dongBoGiaGioHang(giohang, { capNhatTonKho = false } = {}) {
 
     if (ketqua?.error) continue;
 
-    const giaGoc = Number(ketqua.gia || item.gia || 0);
-    const phanTramGoc = tinhPhanTramTuGia(giaGoc, ketqua.giagiam);
+    const qty = Math.max(1, Number(item.soluong || 1));
+    const giaNen = Number(ketqua.gia || item.gia || 0);
+    const quoteTheoLo = await tinhGiaTheoLoFIFO({
+      productDoc,
+      item,
+      giaMacDinh: giaNen
+    });
+    const giaGoc = Number(quoteTheoLo?.donGiaBinhQuan ?? giaNen);
+
+    const phanTramGoc = layPhanTramGiamMacDinh({ productDoc, item, ketqua });
     const phanTramFlash = Number(flashPercentMap.get(String(item.sanpham_id || '')) || 0);
     const phanTramApDung = phanTramFlash > 0 ? phanTramFlash : phanTramGoc;
-    const giaGiam = phanTramApDung > 0 ? (tinhGiaFlash(giaGoc, phanTramApDung) || giaGoc) : giaGoc;
+
+    let giaGiam = giaGoc;
+    let lineTotal = 0;
+
+    if (quoteTheoLo) {
+      if (phanTramApDung > 0) {
+        lineTotal = quoteTheoLo.allocations.reduce((sum, a) => {
+          const unitAfter = tinhGiaFlash(Number(a.gia || 0), phanTramApDung) || Number(a.gia || 0);
+          return sum + (Math.max(0, Number(a.soLuong || 0)) * unitAfter);
+        }, 0);
+      } else {
+        lineTotal = Math.round(Number(quoteTheoLo.tongTien || 0));
+      }
+      giaGiam = qty > 0 ? (lineTotal / qty) : giaGoc;
+    } else {
+      giaGiam = phanTramApDung > 0 ? (tinhGiaFlash(giaGoc, phanTramApDung) || giaGoc) : giaGoc;
+      lineTotal = Math.round(giaGiam * qty);
+    }
 
     if (Number(item.gia || 0) !== giaGoc) {
       item.gia = giaGoc;
@@ -87,6 +207,10 @@ async function dongBoGiaGioHang(giohang, { capNhatTonKho = false } = {}) {
     }
     if (Number(item.giagiam || 0) !== giaGiam) {
       item.giagiam = giaGiam;
+      changed = true;
+    }
+    if (Number(item.thanhtien || 0) !== lineTotal) {
+      item.thanhtien = lineTotal;
       changed = true;
     }
   }
@@ -265,10 +389,24 @@ module.exports.capNhatSoLuong = async (req, res) => {
 
   soluongcapnhat = Math.max(1, soluongcapnhat);
   dongitem.soluong = soluongcapnhat;
+
+  await dongBoGiaGioHang(giohang, { capNhatTonKho: false });
   await giohang.save();
 
+  const dongSauCapNhat = giohang.sanpham.id(iditem);
+  const lineTotal = Number(dongSauCapNhat?.thanhtien || 0);
+  const unitPrice = Number(dongSauCapNhat?.giagiam || dongSauCapNhat?.gia || 0);
+
   return muonJSON(req)
-    ? res.json({ success: true, cartCount: tinhSoLuongHienThiGio(giohang), quantity: soluongcapnhat, maxStock: tonkho })
+    ? res.json({
+      success: true,
+      cartCount: tinhSoLuongHienThiGio(giohang),
+      quantity: soluongcapnhat,
+      maxStock: tonkho,
+      lineTotal,
+      unitPrice,
+      cartTotal: Number(giohang.tongtien || 0)
+    })
     : res.redirect('/cart');
 };
 
@@ -318,6 +456,7 @@ module.exports.capNhatTuyChon = async (req, res) => {
       dongitem.soluong = soluonghople;
     }
 
+    await dongBoGiaGioHang(giohang, { capNhatTonKho: false });
     await giohang.save();
     return res.json({ success: true, cartCount: tinhSoLuongHienThiGio(giohang) });
   } catch (e) {
@@ -358,8 +497,10 @@ module.exports.trangThanhToan = async (req, res) => {
       : (giohang.sanpham || []);
 
     const tamtinh = danhsachitem.reduce((sum, it) => {
-      const gia = it.giagiam || it.gia || 0;
-      return sum + (gia * (it.soluong || 1));
+      const lineTotal = Number.isFinite(Number(it.thanhtien))
+        ? Number(it.thanhtien)
+        : ((it.giagiam || it.gia || 0) * (it.soluong || 1));
+      return sum + lineTotal;
     }, 0);
 
     const defaultRegion = SHIPPING_CONFIG.defaultRegion || 'noithanh';
@@ -423,6 +564,32 @@ async function truTonTheoItem(item) {
 
   const sanphamdoc = await sanpham.findById(idsanpham);
   if (!sanphamdoc) throw new Error('Sản phẩm không tồn tại');
+
+  const variantId = idbienthe ? String(idbienthe) : null;
+  const sizeKey = String(kichco || '').trim();
+
+  try {
+    const fifoCost = await consumeLotsFIFO({
+      productId: String(idsanpham),
+      variantId,
+      size: sizeKey,
+      qty: soluong
+    });
+
+    const suggestedPrice = await resolveSuggestedPriceAfterConsume({
+      productId: String(idsanpham),
+      variantId,
+      size: sizeKey,
+      allocations: fifoCost?.allocations || []
+    });
+
+    applySuggestedPriceToProductDoc(sanphamdoc, {
+      variantId,
+      suggestedPrice
+    });
+  } catch {
+    // Compatibility fallback: proceed with product-stock deduction when lots are legacy/incomplete.
+  }
 
   const tonggoc = (typeof sanphamdoc.soluongton === 'number') ? sanphamdoc.soluongton : tinhTongTon(sanphamdoc);
 
@@ -561,8 +728,10 @@ module.exports.xuLyThanhToan = async (req, res) => {
     }
 
     const tamtinh = danhsachitem.reduce((sum, it) => {
-      const gia = it.giagiam || it.gia || 0;
-      return sum + (gia * (it.soluong || 1));
+      const lineTotal = Number.isFinite(Number(it.thanhtien))
+        ? Number(it.thanhtien)
+        : ((it.giagiam || it.gia || 0) * (it.soluong || 1));
+      return sum + lineTotal;
     }, 0);
 
     const shippingRegion = normalizeShippingRegion(req.body.shippingRegion);
@@ -633,6 +802,10 @@ module.exports.xuLyThanhToan = async (req, res) => {
 
     for (const it of danhsachitem) {
       await truTonTheoItem(it);
+      const lineTotal = Number.isFinite(Number(it.thanhtien))
+        ? Number(it.thanhtien)
+        : ((it.giagiam || it.gia || 0) * (it.soluong || 1));
+      const unitPriceAfterDiscount = (it.soluong || 1) > 0 ? (lineTotal / (it.soluong || 1)) : (it.giagiam || it.gia || 0);
       await chitietdonhang.create({
         donhang_id: donhangdoc._id,
         sanpham_id: it.sanpham_id,
@@ -642,9 +815,9 @@ module.exports.xuLyThanhToan = async (req, res) => {
         mausac: it.mausac,
         kichco: it.kichco,
         giagoc: it.gia,
-        giaban: it.giagiam || it.gia,
+        giaban: unitPriceAfterDiscount,
         soluong: it.soluong,
-        thanhtien: (it.giagiam || it.gia || 0) * (it.soluong || 1)
+        thanhtien: lineTotal
       });
     }
 

@@ -1,5 +1,21 @@
 const mongoose = require('mongoose');
 
+const exportAllocationSchema = new mongoose.Schema(
+  {
+    lotId: { type: mongoose.Schema.Types.ObjectId, required: false },
+    soLuong: { type: Number, required: true, min: 1 },
+    giaNhap: { type: Number, default: 0, min: 0 },
+    giaBanDeXuat: { type: Number, default: 0, min: 0 },
+    giaban: { type: Number, default: 0, min: 0 },
+    phantramgiam: { type: Number, default: 0, min: 0 },
+    giasaugiam: { type: Number, default: 0, min: 0 },
+    doanhthu: { type: Number, default: 0 },
+    giavon: { type: Number, default: 0 },
+    loinhuan: { type: Number, default: 0 }
+  },
+  { _id: false }
+);
+
 const exportItemSchema = new mongoose.Schema(
   {
     sanphamid: { type: mongoose.Schema.Types.ObjectId, ref: 'Sanpham', required: true },
@@ -15,6 +31,7 @@ const exportItemSchema = new mongoose.Schema(
     doanhthu: { type: Number, default: 0 },
     giavon: { type: Number, default: 0 },
     loinhuan: { type: Number, default: 0 },
+    allocations: { type: [exportAllocationSchema], default: [] },
     hinhanh: { type: String, default: '' },
     ghichudong: { type: String, default: '' }
   },

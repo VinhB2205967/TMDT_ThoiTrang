@@ -6,6 +6,101 @@ const Sanpham = require('../../models/product_model');
 
 const TAGS_NHANH = ['Đẹp', 'Đúng mô tả', 'Giao nhanh', 'Vải ok', 'Sai size'];
 const EDIT_WINDOW_DAYS = 7;
+const MAX_REVIEW_IMAGES = 5;
+const MAX_REVIEW_VIDEOS = 1;
+const MAX_IMAGE_SIZE_MB = 20;
+const MAX_VIDEO_SIZE_MB = 100;
+
+function isVideoUrl(url) {
+  return /\.(mp4|mov|webm|mkv)(\?.*)?$/i.test(String(url || ''));
+}
+
+function splitMediaUrls(urls) {
+  const list = Array.isArray(urls) ? urls : [];
+  const images = [];
+  const videos = [];
+  list.forEach((url) => {
+    const val = String(url || '').trim();
+    if (!val) return;
+    if (isVideoUrl(val)) videos.push(val);
+    else images.push(val);
+  });
+  return { images, videos };
+}
+
+function extractMediaFromRequestFiles(req) {
+  const files = req && req.files ? req.files : null;
+  if (!files) return { images: [], videos: [] };
+
+  const images = [];
+  const videos = [];
+
+  if (Array.isArray(files)) {
+    files.forEach((f) => {
+      if (!f || !f.filename) return;
+      const url = `/uploads/reviews/${f.filename}`;
+      if (String(f.mimetype || '').startsWith('video/')) videos.push(url);
+      else images.push(url);
+    });
+    return { images, videos };
+  }
+
+  const fileGroups = []
+    .concat(Array.isArray(files.images) ? files.images : [])
+    .concat(Array.isArray(files.videos) ? files.videos : [])
+    .concat(Array.isArray(files.hinhanh) ? files.hinhanh : []);
+
+  fileGroups.forEach((f) => {
+    if (!f || !f.filename) return;
+    const url = `/uploads/reviews/${f.filename}`;
+    if (String(f.mimetype || '').startsWith('video/')) videos.push(url);
+    else images.push(url);
+  });
+
+  return { images, videos };
+}
+
+function collectUploadedFiles(req) {
+  const files = req && req.files ? req.files : null;
+  if (!files) return [];
+  if (Array.isArray(files)) return files;
+  return []
+    .concat(Array.isArray(files.images) ? files.images : [])
+    .concat(Array.isArray(files.videos) ? files.videos : [])
+    .concat(Array.isArray(files.hinhanh) ? files.hinhanh : []);
+}
+
+function validateUploadedFileSizes(req) {
+  const allFiles = collectUploadedFiles(req);
+  const maxImageBytes = MAX_IMAGE_SIZE_MB * 1024 * 1024;
+  const maxVideoBytes = MAX_VIDEO_SIZE_MB * 1024 * 1024;
+  for (const file of allFiles) {
+    const size = Number(file && file.size ? file.size : 0);
+    const mime = String(file && file.mimetype ? file.mimetype : '');
+    if (mime.startsWith('video/') && size > maxVideoBytes) {
+      return `Video vượt quá ${MAX_VIDEO_SIZE_MB}MB`;
+    }
+    if (mime.startsWith('image/') && size > maxImageBytes) {
+      return `Ảnh vượt quá ${MAX_IMAGE_SIZE_MB}MB`;
+    }
+  }
+  return '';
+}
+
+function parseRemoveList(value) {
+  if (Array.isArray(value)) return value.map((v) => String(v || '').trim()).filter(Boolean);
+  if (!value) return [];
+  return [String(value).trim()].filter(Boolean);
+}
+
+function normalizeReviewMedia(review) {
+  const old = splitMediaUrls(review && review.hinhanh);
+  const videos = old.videos.concat(Array.isArray(review && review.videos) ? review.videos : []);
+  return {
+    images: old.images,
+    videos: Array.from(new Set(videos.map((v) => String(v || '').trim()).filter(Boolean)))
+  };
+}
 
 function isEditableWithinWindow(review) {
   if (!review || !review.ngaytao) return false;
@@ -79,12 +174,15 @@ module.exports.taoMoi = async (req, res) => {
 
     if (existing) {
       const canEdit = isEditableWithinWindow(existing);
+      const media = normalizeReviewMedia(existing);
       return res.render('client/pages/reviews/create.pug', {
         titlePage: 'Sửa đánh giá',
         order: quyen.order,
         item: quyen.item,
         productId,
         review: existing,
+        reviewImages: media.images,
+        reviewVideos: media.videos,
         tags: TAGS_NHANH,
         canEdit,
         editWindowDays: EDIT_WINDOW_DAYS
@@ -97,6 +195,8 @@ module.exports.taoMoi = async (req, res) => {
       item: quyen.item,
       productId,
       review: null,
+      reviewImages: [],
+      reviewVideos: [],
       tags: TAGS_NHANH,
       canEdit: true,
       editWindowDays: EDIT_WINDOW_DAYS
@@ -151,8 +251,23 @@ module.exports.taoMoiPost = async (req, res) => {
       return res.redirect(`/reviews/${existed._id}/edit`);
     }
 
-    const files = Array.isArray(req.files) ? req.files : [];
-    const imgs = files.map(f => `/uploads/reviews/${f.filename}`).slice(0, 5);
+    const uploaded = extractMediaFromRequestFiles(req);
+    const sizeError = validateUploadedFileSizes(req);
+    if (sizeError) {
+      req.flash?.('error', sizeError);
+      return res.redirect(reviewFormUrl);
+    }
+    const imgs = uploaded.images.slice(0, MAX_REVIEW_IMAGES);
+    const videos = uploaded.videos.slice(0, MAX_REVIEW_VIDEOS);
+
+    if (uploaded.images.length > MAX_REVIEW_IMAGES) {
+      req.flash?.('error', `Tối đa ${MAX_REVIEW_IMAGES} ảnh cho mỗi đánh giá`);
+      return res.redirect(reviewFormUrl);
+    }
+    if (uploaded.videos.length > MAX_REVIEW_VIDEOS) {
+      req.flash?.('error', `Tối đa ${MAX_REVIEW_VIDEOS} video cho mỗi đánh giá`);
+      return res.redirect(reviewFormUrl);
+    }
 
     await Danhgia.create({
       sanpham_id: quyen.item.sanpham_id,
@@ -162,6 +277,7 @@ module.exports.taoMoiPost = async (req, res) => {
       diem,
       noidung,
       hinhanh: imgs,
+      videos,
       tags,
       mausac: quyen.item.mausac,
       kichco: quyen.item.kichco,
@@ -204,6 +320,7 @@ module.exports.sua = async (req, res) => {
   const canEdit = isEditableWithinWindow(review);
   const order = await Donhang.findById(review.donhang_id).lean();
   const item = await Chitietdonhang.findById(review.chitietdonhang_id).lean();
+  const media = normalizeReviewMedia(review);
 
   return res.render('client/pages/reviews/create.pug', {
     titlePage: 'Sửa đánh giá',
@@ -211,6 +328,8 @@ module.exports.sua = async (req, res) => {
     item,
     productId: review.sanpham_id,
     review,
+    reviewImages: media.images,
+    reviewVideos: media.videos,
     tags: TAGS_NHANH,
     canEdit,
     editWindowDays: EDIT_WINDOW_DAYS
@@ -249,13 +368,36 @@ module.exports.capNhat = async (req, res) => {
       return res.redirect('back');
     }
 
-    const files = Array.isArray(req.files) ? req.files : [];
-    const imgs = files.map(f => `/uploads/reviews/${f.filename}`).slice(0, 5);
+    const uploaded = extractMediaFromRequestFiles(req);
+    const sizeError = validateUploadedFileSizes(req);
+    if (sizeError) {
+      req.flash?.('error', sizeError);
+      return res.redirect('back');
+    }
+    const removeImages = parseRemoveList(req.body.removeImages);
+    const removeVideos = parseRemoveList(req.body.removeVideos);
+
+    const media = normalizeReviewMedia(review);
+    const keptImages = media.images.filter((url) => !removeImages.includes(url));
+    const keptVideos = media.videos.filter((url) => !removeVideos.includes(url));
+
+    const mergedImages = keptImages.concat(uploaded.images);
+    const mergedVideos = keptVideos.concat(uploaded.videos);
+
+    if (mergedImages.length > MAX_REVIEW_IMAGES) {
+      req.flash?.('error', `Tối đa ${MAX_REVIEW_IMAGES} ảnh cho mỗi đánh giá`);
+      return res.redirect('back');
+    }
+    if (mergedVideos.length > MAX_REVIEW_VIDEOS) {
+      req.flash?.('error', `Tối đa ${MAX_REVIEW_VIDEOS} video cho mỗi đánh giá`);
+      return res.redirect('back');
+    }
 
     review.diem = diem;
     review.noidung = noidung;
     review.tags = tags;
-    if (imgs.length) review.hinhanh = imgs;
+    review.hinhanh = mergedImages;
+    review.videos = mergedVideos;
     review.ngaycapnhat = new Date();
 
     await review.save();
@@ -299,7 +441,9 @@ module.exports.layDanhSachTheoSanPham = async (req, res) => {
   try {
     const productId = String(req.params.id || '').trim();
     const rating = Number(req.query.rating || 0);
-    const hasImage = String(req.query.hasImage || '') === '1';
+    const mediaQuery = String(req.query.media || '').trim().toLowerCase();
+    const hasImageLegacy = String(req.query.hasImage || '') === '1';
+    const media = mediaQuery || (hasImageLegacy ? 'image' : 'all');
     const sort = String(req.query.sort || 'newest');
 
     if (!mongoose.Types.ObjectId.isValid(productId)) {
@@ -308,14 +452,37 @@ module.exports.layDanhSachTheoSanPham = async (req, res) => {
 
     const baseFilter = { sanpham_id: productId, trangthai: 'approved', hienthi: true, daxoa: { $ne: true } };
     if (rating >= 1 && rating <= 5) baseFilter.diem = rating;
-    if (hasImage) baseFilter.hinhanh = { $exists: true, $ne: [] };
 
     let sortObj = { ngaytao: -1 };
-    if (sort === 'highest') sortObj = { diem: -1, ngaytao: -1 };
-    if (sort === 'lowest') sortObj = { diem: 1, ngaytao: -1 };
-    if (sort === 'helpful') sortObj = { thich: -1, ngaytao: -1 };
+    if (sort === 'oldest') sortObj = { ngaytao: 1 };
 
-    const reviews = await Danhgia.find(baseFilter).sort(sortObj).lean();
+    const reviewsRaw = await Danhgia.find(baseFilter)
+      .populate({ path: 'nguoidung_id', select: 'hoten avatar' })
+      .sort(sortObj)
+      .lean();
+
+    const reviews = (reviewsRaw || [])
+      .map((r) => {
+        const normalized = normalizeReviewMedia(r);
+        return {
+          ...r,
+          hinhanh: normalized.images,
+          videos: normalized.videos,
+          user: {
+            ten: r && r.nguoidung_id && r.nguoidung_id.hoten ? String(r.nguoidung_id.hoten) : 'Khách hàng',
+            avatar: r && r.nguoidung_id && r.nguoidung_id.avatar ? String(r.nguoidung_id.avatar) : '/images/avatar/avatar.png'
+          }
+        };
+      })
+      .filter((r) => {
+        const hasImage = Array.isArray(r.hinhanh) && r.hinhanh.length > 0;
+        const hasVideo = Array.isArray(r.videos) && r.videos.length > 0;
+        if (media === 'image') return hasImage;
+        if (media === 'video') return hasVideo;
+        if (media === 'both') return hasImage && hasVideo;
+        return true;
+      });
+
     return res.json({ success: true, data: reviews });
   } catch (err) {
     console.error('get reviews error:', err);

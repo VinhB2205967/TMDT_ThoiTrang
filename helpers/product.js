@@ -13,6 +13,33 @@ const chuanHoaAnh = (hinhanh) => {
     return `/images/${hinhanh}`;
 };
 
+const NHAN_LOAI_SAN_PHAM = {
+    ao: 'Áo',
+    quan: 'Quần',
+    vay: 'Váy',
+    phukien: 'Phụ kiện',
+    giay: 'Giày',
+    tui: 'Túi',
+    aokhoac: 'Áo khoác'
+};
+
+const NHAN_GIOI_TINH = {
+    nam: 'Nam',
+    nu: 'Nữ',
+    unisex: 'Unisex'
+};
+
+const NHAN_TRANG_THAI = {
+    dangban: 'Đang bán',
+    an: 'Ẩn',
+    hethang: 'Hết hàng'
+};
+
+const chuanHoaNhan = (giaTri, bangNhan, macdinh = '') => {
+    const khoa = String(giaTri || '').trim().toLowerCase();
+    return bangNhan[khoa] || macdinh || giaTri || '';
+};
+
 // Chuẩn hóa giá
 const chuanHoaGia = (gia, phantramgiamgia) => {
     if (!gia) return {};
@@ -106,6 +133,9 @@ module.exports = (item) => {
     Object.assign(p, priceData);
     
     p.tonkho = tinhTonKho(p.sizes, p.bienthe, p.soluongton, p.soluong_chinh);
+    p.loaisanphamHienthi = chuanHoaNhan(p.loaisanpham, NHAN_LOAI_SAN_PHAM, 'Chưa phân loại');
+    p.gioitinhHienthi = chuanHoaNhan(p.gioitinh, NHAN_GIOI_TINH, 'Unisex');
+    p.trangthaiHienthi = chuanHoaNhan(p.trangthai, NHAN_TRANG_THAI, 'Đang cập nhật');
 
     // Chuẩn hóa ảnh cho các biến thể
     if (Array.isArray(p.bienthe) && p.bienthe.length) {

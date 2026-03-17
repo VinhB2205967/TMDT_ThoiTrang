@@ -74,7 +74,8 @@ block main
                 each item in items
                   .d-flex.justify-content-between.small.py-1
                     span #{item.tensanpham} x#{item.soluong}
-                    span #{((item.giagiam || item.gia || 0) * (item.soluong || 1)).toLocaleString('vi-VN')}₫
+                    - const __checkoutLineTotal = (Number.isFinite(Number(item.thanhtien)) ? Number(item.thanhtien) : ((item.giagiam || item.gia || 0) * (item.soluong || 1)))
+                    span #{__checkoutLineTotal.toLocaleString('vi-VN')}₫
                 hr
                 - const shipRegion = (shippingConfig && shippingConfig.defaultRegion) || 'noithanh'
                 - const shipFee = (shippingConfig && shippingConfig.regions && shippingConfig.regions[shipRegion]) ? shippingConfig.regions[shipRegion].fee : 0

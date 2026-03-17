@@ -36,4 +36,27 @@
       diChuyenKemHieuUng(href, cheDoDich);
     });
   });
+
+  document.querySelectorAll('.auth-password-toggle').forEach((nut) => {
+    nut.addEventListener('click', () => {
+      const boChon = nut.getAttribute('data-toggle-password');
+      if (!boChon) return;
+      const oMatKhau = document.querySelector(boChon);
+      if (!oMatKhau) return;
+
+      const dangAn = oMatKhau.type === 'password';
+      oMatKhau.type = dangAn ? 'text' : 'password';
+
+      const icon = nut.querySelector('i');
+      if (icon) {
+        icon.classList.toggle('bi-eye', !dangAn);
+        icon.classList.toggle('bi-eye-slash', dangAn);
+      }
+
+      const nhan = dangAn ? 'Ẩn mật khẩu' : 'Hiện mật khẩu';
+      nut.setAttribute('aria-label', nhan);
+      nut.setAttribute('title', nhan);
+      nut.setAttribute('aria-pressed', String(dangAn));
+    });
+  });
 })();

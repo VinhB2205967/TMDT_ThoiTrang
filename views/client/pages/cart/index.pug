@@ -15,9 +15,9 @@ block main
           each item in cart.sanpham
             .d-flex.align-items-center.gap-3.border-bottom.cart-item-row
               - const __unitPrice = (item.giagiam || item.gia || 0)
-              - const __lineTotal = (__unitPrice * (item.soluong || 1))
+              - const __lineTotal = (Number.isFinite(Number(item.thanhtien)) ? Number(item.thanhtien) : (__unitPrice * (item.soluong || 1)))
               - const __stock = (typeof item.tonkho !== 'undefined' && item.tonkho !== null) ? Number(item.tonkho) : 0
-              input.form-check-input.cart-select(type='checkbox' value=item._id checked style='margin-right:6px;' data-unit-price=__unitPrice)
+              input.form-check-input.cart-select(type='checkbox' value=item._id checked style='margin-right:6px;' data-unit-price=__unitPrice data-line-total=__lineTotal data-base-qty=(item.soluong || 1))
               img(src=(item.hinhanh || '/images/shopping.png') alt=item.tensanpham style='width:64px;height:64px;object-fit:cover;border-radius:10px;')
               .flex-grow-1
                 .fw-semibold #{item.tensanpham}

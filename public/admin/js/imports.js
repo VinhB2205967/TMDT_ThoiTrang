@@ -28,6 +28,14 @@
     sizeList = [];
   }
 
+  let initialItems = [];
+  try {
+    const initialEl = document.getElementById('import-initial-items-json');
+    initialItems = JSON.parse(initialEl?.textContent || '[]');
+  } catch {
+    initialItems = [];
+  }
+
   const productMap = new Map(products.map((p) => [String(p._id), p]));
 
   const bodyFashion = document.getElementById('import-items-fashion-body');
@@ -447,6 +455,116 @@
     return wrap;
   }
 
+  function normalizeInitialItem(raw) {
+    return {
+      chisoblock: raw?.chisoblock,
+      sanphamid: String(raw?.sanphamid || raw?.san_pham_id || '').trim(),
+      bientheid: String(raw?.bientheid || raw?.bien_the_id || 'main').trim() || 'main',
+      kichco: String(raw?.kichco || raw?.kich_co || '').trim(),
+      mausac: String(raw?.mausac || raw?.mau_sac || '').trim(),
+      chatlieu: String(raw?.chatlieu || raw?.chat_lieu || '').trim(),
+      danhmuc: String(raw?.danhmuc || raw?.danh_muc || '').trim(),
+      soluong: Number(raw?.soluong || raw?.so_luong || 0),
+      gianhap: Number(raw?.gianhap ?? raw?.gia_nhap ?? 0) || 0,
+      giabandexuat: Number(raw?.giabandexuat ?? raw?.gia_ban_de_xuat ?? 0) || 0
+    };
+  }
+
+  function groupInitialItems(items) {
+    const fashion = new Map();
+    const accessory = new Map();
+
+    (items || []).forEach((raw, idx) => {
+      const it = normalizeInitialItem(raw);
+      if (!it.sanphamid || !productMap.has(it.sanphamid) || !(it.soluong > 0)) return;
+
+      const product = productMap.get(it.sanphamid);
+      const keyBase = `${String(it.chisoblock ?? '')}|${it.sanphamid}|${it.danhmuc}|${it.chatlieu}`;
+      const target = isNoSizeType(product?.loaisanpham) ? accessory : fashion;
+      const key = keyBase || `auto-${idx}`;
+      if (!target.has(key)) target.set(key, []);
+      target.get(key).push(it);
+    });
+
+    return {
+      fashionGroups: Array.from(fashion.values()),
+      accessoryGroups: Array.from(accessory.values())
+    };
+  }
+
+  function hydrateFashionGroup(items) {
+    if (!fashionBlocksEl || !items?.length) return;
+    const block = createFashionBlock(fashionBlockIndex++);
+    fashionBlocksEl.appendChild(block);
+
+    const first = items[0];
+    const productId = first.sanphamid;
+    const product = productMap.get(String(productId));
+    const productSelect = block.querySelector('.js-fashion-product');
+    const categoryEl = block.querySelector('.js-fashion-category');
+    const materialEl = block.querySelector('.js-fashion-material');
+
+    if (productSelect) {
+      productSelect.value = String(productId);
+      productSelect.dispatchEvent(new Event('change'));
+    }
+    if (categoryEl && first.danhmuc) categoryEl.value = first.danhmuc;
+    if (materialEl && first.chatlieu) materialEl.value = first.chatlieu;
+
+    const rows = Array.from(block.querySelectorAll('.js-variant-row'));
+    items.forEach((it) => {
+      const variantKey = String(it.bientheid || 'main');
+      const row = rows.find((r) => String(r.getAttribute('data-variant') || 'main') === variantKey);
+      if (!row) return;
+
+      const qtyInput = row.querySelector(`.js-qty[data-size="${it.kichco}"]`);
+      if (qtyInput) qtyInput.value = String(Math.max(0, Number(it.soluong || 0)));
+
+      const importEl = row.querySelector('.js-import');
+      const suggestedEl = row.querySelector('.js-suggested');
+      const colorEl = row.querySelector('.js-variant-color');
+      if (importEl) importEl.value = String(it.gianhap || 0);
+      if (suggestedEl) suggestedEl.value = String(it.giabandexuat || 0);
+      if (colorEl && it.mausac) colorEl.value = it.mausac;
+    });
+  }
+
+  function hydrateAccessoryGroup(items) {
+    if (!accessoryBlocksEl || !items?.length) return;
+    const block = createAccessoryBlock(accessoryBlockIndex++);
+    accessoryBlocksEl.appendChild(block);
+
+    const first = items[0];
+    const productId = first.sanphamid;
+    const productSelect = block.querySelector('.js-accessory-product');
+    const categoryEl = block.querySelector('.js-accessory-category');
+    const materialEl = block.querySelector('.js-accessory-material');
+
+    if (productSelect) {
+      productSelect.value = String(productId);
+      productSelect.dispatchEvent(new Event('change'));
+    }
+    if (categoryEl && first.danhmuc) categoryEl.value = first.danhmuc;
+    if (materialEl && first.chatlieu) materialEl.value = first.chatlieu;
+
+    const rows = Array.from(block.querySelectorAll('.js-accessory-variant-row'));
+    items.forEach((it) => {
+      const variantKey = String(it.bientheid || 'main');
+      const row = rows.find((r) => String(r.getAttribute('data-variant') || 'main') === variantKey);
+      if (!row) return;
+
+      const qtyEl = row.querySelector('.js-qty-one');
+      const importEl = row.querySelector('.js-import');
+      const suggestedEl = row.querySelector('.js-suggested');
+      const colorEl = row.querySelector('.js-variant-color');
+
+      if (qtyEl) qtyEl.value = String(Math.max(0, Number(it.soluong || 0)));
+      if (importEl) importEl.value = String(it.gianhap || 0);
+      if (suggestedEl) suggestedEl.value = String(it.giabandexuat || 0);
+      if (colorEl && it.mausac) colorEl.value = it.mausac;
+    });
+  }
+
   function updateDetailsSummary(tr) {
     const details = tr.querySelector('.js-details');
     if (!details) return;
@@ -693,10 +811,16 @@
     applyAccessoryBtn.addEventListener('click', () => applyQuick('accessory'));
   }
 
+  const groupedInitial = groupInitialItems(initialItems);
+
   // Fashion matrix blocks (new)
   if (fashionBlocksEl) {
-    const first = createFashionBlock(fashionBlockIndex++);
-    fashionBlocksEl.appendChild(first);
+    if (groupedInitial.fashionGroups.length) {
+      groupedInitial.fashionGroups.forEach((g) => hydrateFashionGroup(g));
+    } else {
+      const first = createFashionBlock(fashionBlockIndex++);
+      fashionBlocksEl.appendChild(first);
+    }
   }
 
   if (addFashionBlockBtn && fashionBlocksEl) {
@@ -820,10 +944,14 @@
     });
   }
 
-  // Accessory blocks start with 1 block.
+  // Accessory blocks start with hydrated data or 1 empty block.
   if (accessoryBlocksEl) {
-    const first = createAccessoryBlock(accessoryBlockIndex++);
-    accessoryBlocksEl.appendChild(first);
+    if (groupedInitial.accessoryGroups.length) {
+      groupedInitial.accessoryGroups.forEach((g) => hydrateAccessoryGroup(g));
+    } else {
+      const first = createAccessoryBlock(accessoryBlockIndex++);
+      accessoryBlocksEl.appendChild(first);
+    }
   }
 
   if (addAccessoryBlockBtn && accessoryBlocksEl) {
@@ -832,4 +960,6 @@
       accessoryBlocksEl.appendChild(block);
     });
   }
+
+  calcTotalImportMoney();
 })();

@@ -126,13 +126,8 @@ module.exports.dangKy = async (req, res) => {
       overrides: { vaitro: 'user', trangthai: 'active', xacthuc: false }
     });
 
-    req.login(taikhoan, function (loi) {
-      if (loi) {
-        req.flash('error', 'Đăng nhập sau đăng ký thất bại');
-        return res.redirect('/auth?mode=login');
-      }
-      redirectAfterLogin(taikhoan, res);
-    });
+    req.flash('success', 'Đăng ký thành công. Vui lòng đăng nhập để tiếp tục.');
+    return res.redirect('/auth?mode=login');
   } catch (loi) {
     console.error('Register error:', loi);
     // lỗi trùng lặp

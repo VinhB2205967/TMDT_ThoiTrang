@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 // Schema cho size với số lượng
 const sizeSchema = new mongoose.Schema({
-  size: String,             
+  size: String,
   soluong: Number           
 }, { _id: false });
 
@@ -23,14 +23,19 @@ const productSchema = new mongoose.Schema({
   gia: Number,              
   phantramgiamgia: Number,  
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null },
+  danhmuc_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null },
   sizeguide_id: { type: mongoose.Schema.Types.ObjectId, ref: 'SizeGuide', default: null },
+  bangsize_id: { type: mongoose.Schema.Types.ObjectId, ref: 'SizeGuide', default: null },
   occasion: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null },
+  dip_sudung_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null },
   ageGroup: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null },
+  nhomtuoi_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null },
   thuonghieu_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand' },
   brand: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand', default: null },
+  thuonghieu: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand', default: null },
   luotmua: { type: Number, default: 0 },
   mausac_chinh: String,    
-  sizes: [sizeSchema],      
+  sizes: [sizeSchema],
   soluong_chinh: Number,    // Số lượng chính (cho sản phẩm không có size như túi, phụ kiện)
   soluongton: Number,      
   gioitinh: String,
@@ -46,6 +51,22 @@ const productSchema = new mongoose.Schema({
 productSchema.pre('validate', function syncLegacyFields() {
   if (!this.brand && this.thuonghieu_id) this.brand = this.thuonghieu_id;
   if (!this.thuonghieu_id && this.brand) this.thuonghieu_id = this.brand;
+  if (!this.thuonghieu && this.brand) this.thuonghieu = this.brand;
+  if (!this.brand && this.thuonghieu) this.brand = this.thuonghieu;
+  if (!this.thuonghieu_id && this.thuonghieu) this.thuonghieu_id = this.thuonghieu;
+  if (!this.thuonghieu && this.thuonghieu_id) this.thuonghieu = this.thuonghieu_id;
+
+  if (!this.danhmuc_id && this.category) this.danhmuc_id = this.category;
+  if (!this.category && this.danhmuc_id) this.category = this.danhmuc_id;
+
+  if (!this.bangsize_id && this.sizeguide_id) this.bangsize_id = this.sizeguide_id;
+  if (!this.sizeguide_id && this.bangsize_id) this.sizeguide_id = this.bangsize_id;
+
+  if (!this.dip_sudung_id && this.occasion) this.dip_sudung_id = this.occasion;
+  if (!this.occasion && this.dip_sudung_id) this.occasion = this.dip_sudung_id;
+
+  if (!this.nhomtuoi_id && this.ageGroup) this.nhomtuoi_id = this.ageGroup;
+  if (!this.ageGroup && this.nhomtuoi_id) this.ageGroup = this.nhomtuoi_id;
 });
 
 productSchema.index({ category: 1, trangthai: 1, daxoa: 1 });

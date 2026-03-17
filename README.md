@@ -161,6 +161,59 @@ Route admin AI:
 - Nếu câu trả lời có cụm “tại đây”, hệ thống cố gắng map đúng theo sản phẩm được nhắc tới trong từng mục.
 - Nếu dữ liệu không đủ để map chi tiết sản phẩm, hệ thống sẽ không tạo link giả định.
 
+### 5) Ẩn ID sản phẩm trong câu trả lời AI
+
+- Hệ thống đã thêm lớp sanitize output để không hiển thị `productId`/`ID` dạng Mongo ObjectId trong phản hồi cho user/admin.
+- Các pattern được loại bỏ gồm:
+   - `productId: <24-hex>`
+   - `(ID: <24-hex>)`
+   - ObjectId 24 ký tự đứng độc lập trong câu.
+- Mục tiêu: nội dung AI dễ đọc cho người dùng, chỉ hiển thị tên sản phẩm thay vì ID kỹ thuật.
+
+## Review System (nâng cấp)
+
+### 1) Trạng thái đánh giá ở đơn hàng
+
+- Đơn chưa đánh giá: hiển thị nút `Đánh giá`.
+- Đơn đã đánh giá: hiển thị badge `Đã đánh giá` + nút `Chỉnh sửa đánh giá`.
+
+### 2) Tạo/Sửa đánh giá
+
+- Hỗ trợ rating 1-5 sao + nội dung đánh giá.
+- Khi sửa, hệ thống update review hiện có (không tạo mới).
+- Tải lại dữ liệu cũ khi mở form sửa: sao, nội dung, media.
+
+### 3) Upload media (ảnh + video)
+
+- Ảnh: tối đa 5 ảnh/review.
+- Video: tối đa 1 video/review.
+- Cho phép giữ media cũ, xóa media cũ hoặc upload thêm media mới khi sửa.
+- Validate dung lượng:
+   - Ảnh tối đa 20MB/file.
+   - Video tối đa 100MB/file.
+
+### 4) Preview media trước khi gửi
+
+- Preview realtime ảnh dạng grid.
+- Preview video bằng HTML5 player (`controls=true`, không autoplay).
+- Có thể bỏ video đã chọn trước khi submit.
+
+### 5) Danh sách đánh giá ở trang chi tiết sản phẩm
+
+- Hiển thị avatar + tên user + rating + nội dung.
+- Ảnh hiển thị dạng grid.
+- Video hiển thị inline player, phát trực tiếp không cần modal.
+
+### 6) Bộ lọc đánh giá
+
+- Lọc theo số sao (1-5).
+- Sắp xếp: mới nhất, cũ nhất, sao cao, sao thấp, hữu ích.
+- Lọc media:
+   - `all`: tất cả
+   - `image`: có ảnh
+   - `video`: có video
+   - `both`: có cả ảnh và video
+
 ## Backfill Lo FIFO
 
 - Dùng khi đã có dữ liệu phiếu nhập/xuất cũ nhưng chưa có bảng lô tồn (`inventory_lots`).
@@ -205,9 +258,11 @@ Token reset được tạo ngẫu nhiên bằng `crypto`, lưu dạng hash SHA-2
 ├─ index.js
 ├─ nodemon.json
 ├─ package.json
+├─ package-lock.json
 ├─ README.md
-├─ patches/
-│  └─ connect-flash+0.1.1.patch
+├─ AI/
+│  ├─ huggingface_cache/
+│  └─ open_clip/
 ├─ config/
 │  ├─ constants.js
 │  ├─ database.js
@@ -234,17 +289,25 @@ Token reset được tạo ngẫu nhiên bằng `crypto`, lưu dạng hash SHA-2
 │  │  ├─ reviews_controller.js
 │  │  ├─ settings_controller.js
 │  │  ├─ size_guides_controller.js
-│  │  └─ users_controller.js
+│  │  ├─ users_controller.js
+│  │  └─ vouchers_controller.js
 │  └─ client/
 │     ├─ account_controller.js
 │     ├─ api/
-│     │  └─ ai_chat_api_controller.js
+│     │  ├─ ai_chat_api_controller.js
+│     │  ├─ content_api_controller.js
+│     │  └─ home_api_controller.js
 │     ├─ auth_controller.js
 │     ├─ cart_controller.js
+│     ├─ chat_controller.js
+│     ├─ content/
 │     ├─ favorites_controller.js
 │     ├─ home_controller.js
+│     ├─ openclip_controller.js
 │     ├─ orders_controller.js
-│     └─ product_controller.js
+│     ├─ product_controller.js
+│     ├─ reviews_controller.js
+│     └─ voucher_controller.js
 ├─ helpers/
 │  ├─ filterStatus.js
 │  ├─ http.js
@@ -264,6 +327,7 @@ Token reset được tạo ngẫu nhiên bằng `crypto`, lưu dạng hash SHA-2
 │  ├─ chatUpload.js
 │  ├─ favorites.js
 │  ├─ mongoSanitize.js
+│  ├─ openclipUpload.js
 │  ├─ validate.js
 │  └─ xssSanitize.js
 ├─ models/
@@ -291,54 +355,35 @@ Token reset được tạo ngẫu nhiên bằng `crypto`, lưu dạng hash SHA-2
 │  ├─ review_model.js
 │  ├─ setting_model.js
 │  ├─ size_guide_model.js
-│  └─ user_model.js
-├─ scripts/
-│  ├─ backfill-inventory-lots.js
-│  ├─ check-pug-compile.js
-│  ├─ migrate-import-receipts-vn.js
-│  ├─ migrate-order-item-status.js
-│  ├─ migrate-pay-status.js
-│  ├─ seed-home.js
-│  ├─ sync-product-stock.js
-│  └─ _lib/
-├─ socketio/
-│  └─ chat.socket.js
+│  ├─ user_model.js
+│  └─ user_voucher_model.js
+├─ patches/
+│  └─ connect-flash+0.1.1.patch
 ├─ public/
 │  ├─ admin/
 │  │  ├─ css/
-│  │  │  ├─ admin.css
-│  │  │  └─ ...
 │  │  └─ js/
-│  │     ├─ chat-notify.js
-│  │     ├─ filterAutoSubmit.js
-│  │     ├─ order-notify.js
-│  │     ├─ products.js
-│  │     └─ ...
 │  ├─ css/
-│  │  ├─ auth.css
-│  │  ├─ chat-ai.css
-│  │  ├─ filter-bar.css
-│  │  ├─ product-card.css
-│  │  ├─ product-detail.css
-│  │  ├─ products.css
-│  │  ├─ style.css
-│  │  └─ ui-enhancements.css
 │  ├─ images/
 │  ├─ js/
 │  │  ├─ auth.js
 │  │  ├─ chat-ai.js
 │  │  ├─ chat-client.js
+│  │  ├─ checkout-voucher.js
 │  │  ├─ favorites.js
+│  │  ├─ home.js
+│  │  ├─ openclip-search.js
+│  │  ├─ orders.js
 │  │  ├─ product-detail.js
 │  │  ├─ products.js
 │  │  ├─ script.js
 │  │  ├─ up.js
+│  │  ├─ vouchers.js
 │  │  └─ shared/
-│  │     ├─ flash.js
-│  │     └─ utils.js
 │  └─ uploads/
 │     ├─ avatars/
 │     ├─ chat/
+│     ├─ openclip-query/
 │     └─ products/
 ├─ routes/
 │  ├─ admin/
@@ -366,28 +411,49 @@ Token reset được tạo ngẫu nhiên bằng `crypto`, lưu dạng hash SHA-2
 │  │  └─ _upload.js
 │  └─ client/
 │     ├─ account_route.js
-│     ├─ ai_chat_api_route.js
+│     ├─ api_route.js
 │     ├─ auth_route.js
-│     ├─ brands_route.js
 │     ├─ blog_route.js
+│     ├─ brands_route.js
 │     ├─ cart_route.js
+│     ├─ chat_route.js
 │     ├─ favorites_route.js
 │     ├─ home_route.js
 │     ├─ index_route.js
+│     ├─ lookbook_route.js
+│     ├─ openclip_route.js
 │     ├─ orders_route.js
 │     ├─ products_route.js
-│     └─ ...
+│     ├─ reviews_route.js
+│     └─ voucher_route.js
+├─ scripts/
+│  ├─ backfill-inventory-lots.js
+│  ├─ backfill-product-vietnamese-fields.js
+│  ├─ check-pug-compile.js
+│  ├─ import-products-from-images.js
+│  ├─ migrate-import-receipts-vn.js
+│  ├─ migrate-order-item-status.js
+│  ├─ migrate-pay-status.js
+│  ├─ openclip_rank_products.py
+│  ├─ openclip_warmup.py
+│  ├─ seed-home.js
+│  ├─ seed-users-30.js
+│  ├─ sync-product-stock.js
+│  └─ _lib/
 ├─ services/
+│  ├─ account.service.js
+│  ├─ aiChat.service.js
 │  ├─ cart.service.js
+│  ├─ category.service.js
 │  ├─ chat.service.js
 │  ├─ chat.socket.js
-│  ├─ aiChat.service.js
 │  ├─ exportReceipt.service.js
 │  ├─ flashSale.service.js
 │  ├─ home.service.js
 │  ├─ loginLog.js
 │  ├─ mailer.service.js
 │  ├─ momo.service.js
+│  ├─ openClip.service.js
 │  ├─ orderEmail.service.js
 │  ├─ payment.service.js
 │  ├─ product.service.js
@@ -396,32 +462,40 @@ Token reset được tạo ngẫu nhiên bằng `crypto`, lưu dạng hash SHA-2
 │  ├─ sizeGuide.service.js
 │  ├─ vnpay.service.js
 │  └─ voucher.service.js
+├─ socketio/
+│  └─ chat.socket.js
 └─ views/
    ├─ admin/
    │  ├─ layouts/
    │  ├─ mixins/
    │  ├─ pages/
-   │  │  ├─ auth/
-   │  │  ├─ dashboard/
-   │  │  │  ├─ index.pug
-   │  │  │  └─ ai_assistant.pug
-   │  │  ├─ products/
-   │  │  ├─ orders/
-   │  │  ├─ reports/
-   │  │  └─ ...
    │  └─ partials/
    ├─ client/
    │  ├─ layouts/
    │  ├─ mixins/
    │  ├─ pages/
-   │  │  ├─ home/
-   │  │  ├─ products/
-   │  │  ├─ orders/
+   │  │  ├─ account/
+   │  │  ├─ auth/
+   │  │  ├─ blog/
+   │  │  ├─ brands/
    │  │  ├─ cart/
-   │  │  └─ ...
+   │  │  ├─ chat/
+   │  │  ├─ errors/
+   │  │  ├─ favorites/
+   │  │  ├─ home/
+   │  │  ├─ lookbook/
+   │  │  ├─ openclip/
+   │  │  ├─ orders/
+   │  │  ├─ products/
+   │  │  ├─ reviews/
+   │  │  └─ vouchers/
    │  └─ partials/
    └─ partials/
       └─ flash.pug
 ```
 
 > Ghi chú: Cấu trúc trên đã rút gọn một số thư mục lớn bằng `...` để README dễ đọc.
+
+Danh sách đầy đủ file/thư mục hiện tại của dự án được xuất tại:
+
+- `STRUCTURE_FULL.md` (đã loại trừ thư mục phụ thuộc/cache: `.git`, `.venv`, `node_modules`, `AI/huggingface_cache`, `AI/open_clip`)

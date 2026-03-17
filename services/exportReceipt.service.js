@@ -132,7 +132,8 @@ async function consumeLotsFIFO({ productId, variantId, size, qty }) {
     allocations.push({
       lotId: String(lot._id),
       soLuong: take,
-      giaNhap: unitCost
+      giaNhap: unitCost,
+      giaBanDeXuat: toNumber(lot.giabandexuat, 0)
     });
 
     tongGiaVon += take * unitCost;
@@ -148,6 +149,42 @@ async function consumeLotsFIFO({ productId, variantId, size, qty }) {
     giaNhapBinhQuan: soLuongCanXuat > 0 ? (tongGiaVon / soLuongCanXuat) : 0,
     allocations
   };
+}
+
+async function resolveSuggestedPriceAfterConsume({ productId, variantId, size, allocations }) {
+  const currentLot = await TonKhoLo.findOne(buildLotQuery({ productId, variantId, size }))
+    .sort({ ngaynhap: 1, ngaytao: 1, _id: 1 })
+    .select('giabandexuat')
+    .lean();
+
+  const fromRemaining = toNumber(currentLot?.giabandexuat, 0);
+  if (fromRemaining > 0) return fromRemaining;
+
+  const alloc = Array.isArray(allocations) ? allocations : [];
+  for (let i = alloc.length - 1; i >= 0; i -= 1) {
+    const price = toNumber(alloc[i]?.giaBanDeXuat, 0);
+    if (price > 0) return price;
+  }
+
+  return 0;
+}
+
+function applySuggestedPriceToProductDoc(productDoc, { variantId, suggestedPrice }) {
+  const price = toNumber(suggestedPrice, 0);
+  if (price <= 0) return false;
+
+  const isMain = !variantId;
+  if (isMain) {
+    if (toNumber(productDoc.gia, 0) === price) return false;
+    productDoc.gia = price;
+    return true;
+  }
+
+  const variant = (productDoc.bienthe || []).find((v) => String(v._id) === String(variantId));
+  if (!variant) return false;
+  if (toNumber(variant.gia, 0) === price) return false;
+  variant.gia = price;
+  return true;
 }
 
 function truTonKhoTheoDong(productDoc, { variantId, size, qty }) {
@@ -200,6 +237,50 @@ function truTonKhoTheoDong(productDoc, { variantId, size, qty }) {
   variant.soluong = next;
 }
 
+function congTonKhoTheoDong(productDoc, { variantId, size, qty }) {
+  const soLuong = toNumber(qty, 0);
+  if (soLuong <= 0) throw new Error('Số lượng xuất không hợp lệ');
+
+  const hasSize = !laLoaiKhongSize(productDoc.loaisanpham);
+  const isMain = !variantId;
+
+  if (hasSize) {
+    const sizeKey = String(size || '').trim();
+    if (!sizeKey) throw new Error('Thiếu size cho sản phẩm có size');
+
+    if (isMain) {
+      productDoc.sizes = Array.isArray(productDoc.sizes) ? productDoc.sizes : [];
+      const row = productDoc.sizes.find((s) => String(s.size) === sizeKey);
+      const current = toNumber(row?.soluong, 0);
+      const next = current + soLuong;
+      if (row) row.soluong = next;
+      else productDoc.sizes.push({ size: sizeKey, soluong: soLuong });
+      return;
+    }
+
+    const variant = (productDoc.bienthe || []).find((v) => String(v._id) === String(variantId));
+    if (!variant) throw new Error('Biến thể không tồn tại');
+    variant.sizes = Array.isArray(variant.sizes) ? variant.sizes : [];
+    const row = variant.sizes.find((s) => String(s.size) === sizeKey);
+    const current = toNumber(row?.soluong, 0);
+    const next = current + soLuong;
+    if (row) row.soluong = next;
+    else variant.sizes.push({ size: sizeKey, soluong: soLuong });
+    return;
+  }
+
+  if (isMain) {
+    const current = toNumber(productDoc.soluong_chinh, 0);
+    productDoc.soluong_chinh = current + soLuong;
+    return;
+  }
+
+  const variant = (productDoc.bienthe || []).find((v) => String(v._id) === String(variantId));
+  if (!variant) throw new Error('Biến thể không tồn tại');
+  const current = toNumber(variant.soluong, 0);
+  variant.soluong = current + soLuong;
+}
+
 function calcFinanceForLine({ qty, giaNhap, giaBan, phanTramGiam, giaVon: giaVonOverride }) {
   const soLuong = toNumber(qty, 0);
   const priceNhap = toNumber(giaNhap, 0);
@@ -214,6 +295,69 @@ function calcFinanceForLine({ qty, giaNhap, giaBan, phanTramGiam, giaVon: giaVon
     doanhThu,
     giaVon,
     loiNhuan
+  };
+}
+
+function calcFinanceByAllocations({ allocations, fallbackGiaBan = 0, fallbackPhanTramGiam = 0 }) {
+  const src = Array.isArray(allocations) ? allocations : [];
+  const fallbackBan = Math.max(0, toNumber(fallbackGiaBan, 0));
+  const fallbackGiam = Math.max(0, toNumber(fallbackPhanTramGiam, 0));
+
+  const out = [];
+  let tongSoLuong = 0;
+  let tongGiaBan = 0;
+  let tongGiaSauGiam = 0;
+  let tongDoanhThu = 0;
+  let tongGiaVon = 0;
+
+  for (const a of src) {
+    const soLuong = Math.max(0, toNumber(a?.soLuong, 0));
+    if (soLuong <= 0) continue;
+
+    const giaNhap = Math.max(0, toNumber(a?.giaNhap, 0));
+    const giaBanDeXuat = Math.max(0, toNumber(a?.giaBanDeXuat, 0));
+    const giaBan = giaBanDeXuat > 0 ? giaBanDeXuat : fallbackBan;
+    const phanTramGiam = fallbackGiam;
+    const giaSauGiam = phanTramGiam > 0
+      ? Math.round(giaBan - (giaBan * phanTramGiam / 100))
+      : giaBan;
+
+    const doanhThu = soLuong * giaSauGiam;
+    const giaVon = soLuong * giaNhap;
+    const loiNhuan = doanhThu - giaVon;
+
+    out.push({
+      lotId: a?.lotId || null,
+      soLuong,
+      giaNhap,
+      giaBanDeXuat,
+      giaban: giaBan,
+      phantramgiam: phanTramGiam,
+      giasaugiam: giaSauGiam,
+      doanhthu: doanhThu,
+      giavon: giaVon,
+      loinhuan: loiNhuan
+    });
+
+    tongSoLuong += soLuong;
+    tongGiaBan += soLuong * giaBan;
+    tongGiaSauGiam += soLuong * giaSauGiam;
+    tongDoanhThu += doanhThu;
+    tongGiaVon += giaVon;
+  }
+
+  const tongLoiNhuan = tongDoanhThu - tongGiaVon;
+
+  return {
+    allocations: out,
+    tongSoLuong,
+    tongDoanhThu,
+    tongGiaVon,
+    tongLoiNhuan,
+    gianhap: tongSoLuong > 0 ? (tongGiaVon / tongSoLuong) : 0,
+    giaban: tongSoLuong > 0 ? (tongGiaBan / tongSoLuong) : 0,
+    giasaugiam: tongSoLuong > 0 ? (tongGiaSauGiam / tongSoLuong) : 0,
+    phantramgiam: 0
   };
 }
 
@@ -234,7 +378,7 @@ function calcTotals(lines) {
   };
 }
 
-async function createExportReceiptFromOrder({ orderId, adminUser, note = '' }) {
+async function createExportReceiptFromOrder({ orderId, adminUser, note = '', skipInventoryAdjustments = false }) {
   const oid = String(orderId || '').trim();
   if (!mongoose.Types.ObjectId.isValid(oid)) {
     throw new Error('orderId không hợp lệ');
@@ -274,7 +418,9 @@ async function createExportReceiptFromOrder({ orderId, adminUser, note = '' }) {
       if (!variant) throw new Error('Biến thể trong đơn không tồn tại');
     }
 
-    truTonKhoTheoDong(productDoc, { variantId, size, qty });
+    if (!skipInventoryAdjustments) {
+      truTonKhoTheoDong(productDoc, { variantId, size, qty });
+    }
 
     const giaBanGoc = toNumber(item.giagoc, toNumber(variant?.gia, toNumber(productDoc.gia, 0)));
     const giaSauGiamFromOrder = toNumber(item.giaban, giaBanGoc);
@@ -283,10 +429,27 @@ async function createExportReceiptFromOrder({ orderId, adminUser, note = '' }) {
       : 0;
 
     let fifoCost;
-    try {
-      fifoCost = await consumeLotsFIFO({ productId, variantId, size, qty });
-    } catch (fifoErr) {
-      // Fallback để tương thích dữ liệu cũ chưa có bảng lô.
+    if (!skipInventoryAdjustments) {
+      try {
+        fifoCost = await consumeLotsFIFO({ productId, variantId, size, qty });
+      } catch (fifoErr) {
+        // Fallback để tương thích dữ liệu cũ chưa có bảng lô.
+        const giaNhapFallback = resolveAvgCost(costMap, { productId, variantId, size });
+        fifoCost = {
+          tongGiaVon: qty * giaNhapFallback,
+          giaNhapBinhQuan: giaNhapFallback,
+          allocations: []
+        };
+      }
+
+      const suggestedPrice = await resolveSuggestedPriceAfterConsume({
+        productId,
+        variantId,
+        size,
+        allocations: fifoCost.allocations
+      });
+      applySuggestedPriceToProductDoc(productDoc, { variantId, suggestedPrice });
+    } else {
       const giaNhapFallback = resolveAvgCost(costMap, { productId, variantId, size });
       fifoCost = {
         tongGiaVon: qty * giaNhapFallback,
@@ -295,14 +458,21 @@ async function createExportReceiptFromOrder({ orderId, adminUser, note = '' }) {
       };
     }
 
-    const giaNhap = fifoCost.giaNhapBinhQuan;
-    const finance = calcFinanceForLine({
-      qty,
-      giaNhap,
-      giaBan: giaBanGoc,
-      phanTramGiam: percent,
-      giaVon: fifoCost.tongGiaVon
+    const fallbackAllocations = fifoCost.allocations && fifoCost.allocations.length
+      ? fifoCost.allocations
+      : [{ soLuong: qty, giaNhap: fifoCost.giaNhapBinhQuan, giaBanDeXuat: giaBanGoc }];
+
+    const allocationFinance = calcFinanceByAllocations({
+      allocations: fallbackAllocations,
+      fallbackGiaBan: giaBanGoc,
+      fallbackPhanTramGiam: percent
     });
+
+    const avgGiaBan = allocationFinance.giaban;
+    const avgGiaSauGiam = allocationFinance.giasaugiam;
+    const avgPhanTram = avgGiaBan > 0
+      ? Math.max(0, Number((((avgGiaBan - avgGiaSauGiam) / avgGiaBan) * 100).toFixed(2)))
+      : 0;
 
     lines.push({
       sanphamid: productDoc._id,
@@ -311,22 +481,25 @@ async function createExportReceiptFromOrder({ orderId, adminUser, note = '' }) {
       kichco: size,
       mausac: item.mausac || variant?.mausac || productDoc.mausac_chinh || '',
       soluong: qty,
-      gianhap: giaNhap,
-      giaban: giaBanGoc,
-      phantramgiam: percent,
-      giasaugiam: finance.giaSauGiam,
-      doanhthu: finance.doanhThu,
-      giavon: finance.giaVon,
-      loinhuan: finance.loiNhuan,
+      gianhap: allocationFinance.gianhap,
+      giaban: avgGiaBan,
+      phantramgiam: avgPhanTram,
+      giasaugiam: avgGiaSauGiam,
+      doanhthu: allocationFinance.tongDoanhThu,
+      giavon: allocationFinance.tongGiaVon,
+      loinhuan: allocationFinance.tongLoiNhuan,
+      allocations: allocationFinance.allocations,
       hinhanh: item.hinhanh || variant?.hinhanh || productDoc.hinhanh || '',
       ghichudong: ''
     });
   }
 
-  for (const productDoc of productDocs) {
-    productDoc.soluongton = tinhTongTon(productDoc);
-    productDoc.ngaycapnhat = new Date();
-    await productDoc.save();
+  if (!skipInventoryAdjustments) {
+    for (const productDoc of productDocs) {
+      productDoc.soluongton = tinhTongTon(productDoc);
+      productDoc.ngaycapnhat = new Date();
+      await productDoc.save();
+    }
   }
 
   const totals = calcTotals(lines);
@@ -369,7 +542,11 @@ module.exports = {
   buildCostMapForProductIds,
   resolveAvgCost,
   consumeLotsFIFO,
+  resolveSuggestedPriceAfterConsume,
+  applySuggestedPriceToProductDoc,
   taoThongTinNhanVienKy,
   taoMaPhieuXuat,
-  truTonKhoTheoDong
+  truTonKhoTheoDong,
+  congTonKhoTheoDong,
+  calcFinanceByAllocations
 };

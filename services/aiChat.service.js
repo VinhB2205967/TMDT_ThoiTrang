@@ -616,7 +616,7 @@ async function getProductContext(question) {
   }
 
   const products = await Sanpham.find(query)
-    .select('_id tensanpham hinhanh mota gia phantramgiamgia soluongton gioitinh loaisanpham sizes bienthe')
+    .select('_id tensanpham hinhanh mota gia phantramgiamgia soluongton gioitinh loaisanpham mausac_chinh sizes bienthe')
     .sort({ ngaycapnhat: -1, ngaytao: -1 })
     .limit(6)
     .lean();
@@ -627,6 +627,25 @@ async function getProductContext(question) {
     const finalPrice = percent > 0 ? Math.round(basePrice * (1 - percent / 100)) : basePrice;
 
     const sizeSet = new Set();
+    const colorSet = new Set();
+    const colorDetailMap = new Map();
+
+    const upsertColorStatus = (colorName, hasStock) => {
+      const key = String(colorName || '').trim();
+      if (!key) return;
+      colorSet.add(key);
+      const existing = colorDetailMap.get(key);
+      if (existing) {
+        existing.conSize = existing.conSize || Boolean(hasStock);
+      } else {
+        colorDetailMap.set(key, { ten: key, conSize: Boolean(hasStock) });
+      }
+    };
+
+    if (item && item.mausac_chinh) {
+      upsertColorStatus(item.mausac_chinh, Number(item.soluongton || 0) > 0);
+    }
+
     if (Array.isArray(item.sizes)) {
       item.sizes.forEach((s) => {
         if (s && s.size && Number(s.soluong || 0) > 0) sizeSet.add(String(s.size));
@@ -634,6 +653,14 @@ async function getProductContext(question) {
     }
     if (Array.isArray(item.bienthe)) {
       item.bienthe.forEach((variant) => {
+        const variantColor = variant && variant.mausac ? String(variant.mausac).trim() : '';
+        const variantHasStock = Boolean(
+          variant
+          && Array.isArray(variant.sizes)
+          && variant.sizes.some((s) => s && Number(s.soluong || 0) > 0)
+        );
+        if (variantColor) upsertColorStatus(variantColor, variantHasStock);
+
         if (!variant || !Array.isArray(variant.sizes)) return;
         variant.sizes.forEach((s) => {
           if (s && s.size && Number(s.soluong || 0) > 0) sizeSet.add(String(s.size));
@@ -652,7 +679,9 @@ async function getProductContext(question) {
       soluongton: Number(item.soluongton || 0),
       gioitinh: item.gioitinh || '',
       loaisanpham: item.loaisanpham || '',
-      sizeCoSan: Array.from(sizeSet).slice(0, 12)
+      sizeCoSan: Array.from(sizeSet).slice(0, 12),
+      mauSacCoSan: Array.from(colorSet).slice(0, 12),
+      mauSacChiTiet: Array.from(colorDetailMap.values()).slice(0, 12)
     };
   });
 }

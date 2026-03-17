@@ -17,6 +17,7 @@ const cartItemSchema = new mongoose.Schema({
   kichco: String,                  
   gia: Number,                     
   giagiam: Number,                 
+  thanhtien: Number,
   soluong: {
     type: Number,
     default: 1,
@@ -48,8 +49,10 @@ const cartSchema = new mongoose.Schema({
 // Middleware tính tổng tiền trước khi lưu
 cartSchema.pre('save', function() {
   this.tongtien = this.sanpham.reduce((sum, item) => {
-    const gia = item.giagiam || item.gia || 0;
-    return sum + (gia * item.soluong);
+    const lineTotal = Number.isFinite(Number(item.thanhtien))
+      ? Number(item.thanhtien)
+      : ((item.giagiam || item.gia || 0) * item.soluong);
+    return sum + lineTotal;
   }, 0);
   this.ngaycapnhat = new Date();
 });

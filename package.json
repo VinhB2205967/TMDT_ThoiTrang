@@ -10,7 +10,9 @@
     "start": "nodemon --inspect=0 index.js",
     "migrate:imports:vn": "node scripts/migrate-import-receipts-vn.js",
     "backfill:inventory:lots": "node scripts/backfill-inventory-lots.js",
+    "backfill:products:vn-fields": "node scripts/backfill-product-vietnamese-fields.js",
     "seed:home": "node scripts/seed-home.js",
+    "seed:users:30": "node scripts/seed-users-30.js",
     "openclip:warmup": "python scripts/openclip_warmup.py",
     "postinstall": "patch-package",
     "test": "echo \"Error: no test specified\" && exit 1"

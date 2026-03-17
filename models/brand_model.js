@@ -15,23 +15,23 @@ function taoSlug(input) {
 }
 
 const brandSchema = new mongoose.Schema({
-  name: { type: String, trim: true },
+  name: { type: String, trim: true, alias: 'ten_thuonghieu' },
   ten: { type: String, trim: true, required: true },
-  slug: { type: String, trim: true },
-  normalizedName: { type: String, trim: true },
-  logo: { type: String, trim: true, required: true },
-  description: { type: String, trim: true, default: '' },
+  slug: { type: String, trim: true, alias: 'duongdan' },
+  normalizedName: { type: String, trim: true, alias: 'tenkhongdau' },
+  logo: { type: String, trim: true, required: true, alias: 'anh_logo' },
+  description: { type: String, trim: true, default: '', alias: 'mota_chitiet' },
   moTa: { type: String, trim: true, default: '' },
 
-  isFeatured: { type: Boolean, default: false },
+  isFeatured: { type: Boolean, default: false, alias: 'la_noibat' },
   noiBat: { type: Boolean, default: false },
-  isActive: { type: Boolean, default: true },
+  isActive: { type: Boolean, default: true, alias: 'kichhoat' },
   hienthi: { type: Boolean, default: true },
-  order: { type: Number, default: 0 },
+  order: { type: Number, default: 0, alias: 'thutu_hienthi' },
   thuTu: { type: Number, default: 0 },
 
   daXoa: { type: Boolean, default: false },
-  deletedAt: { type: Date, default: null }
+  deletedAt: { type: Date, default: null, alias: 'ngayxoa' }
 }, {
   timestamps: { createdAt: 'ngaytao', updatedAt: 'ngaycapnhat' }
 });

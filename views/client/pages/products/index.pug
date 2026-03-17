@@ -11,7 +11,9 @@ block main
             //- Filter & Sort bar (responsive)
             .filter-bar.mb-4
                 if openclipMessage
-                    .alert(class=(openclipMode ? 'alert-success' : 'alert-warning')) #{openclipMessage}
+                    .alert.alert-dismissible.fade.show.js-auto-dismiss-alert(class=(openclipMode ? 'alert-success' : 'alert-warning') role='alert')
+                        | #{openclipMessage}
+                        button.btn-close(type='button' data-bs-dismiss='alert' aria-label='Đóng')
                 if openclipMode && openclipPreview
                     .openclip-query-preview.mb-3
                         .openclip-query-preview__media
@@ -147,3 +149,23 @@ block main
 
 block scripts
     script(src="/js/products.js")
+    script.
+        (function () {
+            const alerts = document.querySelectorAll('.js-auto-dismiss-alert');
+            if (!alerts.length) return;
+
+            window.setTimeout(function () {
+                alerts.forEach(function (el) {
+                    if (!el || !el.parentNode) return;
+                    if (window.bootstrap && window.bootstrap.Alert) {
+                        window.bootstrap.Alert.getOrCreateInstance(el).close();
+                        return;
+                    }
+                    el.classList.remove('show');
+                    el.classList.add('hide');
+                    window.setTimeout(function () {
+                        if (el && el.parentNode) el.parentNode.removeChild(el);
+                    }, 150);
+                });
+            }, 5000);
+        })();

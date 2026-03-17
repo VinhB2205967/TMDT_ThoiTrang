@@ -29,6 +29,7 @@ const reviewSchema = new mongoose.Schema({
   tieude: String,                   // Tiêu đề đánh giá
   noidung: String,                  // Nội dung đánh giá chi tiết
   hinhanh: [String],                // Danh sách ảnh đánh giá
+  videos: [String],                 // Danh sách video đánh giá
   tags: [String],                   // Tag nhanh
   
   // Thông tin sản phẩm đã mua

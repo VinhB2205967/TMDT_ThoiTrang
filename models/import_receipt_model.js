@@ -36,6 +36,10 @@ const importReceiptSchema = new mongoose.Schema({
 
   chitiet: { type: [importItemSchema], default: [] },
 
+  daxuatkho: { type: Boolean, default: false },
+  ngayxuatkho: { type: Date, default: null },
+  nguoixuatkho: { type: mongoose.Schema.Types.ObjectId, ref: 'Nguoidung', required: false },
+
   // Thông tin ký số/nhân viên thực hiện
   nhanvienky: {
     tennhanvien: { type: String, default: '' },

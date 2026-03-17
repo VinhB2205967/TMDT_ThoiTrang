@@ -3,66 +3,79 @@ const mongoose = require('mongoose');
 const chatMessageSchema = new mongoose.Schema({
   clientId: {
     type: mongoose.Schema.Types.ObjectId,
+    alias: 'khachhang_id',
     ref: 'Nguoidung',
     required: true,
     index: true
   },
   senderId: {
     type: mongoose.Schema.Types.ObjectId,
+    alias: 'nguoigui_id',
     ref: 'Nguoidung',
     required: true
   },
   senderRole: {
     type: String,
+    alias: 'vaitro_nguoigui',
     enum: ['admin', 'client'],
     required: true,
     index: true
   },
   receiverId: {
     type: mongoose.Schema.Types.ObjectId,
+    alias: 'nguoinhan_id',
     ref: 'Nguoidung',
     default: null
   },
   receiverRole: {
     type: String,
+    alias: 'vaitro_nguoinhan',
     enum: ['admin', 'client'],
     required: true
   },
   content: {
     type: String,
+    alias: 'noidung',
     default: '',
     trim: true,
     maxlength: 2000
   },
   mediaUrl: {
     type: String,
+    alias: 'tepdinhkem_url',
     default: ''
   },
   mediaType: {
     type: String,
+    alias: 'tepdinhkem_loai',
     enum: ['', 'image', 'video'],
     default: ''
   },
   mediaMime: {
     type: String,
+    alias: 'tepdinhkem_mime',
     default: ''
   },
   mediaName: {
     type: String,
+    alias: 'tepdinhkem_ten',
     default: ''
   },
   mediaSize: {
     type: Number,
+    alias: 'tepdinhkem_kichthuoc',
     default: 0
   },
   isRead: {
     type: Boolean,
+    alias: 'dadoc',
     default: false,
     index: true
   },
-  readAt: Date,
+  readAt: { type: Date, alias: 'thoigiandoc' },
   sentAt: {
     type: Date,
+    alias: 'thoigiangui',
     default: Date.now,
     index: true
   },

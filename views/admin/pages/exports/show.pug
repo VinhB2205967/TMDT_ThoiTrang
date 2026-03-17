@@ -59,6 +59,7 @@ block main
                   th Doanh thu
                   th Giá vốn
                   th Lợi nhuận
+                  th Phân bổ theo lô
                   th Ảnh
                   th Ghi chú
               tbody
@@ -77,6 +78,18 @@ block main
                     td #{Number(it.doanhthu || 0).toLocaleString('vi-VN')}đ
                     td #{Number(it.giavon || 0).toLocaleString('vi-VN')}đ
                     td #{Number(it.loinhuan || 0).toLocaleString('vi-VN')}đ
+                    td
+                      - const allocs = Array.isArray(it.allocations) ? it.allocations : []
+                      if !allocs.length
+                        span.text-muted -
+                      else
+                        each a in allocs
+                          - const lotCode = a.lotId ? String(a.lotId).slice(-8) : 'N/A'
+                          .small.mb-1
+                            | Lô #{lotCode}: #{Number(a.soLuong || 0).toLocaleString('vi-VN')} sp,
+                            |  bán #{Number(a.giaban || 0).toLocaleString('vi-VN')}đ,
+                            |  vốn #{Number(a.giaNhap || 0).toLocaleString('vi-VN')}đ,
+                            |  lãi #{Number(a.loinhuan || 0).toLocaleString('vi-VN')}đ
                     td
                       if it.hinhanh
                         img(src=it.hinhanh style='width:44px;height:44px;object-fit:cover;border-radius:6px')

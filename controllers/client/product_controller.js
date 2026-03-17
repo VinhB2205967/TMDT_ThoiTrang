@@ -358,7 +358,7 @@ module.exports.danhSach = async (req, res) => {
             ? 'Không tìm thấy sản phẩm phù hợp từ ảnh.'
             : openclipStatus === 'error'
                 ? 'Không thể tìm kiếm bằng ảnh lúc này. Vui lòng thử lại.'
-                : (openclipMode ? 'Kết quả tìm kiếm sản phẩm bằng ảnh (OpenCLIP).' : '');
+                : '';
 
         res.render("client/pages/products/index.pug", {
             titlePage: "Danh sách sản phẩm",
@@ -455,7 +455,28 @@ module.exports.chiTiet = async (req, res) => {
 
         // Lấy đánh giá hiển thị + filter/sort
         const reviewBase = { sanpham_id: idsanpham, trangthai: 'approved', hienthi: true, daxoa: { $ne: true } };
-        const allReviews = await danhgia.find(reviewBase).lean();
+        const allReviewsRaw = await danhgia.find(reviewBase)
+            .populate({ path: 'nguoidung_id', select: 'hoten avatar' })
+            .lean();
+
+        const laVideo = (url) => /\.(mp4|mov|webm|mkv)(\?.*)?$/i.test(String(url || ''));
+        const tachMedia = (review) => {
+            const hinhList = Array.isArray(review && review.hinhanh) ? review.hinhanh : [];
+            const videoList = Array.isArray(review && review.videos) ? review.videos : [];
+            const hinhanh = hinhList.filter((u) => !laVideo(u));
+            const videos = Array.from(new Set(hinhList.filter((u) => laVideo(u)).concat(videoList).map((u) => String(u || '').trim()).filter(Boolean)));
+            return {
+                ...review,
+                hinhanh,
+                videos,
+                user: {
+                    ten: review && review.nguoidung_id && review.nguoidung_id.hoten ? String(review.nguoidung_id.hoten) : 'Khách hàng',
+                    avatar: review && review.nguoidung_id && review.nguoidung_id.avatar ? String(review.nguoidung_id.avatar) : '/images/avatar/avatar.png'
+                }
+            };
+        };
+
+        const allReviews = (allReviewsRaw || []).map(tachMedia);
 
         let diemtrungbinh = 0;
         const thongkeSao = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
@@ -469,20 +490,27 @@ module.exports.chiTiet = async (req, res) => {
         }
 
         const ratingFilter = Number(req.query.rating || 0);
-        const hasImage = String(req.query.hasImage || '') === '1';
+        const mediaQuery = String(req.query.media || '').trim().toLowerCase();
+        const hasImageLegacy = String(req.query.hasImage || '') === '1';
+        const mediaFilter = mediaQuery || (hasImageLegacy ? 'image' : 'all');
         const sort = String(req.query.sort || 'newest');
 
         let filtered = allReviews || [];
         if (ratingFilter >= 1 && ratingFilter <= 5) {
             filtered = filtered.filter(r => Number(r.diem || 0) === ratingFilter);
         }
-        if (hasImage) {
-            filtered = filtered.filter(r => Array.isArray(r.hinhanh) && r.hinhanh.length);
+        if (mediaFilter === 'image') {
+            filtered = filtered.filter(r => Array.isArray(r.hinhanh) && r.hinhanh.length > 0);
+        } else if (mediaFilter === 'video') {
+            filtered = filtered.filter(r => Array.isArray(r.videos) && r.videos.length > 0);
+        } else if (mediaFilter === 'both') {
+            filtered = filtered.filter(r => Array.isArray(r.hinhanh) && r.hinhanh.length > 0 && Array.isArray(r.videos) && r.videos.length > 0);
         }
 
         if (sort === 'highest') filtered = filtered.sort((a, b) => (b.diem || 0) - (a.diem || 0));
         else if (sort === 'lowest') filtered = filtered.sort((a, b) => (a.diem || 0) - (b.diem || 0));
         else if (sort === 'helpful') filtered = filtered.sort((a, b) => (b.thich || 0) - (a.thich || 0));
+        else if (sort === 'oldest') filtered = filtered.sort((a, b) => new Date(a.ngaytao || 0) - new Date(b.ngaytao || 0));
         else filtered = filtered.sort((a, b) => new Date(b.ngaytao || 0) - new Date(a.ngaytao || 0));
 
         // Sản phẩm tương tự (cùng loại)
@@ -521,7 +549,7 @@ module.exports.chiTiet = async (req, res) => {
             },
             reviewFilters: {
                 rating: ratingFilter || '',
-                hasImage: hasImage ? '1' : '',
+                media: mediaFilter,
                 sort
             },
             related: sanphamlienquanxuly
@@ -618,7 +646,7 @@ module.exports.timBangAnh = async (req, res) => {
         })
             .select('_id tensanpham hinhanh bienthe gia phantramgiamgia soluongton gioitinh loaisanpham')
             .sort({ ngaycapnhat: -1, ngaytao: -1 })
-            .limit(600)
+            .limit(320)
             .lean();
 
         const products = (rows || []).map((item) => {

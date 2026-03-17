@@ -73,10 +73,10 @@ block main
                                 .product-meta-info
                                     .meta-row
                                         span.meta-label Loại sản phẩm:
-                                        span.meta-value.badge-custom= product.loaisanpham || 'Chưa phân loại'
+                                        span.meta-value.badge-custom= product.loaisanphamHienthi || 'Chưa phân loại'
                                     .meta-row
                                         span.meta-label Giới tính:
-                                        span.meta-value.badge-custom= product.gioitinh || 'Unisex'
+                                        span.meta-value.badge-custom= product.gioitinhHienthi || 'Unisex'
                                     .meta-row
                                         span.meta-label Tình trạng:
                                         if product.soluongton > 0
@@ -282,7 +282,7 @@ block main
                             if product.mota_hinhanh
                                 .mb-3
                                     img.img-fluid.rounded.border(src=product.mota_hinhanh alt='Ảnh mô tả sản phẩm' style='max-height:420px;object-fit:cover;')
-                            .description-content!= product.mota
+                            .description-content= product.mota
 
                 //- Reviews Section
                 .section-block
@@ -320,13 +320,16 @@ block main
                             .col-6.col-lg-3
                                 select.form-select(name='sort')
                                     option(value='newest' selected=(!reviewFilters || !reviewFilters.sort || reviewFilters.sort === 'newest')) Mới nhất
+                                    option(value='oldest' selected=(reviewFilters && reviewFilters.sort === 'oldest')) Cũ nhất
                                     option(value='highest' selected=(reviewFilters && reviewFilters.sort === 'highest')) Sao cao nhất
                                     option(value='lowest' selected=(reviewFilters && reviewFilters.sort === 'lowest')) Sao thấp nhất
                                     option(value='helpful' selected=(reviewFilters && reviewFilters.sort === 'helpful')) Hữu ích nhất
                             .col-6.col-lg-3
-                                select.form-select(name='hasImage')
-                                    option(value='' selected=(!reviewFilters || !reviewFilters.hasImage)) Có ảnh?
-                                    option(value='1' selected=(reviewFilters && reviewFilters.hasImage === '1')) Có ảnh
+                                select.form-select(name='media')
+                                    option(value='all' selected=(!reviewFilters || !reviewFilters.media || reviewFilters.media === 'all')) Tất cả media
+                                    option(value='image' selected=(reviewFilters && reviewFilters.media === 'image')) Có ảnh
+                                    option(value='video' selected=(reviewFilters && reviewFilters.media === 'video')) Có video
+                                    option(value='both' selected=(reviewFilters && reviewFilters.media === 'both')) Có ảnh và video
                             .col-6.col-lg-2.d-flex.gap-2
                                 button.btn.btn-primary.flex-fill(type='submit') Lọc
                                 a.btn.btn-outline-secondary.flex-fill(href=`/products/${product._id}`) Reset
@@ -338,8 +341,8 @@ block main
                                         .review-header
                                             .reviewer-info
                                                 .avatar
-                                                    i.bi.bi-person-fill
-                                                .reviewer-name Khách hàng
+                                                    img(src=((r.user && r.user.avatar) ? r.user.avatar : '/images/avatar/avatar.png') alt=((r.user && r.user.ten) ? r.user.ten : 'Khách hàng') width='36' height='36' style='border-radius:50%;object-fit:cover;')
+                                                .reviewer-name #{(r.user && r.user.ten) ? r.user.ten : 'Khách hàng'}
                                             .review-stars
                                                 - for (let i = 0; i < (r.diem || 0); i++)
                                                     i.fas.fa-star
@@ -353,7 +356,12 @@ block main
                                         if r.hinhanh && r.hinhanh.length
                                             .d-flex.flex-wrap.gap-2.mt-2
                                                 each img in r.hinhanh
-                                                    img.rounded.border(src=img alt='review' width='72' height='72' style='object-fit:cover;')
+                                                    a(href=img target='_blank' rel='noopener')
+                                                        img.rounded.border(src=img alt='review' width='84' height='84' style='object-fit:cover;')
+                                        if r.videos && r.videos.length
+                                            .d-flex.flex-wrap.gap-2.mt-2
+                                                each v in r.videos
+                                                    video.rounded.border(src=v style='width:220px;max-width:100%;height:auto;' controls preload='metadata')
                                         if r.mausac || r.kichco
                                             .review-meta
                                                 if r.mausac
