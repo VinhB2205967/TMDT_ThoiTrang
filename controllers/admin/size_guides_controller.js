@@ -6,7 +6,7 @@ const {
   parseRows,
   rowsToTextarea,
   ensureDefaultSizeGuides
-} = require('../../services/sizeGuide.service');
+} = require('../../services/catalog/sizeGuide.service.js');
 
 function loaiSanPhamOptions() {
   return [

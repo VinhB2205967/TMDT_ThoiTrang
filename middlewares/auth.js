@@ -1,6 +1,6 @@
 const systemConfig = require('../config/system');
 const Nguoidung = require('../models/user_model');
-const { getAccountByUserId } = require('../services/account.service');
+const { getAccountByUserId } = require('../services/account/index.js');
 
 function muonJSON(req) {
   const chapNhan = String(req.headers.accept || '');

@@ -19,9 +19,9 @@ const {
   Lookbook,
   HomeSection,
   Setting
-} = require('../models');
-const ImportReceipt = require('../models/import_receipt_model');
-const { rankProductsByQuery } = require('./openClip.service');
+} = require('../../models');
+const ImportReceipt = require('../../models/import_receipt_model');
+const { rankProductsByQuery } = require('../catalog/openClip.service.js');
 
 const OLLAMA_URL = process.env.OLLAMA_API_URL || 'http://127.0.0.1:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'gemma3:4b';

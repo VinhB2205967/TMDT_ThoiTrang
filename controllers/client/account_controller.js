@@ -1,132 +1,56 @@
-const bcrypt = require('bcryptjs');
-const path = require('path');
-const fs = require('fs');
-const nguoidung = require('../../models/user_model');
-const { chuanHoaSoDienThoai, laSoDienThoaiVN, laUrlAnhAnToan } = require('../../helpers/validators');
-const { hasLocalPassword, verifyPasswordWithLegacy, setPasswordByUserId, getAccountByUserId } = require('../../services/account.service');
-
-function chuanHoaChuoi(value) {
-  return String(value || '').trim();
-}
-
-function dinhDangNgayInput(d) {
-  try {
-    if (!d) return '';
-    const date = new Date(d);
-    if (Number.isNaN(date.getTime())) return '';
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const dd = String(date.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  } catch {
-    return '';
-  }
-}
-
-function kiemTraMatKhauMoi(password) {
-  const p = String(password || '');
-  if (p.length < 6) return 'Mật khẩu phải tối thiểu 6 ký tự';
-  return null;
-}
+const {
+  getProfilePageData,
+  updateUserProfile,
+  changeUserPassword,
+  softDeleteUserAccount
+} = require('../../services/account/index.js');
 
 // Thông tin
 module.exports.trang = async (req, res) => {
-  const taikhoan = req.user;
-  let coMatKhau = Boolean(taikhoan?.matkhau);
-  let loaiTaiKhoan = 'local';
-  try {
-    const account = await getAccountByUserId({ userId: taikhoan?._id });
-    if (account && account.provider) loaiTaiKhoan = String(account.provider);
-    coMatKhau = await hasLocalPassword({ userId: taikhoan?._id });
-  } catch {
-    // ignore
-  }
+  let viewData = {
+    profile: {
+      hoten: req.user?.hoten || '',
+      email: req.user?.email || '',
+      sodienthoai: req.user?.sodienthoai || '',
+      diachi: req.user?.diachi || '',
+      gioitinh: req.user?.gioitinh || '',
+      ngaysinh: '',
+      avatar: req.user?.avatar || ''
+    },
+    hasPassword: false,
+    canChangePassword: true
+  };
 
-  const duocDoiMatKhau = loaiTaiKhoan !== 'google';
+  try {
+    viewData = await getProfilePageData({ userId: req.user?._id, fallbackUser: req.user });
+  } catch (err) {
+    console.error('account page data error:', err);
+  }
 
   res.render('client/pages/account/index.pug', {
     titlePage: 'Thông tin tài khoản',
-    profile: {
-      hoten: taikhoan?.hoten || '',
-      email: taikhoan?.email || '',
-      sodienthoai: taikhoan?.sodienthoai || '',
-      diachi: taikhoan?.diachi || '',
-      gioitinh: taikhoan?.gioitinh || '',
-      ngaysinh: dinhDangNgayInput(taikhoan?.ngaysinh),
-      avatar: taikhoan?.avatar || ''
-    },
-    hasPassword: coMatKhau,
-    canChangePassword: duocDoiMatKhau
+    profile: viewData.profile,
+    hasPassword: viewData.hasPassword,
+    canChangePassword: viewData.canChangePassword
   });
 };
 
 // Cập nhật hồ sơ
 module.exports.capNhatHoSo = async (req, res) => {
   try {
-    const idnguoidung = req.user && req.user._id ? String(req.user._id) : null;
-    if (!idnguoidung) return res.redirect('/auth?mode=login');
-
-    const hoten = chuanHoaChuoi(req.body.hoten);
-    const sdtraw = chuanHoaChuoi(req.body.sodienthoai);
-    if (sdtraw && !laSoDienThoaiVN(sdtraw)) {
-      req.flash?.('error', 'Số điện thoại không đúng định dạng');
-      return res.redirect('/account');
-    }
-    const sodienthoai = sdtraw ? chuanHoaSoDienThoai(sdtraw) : '';
-    const diachi = chuanHoaChuoi(req.body.diachi);
-    const gioitinh = chuanHoaChuoi(req.body.gioitinh);
-    const avatarurl = chuanHoaChuoi(req.body.avatarUrl || req.body.avatar);
-
-    if (avatarurl && !laUrlAnhAnToan(avatarurl)) {
-      req.flash?.('error', 'Avatar URL không hợp lệ');
-      return res.redirect('/account');
-    }
-
-    let ngaysinh = null;
-    if (req.body.ngaysinh) {
-      const ngayparsed = new Date(req.body.ngaysinh);
-      if (!Number.isNaN(ngayparsed.getTime())) ngaysinh = ngayparsed;
-    }
-
-    let avatar = '';
-    if (req.file && req.file.filename) {
-      avatar = `/uploads/avatars/${req.file.filename}`;
-
-      // Xóa ảnh cũ
-      const avatarcu = String(req.user?.avatar || '');
-      if (avatarcu.startsWith('/uploads/avatars/')) {
-        const tencu = path.basename(avatarcu);
-        const duongdancu = path.join(process.cwd(), 'public', 'uploads', 'avatars', tencu);
-        fs.promises.unlink(duongdancu).catch(() => {});
-      }
-    }
-
-    if (!avatar && avatarurl) avatar = avatarurl;
-
-    const $set = {
-      hoten,
-      sodienthoai,
-      diachi,
-      gioitinh,
-      ngaysinh,
-      ngaycapnhat: new Date()
-    };
-
-    // Chỉ cập nhật khi có avatar
-    if (avatar) $set.avatar = avatar;
-
-    await nguoidung.updateOne(
-      { _id: idnguoidung, daxoa: { $ne: true } },
-      {
-        $set
-      }
-    );
+    await updateUserProfile({
+      userId: req.user?._id,
+      payload: req.body,
+      fileUpload: req.file,
+      currentAvatar: req.user?.avatar
+    });
 
     req.flash?.('success', 'Cập nhật thông tin thành công');
     return res.redirect('/account');
   } catch (err) {
     console.error('updateProfile error:', err);
-    req.flash?.('error', 'Không thể cập nhật thông tin');
+    if (err?.code === 'AUTH_REQUIRED') return res.redirect('/auth?mode=login');
+    req.flash?.('error', err?.message || 'Không thể cập nhật thông tin');
     return res.redirect('/account');
   }
 };
@@ -134,56 +58,23 @@ module.exports.capNhatHoSo = async (req, res) => {
 // Đổi mật khẩu
 module.exports.doiMatKhau = async (req, res) => {
   try {
-    const idnguoidung = req.user && req.user._id ? String(req.user._id) : null;
-    if (!idnguoidung) return res.redirect('/auth?mode=login');
-
-    const account = await getAccountByUserId({ userId: idnguoidung });
-    if (account && String(account.provider || '') === 'google') {
-      req.flash?.('error', 'Tài khoản Google không hỗ trợ đổi mật khẩu tại đây');
-      return res.redirect('/account');
-    }
-
-    const matkhaucu = String(req.body.oldPassword || '');
-    const matkhaumoi = String(req.body.newPassword || '');
-    const xacnhanmatkhau = String(req.body.confirmPassword || '');
-
-    const loimatkhau = kiemTraMatKhauMoi(matkhaumoi);
-    if (loimatkhau) {
-      req.flash?.('error', loimatkhau);
-      return res.redirect('/account');
-    }
-
-    if (matkhaumoi !== xacnhanmatkhau) {
-      req.flash?.('error', 'Xác nhận mật khẩu không khớp');
-      return res.redirect('/account');
-    }
-
-    const taikhoan = await nguoidung.findOne({ _id: idnguoidung, daxoa: { $ne: true } });
-    if (!taikhoan) {
-      req.flash?.('error', 'Không tìm thấy tài khoản');
-      return res.redirect('/auth?mode=login');
-    }
-
-    const daCoMatKhau = await hasLocalPassword({ userId: idnguoidung }) || Boolean(taikhoan.matkhau);
-    if (daCoMatKhau) {
-      const hople = await verifyPasswordWithLegacy({ userDoc: taikhoan, passwordPlain: matkhaucu });
-      if (!hople) {
-        req.flash?.('error', 'Mật khẩu hiện tại không đúng');
-        return res.redirect('/account');
-      }
-    }
-
-    await setPasswordByUserId({ userId: idnguoidung, newPasswordPlain: matkhaumoi });
-    await nguoidung.updateOne(
-      { _id: idnguoidung, daxoa: { $ne: true } },
-      { $set: { ngaycapnhat: new Date() } }
-    );
+    await changeUserPassword({
+      userId: req.user?._id,
+      oldPassword: req.body.oldPassword,
+      newPassword: req.body.newPassword,
+      confirmPassword: req.body.confirmPassword
+    });
 
     req.flash?.('success', 'Đổi mật khẩu thành công');
     return res.redirect('/account');
   } catch (err) {
     console.error('changePassword error:', err);
-    req.flash?.('error', 'Không thể đổi mật khẩu');
+    if (err?.code === 'AUTH_REQUIRED' || err?.code === 'ACCOUNT_NOT_FOUND') {
+      req.flash?.('error', err?.message || 'Vui lòng đăng nhập lại');
+      return res.redirect('/auth?mode=login');
+    }
+
+    req.flash?.('error', err?.message || 'Không thể đổi mật khẩu');
     return res.redirect('/account');
   }
 };
@@ -191,21 +82,7 @@ module.exports.doiMatKhau = async (req, res) => {
 // Xóa tài khoản
 module.exports.xoaTaiKhoan = async (req, res) => {
   try {
-    const idnguoidung = req.user && req.user._id ? String(req.user._id) : null;
-    if (!idnguoidung) return res.redirect('/auth?mode=login');
-
-    await nguoidung.updateOne(
-      { _id: idnguoidung, daxoa: { $ne: true } },
-      { $set: { daxoa: true, trangthai: 'noactive', ngaycapnhat: new Date() } }
-    );
-
-    // Offline ngay
-    const onlinewindowms = 5 * 60 * 1000;
-    const thoidiemoffline = new Date(Date.now() - onlinewindowms - 1000);
-    nguoidung.updateOne(
-      { _id: idnguoidung },
-      { $set: { lastSeenAt: thoidiemoffline } }
-    ).catch(() => {});
+    await softDeleteUserAccount({ userId: req.user?._id });
 
     try {
       req.logout(() => {});
@@ -215,6 +92,7 @@ module.exports.xoaTaiKhoan = async (req, res) => {
     return res.redirect('/');
   } catch (err) {
     console.error('deleteAccount error:', err);
+    if (err?.code === 'AUTH_REQUIRED') return res.redirect('/auth?mode=login');
     req.flash?.('error', 'Không thể xóa tài khoản');
     return res.redirect('/account');
   }

@@ -1,5 +1,5 @@
 const HomeSection = require('../../models/home_section_model');
-const { mergeSections } = require('../../services/home.service');
+const { mergeSections } = require('../../services/content/home.service.js');
 
 module.exports.danhSach = async (req, res) => {
   const sections = await HomeSection.find({}).sort({ thuTu: 1 }).lean();

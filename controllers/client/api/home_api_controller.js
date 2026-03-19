@@ -1,4 +1,4 @@
-const { getHomeData } = require('../../../services/home.service');
+const { getHomeData } = require('../../../services/content/home.service.js');
 
 module.exports.getHome = async (req, res) => {
   const homeData = await getHomeData();

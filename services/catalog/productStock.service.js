@@ -1,5 +1,10 @@
-const { NO_SIZE_TYPES } = require('../config/constants');
-const { normalizeImage } = require('./cart.service');
+﻿const { NO_SIZE_TYPES } = require('../../config/constants');
+
+function normalizeImage(path) {
+  if (!path) return '/images/shopping.png';
+  if (String(path).startsWith('/public')) return String(path).replace('/public', '');
+  return path;
+}
 
 function laLoaiKhongSize(loaisanpham) {
   return NO_SIZE_TYPES.includes(String(loaisanpham || '').toLowerCase());
@@ -33,13 +38,13 @@ function tinhTongTon(productdoc) {
   return tong;
 }
 
-// Lấy thông tin biến thể và tồn kho
+// Láº¥y thÃ´ng tin biáº¿n thá»ƒ vÃ  tá»“n kho
 function layBienTheVaTon(productdoc, bientheId, kichco) {
   const coSize = !laLoaiKhongSize(productdoc.loaisanpham);
   const laChinh = !bientheId || bientheId === 'main';
 
   if (laChinh) {
-    const mausac = productdoc.mausac_chinh || 'Mặc định';
+    const mausac = productdoc.mausac_chinh || 'Máº·c Ä‘á»‹nh';
     const hinhanh = normalizeImage(productdoc.hinhanh);
     const gia = productdoc.gia || 0;
     const giamgia = productdoc.phantramgiamgia || 0;
@@ -73,9 +78,9 @@ function layBienTheVaTon(productdoc, bientheId, kichco) {
   }
 
   const bienthe = (productdoc.bienthe || []).find((v) => String(v._id) === String(bientheId));
-  if (!bienthe) return { error: 'Biến thể không tồn tại' };
+  if (!bienthe) return { error: 'Biáº¿n thá»ƒ khÃ´ng tá»“n táº¡i' };
 
-  const mausac = bienthe.mausac || 'Màu';
+  const mausac = bienthe.mausac || 'MÃ u';
   const hinhanh = normalizeImage(bienthe.hinhanh) || normalizeImage(productdoc.hinhanh);
   const gia = bienthe.gia || productdoc.gia || 0;
   const giamgia = bienthe.phantramgiamgia != null ? bienthe.phantramgiamgia : productdoc.phantramgiamgia || 0;
@@ -113,3 +118,4 @@ module.exports = {
   tinhTongTon,
   layBienTheVaTon
 };
+

@@ -1,7 +1,7 @@
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const Nguoidung = require('../models/user_model');
-const { ensureAccountFromUser, getAccountByUserId } = require('../services/account.service');
+const { ensureAccountFromUser, getAccountByUserId } = require('../services/account/index.js');
 
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();

@@ -1,11 +1,11 @@
-const Banner = require('../models/banner_model');
-const HomeSection = require('../models/home_section_model');
-const Setting = require('../models/setting_model');
-const Lookbook = require('../models/lookbook_model');
-const Brand = require('../models/brand_model');
-const BlogPost = require('../models/blog_model');
-const Sanpham = require('../models/product_model');
-const { getFlashSaleActive } = require('./flashSale.service');
+﻿const Banner = require('../../models/banner_model');
+const HomeSection = require('../../models/home_section_model');
+const Setting = require('../../models/setting_model');
+const Lookbook = require('../../models/lookbook_model');
+const Brand = require('../../models/brand_model');
+const BlogPost = require('../../models/blog_model');
+const Sanpham = require('../../models/product_model');
+const { getFlashSaleActive } = require('../catalog/flashSale.service.js');
 
 const defaultSections = [
   { key: 'banner_slider', tieuDe: 'Banner Slider', hienthi: true, thuTu: 1, config: {} },
@@ -109,3 +109,4 @@ module.exports = {
   getHomeData,
   mergeSections
 };
+

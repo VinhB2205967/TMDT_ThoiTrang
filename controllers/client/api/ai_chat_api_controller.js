@@ -1,7 +1,7 @@
 const fs = require('fs');
 const { Sanpham } = require('../../../models');
-const { buildDataContext, askAI } = require('../../../services/aiChat.service');
-const { rankProductsByQuery, rankProductsByImage } = require('../../../services/openClip.service');
+const { buildDataContext, askAI } = require('../../../services/content/aiChat.service.js');
+const { rankProductsByQuery, rankProductsByImage } = require('../../../services/catalog/openClip.service.js');
 
 function normalizeMessage(input) {
   return String(input || '').trim();

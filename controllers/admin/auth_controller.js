@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const nguoidung = require('../../models/user_model');
 const systemConfig = require('../../config/system');
 const { writeLoginLog } = require('../../services/loginLog');
-const { verifyPasswordWithLegacy, getAccountByUserId } = require('../../services/account.service');
+const { verifyPasswordWithLegacy, getAccountByUserId } = require('../../services/account/index.js');
 // Chuẩn hóa email
 function chuanHoaEmail(email) {
   return String(email || '').trim().toLowerCase();

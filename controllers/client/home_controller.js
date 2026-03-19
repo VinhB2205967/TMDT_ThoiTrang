@@ -1,6 +1,6 @@
 const productHelper = require('../../helpers/product');
 const { buildProductStats, applyProductStats } = require('../../helpers/productStats');
-const { getHomeData } = require('../../services/home.service');
+const { getHomeData } = require('../../services/content/home.service.js');
 
 function buildBadges(product) {
     const badges = [];

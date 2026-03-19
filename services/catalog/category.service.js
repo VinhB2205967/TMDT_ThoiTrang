@@ -1,5 +1,5 @@
-const mongoose = require('mongoose');
-const Danhmuc = require('../models/category_model');
+﻿const mongoose = require('mongoose');
+const Danhmuc = require('../../models/category_model');
 
 function normalizeCategory(item) {
   const name = item.name || item.tendanhmuc || '';
@@ -161,3 +161,4 @@ module.exports = {
   getDescendantCategoryIds,
   flattenTreeOptions
 };
+

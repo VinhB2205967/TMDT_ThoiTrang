@@ -1,5 +1,5 @@
-const Coupon = require('../models/coupon_model');
-const UserVoucher = require('../models/user_voucher_model');
+﻿const Coupon = require('../../models/coupon_model');
+const UserVoucher = require('../../models/user_voucher_model');
 
 function normalizeCode(raw) {
   return String(raw || '').trim().toUpperCase();
@@ -29,26 +29,26 @@ function calcDiscount({ type, value, maxDiscount, orderTotal }) {
 
 async function validateVoucherForOrder({ code, userId, orderTotal }) {
   const normalized = normalizeCode(code);
-  if (!normalized) return { ok: false, message: 'Vui lòng nhập mã voucher' };
+  if (!normalized) return { ok: false, message: 'Vui lÃ²ng nháº­p mÃ£ voucher' };
 
   const voucher = await Coupon.findOne({ code: normalized, daxoa: { $ne: true } }).lean();
-  if (!voucher) return { ok: false, message: 'Voucher không tồn tại' };
+  if (!voucher) return { ok: false, message: 'Voucher khÃ´ng tá»“n táº¡i' };
 
   if (String(voucher.trangthai) !== 'active') {
-    return { ok: false, message: 'Voucher đang tạm khóa' };
+    return { ok: false, message: 'Voucher Ä‘ang táº¡m khÃ³a' };
   }
 
   const now = new Date();
   if (!isDateInRange(now, voucher.ngay_batdau, voucher.ngay_ketthuc)) {
-    return { ok: false, message: 'Voucher đã hết hạn' };
+    return { ok: false, message: 'Voucher Ä‘Ã£ háº¿t háº¡n' };
   }
 
   if (voucher.soluong_toida != null && voucher.soluong_dasudung >= voucher.soluong_toida) {
-    return { ok: false, message: 'Voucher đã hết lượt sử dụng' };
+    return { ok: false, message: 'Voucher Ä‘Ã£ háº¿t lÆ°á»£t sá»­ dá»¥ng' };
   }
 
   if (Number(orderTotal || 0) < Number(voucher.don_toithieu || 0)) {
-    return { ok: false, message: 'Đơn hàng chưa đủ điều kiện áp dụng voucher' };
+    return { ok: false, message: 'ÄÆ¡n hÃ ng chÆ°a Ä‘á»§ Ä‘iá»u kiá»‡n Ã¡p dá»¥ng voucher' };
   }
 
   if (userId) {
@@ -58,7 +58,7 @@ async function validateVoucherForOrder({ code, userId, orderTotal }) {
       isUsed: true
     }).lean();
     if (userVoucher) {
-      return { ok: false, message: 'Bạn đã sử dụng voucher này' };
+      return { ok: false, message: 'Báº¡n Ä‘Ã£ sá»­ dá»¥ng voucher nÃ y' };
     }
   }
 
@@ -122,3 +122,4 @@ module.exports = {
   markVoucherUsed,
   saveVoucher
 };
+

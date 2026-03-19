@@ -1,4 +1,4 @@
-const DEFAULT_GUIDES = [
+﻿const DEFAULT_GUIDES = [
   {
     tenbang: 'Bảng size áo tiêu chuẩn',
     slug: 'guide-ao-default',
@@ -40,6 +40,71 @@ const DEFAULT_GUIDES = [
     goiy: 'Nên chọn lớn hơn 1 size nếu chân bè ngang hoặc mu bàn chân cao'
   }
 ];
+
+function stripVietnamese(text) {
+  return String(text || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function looksMojibake(text) {
+  return /(Ã.|áº|á»|Æ°|Ä‘)/.test(String(text || ''));
+}
+
+function isWeightColumn(text) {
+  const raw = String(text || '').toLowerCase();
+  const compact = stripVietnamese(raw).replace(/[^a-z0-9]/g, '');
+  return compact.includes('cannang')
+    || compact.includes('canang')
+    || raw.includes('cã¢n')
+    || raw.includes('náº·ng');
+}
+
+function dedupeWeightColumns(columns, rows) {
+  const cols = Array.isArray(columns) ? [...columns] : [];
+  const listRows = Array.isArray(rows) ? rows : [];
+  const weightIndexes = cols
+    .map((c, idx) => ({ idx, isWeight: isWeightColumn(c) }))
+    .filter((x) => x.isWeight)
+    .map((x) => x.idx);
+
+  if (weightIndexes.length <= 1) {
+    return { columns: cols, rows: listRows, changed: false };
+  }
+
+  const keepWeightIndex = weightIndexes[0];
+  const removeSet = new Set(weightIndexes.slice(1));
+  const nextColumns = cols.filter((_, idx) => !removeSet.has(idx));
+
+  const nextRows = listRows.map((row) => {
+    const values = Array.isArray(row?.giatri) ? [...row.giatri] : [];
+    const pickedWeight = weightIndexes
+      .map((idx) => String(values[idx] || '').trim())
+      .find((v) => v);
+
+    const rebuilt = [];
+    for (let idx = 0; idx < cols.length; idx += 1) {
+      if (removeSet.has(idx)) continue;
+      if (idx === keepWeightIndex) {
+        rebuilt.push(pickedWeight || String(values[idx] || '').trim());
+      } else {
+        rebuilt.push(String(values[idx] || '').trim());
+      }
+    }
+
+    return {
+      ...row,
+      giatri: rebuilt
+    };
+  });
+
+  return {
+    columns: nextColumns,
+    rows: nextRows,
+    changed: true
+  };
+}
 
 function slugify(value) {
   return String(value || '')
@@ -112,11 +177,40 @@ async function ensureDefaultSizeGuides(SizeGuide) {
       continue;
     }
 
+    let changed = false;
+
+    if (looksMojibake(existed.tenbang)) {
+      existed.tenbang = item.tenbang;
+      changed = true;
+    }
+
+    if (looksMojibake(existed.goiy)) {
+      existed.goiy = item.goiy;
+      changed = true;
+    }
+
+    if (Array.isArray(existed.cot)) {
+      existed.cot = existed.cot.map((col, idx) => {
+        if (looksMojibake(col) && item.cot[idx]) {
+          changed = true;
+          return item.cot[idx];
+        }
+        return col;
+      });
+    }
+
+    const deduped = dedupeWeightColumns(existed.cot, existed.dong);
+    if (deduped.changed) {
+      existed.cot = deduped.columns;
+      existed.dong = deduped.rows;
+      changed = true;
+    }
+
     // Keep existing guide content if already customized,
     // but auto-add weight column for default clothing guides.
     if (item.slug === 'guide-ao-default' || item.slug === 'guide-quan-default') {
       const hasWeightColumn = Array.isArray(existed.cot)
-        && existed.cot.some((c) => String(c || '').toLowerCase().includes('cân nặng'));
+        && existed.cot.some((c) => isWeightColumn(c));
 
       if (!hasWeightColumn) {
         const nextColumns = [...(existed.cot || []), 'Cân nặng (kg)'];
@@ -139,9 +233,13 @@ async function ensureDefaultSizeGuides(SizeGuide) {
 
         existed.cot = nextColumns;
         existed.dong = nextRows;
-        existed.ngaycapnhat = new Date();
-        await existed.save();
+        changed = true;
       }
+    }
+
+    if (changed) {
+      existed.ngaycapnhat = new Date();
+      await existed.save();
     }
   }
 }
@@ -155,3 +253,4 @@ module.exports = {
   normalizeGuideTypeFromProductType,
   ensureDefaultSizeGuides
 };
+

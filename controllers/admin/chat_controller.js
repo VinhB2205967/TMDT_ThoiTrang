@@ -4,7 +4,7 @@ const {
   markAdminRead,
   getAdminUnreadTotal,
   getUserBasicInfo
-} = require('../../services/chat.service');
+} = require('../../services/communication/chat.service.js');
 const { isUserOnline } = require('../../socketio/chat.socket');
 const { resolveChatMedia } = require('../../middlewares/chatUpload');
 

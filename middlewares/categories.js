@@ -1,4 +1,4 @@
-const { getCategoryTree } = require('../services/category.service');
+const { getCategoryTree } = require('../services/catalog/category.service.js');
 
 let cache = {
   expiresAt: 0,

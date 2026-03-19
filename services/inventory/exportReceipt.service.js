@@ -1,12 +1,12 @@
-const mongoose = require('mongoose');
-const Donhang = require('../models/order_model');
-const Chitietdonhang = require('../models/order_item_model');
-const Sanpham = require('../models/product_model');
-const PhieuNhapKho = require('../models/import_receipt_model');
-const PhieuXuatKho = require('../models/export_receipt_model');
-const TonKhoLo = require('../models/inventory_lot_model');
-const { NO_SIZE_TYPES } = require('../config/constants');
-const { tinhTongTon } = require('./productStock.service');
+﻿const mongoose = require('mongoose');
+const Donhang = require('../../models/order_model');
+const Chitietdonhang = require('../../models/order_item_model');
+const Sanpham = require('../../models/product_model');
+const PhieuNhapKho = require('../../models/import_receipt_model');
+const PhieuXuatKho = require('../../models/export_receipt_model');
+const TonKhoLo = require('../../models/inventory_lot_model');
+const { NO_SIZE_TYPES } = require('../../config/constants');
+const { tinhTongTon } = require('../catalog/productStock.service.js');
 
 function laLoaiKhongSize(loaisanpham) {
   return NO_SIZE_TYPES.includes(String(loaisanpham || '').toLowerCase());
@@ -108,7 +108,7 @@ function buildLotQuery({ productId, variantId, size }) {
 
 async function consumeLotsFIFO({ productId, variantId, size, qty }) {
   const soLuongCanXuat = toNumber(qty, 0);
-  if (soLuongCanXuat <= 0) throw new Error('Số lượng xuất không hợp lệ');
+  if (soLuongCanXuat <= 0) throw new Error('Sá»‘ lÆ°á»£ng xuáº¥t khÃ´ng há»£p lá»‡');
 
   const lots = await TonKhoLo.find(buildLotQuery({ productId, variantId, size }))
     .sort({ ngaynhap: 1, ngaytao: 1, _id: 1 });
@@ -141,7 +141,7 @@ async function consumeLotsFIFO({ productId, variantId, size, qty }) {
   }
 
   if (conLaiCanXuat > 0) {
-    throw new Error('Không đủ tồn theo lô FIFO để xuất kho');
+    throw new Error('KhÃ´ng Ä‘á»§ tá»“n theo lÃ´ FIFO Ä‘á»ƒ xuáº¥t kho');
   }
 
   return {
@@ -189,33 +189,33 @@ function applySuggestedPriceToProductDoc(productDoc, { variantId, suggestedPrice
 
 function truTonKhoTheoDong(productDoc, { variantId, size, qty }) {
   const soLuong = toNumber(qty, 0);
-  if (soLuong <= 0) throw new Error('Số lượng xuất không hợp lệ');
+  if (soLuong <= 0) throw new Error('Sá»‘ lÆ°á»£ng xuáº¥t khÃ´ng há»£p lá»‡');
 
   const hasSize = !laLoaiKhongSize(productDoc.loaisanpham);
   const isMain = !variantId;
 
   if (hasSize) {
     const sizeKey = String(size || '').trim();
-    if (!sizeKey) throw new Error('Thiếu size cho sản phẩm có size');
+    if (!sizeKey) throw new Error('Thiáº¿u size cho sáº£n pháº©m cÃ³ size');
 
     if (isMain) {
       productDoc.sizes = Array.isArray(productDoc.sizes) ? productDoc.sizes : [];
       const row = productDoc.sizes.find((s) => String(s.size) === sizeKey);
       const current = toNumber(row?.soluong, 0);
       const next = current - soLuong;
-      if (next < 0) throw new Error('Tồn kho không đủ để xuất (size chính)');
+      if (next < 0) throw new Error('Tá»“n kho khÃ´ng Ä‘á»§ Ä‘á»ƒ xuáº¥t (size chÃ­nh)');
       if (row) row.soluong = next;
       else productDoc.sizes.push({ size: sizeKey, soluong: 0 });
       return;
     }
 
     const variant = (productDoc.bienthe || []).find((v) => String(v._id) === String(variantId));
-    if (!variant) throw new Error('Biến thể không tồn tại');
+    if (!variant) throw new Error('Biáº¿n thá»ƒ khÃ´ng tá»“n táº¡i');
     variant.sizes = Array.isArray(variant.sizes) ? variant.sizes : [];
     const row = variant.sizes.find((s) => String(s.size) === sizeKey);
     const current = toNumber(row?.soluong, 0);
     const next = current - soLuong;
-    if (next < 0) throw new Error('Tồn kho không đủ để xuất (size biến thể)');
+    if (next < 0) throw new Error('Tá»“n kho khÃ´ng Ä‘á»§ Ä‘á»ƒ xuáº¥t (size biáº¿n thá»ƒ)');
     if (row) row.soluong = next;
     else variant.sizes.push({ size: sizeKey, soluong: 0 });
     return;
@@ -224,29 +224,29 @@ function truTonKhoTheoDong(productDoc, { variantId, size, qty }) {
   if (isMain) {
     const current = toNumber(productDoc.soluong_chinh, 0);
     const next = current - soLuong;
-    if (next < 0) throw new Error('Tồn kho không đủ để xuất (sản phẩm chính)');
+    if (next < 0) throw new Error('Tá»“n kho khÃ´ng Ä‘á»§ Ä‘á»ƒ xuáº¥t (sáº£n pháº©m chÃ­nh)');
     productDoc.soluong_chinh = next;
     return;
   }
 
   const variant = (productDoc.bienthe || []).find((v) => String(v._id) === String(variantId));
-  if (!variant) throw new Error('Biến thể không tồn tại');
+  if (!variant) throw new Error('Biáº¿n thá»ƒ khÃ´ng tá»“n táº¡i');
   const current = toNumber(variant.soluong, 0);
   const next = current - soLuong;
-  if (next < 0) throw new Error('Tồn kho không đủ để xuất (biến thể)');
+  if (next < 0) throw new Error('Tá»“n kho khÃ´ng Ä‘á»§ Ä‘á»ƒ xuáº¥t (biáº¿n thá»ƒ)');
   variant.soluong = next;
 }
 
 function congTonKhoTheoDong(productDoc, { variantId, size, qty }) {
   const soLuong = toNumber(qty, 0);
-  if (soLuong <= 0) throw new Error('Số lượng xuất không hợp lệ');
+  if (soLuong <= 0) throw new Error('Sá»‘ lÆ°á»£ng xuáº¥t khÃ´ng há»£p lá»‡');
 
   const hasSize = !laLoaiKhongSize(productDoc.loaisanpham);
   const isMain = !variantId;
 
   if (hasSize) {
     const sizeKey = String(size || '').trim();
-    if (!sizeKey) throw new Error('Thiếu size cho sản phẩm có size');
+    if (!sizeKey) throw new Error('Thiáº¿u size cho sáº£n pháº©m cÃ³ size');
 
     if (isMain) {
       productDoc.sizes = Array.isArray(productDoc.sizes) ? productDoc.sizes : [];
@@ -259,7 +259,7 @@ function congTonKhoTheoDong(productDoc, { variantId, size, qty }) {
     }
 
     const variant = (productDoc.bienthe || []).find((v) => String(v._id) === String(variantId));
-    if (!variant) throw new Error('Biến thể không tồn tại');
+    if (!variant) throw new Error('Biáº¿n thá»ƒ khÃ´ng tá»“n táº¡i');
     variant.sizes = Array.isArray(variant.sizes) ? variant.sizes : [];
     const row = variant.sizes.find((s) => String(s.size) === sizeKey);
     const current = toNumber(row?.soluong, 0);
@@ -276,7 +276,7 @@ function congTonKhoTheoDong(productDoc, { variantId, size, qty }) {
   }
 
   const variant = (productDoc.bienthe || []).find((v) => String(v._id) === String(variantId));
-  if (!variant) throw new Error('Biến thể không tồn tại');
+  if (!variant) throw new Error('Biáº¿n thá»ƒ khÃ´ng tá»“n táº¡i');
   const current = toNumber(variant.soluong, 0);
   variant.soluong = current + soLuong;
 }
@@ -381,7 +381,7 @@ function calcTotals(lines) {
 async function createExportReceiptFromOrder({ orderId, adminUser, note = '', skipInventoryAdjustments = false }) {
   const oid = String(orderId || '').trim();
   if (!mongoose.Types.ObjectId.isValid(oid)) {
-    throw new Error('orderId không hợp lệ');
+    throw new Error('orderId khÃ´ng há»£p lá»‡');
   }
 
   const existed = await PhieuXuatKho.findOne({ donhang_id: oid }).select('_id maphieu').lean();
@@ -390,10 +390,10 @@ async function createExportReceiptFromOrder({ orderId, adminUser, note = '', ski
   }
 
   const order = await Donhang.findOne({ _id: oid, daxoa: { $ne: true } }).lean();
-  if (!order) throw new Error('Không tìm thấy đơn hàng');
+  if (!order) throw new Error('KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n hÃ ng');
 
   const orderItems = await Chitietdonhang.find({ donhang_id: oid }).lean();
-  if (!orderItems.length) throw new Error('Đơn hàng chưa có sản phẩm');
+  if (!orderItems.length) throw new Error('ÄÆ¡n hÃ ng chÆ°a cÃ³ sáº£n pháº©m');
 
   const productIds = Array.from(new Set(orderItems.map((it) => String(it.sanpham_id || '')).filter((id) => mongoose.Types.ObjectId.isValid(id))));
   const productDocs = await Sanpham.find({ _id: { $in: productIds } });
@@ -406,7 +406,7 @@ async function createExportReceiptFromOrder({ orderId, adminUser, note = '', ski
   for (const item of orderItems) {
     const productId = String(item.sanpham_id || '').trim();
     const productDoc = productMap.get(productId);
-    if (!productDoc) throw new Error('Sản phẩm trong đơn không tồn tại');
+    if (!productDoc) throw new Error('Sáº£n pháº©m trong Ä‘Æ¡n khÃ´ng tá»“n táº¡i');
 
     const variantId = item.bienthe_id ? String(item.bienthe_id) : null;
     const size = String(item.kichco || '').trim();
@@ -415,7 +415,7 @@ async function createExportReceiptFromOrder({ orderId, adminUser, note = '', ski
     let variant = null;
     if (variantId) {
       variant = (productDoc.bienthe || []).find((v) => String(v._id) === variantId) || null;
-      if (!variant) throw new Error('Biến thể trong đơn không tồn tại');
+      if (!variant) throw new Error('Biáº¿n thá»ƒ trong Ä‘Æ¡n khÃ´ng tá»“n táº¡i');
     }
 
     if (!skipInventoryAdjustments) {
@@ -433,7 +433,7 @@ async function createExportReceiptFromOrder({ orderId, adminUser, note = '', ski
       try {
         fifoCost = await consumeLotsFIFO({ productId, variantId, size, qty });
       } catch (fifoErr) {
-        // Fallback để tương thích dữ liệu cũ chưa có bảng lô.
+        // Fallback Ä‘á»ƒ tÆ°Æ¡ng thÃ­ch dá»¯ liá»‡u cÅ© chÆ°a cÃ³ báº£ng lÃ´.
         const giaNhapFallback = resolveAvgCost(costMap, { productId, variantId, size });
         fifoCost = {
           tongGiaVon: qty * giaNhapFallback,
@@ -510,7 +510,7 @@ async function createExportReceiptFromOrder({ orderId, adminUser, note = '', ski
     madonhang: order.madonhang || '',
     ngayxuat: new Date(),
     noinhan: order.diachigiao || '',
-    lydo: note || 'Xuất kho theo đơn hàng đã xác nhận',
+    lydo: note || 'Xuáº¥t kho theo Ä‘Æ¡n hÃ ng Ä‘Ã£ xÃ¡c nháº­n',
     ...totals,
     nguoitaophieu: 'order',
     chitiet: lines,
@@ -550,3 +550,4 @@ module.exports = {
   congTonKhoTheoDong,
   calcFinanceByAllocations
 };
+

@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const Nguoidung = require('../models/user_model');
-const { createLocalAccountForUser, ensureAccountFromUser, setPasswordByUserId } = require('./account.service');
+const { createLocalAccountForUser, ensureAccountFromUser, setPasswordByUserId } = require('./account/index.js');
 
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();

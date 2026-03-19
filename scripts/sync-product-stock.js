@@ -1,6 +1,6 @@
 const { runDbScript } = require('./_lib/run-with-db');
 const Sanpham = require('../models/product_model');
-const { tinhTongTon } = require('../services/productStock.service');
+const { tinhTongTon } = require('../services/catalog/productStock.service.js');
 
 runDbScript(async () => {
   let total = 0;

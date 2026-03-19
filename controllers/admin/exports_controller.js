@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Sanpham = require('../../models/product_model');
 const PhieuXuatKho = require('../../models/export_receipt_model');
 const { SIZE_LIST } = require('../../config/constants');
-const { tinhTongTon } = require('../../services/productStock.service');
+const { tinhTongTon } = require('../../services/catalog/productStock.service.js');
 const {
   calcTotals,
   calcFinanceByAllocations,
@@ -13,7 +13,7 @@ const {
   taoMaPhieuXuat,
   truTonKhoTheoDong,
   congTonKhoTheoDong
-} = require('../../services/exportReceipt.service');
+} = require('../../services/inventory/exportReceipt.service.js');
 
 function normalizeItems(bodyItems) {
   if (!bodyItems) return [];

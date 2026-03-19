@@ -1,6 +1,6 @@
-const mongoose = require('mongoose');
-const ChatMessage = require('../models/chat_message_model');
-const Nguoidung = require('../models/user_model');
+﻿const mongoose = require('mongoose');
+const ChatMessage = require('../../models/chat_message_model');
+const Nguoidung = require('../../models/user_model');
 
 const ADMIN_ROOM = 'admin_room';
 
@@ -49,7 +49,7 @@ async function createMessage({
   const mediaType = media && media.type ? String(media.type).trim() : '';
 
   if (!clientObjectId || !senderObjectId || (!text && !mediaUrl)) {
-    throw new Error('Dữ liệu tin nhắn không hợp lệ');
+    throw new Error('Dá»¯ liá»‡u tin nháº¯n khÃ´ng há»£p lá»‡');
   }
 
   const created = await ChatMessage.create({
@@ -215,10 +215,10 @@ async function getAdminConversationSummaries({ query = '' } = {}) {
     const clientId = String(user._id);
     const item = summaryByClientId.get(clientId) || {};
     const summaryMessage = item.lastMessage || '';
-    const mediaFallback = item.lastMediaType === 'video' ? '[Video]' : item.lastMediaType === 'image' ? '[Hình ảnh]' : '';
+    const mediaFallback = item.lastMediaType === 'video' ? '[Video]' : item.lastMediaType === 'image' ? '[HÃ¬nh áº£nh]' : '';
     merged.push({
       clientId,
-      userName: user.hoten || 'Khách hàng',
+      userName: user.hoten || 'KhÃ¡ch hÃ ng',
       userEmail: user.email || '',
       userPhone: user.sodienthoai || '',
       avatar: user.avatar || '/images/avatar/avatar.png',
@@ -233,10 +233,10 @@ async function getAdminConversationSummaries({ query = '' } = {}) {
     const clientId = String(item.clientId || item._id || '');
     if (!clientId || merged.some((x) => x.clientId === clientId)) continue;
     const summaryMessage = item.lastMessage || '';
-    const mediaFallback = item.lastMediaType === 'video' ? '[Video]' : item.lastMediaType === 'image' ? '[Hình ảnh]' : '';
+    const mediaFallback = item.lastMediaType === 'video' ? '[Video]' : item.lastMediaType === 'image' ? '[HÃ¬nh áº£nh]' : '';
     merged.push({
       clientId,
-      userName: item.user && item.user.hoten ? item.user.hoten : 'Khách hàng',
+      userName: item.user && item.user.hoten ? item.user.hoten : 'KhÃ¡ch hÃ ng',
       userEmail: item.user && item.user.email ? item.user.email : '',
       userPhone: item.user && item.user.sodienthoai ? item.user.sodienthoai : '',
       avatar: item.user && item.user.avatar ? item.user.avatar : '/images/avatar/avatar.png',
@@ -271,7 +271,7 @@ async function getUserBasicInfo(userId) {
   if (!user) return null;
   return {
     userId: String(user._id),
-    userName: user.hoten || 'Khách hàng',
+    userName: user.hoten || 'KhÃ¡ch hÃ ng',
     userEmail: user.email || '',
     avatar: user.avatar || '/images/avatar/avatar.png'
   };
@@ -288,3 +288,4 @@ module.exports = {
   getAdminConversationSummaries,
   getUserBasicInfo
 };
+

@@ -1,5 +1,5 @@
 const Nguoidung = require('../models/user_model');
-const { getAccountByUserId } = require('../services/account.service');
+const { getAccountByUserId } = require('../services/account/index.js');
 const {
   ADMIN_ROOM,
   createMessage,
@@ -8,7 +8,7 @@ const {
   getClientUnreadCount,
   getAdminUnreadTotal,
   getUserBasicInfo
-} = require('../services/chat.service');
+} = require('../services/communication/chat.service.js');
 
 const onlineByUser = new Map();
 const onlineAdmins = new Set();

@@ -4,7 +4,7 @@ const SHIPPING_CONFIG = require('../../config/shipping');
 const {
   normalizeCode,
   validateVoucherForOrder
-} = require('../../services/voucher.service');
+} = require('../../services/payment/voucher.service.js');
 
 function isDateInRange(now, start, end) {
   if (start && now < start) return false;

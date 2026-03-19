@@ -2,7 +2,7 @@ const Banner = require('../../../models/banner_model');
 const Brand = require('../../../models/brand_model');
 const Lookbook = require('../../../models/lookbook_model');
 const BlogPost = require('../../../models/blog_model');
-const { getFlashSaleActive } = require('../../../services/flashSale.service');
+const { getFlashSaleActive } = require('../../../services/catalog/flashSale.service.js');
 
 module.exports.getBanners = async (req, res) => {
   const { type, active } = req.query;

@@ -2,7 +2,7 @@ const {
   getConversationMessages,
   getClientUnreadCount,
   markClientRead
-} = require('../../services/chat.service');
+} = require('../../services/communication/chat.service.js');
 const { getAdminOnlineStatus } = require('../../socketio/chat.socket');
 const { resolveChatMedia } = require('../../middlewares/chatUpload');
 

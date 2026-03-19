@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 
 const database = require('../config/database');
 const Nguoidung = require('../models/user_model');
-const { createLocalAccountForUser, setPasswordByUserId, ensureAccountFromUser } = require('../services/account.service');
+const { createLocalAccountForUser, setPasswordByUserId, ensureAccountFromUser } = require('../services/account/index.js');
 
 const DEFAULT_PASSWORD = '123456';
 const USER_TOTAL = 30;

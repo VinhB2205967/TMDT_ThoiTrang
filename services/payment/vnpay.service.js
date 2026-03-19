@@ -1,4 +1,4 @@
-const crypto = require('crypto');
+﻿const crypto = require('crypto');
 const qs = require('qs');
 
 const VNPAY_MACDINH = {
@@ -137,3 +137,4 @@ module.exports = {
   taoThanhToanVnpay,
   kiemTraChuKyVnpay
 };
+

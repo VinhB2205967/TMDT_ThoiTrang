@@ -1,5 +1,5 @@
-const FlashSale = require('../models/flash_sale_model');
-const Sanpham = require('../models/product_model');
+﻿const FlashSale = require('../../models/flash_sale_model');
+const Sanpham = require('../../models/product_model');
 
 function tinhGiaFlash(giaGoc, phanTram) {
   if (!Number.isFinite(giaGoc)) return null;
@@ -97,3 +97,4 @@ module.exports = {
   getFlashSalePercentMap,
   tinhGiaFlash
 };
+
