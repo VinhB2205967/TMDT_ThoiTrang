@@ -419,6 +419,19 @@
 	function initCartAutoQtySync() {
 		const qtyInputs = Array.from(document.querySelectorAll('input[name="soluong"][data-item-id]'));
 		if (!qtyInputs.length) return;
+		const noticeEl = document.getElementById('cartPriceNotice');
+
+		const showCartNotice = (message) => {
+			const text = String(message || '').trim();
+			if (!text) return;
+			if (noticeEl) {
+				noticeEl.textContent = text;
+				noticeEl.classList.remove('d-none');
+				noticeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+				return;
+			}
+			alert(text);
+		};
 
 		const timers = new Map();
 		const pending = new Map();
@@ -462,6 +475,10 @@
 
 				if (typeof window.__cartComputeSubtotal === 'function') {
 					window.__cartComputeSubtotal();
+				}
+
+				if (typeof data.notice === 'string' && data.notice.trim()) {
+					showCartNotice(data.notice);
 				}
 			}
 			return ok;

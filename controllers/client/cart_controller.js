@@ -1,222 +1,21 @@
-const sanpham = require('../../models/product_model');
-const donhang = require('../../models/order_model');
-const chitietdonhang = require('../../models/order_item_model');
-const nguoidung = require('../../models/user_model');
-const TonKhoLo = require('../../models/inventory_lot_model');
-const mongoose = require('mongoose');
+﻿const sanpham = require('../../models/product_model');
 const { getOrCreateCart } = require('../../services/cart.service');
-const { laLoaiKhongSize, tinhTongTon, layBienTheVaTon } = require('../../services/productStock.service');
+const { laLoaiKhongSize, layBienTheVaTon } = require('../../services/productStock.service');
 const { muonJSON } = require('../../helpers/http');
-const { taoThanhToanMoMo } = require('../../services/momo.service');
-const { taoThanhToanVnpay, kiemTraChuKyVnpay } = require('../../services/vnpay.service');
-const { taoGiaoDichThanhToan, capNhatGiaoDichThanhToan, danhDauThanhCongTheoDonHang } = require('../../services/payment.service');
-const { getFlashSalePercentMap, tinhGiaFlash } = require('../../services/flashSale.service');
 const {
-  consumeLotsFIFO,
-  resolveSuggestedPriceAfterConsume,
-  applySuggestedPriceToProductDoc
-} = require('../../services/exportReceipt.service');
-const SHIPPING_CONFIG = require('../../config/shipping');
+  tinhSoLuongHienThiGio,
+  dongBoGiaGioHang
+} = require('../../services/cartPricing.service');
 const {
-  normalizeCode,
-  validateVoucherForOrder,
-  reserveVoucherUsage,
-  releaseVoucherUsage,
-  markVoucherUsed
-} = require('../../services/voucher.service');
+  getCheckoutPageData,
+  orchestrateCheckout,
+  handleMomoReturn,
+  handleMomoIpn,
+  handleVnpayReturn,
+  handleVnpayIpn
+} = require('../../services/cartCheckout.service');
 
-// laLoaiKhongSize / tinhTongTon / layBienTheVaTon đã được tách sang services/productStock.service
-
-function tinhPhanTramTuGia(giaGoc, giaSauGiam) {
-  const goc = Number(giaGoc || 0);
-  const giam = Number(giaSauGiam || 0);
-  if (!(goc > 0) || !(giam > 0) || giam >= goc) return 0;
-  return Math.round(((goc - giam) / goc) * 100);
-}
-
-function tinhSoLuongHienThiGio(giohang) {
-  if (!giohang || !Array.isArray(giohang.sanpham)) return 0;
-  return giohang.sanpham.length;
-}
-
-function taoDieuKienBienTheChoLo(variantId) {
-  const raw = String(variantId || '').trim();
-  if (!raw || raw === 'main') {
-    return {
-      $or: [
-        { bientheid: null },
-        { bientheid: { $exists: false } }
-      ]
-    };
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(raw)) return null;
-  return { bientheid: new mongoose.Types.ObjectId(raw) };
-}
-
-async function tinhGiaTheoLoFIFO({ productDoc, item, giaMacDinh }) {
-  const productId = String(item?.sanpham_id || '').trim();
-  if (!mongoose.Types.ObjectId.isValid(productId)) return null;
-
-  const soLuongCan = Math.max(1, Number(item?.soluong || 1));
-  const variantCond = taoDieuKienBienTheChoLo(item?.bienthe_id);
-  if (!variantCond) return null;
-
-  const hasSize = !laLoaiKhongSize(productDoc?.loaisanpham);
-  const sizeKey = hasSize ? String(item?.kichco || '').trim() : '';
-
-  const lots = await TonKhoLo.find({
-    sanphamid: new mongoose.Types.ObjectId(productId),
-    kichco: sizeKey,
-    soluongconlai: { $gt: 0 },
-    ...variantCond
-  })
-    .sort({ ngaynhap: 1, ngaytao: 1, _id: 1 })
-    .select('soluongconlai giabandexuat')
-    .lean();
-
-  if (!lots.length) return null;
-
-  let conLai = soLuongCan;
-  let tongTien = 0;
-  let daLay = 0;
-  const allocations = [];
-
-  for (const lot of lots) {
-    if (conLai <= 0) break;
-    const ton = Math.max(0, Number(lot?.soluongconlai || 0));
-    if (ton <= 0) continue;
-
-    const lay = Math.min(ton, conLai);
-    const giaLo = Math.max(0, Number(lot?.giabandexuat || 0)) || Math.max(0, Number(giaMacDinh || 0));
-
-    tongTien += (lay * giaLo);
-    daLay += lay;
-    conLai -= lay;
-    allocations.push({ soLuong: lay, gia: giaLo });
-  }
-
-  if (daLay <= 0) return null;
-
-  if (conLai > 0) {
-    const fallbackGia = Math.max(0, Number(giaMacDinh || 0));
-    tongTien += conLai * fallbackGia;
-    allocations.push({ soLuong: conLai, gia: fallbackGia });
-    daLay += conLai;
-  }
-
-  return {
-    tongTien,
-    donGiaBinhQuan: daLay > 0 ? (tongTien / daLay) : Math.max(0, Number(giaMacDinh || 0)),
-    allocations
-  };
-}
-
-function layPhanTramGiamMacDinh({ productDoc, item, ketqua }) {
-  const variantId = String(item?.bienthe_id || '').trim();
-  if (variantId && variantId !== 'main') {
-    const variant = (productDoc?.bienthe || []).find((v) => String(v?._id) === variantId);
-    if (Number.isFinite(Number(variant?.phantramgiamgia))) {
-      return Math.max(0, Number(variant.phantramgiamgia));
-    }
-  }
-
-  if (Number.isFinite(Number(productDoc?.phantramgiamgia))) {
-    return Math.max(0, Number(productDoc.phantramgiamgia));
-  }
-
-  return Math.max(0, tinhPhanTramTuGia(ketqua?.gia, ketqua?.giagiam));
-}
-
-async function dongBoGiaGioHang(giohang, { capNhatTonKho = false } = {}) {
-  if (!giohang || !Array.isArray(giohang.sanpham) || !giohang.sanpham.length) return false;
-
-  const productIds = [...new Set(
-    giohang.sanpham
-      .map((it) => String(it.sanpham_id || '').trim())
-      .filter((id) => id && mongoose.Types.ObjectId.isValid(id))
-  )];
-
-  if (!productIds.length) return false;
-
-  const docs = await sanpham.find({
-    _id: { $in: productIds },
-    daxoa: { $ne: true },
-    trangthai: 'dangban'
-  });
-
-  const docMap = new Map(docs.map((doc) => [String(doc._id), doc]));
-  const flashPercentMap = await getFlashSalePercentMap(productIds);
-
-  let changed = false;
-
-  for (const item of giohang.sanpham) {
-    const productDoc = docMap.get(String(item.sanpham_id || ''));
-    if (!productDoc) {
-      if (capNhatTonKho && item.tonkho !== 0) item.tonkho = 0;
-      continue;
-    }
-
-    const ketqua = layBienTheVaTon(productDoc, item.bienthe_id, item.kichco);
-
-    if (capNhatTonKho) {
-      const tonkho = ketqua?.error ? 0 : Math.max(0, Number(ketqua.stock || 0));
-      item.tonkho = tonkho;
-      if (tonkho > 0 && Number(item.soluong || 0) > tonkho) {
-        item.soluong = tonkho;
-        changed = true;
-      }
-    }
-
-    if (ketqua?.error) continue;
-
-    const qty = Math.max(1, Number(item.soluong || 1));
-    const giaNen = Number(ketqua.gia || item.gia || 0);
-    const quoteTheoLo = await tinhGiaTheoLoFIFO({
-      productDoc,
-      item,
-      giaMacDinh: giaNen
-    });
-    const giaGoc = Number(quoteTheoLo?.donGiaBinhQuan ?? giaNen);
-
-    const phanTramGoc = layPhanTramGiamMacDinh({ productDoc, item, ketqua });
-    const phanTramFlash = Number(flashPercentMap.get(String(item.sanpham_id || '')) || 0);
-    const phanTramApDung = phanTramFlash > 0 ? phanTramFlash : phanTramGoc;
-
-    let giaGiam = giaGoc;
-    let lineTotal = 0;
-
-    if (quoteTheoLo) {
-      if (phanTramApDung > 0) {
-        lineTotal = quoteTheoLo.allocations.reduce((sum, a) => {
-          const unitAfter = tinhGiaFlash(Number(a.gia || 0), phanTramApDung) || Number(a.gia || 0);
-          return sum + (Math.max(0, Number(a.soLuong || 0)) * unitAfter);
-        }, 0);
-      } else {
-        lineTotal = Math.round(Number(quoteTheoLo.tongTien || 0));
-      }
-      giaGiam = qty > 0 ? (lineTotal / qty) : giaGoc;
-    } else {
-      giaGiam = phanTramApDung > 0 ? (tinhGiaFlash(giaGoc, phanTramApDung) || giaGoc) : giaGoc;
-      lineTotal = Math.round(giaGiam * qty);
-    }
-
-    if (Number(item.gia || 0) !== giaGoc) {
-      item.gia = giaGoc;
-      changed = true;
-    }
-    if (Number(item.giagiam || 0) !== giaGiam) {
-      item.giagiam = giaGiam;
-      changed = true;
-    }
-    if (Number(item.thanhtien || 0) !== lineTotal) {
-      item.thanhtien = lineTotal;
-      changed = true;
-    }
-  }
-
-  return changed;
-}
+// Logic pricing/stock của giỏ hàng đã tách sang services/cartPricing.service.
 
 module.exports.danhSach = async (req, res) => {
   const giohang = await getOrCreateCart(req.user._id);
@@ -367,6 +166,12 @@ module.exports.capNhatSoLuong = async (req, res) => {
     return muonJSON(req) ? res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm trong giỏ' }) : res.redirect('/cart');
   }
 
+  const soLuongCu = Math.max(1, Number(dongitem.soluong || 1));
+  const donGiaCu = Math.max(0, Number(dongitem.giagiam || dongitem.gia || 0));
+  const giaTheoLoCu = Array.isArray(dongitem.giaTheoLo) ? dongitem.giaTheoLo : [];
+  const giaTheoLoCuJson = JSON.stringify(giaTheoLoCu);
+  const coNhieuBacGiaCu = giaTheoLoCu.filter((x) => Number(x?.soLuong || 0) > 0).length > 1;
+
   let soluongcapnhat = soluong;
   let tonkho = null;
 
@@ -396,6 +201,20 @@ module.exports.capNhatSoLuong = async (req, res) => {
   const dongSauCapNhat = giohang.sanpham.id(iditem);
   const lineTotal = Number(dongSauCapNhat?.thanhtien || 0);
   const unitPrice = Number(dongSauCapNhat?.giagiam || dongSauCapNhat?.gia || 0);
+  const giaTheoLoMoi = Array.isArray(dongSauCapNhat?.giaTheoLo) ? dongSauCapNhat.giaTheoLo : [];
+  const giaTheoLoMoiJson = JSON.stringify(giaTheoLoMoi);
+
+  const dangTangSoLuong = soluongcapnhat > soLuongCu;
+  const thayDoiDonGia = Math.round(unitPrice) !== Math.round(donGiaCu);
+  const thayDoiBacGia = giaTheoLoMoiJson !== giaTheoLoCuJson;
+  const coNhieuBacGiaMoi = giaTheoLoMoi.filter((x) => Number(x?.soLuong || 0) > 0).length > 1;
+
+  let notice = '';
+  if (dangTangSoLuong && (thayDoiDonGia || thayDoiBacGia)) {
+    notice = `Giá theo lô đã thay đổi: ${Math.round(donGiaCu).toLocaleString('vi-VN')}₫ -> ${Math.round(unitPrice).toLocaleString('vi-VN')}₫`;
+  } else if (dangTangSoLuong && (coNhieuBacGiaCu || coNhieuBacGiaMoi)) {
+    notice = 'Giá có thể thay đổi theo lô khi tăng số lượng.';
+  }
 
   return muonJSON(req)
     ? res.json({
@@ -405,6 +224,7 @@ module.exports.capNhatSoLuong = async (req, res) => {
       maxStock: tonkho,
       lineTotal,
       unitPrice,
+      notice,
       cartTotal: Number(giohang.tongtien || 0)
     })
     : res.redirect('/cart');
@@ -483,453 +303,46 @@ module.exports.xoaHet = async (req, res) => {
 
 module.exports.trangThanhToan = async (req, res) => {
   try {
-    const giohang = await getOrCreateCart(req.user._id);
-    const daDongBoGia = await dongBoGiaGioHang(giohang);
-    if (daDongBoGia) {
-      await giohang.save();
-    }
-
-    const thamso = req.query.itemIds;
-    const danhsachidchon = Array.isArray(thamso) ? thamso.map(String) : (thamso ? [String(thamso)] : []);
-    const tapidchon = new Set(danhsachidchon);
-    const danhsachitem = danhsachidchon.length
-      ? (giohang.sanpham || []).filter(it => tapidchon.has(String(it._id)))
-      : (giohang.sanpham || []);
-
-    const tamtinh = danhsachitem.reduce((sum, it) => {
-      const lineTotal = Number.isFinite(Number(it.thanhtien))
-        ? Number(it.thanhtien)
-        : ((it.giagiam || it.gia || 0) * (it.soluong || 1));
-      return sum + lineTotal;
-    }, 0);
-
-    const defaultRegion = SHIPPING_CONFIG.defaultRegion || 'noithanh';
-    const regionConfig = SHIPPING_CONFIG.regions || {};
-    const shippingFee = tamtinh >= SHIPPING_CONFIG.freeShipThreshold
-      ? 0
-      : (regionConfig[defaultRegion]?.fee || 0);
-    const finalTotal = Math.max(0, tamtinh + shippingFee);
-
-    const taikhoan = await nguoidung.findOne({ _id: req.user._id, daxoa: { $ne: true } }).lean();
-    const danhsachdiachi = Array.isArray(taikhoan?.diachiList) ? taikhoan.diachiList : [];
-    const danhsachdiachihienthi = [];
-    if (taikhoan?.diachi) {
-      danhsachdiachihienthi.push({
-        _id: 'profile',
-        label: 'Địa chỉ mặc định',
-        tennguoinhan: taikhoan?.hoten || '',
-        sodienthoai: taikhoan?.sodienthoai || '',
-        diachi: taikhoan?.diachi || ''
-      });
-    }
-    danhsachdiachi.forEach((diachi) => {
-      danhsachdiachihienthi.push({
-        _id: String(diachi._id),
-        label: diachi.label || 'Địa chỉ',
-        tennguoinhan: diachi.tennguoinhan || taikhoan?.hoten || '',
-        sodienthoai: diachi.sodienthoai || taikhoan?.sodienthoai || '',
-        diachi: diachi.diachi || ''
-      });
+    const data = await getCheckoutPageData({
+      userId: req.user._id,
+      itemIds: req.query.itemIds
     });
 
-    res.render('client/pages/cart/checkout.pug', {
+    return res.render('client/pages/cart/checkout.pug', {
       titlePage: 'Thanh toán',
-      cart: giohang,
-      items: danhsachitem,
-      subtotal: tamtinh,
-      shippingFee,
-      finalTotal,
-      shippingConfig: SHIPPING_CONFIG,
-      selectedShippingRegion: defaultRegion,
-      selectedIds: danhsachitem.map(it => String(it._id)),
-      userProfile: {
-        hoten: taikhoan?.hoten || '',
-        sodienthoai: taikhoan?.sodienthoai || '',
-        email: taikhoan?.email || '',
-        diachi: taikhoan?.diachi || ''
-      },
-      addresses: danhsachdiachihienthi
+      ...data
     });
-  } catch (error) {
+  } catch {
     req.flash?.('error', 'Không thể tải trang thanh toán. Vui lòng thử lại.');
     return res.redirect('/cart');
   }
 };
 
-async function truTonTheoItem(item) {
-  const idsanpham = item.sanpham_id;
-  const idbienthe = item.bienthe_id;
-  const kichco = item.kichco;
-  const soluong = item.soluong || 1;
-
-  const sanphamdoc = await sanpham.findById(idsanpham);
-  if (!sanphamdoc) throw new Error('Sản phẩm không tồn tại');
-
-  const variantId = idbienthe ? String(idbienthe) : null;
-  const sizeKey = String(kichco || '').trim();
-
-  try {
-    const fifoCost = await consumeLotsFIFO({
-      productId: String(idsanpham),
-      variantId,
-      size: sizeKey,
-      qty: soluong
-    });
-
-    const suggestedPrice = await resolveSuggestedPriceAfterConsume({
-      productId: String(idsanpham),
-      variantId,
-      size: sizeKey,
-      allocations: fifoCost?.allocations || []
-    });
-
-    applySuggestedPriceToProductDoc(sanphamdoc, {
-      variantId,
-      suggestedPrice
-    });
-  } catch {
-    // Compatibility fallback: proceed with product-stock deduction when lots are legacy/incomplete.
-  }
-
-  const tonggoc = (typeof sanphamdoc.soluongton === 'number') ? sanphamdoc.soluongton : tinhTongTon(sanphamdoc);
-
-  const cosize = !laLoaiKhongSize(sanphamdoc.loaisanpham);
-
-  if (!idbienthe) {
-    if (cosize) {
-      const dong = (sanphamdoc.sizes || []).find(s => s.size === kichco);
-      if (!dong || dong.soluong < soluong) throw new Error('Không đủ hàng');
-      dong.soluong -= soluong;
-    } else {
-      if ((sanphamdoc.soluong_chinh || 0) < soluong) throw new Error('Không đủ hàng');
-      sanphamdoc.soluong_chinh = (sanphamdoc.soluong_chinh || 0) - soluong;
-    }
-
-    sanphamdoc.soluongton = Math.max(0, tonggoc - soluong);
-    await sanphamdoc.save();
-    return;
-  }
-
-  const bienthe = (sanphamdoc.bienthe || []).id(idbienthe);
-  if (!bienthe) throw new Error('Biến thể không tồn tại');
-
-  if (cosize) {
-    const dong = (bienthe.sizes || []).find(s => s.size === kichco);
-    if (!dong || dong.soluong < soluong) throw new Error('Không đủ hàng');
-    dong.soluong -= soluong;
-  } else {
-    if ((bienthe.soluong || 0) < soluong) throw new Error('Không đủ hàng');
-    bienthe.soluong = (bienthe.soluong || 0) - soluong;
-  }
-
-  sanphamdoc.soluongton = Math.max(0, tonggoc - soluong);
-  await sanphamdoc.save();
-}
-
-function normalizeShippingRegion(raw) {
-  const key = String(raw || '').trim().toLowerCase();
-  if (SHIPPING_CONFIG.regions && SHIPPING_CONFIG.regions[key]) return key;
-  return SHIPPING_CONFIG.defaultRegion || 'noithanh';
-}
-
-function calcShippingFee(subtotal, regionKey) {
-  const total = Number(subtotal || 0);
-  if (total >= Number(SHIPPING_CONFIG.freeShipThreshold || 0)) return 0;
-  return Number(SHIPPING_CONFIG.regions?.[regionKey]?.fee || 0);
-}
-
 module.exports.xuLyThanhToan = async (req, res) => {
-  let voucherDoc = null;
-  let reservedVoucher = false;
-  let orderCreated = false;
   try {
-    const giohang = await getOrCreateCart(req.user._id);
-    const daDongBoGia = await dongBoGiaGioHang(giohang);
-    if (daDongBoGia) {
-      await giohang.save();
-    }
-    if (!giohang.sanpham || giohang.sanpham.length === 0) {
-      return res.redirect('/cart');
-    }
+    const result = await orchestrateCheckout({
+      userId: req.user._id,
+      body: req.body || {},
+      protocol: req.protocol,
+      host: req.get('host'),
+      forwardedFor: req.headers['x-forwarded-for'],
+      remoteAddress: req.socket?.remoteAddress,
+      requestIp: req.ip
+    });
 
-    const idsraw = req.body.itemIds;
-    const danhsachidchon = Array.isArray(idsraw) ? idsraw.map(String) : (idsraw ? [String(idsraw)] : []);
-    const tapidchon = new Set(danhsachidchon);
-    const danhsachitem = danhsachidchon.length
-      ? giohang.sanpham.filter(it => tapidchon.has(String(it._id)))
-      : giohang.sanpham;
-
-    if (!danhsachitem.length) {
-      req.flash?.('error', 'Vui lòng chọn sản phẩm để thanh toán');
-      return res.redirect('/cart');
+    if (result?.message) {
+      req.flash?.(result.flashType || 'error', result.message);
     }
 
-    const taikhoan = await nguoidung.findOne({ _id: req.user._id, daxoa: { $ne: true } });
-
-    const iddiachi = String(req.body.addressId || '');
-    let tennguoinhan = '';
-    let sodienthoai = '';
-    let diachigiao = '';
-
-    if (iddiachi && iddiachi !== 'new') {
-      if (iddiachi === 'profile') {
-        tennguoinhan = String(taikhoan?.hoten || '').trim();
-        sodienthoai = String(taikhoan?.sodienthoai || '').trim();
-        diachigiao = String(taikhoan?.diachi || '').trim();
-      } else {
-        const diachitimthay = (taikhoan?.diachiList || []).find(a => String(a._id) === iddiachi);
-        if (diachitimthay) {
-          tennguoinhan = String(diachitimthay.tennguoinhan || taikhoan?.hoten || '').trim();
-          sodienthoai = String(diachitimthay.sodienthoai || taikhoan?.sodienthoai || '').trim();
-          diachigiao = String(diachitimthay.diachi || '').trim();
-        }
-      }
+    if (result?.ok === false) {
+      return res.redirect(result.redirectTo || '/cart/checkout');
     }
 
-    // Fallback
-    if (!tennguoinhan || !sodienthoai || !diachigiao) {
-      tennguoinhan = String(req.body.tennguoinhan || '').trim();
-      sodienthoai = String(req.body.sodienthoai || '').trim();
-      diachigiao = String(req.body.diachigiao || '').trim();
-    }
-
-    if (!tennguoinhan || !sodienthoai || !diachigiao) {
-      req.flash?.('error', 'Vui lòng nhập đầy đủ họ tên, số điện thoại, địa chỉ');
-      return res.redirect('/cart/checkout');
-    }
-
-    const emaillienhe = String(req.body.email || taikhoan?.email || '').trim();
-    const ghichu = String(req.body.ghichu || '').trim();
-    const phuongthucthanhtoan = String(req.body.phuongthucthanhtoan || 'cod');
-
-    let shouldSaveProfile = false;
-
-    if (taikhoan && !String(taikhoan.diachi || '').trim()) {
-      taikhoan.diachi = diachigiao;
-      if (!String(taikhoan.hoten || '').trim()) taikhoan.hoten = tennguoinhan;
-      if (!String(taikhoan.sodienthoai || '').trim()) taikhoan.sodienthoai = sodienthoai;
-      shouldSaveProfile = true;
-    }
-
-    // Lưu địa chỉ mới
-    if (String(req.body.saveAddress || '') && taikhoan && (iddiachi === 'new' || !iddiachi)) {
-      taikhoan.diachiList = taikhoan.diachiList || [];
-      taikhoan.diachiList.push({
-        label: String(req.body.addressLabel || '').trim() || 'Địa chỉ',
-        tennguoinhan: tennguoinhan,
-        sodienthoai: sodienthoai,
-        diachi: diachigiao
-      });
-      shouldSaveProfile = true;
-    }
-
-    if (shouldSaveProfile) {
-      await taikhoan.save();
-    }
-
-    const tamtinh = danhsachitem.reduce((sum, it) => {
-      const lineTotal = Number.isFinite(Number(it.thanhtien))
-        ? Number(it.thanhtien)
-        : ((it.giagiam || it.gia || 0) * (it.soluong || 1));
-      return sum + lineTotal;
-    }, 0);
-
-    const shippingRegion = normalizeShippingRegion(req.body.shippingRegion);
-    const phivanchuyen = calcShippingFee(tamtinh, shippingRegion);
-
-    let giamgia = 0;
-
-    const voucherCodeRaw = req.body.voucherCode;
-    const voucherCode = normalizeCode(voucherCodeRaw);
-    if (voucherCode) {
-      const validation = await validateVoucherForOrder({
-        code: voucherCode,
-        userId: req.user._id,
-        orderTotal: tamtinh
-      });
-
-      if (!validation.ok) {
-        req.flash?.('error', validation.message || 'Voucher không hợp lệ');
-        return res.redirect('/cart/checkout');
-      }
-
-      voucherDoc = validation.voucher;
-      giamgia = Math.min(Number(validation.discount || 0), tamtinh);
-
-      reservedVoucher = await reserveVoucherUsage(voucherDoc._id);
-      if (!reservedVoucher) {
-        req.flash?.('error', 'Voucher đã hết lượt sử dụng');
-        return res.redirect('/cart/checkout');
-      }
-    }
-
-    const tongtien = Math.max(0, tamtinh - giamgia + phivanchuyen);
-
-    let donhangdoc = null;
-    try {
-      donhangdoc = await donhang.create({
-      nguoidung_id: req.user._id,
-      tennguoinhan: tennguoinhan,
-      sodienthoai: sodienthoai,
-      email: emaillienhe,
-      diachigiao: diachigiao,
-      ghichu: ghichu,
-      phuongthucthanhtoan: phuongthucthanhtoan,
-      phuongthucvanchuyen: shippingRegion,
-      tamtinh: tamtinh,
-      giamgia: giamgia,
-      phivanchuyen: phivanchuyen,
-      tongtien: tongtien,
-      voucher_id: voucherDoc?._id || undefined,
-      voucher_code: voucherDoc?.code || undefined,
-      voucher_type: voucherDoc?.loai || undefined,
-      voucher_value: voucherDoc?.giatri || undefined,
-      voucher_discount: giamgia,
-      trangthai: 'choxacnhan',
-      ngaycapnhat: new Date()
-      });
-      orderCreated = true;
-    } catch (error) {
-      if (reservedVoucher && voucherDoc) {
-        await releaseVoucherUsage(voucherDoc._id);
-      }
-      throw error;
-    }
-
-    if (voucherDoc) {
-      await markVoucherUsed({ voucherId: voucherDoc._id, userId: req.user._id });
-    }
-
-    for (const it of danhsachitem) {
-      await truTonTheoItem(it);
-      const lineTotal = Number.isFinite(Number(it.thanhtien))
-        ? Number(it.thanhtien)
-        : ((it.giagiam || it.gia || 0) * (it.soluong || 1));
-      const unitPriceAfterDiscount = (it.soluong || 1) > 0 ? (lineTotal / (it.soluong || 1)) : (it.giagiam || it.gia || 0);
-      await chitietdonhang.create({
-        donhang_id: donhangdoc._id,
-        sanpham_id: it.sanpham_id,
-        bienthe_id: it.bienthe_id,
-        tensanpham: it.tensanpham,
-        hinhanh: it.hinhanh,
-        mausac: it.mausac,
-        kichco: it.kichco,
-        giagoc: it.gia,
-        giaban: unitPriceAfterDiscount,
-        soluong: it.soluong,
-        thanhtien: lineTotal
-      });
-    }
-
-    const tapdathanhtoan = new Set(danhsachitem.map(it => String(it._id)));
-    giohang.sanpham = giohang.sanpham.filter(it => !tapdathanhtoan.has(String(it._id)));
-    await giohang.save();
-
-    if (phuongthucthanhtoan === 'momo') {
-      const redirectUrl = String(process.env.MOMO_REDIRECT_URL || `${req.protocol}://${req.get('host')}/cart/momo/return`);
-      const ipnUrl = String(process.env.MOMO_IPN_URL || `${req.protocol}://${req.get('host')}/cart/momo/ipn`);
-      const orderInfo = `Thanh toán đơn hàng ${donhangdoc.madonhang || String(donhangdoc._id)}`;
-      const maMoMo = `${donhangdoc._id}-${Date.now()}`;
-      const extraData = Buffer.from(JSON.stringify({ orderId: String(donhangdoc._id) })).toString('base64');
-      const soTienThanhToan = Math.max(0, Math.round(tongtien));
-
-      const ketqua = await taoThanhToanMoMo({
-        orderId: maMoMo,
-        requestId: maMoMo,
-        amount: String(soTienThanhToan),
-        orderInfo,
-        redirectUrl,
-        ipnUrl,
-        extraData
-      });
-
-      // Lưu lại mã giao dịch để có thể truy vấn trạng thái khi user rời trang QR/quay về bằng nút Back.
-      await donhang.updateOne(
-        { _id: donhangdoc._id },
-        { $set: { momoOrderId: maMoMo, momoRequestId: maMoMo, momoPayUrl: ketqua?.payUrl || undefined, ngaycapnhat: new Date() } }
-      );
-
-      try {
-        await taoGiaoDichThanhToan({
-          donhangId: donhangdoc._id,
-          nguoidungId: req.user._id,
-          phuongthuc: 'momo',
-          sotien: soTienThanhToan,
-          magiaodich: maMoMo,
-          trangthai: ketqua?.payUrl ? 'choduyet' : 'thatbai',
-          response: ketqua,
-          ghichu: ketqua?.payUrl ? 'Tạo thanh toán MoMo' : (ketqua?.message || 'Không thể tạo thanh toán MoMo')
-        });
-      } catch {
-        // best-effort
-      }
-
-      if (ketqua && ketqua.payUrl) {
-        return res.redirect(ketqua.payUrl);
-      }
-
-      req.flash?.('error', ketqua?.message || 'Không thể tạo thanh toán MoMo');
-      return res.redirect(`/orders/${donhangdoc._id}`);
-    }
-
-    if (phuongthucthanhtoan === 'vnpay') {
-      const returnUrl = String(process.env.VNPAY_RETURN_URL || `${req.protocol}://${req.get('host')}/cart/vnpay/return`);
-      const ipnUrl = String(process.env.VNPAY_IPN_URL || `${req.protocol}://${req.get('host')}/cart/vnpay/ipn`);
-      const now = new Date();
-      const txnRef = `${now.getDate().toString().padStart(2, '0')}${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}`;
-      const orderInfo = `Thanh toan cho ma GD:${txnRef}`;
-      const ipAddr = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || req.ip || '127.0.0.1').split(',')[0].trim();
-
-      await donhang.updateOne(
-        { _id: donhangdoc._id },
-        { $set: { vnpayTxnRef: txnRef } }
-      );
-
-      const soTienThanhToan = Math.max(0, Math.round(tongtien));
-      const payUrl = taoThanhToanVnpay({
-        orderId: txnRef,
-        amount: soTienThanhToan,
-        orderInfo,
-        returnUrl,
-        ipnUrl,
-        ipAddr,
-        locale: 'vn',
-        orderType: 'other'
-      });
-
-      try {
-        await taoGiaoDichThanhToan({
-          donhangId: donhangdoc._id,
-          nguoidungId: req.user._id,
-          phuongthuc: 'vnpay',
-          sotien: soTienThanhToan,
-          magiaodich: txnRef,
-          trangthai: 'choduyet',
-          response: { txnRef, payUrl },
-          ghichu: 'Tạo thanh toán VNPAY'
-        });
-      } catch {
-        // best-effort
-      }
-
-      return res.redirect(payUrl);
-    }
-
-
-    if (phuongthucthanhtoan === 'cod') {
-      req.flash?.('success', 'Đặt hàng thành công!');
-    }
-
-    return res.redirect(`/orders/${donhangdoc._id}`);
+    return res.redirect(result?.redirectTo || '/orders');
   } catch (e) {
-    if (reservedVoucher && voucherDoc && !orderCreated) {
-      try {
-        await releaseVoucherUsage(voucherDoc._id);
-      } catch {
-        // ignore
-      }
+    if (muonJSON(req)) {
+      return res.status(500).json({ success: false, message: e.message || 'Có lỗi xảy ra' });
     }
-    if (muonJSON(req)) return res.status(500).json({ success: false, message: e.message || 'Có lỗi xảy ra' });
     req.flash?.('error', e.message || 'Có lỗi xảy ra');
     return res.redirect('/cart/checkout');
   }
@@ -937,83 +350,12 @@ module.exports.xuLyThanhToan = async (req, res) => {
 
 module.exports.momoReturn = async (req, res) => {
   try {
-    const orderId = String(req.query.orderId || '').trim();
-    const extraData = String(req.query.extraData || '').trim();
-    let idDon = '';
-
-    if (extraData) {
-      try {
-        const json = JSON.parse(Buffer.from(extraData, 'base64').toString('utf8'));
-        idDon = json?.orderId ? String(json.orderId) : '';
-      } catch {
-        idDon = '';
-      }
+    const result = await handleMomoReturn(req.query || {});
+    if (result?.message) {
+      req.flash?.(result.flashType || 'error', result.message);
     }
-
-    if (!idDon && orderId) {
-      idDon = String(orderId).split('-')[0];
-    }
-
-    const resultCode = Number(req.query.resultCode || -1);
-
-    if (idDon) {
-      const orderDoc = await donhang.findById(idDon).select('_id nguoidung_id tongtien tamtinh').lean();
-      const transId = req.query.transId ? String(req.query.transId) : '';
-      if (resultCode === 0) {
-        await donhang.updateOne(
-          { _id: idDon },
-          { $set: { dathanhtoan: true, ngaythanhtoan: new Date(), momoTransId: transId || undefined, momoOrderId: orderId || undefined, momoRequestId: (req.query.requestId ? String(req.query.requestId) : orderId) || undefined, ngaycapnhat: new Date() } }
-        );
-
-        if (orderDoc) {
-          try {
-            await danhDauThanhCongTheoDonHang({
-              donhangId: orderDoc._id,
-              nguoidungId: orderDoc.nguoidung_id,
-              phuongthuc: 'momo',
-              sotien: Math.max(0, Math.round(orderDoc.tongtien || orderDoc.tamtinh || 0)),
-              magiaodich: orderId || undefined,
-              successResponse: req.query,
-              ghichu: 'MoMo return: success'
-            });
-          } catch {
-            // best-effort
-          }
-        }
-
-        req.flash?.('success', 'Thanh toán MoMo thành công!');
-      } else {
-        // User có thể bấm Back/Quay về trước khi IPN cập nhật; chuyển sang trạng thái chờ xác nhận.
-        await donhang.updateOne(
-          { _id: idDon },
-          { $set: { momoOrderId: orderId || undefined, momoRequestId: (req.query.requestId ? String(req.query.requestId) : orderId) || undefined, ngaycapnhat: new Date() } }
-        );
-
-        if (orderDoc) {
-          try {
-            await capNhatGiaoDichThanhToan({
-              donhangId: orderDoc._id,
-              nguoidungId: orderDoc.nguoidung_id,
-              phuongthuc: 'momo',
-              sotien: Math.max(0, Math.round(orderDoc.tongtien || orderDoc.tamtinh || 0)),
-              magiaodich: orderId || undefined,
-              trangthai: 'choduyet',
-              response: req.query,
-              ghichu: `MoMo return: resultCode=${resultCode}`
-            });
-          } catch {
-            // best-effort
-          }
-        }
-
-        req.flash?.('info', 'Đang chờ xác nhận thanh toán MoMo...');
-      }
-      return res.redirect(`/orders/${idDon}`);
-    }
-
-    req.flash?.('error', 'Không tìm thấy đơn hàng.');
-    return res.redirect('/orders');
-  } catch (e) {
+    return res.redirect(result?.redirectTo || '/orders');
+  } catch {
     req.flash?.('error', 'Có lỗi khi xử lý thanh toán MoMo');
     return res.redirect('/orders');
   }
@@ -1021,146 +363,21 @@ module.exports.momoReturn = async (req, res) => {
 
 module.exports.momoIpn = async (req, res) => {
   try {
-    const orderId = String(req.body?.orderId || '').trim();
-    const extraData = String(req.body?.extraData || '').trim();
-    let idDon = '';
-
-    if (extraData) {
-      try {
-        const json = JSON.parse(Buffer.from(extraData, 'base64').toString('utf8'));
-        idDon = json?.orderId ? String(json.orderId) : '';
-      } catch {
-        idDon = '';
-      }
-    }
-
-    if (!idDon && orderId) {
-      idDon = String(orderId).split('-')[0];
-    }
-
-    const resultCode = Number(req.body?.resultCode || -1);
-    const transId = req.body?.transId ? String(req.body.transId) : '';
-
-    if (idDon) {
-      if (resultCode === 0) {
-        await donhang.updateOne(
-          { _id: idDon },
-          { $set: { dathanhtoan: true, ngaythanhtoan: new Date(), momoTransId: transId || undefined, momoOrderId: orderId || undefined, momoRequestId: (req.body?.requestId ? String(req.body.requestId) : orderId) || undefined, ngaycapnhat: new Date() } }
-        );
-      }
-
-      const orderDoc = await donhang.findById(idDon).select('_id nguoidung_id tongtien tamtinh').lean();
-      if (orderDoc) {
-        try {
-          if (resultCode === 0) {
-            await danhDauThanhCongTheoDonHang({
-              donhangId: orderDoc._id,
-              nguoidungId: orderDoc.nguoidung_id,
-              phuongthuc: 'momo',
-              sotien: Math.max(0, Math.round(orderDoc.tongtien || orderDoc.tamtinh || 0)),
-              magiaodich: orderId || undefined,
-              successResponse: req.body,
-              ghichu: 'MoMo IPN: success'
-            });
-          } else {
-            await capNhatGiaoDichThanhToan({
-              donhangId: orderDoc._id,
-              nguoidungId: orderDoc.nguoidung_id,
-              phuongthuc: 'momo',
-              sotien: Math.max(0, Math.round(orderDoc.tongtien || orderDoc.tamtinh || 0)),
-              magiaodich: orderId || undefined,
-              trangthai: 'thatbai',
-              response: req.body,
-              ghichu: `MoMo IPN: resultCode=${resultCode}`
-            });
-          }
-        } catch {
-          // best-effort
-        }
-      }
-    }
-
-    return res.json({ success: true });
-  } catch (e) {
+    const payload = await handleMomoIpn(req.body || {});
+    return res.status(200).json(payload || { success: true });
+  } catch {
     return res.status(200).json({ success: false });
   }
 };
 
 module.exports.vnpayReturn = async (req, res) => {
   try {
-    if (!kiemTraChuKyVnpay(req.query || {})) {
-      req.flash?.('error', 'Chữ ký VNPAY không hợp lệ.');
-      return res.redirect('/orders');
+    const result = await handleVnpayReturn(req.query || {});
+    if (result?.message) {
+      req.flash?.(result.flashType || 'error', result.message);
     }
-
-    const txnRef = String(req.query.vnp_TxnRef || '').trim();
-    const responseCode = String(req.query.vnp_ResponseCode || '').trim();
-    const transNo = String(req.query.vnp_TransactionNo || '').trim();
-    const bankCode = String(req.query.vnp_BankCode || '').trim();
-
-    let idDon = '';
-    if (txnRef) {
-      const found = await donhang.findOne({ vnpayTxnRef: txnRef }).select('_id').lean();
-      idDon = found ? String(found._id) : '';
-    }
-
-    if (!idDon && txnRef) {
-      idDon = txnRef.split('-')[0];
-    }
-
-    if (idDon) {
-      const orderDoc = await donhang.findById(idDon).select('_id nguoidung_id tongtien tamtinh').lean();
-      if (responseCode === '00') {
-        await donhang.updateOne(
-          { _id: idDon },
-          { $set: { dathanhtoan: true, ngaythanhtoan: new Date(), vnpayTransId: transNo || undefined, vnpayBankCode: bankCode || undefined } }
-        );
-
-        if (orderDoc) {
-          try {
-            await danhDauThanhCongTheoDonHang({
-              donhangId: orderDoc._id,
-              nguoidungId: orderDoc.nguoidung_id,
-              phuongthuc: 'vnpay',
-              sotien: Math.max(0, Math.round(orderDoc.tongtien || orderDoc.tamtinh || 0)),
-              magiaodich: txnRef || undefined,
-              chitiet: { nganhang: bankCode || undefined },
-              successResponse: req.query,
-              ghichu: 'VNPAY return: success'
-            });
-          } catch {
-            // best-effort
-          }
-        }
-
-        req.flash?.('success', 'Thanh toán VNPAY thành công!');
-      } else {
-        if (orderDoc) {
-          try {
-            await capNhatGiaoDichThanhToan({
-              donhangId: orderDoc._id,
-              nguoidungId: orderDoc.nguoidung_id,
-              phuongthuc: 'vnpay',
-              sotien: Math.max(0, Math.round(orderDoc.tongtien || orderDoc.tamtinh || 0)),
-              magiaodich: txnRef || undefined,
-              trangthai: 'thatbai',
-              chitiet: { nganhang: bankCode || undefined },
-              response: req.query,
-              ghichu: `VNPAY return: responseCode=${responseCode}`
-            });
-          } catch {
-            // best-effort
-          }
-        }
-
-        req.flash?.('error', 'Thanh toán VNPAY thất bại hoặc bị hủy.');
-      }
-      return res.redirect(`/orders/${idDon}`);
-    }
-
-    req.flash?.('error', 'Không tìm thấy đơn hàng.');
-    return res.redirect('/orders');
-  } catch (e) {
+    return res.redirect(result?.redirectTo || '/orders');
+  } catch {
     req.flash?.('error', 'Có lỗi khi xử lý thanh toán VNPAY');
     return res.redirect('/orders');
   }
@@ -1168,69 +385,12 @@ module.exports.vnpayReturn = async (req, res) => {
 
 module.exports.vnpayIpn = async (req, res) => {
   try {
-    const payload = Object.keys(req.query || {}).length ? req.query : req.body || {};
-    if (!kiemTraChuKyVnpay(payload)) {
-      return res.status(200).json({ RspCode: '97', Message: 'Invalid signature' });
-    }
-
-    const txnRef = String(payload.vnp_TxnRef || '').trim();
-    const responseCode = String(payload.vnp_ResponseCode || '').trim();
-    const transNo = String(payload.vnp_TransactionNo || '').trim();
-    const bankCode = String(payload.vnp_BankCode || '').trim();
-
-    let idDon = '';
-    if (txnRef) {
-      const found = await donhang.findOne({ vnpayTxnRef: txnRef }).select('_id').lean();
-      idDon = found ? String(found._id) : '';
-    }
-
-    if (!idDon && txnRef) {
-      idDon = txnRef.split('-')[0];
-    }
-
-    if (idDon) {
-      if (responseCode === '00') {
-        await donhang.updateOne(
-          { _id: idDon },
-          { $set: { dathanhtoan: true, ngaythanhtoan: new Date(), vnpayTransId: transNo || undefined, vnpayBankCode: bankCode || undefined } }
-        );
-      }
-
-      const orderDoc = await donhang.findById(idDon).select('_id nguoidung_id tongtien tamtinh').lean();
-      if (orderDoc) {
-        try {
-          if (responseCode === '00') {
-            await danhDauThanhCongTheoDonHang({
-              donhangId: orderDoc._id,
-              nguoidungId: orderDoc.nguoidung_id,
-              phuongthuc: 'vnpay',
-              sotien: Math.max(0, Math.round(orderDoc.tongtien || orderDoc.tamtinh || 0)),
-              magiaodich: txnRef || undefined,
-              successResponse: payload,
-              ghichu: 'VNPAY IPN: success'
-            });
-          } else {
-            await capNhatGiaoDichThanhToan({
-              donhangId: orderDoc._id,
-              nguoidungId: orderDoc.nguoidung_id,
-              phuongthuc: 'vnpay',
-              sotien: Math.max(0, Math.round(orderDoc.tongtien || orderDoc.tamtinh || 0)),
-              magiaodich: txnRef || undefined,
-              trangthai: 'thatbai',
-              chitiet: { nganhang: bankCode || undefined },
-              response: payload,
-              ghichu: `VNPAY IPN: responseCode=${responseCode}`
-            });
-          }
-        } catch {
-          // best-effort
-        }
-      }
-    }
-
-    return res.status(200).json({ RspCode: '00', Message: 'Success' });
-  } catch (e) {
+    const payload = await handleVnpayIpn({
+      query: req.query || {},
+      body: req.body || {}
+    });
+    return res.status(200).json(payload || { RspCode: '00', Message: 'Success' });
+  } catch {
     return res.status(200).json({ RspCode: '99', Message: 'Unknown error' });
   }
 };
-

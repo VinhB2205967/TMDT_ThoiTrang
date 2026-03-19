@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const ExcelJS = require('exceljs');
 const Donhang = require('../../models/order_model');
 const Chitietdonhang = require('../../models/order_item_model');
+const PhieuXuatKho = require('../../models/export_receipt_model');
 const Sanpham = require('../../models/product_model');
 const paginationHelper = require('../../helpers/pagination');
 const { thoatBieuThuc } = require('../../helpers/validators');
@@ -338,7 +339,53 @@ module.exports.chiTiet = async (req, res) => {
       return res.redirect('/admin/orders');
     }
 
-    const items = await Chitietdonhang.find({ donhang_id: order._id }).lean();
+    let items = await Chitietdonhang.find({ donhang_id: order._id }).lean();
+
+    const hasMissingFifo = (items || []).some((it) => !Array.isArray(it?.fifoAllocations) || !it.fifoAllocations.length);
+    if (hasMissingFifo) {
+      const receipt = await PhieuXuatKho.findOne({ donhang_id: order._id }).select('chitiet').lean();
+      const details = Array.isArray(receipt?.chitiet) ? receipt.chitiet : [];
+
+      if (details.length) {
+        const makeKey = (productId, variantId, size) => {
+          const p = String(productId || '');
+          const v = String(variantId || 'main');
+          const s = String(size || '');
+          return `${p}|${v}|${s}`;
+        };
+
+        const allocationBuckets = new Map();
+        for (const row of details) {
+          const key = makeKey(row?.sanphamid, row?.bientheid, row?.kichco);
+          if (!allocationBuckets.has(key)) allocationBuckets.set(key, []);
+          allocationBuckets.get(key).push(Array.isArray(row?.allocations) ? row.allocations : []);
+        }
+
+        items = items.map((it) => {
+          if (Array.isArray(it?.fifoAllocations) && it.fifoAllocations.length) return it;
+
+          const key = makeKey(it?.sanpham_id, it?.bienthe_id, it?.kichco);
+          const bucket = allocationBuckets.get(key);
+          if (!bucket || !bucket.length) return it;
+
+          const fallbackAllocations = bucket.shift() || [];
+          const normalized = fallbackAllocations
+            .map((a) => ({
+              lotId: String(a?.lotId || ''),
+              soLuong: Number(a?.soLuong || 0),
+              giaNhap: Number(a?.giaNhap || 0),
+              giaBanDeXuat: Number(a?.giaBanDeXuat || 0),
+              giaban: Number(a?.giaban || 0),
+              giasaugiam: Number(a?.giasaugiam || 0)
+            }))
+            .filter((a) => a.soLuong > 0);
+
+          if (!normalized.length) return it;
+          return { ...it, fifoAllocations: normalized };
+        });
+      }
+    }
+
     const allowedNext = (CHUYEN_TRANG_THAI[order.trangthai] || []).filter((s) => s !== 'dahuy');
 
     return res.render('admin/pages/orders/detail.pug', {

@@ -30,6 +30,14 @@ const orderItemSchema = new mongoose.Schema({
   },
   thanhtien: Number,               
 
+  fifoAllocations: [{
+    _id: false,
+    lotId: String,
+    soLuong: Number,
+    giaNhap: Number,
+    giaBanDeXuat: Number
+  }],
+
   // Trạng thái sản phẩm trong đơn
   trangthai: {                      
     type: String,

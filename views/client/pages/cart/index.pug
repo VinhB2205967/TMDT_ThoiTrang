@@ -5,6 +5,7 @@ block main
     h1.mb-3 Giỏ hàng
 
     if cart && cart.sanpham && cart.sanpham.length
+      #cartPriceNotice.alert.alert-warning.d-none.py-2.px-3.mb-3(role='alert')
       .card
         .card-body
           .d-flex.justify-content-between.align-items-center.mb-2

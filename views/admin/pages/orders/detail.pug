@@ -1,7 +1,7 @@
 extends ../../layouts/default.pug
 
 block main
-  .container-fluid.p-4
+  .container-fluid.p-4.order-detail-page
     if !order
       h1.mb-3 Không tìm thấy đơn hàng
       a.btn.btn-outline-secondary(href=`${admin}/orders`) Quay lại danh sách
@@ -61,7 +61,7 @@ block main
               .fw-semibold.mb-2 Sản phẩm
               if items && items.length
                 .table-responsive
-                  table.table.align-middle
+                  table.table.align-middle.order-items-table
                     thead
                       tr
                         th Ảnh
@@ -75,19 +75,58 @@ block main
                         - const _line = (it.thanhtien || ((it.giaban || it.giagoc || 0) * (it.soluong || 1)) || 0)
                         - const skuValue = it.masku || it.ma_sku || ''
                         - const sizeColorParts = [it.kichco, it.mausac].filter(Boolean)
+                        - const fifoRows = Array.isArray(it.fifoAllocations) ? it.fifoAllocations.filter((a) => Number(a && a.soLuong) > 0) : []
+                        - const fifoDisplayRows = fifoRows.map((a) => {
+                        -   const qty = Math.max(0, Number(a.soLuong || 0));
+                        -   const giaGoc = Math.max(0, Number(a.giaBanDeXuat || a.giaban || a.giasaugiam || it.giagoc || 0));
+                        -   const giaGiam = Math.max(0, Number(a.giasaugiam || a.giaban || a.giaBanDeXuat || it.giaban || it.giagoc || 0));
+                        -   const thanhTien = Math.round(qty * giaGiam);
+                        -   return { qty, giaGoc, giaGiam, thanhTien };
+                        - })
+                        - const fifoTotalQty = fifoDisplayRows.reduce((sum, r) => sum + Number(r.qty || 0), 0)
                         tr
                           td
-                            img.rounded.border(src=(it.hinhanh || '/images/shopping.png') alt=(it.tensanpham || 'Sản phẩm') width='56' height='56' style='object-fit:cover;')
+                            img.rounded.border.order-item-thumb(src=(it.hinhanh || '/images/shopping.png') alt=(it.tensanpham || 'Sản phẩm') width='56' height='56' style='object-fit:cover;')
                           td
-                            .fw-semibold #{it.tensanpham || ''}
+                            .fw-semibold.order-item-name #{it.tensanpham || ''}
                             if skuValue
-                              .small.text-muted SKU: #{skuValue}
+                              .small.text-muted.order-item-meta SKU: #{skuValue}
                             if sizeColorParts.length
-                              .small.text-muted Size/Màu: #{sizeColorParts.join(' / ')}
-                          td #{it.soluong || 1}
-                          td #{(it.giagoc || 0).toLocaleString('vi-VN')}₫
-                          td #{(it.giaban || 0).toLocaleString('vi-VN')}₫
-                          td #{_line.toLocaleString('vi-VN')}₫
+                              .small.text-muted.order-item-meta Size/Màu: #{sizeColorParts.join(' / ')}
+                          td
+                            if fifoDisplayRows.length
+                              ul.small.mb-1.order-split-list
+                                each r in fifoDisplayRows
+                                  li #{Number(r.qty || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 })} cái
+                              .small.fw-semibold.order-split-total Tổng: #{fifoTotalQty.toLocaleString('vi-VN', { maximumFractionDigits: 0 })} cái
+                            else
+                              | #{it.soluong || 1}
+                          td
+                            if fifoDisplayRows.length
+                              ul.small.mb-0.order-split-list
+                                each r in fifoDisplayRows
+                                  li #{Number(r.giaGoc || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 })}₫
+                            else
+                              | #{Number(it.giagoc || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 })}₫
+                          td
+                            if fifoDisplayRows.length
+                              ul.small.mb-0.order-split-list
+                                each r in fifoDisplayRows
+                                  li #{Number(r.giaGiam || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 })}₫
+                            else
+                              | #{Number(it.giaban || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 })}₫
+                          td
+                            if fifoDisplayRows.length
+                              ul.small.mb-1.order-split-list
+                                each r in fifoDisplayRows
+                                  li #{Number(r.thanhTien || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 })}₫
+                            else
+                              | #{Number(_line || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 })}₫
+                    - const grandTotalDisplay = Number(order.tongtien || order.tamtinh || 0)
+                    tfoot
+                      tr
+                        td(colspan='5').text-end.fw-semibold Tổng tất cả
+                        td.fw-bold #{grandTotalDisplay.toLocaleString('vi-VN', { maximumFractionDigits: 0 })}₫
               else
                 .text-muted Không có sản phẩm.
 

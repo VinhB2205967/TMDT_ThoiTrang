@@ -1681,3 +1681,181 @@ body {
   font-size: 11px;
   opacity: 0.92;
 }
+
+/* Order detail: product table */
+.order-detail-page .table-responsive {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  overflow-y: hidden;
+  overflow-x: auto;
+}
+
+.order-detail-page .order-items-table {
+  margin-bottom: 0;
+  width: 100%;
+  table-layout: fixed;
+  background: #ffffff;
+}
+
+.order-detail-page .order-items-table thead th {
+  background: #eef2ff;
+  color: #334155;
+  border-bottom: 1px solid #dbe4ff;
+  padding: 12px 8px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.order-detail-page .order-items-table td {
+  padding: 12px 8px;
+  vertical-align: top;
+  border-bottom-color: #e2e8f0;
+}
+
+.order-detail-page .order-items-table tbody tr:hover {
+  background: #f8faff;
+}
+
+.order-detail-page .order-items-table th:first-child,
+.order-detail-page .order-items-table td:first-child {
+  width: 84px;
+}
+
+.order-detail-page .order-items-table th:nth-child(2),
+.order-detail-page .order-items-table td:nth-child(2) {
+  width: 220px;
+  min-width: 220px;
+}
+
+.order-detail-page .order-items-table th:nth-child(3),
+.order-detail-page .order-items-table td:nth-child(3) {
+  width: 78px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.order-detail-page .order-items-table th:nth-child(4),
+.order-detail-page .order-items-table th:nth-child(5),
+.order-detail-page .order-items-table th:nth-child(6) {
+  width: 104px;
+  text-align: right;
+}
+
+.order-detail-page .order-items-table td:nth-child(4),
+.order-detail-page .order-items-table td:nth-child(5),
+.order-detail-page .order-items-table td:nth-child(6),
+.order-detail-page .order-items-table tfoot td:last-child {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.order-detail-page .order-item-thumb {
+  width: 70px;
+  height: 70px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.order-detail-page .order-item-name {
+  display: block;
+  font-size: 17px;
+  line-height: 1.4;
+  margin-bottom: 2px;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.order-detail-page .order-item-meta {
+  font-size: 13px;
+}
+
+.order-detail-page .order-split-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 !important;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.order-detail-page .order-split-list li {
+  white-space: nowrap;
+}
+
+.order-detail-page .order-split-total {
+  display: block;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed #cbd5e1;
+  white-space: nowrap;
+}
+
+.order-detail-page .order-items-table tfoot td {
+  background: #f8fafc;
+  border-top: 1px solid #cbd5e1;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+.order-detail-page .order-items-table tfoot td:first-child {
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.6px;
+}
+
+@media (max-width: 991.98px) {
+  .order-detail-page .order-items-table thead th {
+    font-size: 12px;
+    padding: 11px 8px;
+  }
+
+  .order-detail-page .order-items-table td {
+    padding: 12px 8px;
+  }
+
+  .order-detail-page .order-item-thumb {
+    width: 60px;
+    height: 60px;
+  }
+
+  .order-detail-page .order-item-name {
+    font-size: 15px;
+  }
+
+  .order-detail-page .order-items-table th:first-child,
+  .order-detail-page .order-items-table td:first-child {
+    width: 72px;
+  }
+
+  .order-detail-page .order-items-table th:nth-child(2),
+  .order-detail-page .order-items-table td:nth-child(2) {
+    width: 190px;
+    min-width: 190px;
+  }
+
+  .order-detail-page .order-items-table th:nth-child(3),
+  .order-detail-page .order-items-table td:nth-child(3) {
+    width: 72px;
+  }
+
+  .order-detail-page .order-items-table th:nth-child(4),
+  .order-detail-page .order-items-table th:nth-child(5),
+  .order-detail-page .order-items-table th:nth-child(6) {
+    width: 98px;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .order-detail-page .order-items-table {
+    min-width: 660px;
+    table-layout: fixed;
+  }
+
+  .order-detail-page .order-items-table th:nth-child(2),
+  .order-detail-page .order-items-table td:nth-child(2) {
+    width: 170px;
+    min-width: 170px;
+  }
+}
