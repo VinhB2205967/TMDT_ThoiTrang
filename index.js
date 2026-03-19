@@ -26,6 +26,7 @@ const route = require('./routes/client/index_route')
 const routeAdmin = require('./routes/admin/index_route')
 const systemConfig = require('./config/system')
 const { setupChatSocket } = require('./socketio/chat.socket')
+const { prewarmOpenClipWorker } = require('./services/openClip.service')
 const port = process.env.PORT
 database.connect();
 const httpServer = http.createServer(app)
@@ -215,4 +216,18 @@ setupChatSocket(io)
 
 httpServer.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
+
+  // Warm OpenCLIP worker in background so first image-search request is faster.
+  setImmediate(async () => {
+    try {
+      const prewarm = await prewarmOpenClipWorker()
+      if (prewarm && prewarm.ok) {
+        console.log(`OpenCLIP prewarm ready (${prewarm.pythonBin})`)
+      } else {
+        console.warn('OpenCLIP prewarm skipped/fail:', prewarm)
+      }
+    } catch (error) {
+      console.warn('OpenCLIP prewarm failed:', error && error.message ? error.message : error)
+    }
+  })
 })

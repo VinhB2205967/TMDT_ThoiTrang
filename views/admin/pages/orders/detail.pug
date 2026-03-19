@@ -2,6 +2,33 @@ extends ../../layouts/default.pug
 
 block main
   .container-fluid.p-4
+    style.
+      .order-items-table th,
+      .order-items-table td {
+        vertical-align: top;
+      }
+      .order-items-table td {
+        padding-top: 12px;
+        padding-bottom: 12px;
+      }
+      .fifo-stack {
+        min-width: 100px;
+      }
+      .fifo-line {
+        padding: 2px 0;
+        line-height: 1.3;
+      }
+      .fifo-total {
+        margin-top: 4px;
+        padding-top: 6px;
+        border-top: 1px dashed #d7ddea;
+        font-weight: 700;
+      }
+      .order-item-name {
+        font-size: 1.05rem;
+        line-height: 1.35;
+      }
+
     if !order
       h1.mb-3 Không tìm thấy đơn hàng
       a.btn.btn-outline-secondary(href=`${admin}/orders`) Quay lại danh sách
@@ -61,7 +88,7 @@ block main
               .fw-semibold.mb-2 Sản phẩm
               if items && items.length
                 .table-responsive
-                  table.table.align-middle
+                  table.table.table-sm.order-items-table
                     thead
                       tr
                         th Ảnh
@@ -72,22 +99,49 @@ block main
                         th Thành tiền
                     tbody
                       each it in items
-                        - const _line = (it.thanhtien || ((it.giaban || it.giagoc || 0) * (it.soluong || 1)) || 0)
+                        - const _line = (it.tongThanhTien || it.thanhtien || ((it.giaban || it.giagoc || 0) * (it.soluong || 1)) || 0)
                         - const skuValue = it.masku || it.ma_sku || ''
                         - const sizeColorParts = [it.kichco, it.mausac].filter(Boolean)
+                        - const fifoRows = Array.isArray(it.fifoRows) ? it.fifoRows : []
                         tr
                           td
                             img.rounded.border(src=(it.hinhanh || '/images/shopping.png') alt=(it.tensanpham || 'Sản phẩm') width='56' height='56' style='object-fit:cover;')
                           td
-                            .fw-semibold #{it.tensanpham || ''}
+                            .fw-semibold.order-item-name #{it.tensanpham || ''}
                             if skuValue
                               .small.text-muted SKU: #{skuValue}
                             if sizeColorParts.length
                               .small.text-muted Size/Màu: #{sizeColorParts.join(' / ')}
-                          td #{it.soluong || 1}
-                          td #{(it.giagoc || 0).toLocaleString('vi-VN')}₫
-                          td #{(it.giaban || 0).toLocaleString('vi-VN')}₫
-                          td #{_line.toLocaleString('vi-VN')}₫
+                          td
+                            if fifoRows.length
+                              .fifo-stack
+                              each r in fifoRows
+                                .fifo-line #{Number(r.soLuong || 0).toLocaleString('vi-VN')} cái
+                              .fifo-total Tổng: #{Number(it.tongSoLuong || 0).toLocaleString('vi-VN')} cái
+                            else
+                              | #{it.soluong || 1}
+                          td
+                            if fifoRows.length
+                              .fifo-stack
+                              each r in fifoRows
+                                .fifo-line #{Number(r.giagoc || 0).toLocaleString('vi-VN')}₫
+                            else
+                              | #{(it.giagoc || 0).toLocaleString('vi-VN')}₫
+                          td
+                            if fifoRows.length
+                              .fifo-stack
+                              each r in fifoRows
+                                .fifo-line #{Number(r.giaban || 0).toLocaleString('vi-VN')}₫
+                            else
+                              | #{(it.giaban || 0).toLocaleString('vi-VN')}₫
+                          td
+                            if fifoRows.length
+                              .fifo-stack
+                              each r in fifoRows
+                                .fifo-line #{Number(r.thanhtien || 0).toLocaleString('vi-VN')}₫
+                              .fifo-total #{_line.toLocaleString('vi-VN')}₫
+                            else
+                              | #{_line.toLocaleString('vi-VN')}₫
               else
                 .text-muted Không có sản phẩm.
 

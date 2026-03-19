@@ -644,9 +644,9 @@ module.exports.timBangAnh = async (req, res) => {
             trangthai: 'dangban',
             hinhanh: { $exists: true, $ne: '' }
         })
-            .select('_id tensanpham hinhanh bienthe gia phantramgiamgia soluongton gioitinh loaisanpham')
+            .select('_id tensanpham hinhanh bienthe.hinhanh gia phantramgiamgia soluongton gioitinh loaisanpham')
             .sort({ ngaycapnhat: -1, ngaytao: -1 })
-            .limit(320)
+            .limit(240)
             .lean();
 
         const products = (rows || []).map((item) => {

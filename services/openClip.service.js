@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const { spawn } = require('child_process');
+const crypto = require('crypto');
 
 const OPENCLIP_ENABLED = String(process.env.OPENCLIP_ENABLED || '1') !== '0';
 const OPENCLIP_PYTHON_BIN = String(process.env.OPENCLIP_PYTHON_BIN || 'python').trim() || 'python';
@@ -12,8 +13,10 @@ const OPENCLIP_MODEL_NAME = String(process.env.OPENCLIP_MODEL_NAME || 'ViT-B-32'
 const OPENCLIP_PRETRAINED = String(process.env.OPENCLIP_PRETRAINED || 'laion2b_s34b_b79k').trim() || 'laion2b_s34b_b79k';
 const OPENCLIP_TIMEOUT_MS = Number(process.env.OPENCLIP_TIMEOUT_MS || 40000);
 const OPENCLIP_TEXT_CANDIDATE_LIMIT = Number(process.env.OPENCLIP_TEXT_CANDIDATE_LIMIT || process.env.OPENCLIP_CANDIDATE_LIMIT || 120);
-const OPENCLIP_IMAGE_CANDIDATE_LIMIT = Number(process.env.OPENCLIP_IMAGE_CANDIDATE_LIMIT || 900);
+const OPENCLIP_IMAGE_CANDIDATE_LIMIT = Number(process.env.OPENCLIP_IMAGE_CANDIDATE_LIMIT || 360);
 const OPENCLIP_TOP_K = Number(process.env.OPENCLIP_TOP_K || 6);
+const OPENCLIP_IMAGE_CACHE_TTL_MS = Number(process.env.OPENCLIP_IMAGE_CACHE_TTL_MS || 120000);
+const OPENCLIP_IMAGE_CACHE_MAX = Number(process.env.OPENCLIP_IMAGE_CACHE_MAX || 80);
 
 const WINDOWS_PYTHON_FALLBACK = 'C:/Users/ADMIN/AppData/Local/Programs/Python/Python310/python.exe';
 const MAX_STDERR_BUFFER = 16000;
@@ -24,6 +27,7 @@ let activeWorkerStartupBin = '';
 let requestSequence = 0;
 let workingPythonBin = '';
 let processCleanupBound = false;
+const imageRankCache = new Map();
 
 function isEnabled() {
   return OPENCLIP_ENABLED;
@@ -79,6 +83,47 @@ function toCandidates(products, limit) {
   }
 
   return rows;
+}
+
+function computeImageCacheKey(imagePath, products, topK) {
+  try {
+    const stat = fs.statSync(imagePath);
+    const data = fs.readFileSync(imagePath);
+    const imageHash = crypto.createHash('sha1').update(data).digest('hex');
+    const productSample = (Array.isArray(products) ? products : [])
+      .slice(0, 40)
+      .map((p) => String(p && p.id ? p.id : ''))
+      .join(',');
+    return `${imageHash}:${Number(stat.size || 0)}:${Number(topK || 0)}:${productSample}`;
+  } catch {
+    return '';
+  }
+}
+
+function getCachedImageRank(cacheKey) {
+  if (!cacheKey || !imageRankCache.has(cacheKey)) return null;
+  const record = imageRankCache.get(cacheKey);
+  if (!record) return null;
+  if (record.expiresAt <= Date.now()) {
+    imageRankCache.delete(cacheKey);
+    return null;
+  }
+  // Refresh LRU position.
+  imageRankCache.delete(cacheKey);
+  imageRankCache.set(cacheKey, record);
+  return record.value || null;
+}
+
+function setCachedImageRank(cacheKey, value) {
+  if (!cacheKey) return;
+  if (imageRankCache.size >= Math.max(10, OPENCLIP_IMAGE_CACHE_MAX)) {
+    const oldestKey = imageRankCache.keys().next().value;
+    if (oldestKey) imageRankCache.delete(oldestKey);
+  }
+  imageRankCache.set(cacheKey, {
+    expiresAt: Date.now() + Math.max(10000, OPENCLIP_IMAGE_CACHE_TTL_MS),
+    value
+  });
 }
 
 function aggregateScoresByPriority(products, rawMatches, topK) {
@@ -418,15 +463,32 @@ async function rankProductsByImage({ imagePath, products, topK = OPENCLIP_TOP_K 
     return { used: false, reason: 'QUERY_IMAGE_NOT_FOUND', matches: [], meta: {} };
   }
 
+  const cacheKey = computeImageCacheKey(imagePath, products, topK);
+  const cached = getCachedImageRank(cacheKey);
+  if (cached) {
+    return {
+      ...cached,
+      meta: {
+        ...(cached.meta || {}),
+        cacheHit: true
+      }
+    };
+  }
+
   const candidates = toCandidates(products, OPENCLIP_IMAGE_CANDIDATE_LIMIT);
   if (candidates.length === 0) {
     return { used: false, reason: 'NO_VALID_CANDIDATES', matches: [], meta: {} };
   }
 
-  const result = await runPythonRank({ imageQueryPath: imagePath, candidates, topK: Math.max(1, candidates.length) });
+  const workerTopK = Math.min(
+    Math.max(1, candidates.length),
+    Math.max(120, Number(topK || 1) * 4)
+  );
+
+  const result = await runPythonRank({ imageQueryPath: imagePath, candidates, topK: workerTopK });
   const matches = aggregateScoresByPriority(products, result.matches || [], topK);
 
-  return {
+  const output = {
     used: true,
     matches,
     meta: {
@@ -435,13 +497,53 @@ async function rankProductsByImage({ imagePath, products, topK = OPENCLIP_TOP_K 
       device: String(result.device || ''),
       mode: String(result.mode || 'image'),
       pythonBin: String(result.pythonBin || ''),
-      candidates: candidates.length
+      candidates: candidates.length,
+      workerTopK,
+      cacheHit: false
     }
+  };
+
+  setCachedImageRank(cacheKey, output);
+  return output;
+}
+
+async function prewarmOpenClipWorker() {
+  if (!isEnabled()) {
+    return { ok: false, reason: 'OPENCLIP_DISABLED' };
+  }
+
+  const candidatesBin = getPythonCandidates();
+  let lastError = null;
+
+  for (const pythonBin of candidatesBin) {
+    try {
+      const worker = await ensureWorker(pythonBin);
+      await sendWorkerRequest(worker, { command: 'ping', warm: true });
+      return {
+        ok: true,
+        pythonBin,
+        model: OPENCLIP_MODEL_NAME,
+        pretrained: OPENCLIP_PRETRAINED
+      };
+    } catch (error) {
+      lastError = error;
+      if (activeWorker && activeWorker.pythonBin === pythonBin) {
+        stopWorker(activeWorker);
+        activeWorker = null;
+      }
+    }
+  }
+
+  return {
+    ok: false,
+    reason: 'OPENCLIP_PREWARM_FAILED',
+    error: String(lastError && lastError.message ? lastError.message : 'UNKNOWN')
   };
 }
 
 module.exports = {
   rankProductsByQuery,
   rankProductsByImage,
-  isEnabled
+  isEnabled,
+  prewarmOpenClipWorker
 };

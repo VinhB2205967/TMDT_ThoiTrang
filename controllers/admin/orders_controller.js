@@ -338,7 +338,46 @@ module.exports.chiTiet = async (req, res) => {
       return res.redirect('/admin/orders');
     }
 
-    const items = await Chitietdonhang.find({ donhang_id: order._id }).lean();
+    const itemsRaw = await Chitietdonhang.find({ donhang_id: order._id }).lean();
+    const items = (itemsRaw || []).map((it) => {
+      const goc = Number(it?.giagoc || 0);
+      const giam = Number(it?.giaban || it?.giagoc || 0);
+      const heSoGiam = goc > 0 ? (giam / goc) : 1;
+      const heSoApDung = Number.isFinite(heSoGiam) && heSoGiam > 0 ? heSoGiam : 1;
+
+      const fifoRows = Array.isArray(it?.fifoAllocations)
+        ? it.fifoAllocations
+          .map((a) => {
+            const soLuong = Math.max(0, Number(a?.soLuong || 0));
+            const giaGocLo = Math.max(0, Number(a?.giaBanDeXuat || 0));
+            if (soLuong <= 0 || giaGocLo <= 0) return null;
+
+            const giaBanLo = Math.max(0, Math.round(giaGocLo * heSoApDung));
+            const thanhTienLo = Math.max(0, Math.round(giaBanLo * soLuong));
+            return {
+              soLuong,
+              giagoc: giaGocLo,
+              giaban: giaBanLo,
+              thanhtien: thanhTienLo
+            };
+          })
+          .filter(Boolean)
+        : [];
+
+      const tongSoLuong = fifoRows.length
+        ? fifoRows.reduce((sum, row) => sum + Number(row.soLuong || 0), 0)
+        : Math.max(0, Number(it?.soluong || 0));
+      const tongThanhTien = fifoRows.length
+        ? fifoRows.reduce((sum, row) => sum + Number(row.thanhtien || 0), 0)
+        : Math.max(0, Number(it?.thanhtien || ((it?.giaban || it?.giagoc || 0) * (it?.soluong || 1)) || 0));
+
+      return {
+        ...it,
+        fifoRows,
+        tongSoLuong,
+        tongThanhTien
+      };
+    });
     const allowedNext = (CHUYEN_TRANG_THAI[order.trangthai] || []).filter((s) => s !== 'dahuy');
 
     return res.render('admin/pages/orders/detail.pug', {

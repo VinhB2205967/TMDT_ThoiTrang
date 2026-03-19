@@ -39,6 +39,16 @@ function tinhSoLuongHienThiGio(giohang) {
   return giohang.sanpham.length;
 }
 
+function tinhTongTienGio(giohang) {
+  if (!giohang || !Array.isArray(giohang.sanpham)) return 0;
+  return giohang.sanpham.reduce((sum, item) => {
+    const lineTotal = Number.isFinite(Number(item?.thanhtien))
+      ? Number(item.thanhtien)
+      : (Number(item?.giagiam || item?.gia || 0) * Number(item?.soluong || 1));
+    return sum + Math.max(0, Number(lineTotal || 0));
+  }, 0);
+}
+
 function taoDieuKienBienTheChoLo(variantId) {
   const raw = String(variantId || '').trim();
   if (!raw || raw === 'main') {
@@ -220,15 +230,44 @@ async function dongBoGiaGioHang(giohang, { capNhatTonKho = false } = {}) {
 
 module.exports.danhSach = async (req, res) => {
   const giohang = await getOrCreateCart(req.user._id);
+  const giaTruocKhiDongBo = new Map(
+    (giohang.sanpham || []).map((item) => [
+      String(item._id),
+      {
+        gia: Number(item.gia || 0),
+        giagiam: Number(item.giagiam || item.gia || 0)
+      }
+    ])
+  );
+  const tongTruocKhiDongBo = tinhTongTienGio(giohang);
 
   const dacapnhat = await dongBoGiaGioHang(giohang, { capNhatTonKho: true });
   if (dacapnhat) {
     await giohang.save();
   }
 
+  const tongSauKhiDongBo = tinhTongTienGio(giohang);
+  const daThayDoiTong = Math.round(tongTruocKhiDongBo) !== Math.round(tongSauKhiDongBo);
+  const daDoiGiaSanPham = (giohang.sanpham || []).some((item) => {
+    const cu = giaTruocKhiDongBo.get(String(item._id));
+    if (!cu) return false;
+    const giaMoi = Number(item.gia || 0);
+    const giaGiamMoi = Number(item.giagiam || item.gia || 0);
+    return cu.gia !== giaMoi || cu.giagiam !== giaGiamMoi;
+  });
+
+  const fifoPriceNotice = (dacapnhat && daDoiGiaSanPham)
+    ? (
+      daThayDoiTong
+        ? `Giá theo lô đã thay đổi: ${Math.round(tongTruocKhiDongBo).toLocaleString('vi-VN')}đ -> ${Math.round(tongSauKhiDongBo).toLocaleString('vi-VN')}đ`
+        : 'Giá theo lô của một số sản phẩm đã được cập nhật.'
+    )
+    : '';
+
   res.render('client/pages/cart/index.pug', {
     titlePage: 'Giỏ hàng',
-    cart: giohang
+    cart: giohang,
+    fifoPriceNotice
   });
 };
 
@@ -567,6 +606,7 @@ async function truTonTheoItem(item) {
 
   const variantId = idbienthe ? String(idbienthe) : null;
   const sizeKey = String(kichco || '').trim();
+  let fifoAllocations = [];
 
   try {
     const fifoCost = await consumeLotsFIFO({
@@ -575,6 +615,17 @@ async function truTonTheoItem(item) {
       size: sizeKey,
       qty: soluong
     });
+
+    fifoAllocations = Array.isArray(fifoCost?.allocations)
+      ? fifoCost.allocations
+        .map((a) => ({
+          lotId: String(a?.lotId || ''),
+          soLuong: Number(a?.soLuong || 0),
+          giaNhap: Number(a?.giaNhap || 0),
+          giaBanDeXuat: Number(a?.giaBanDeXuat || 0)
+        }))
+        .filter((a) => a.soLuong > 0)
+      : [];
 
     const suggestedPrice = await resolveSuggestedPriceAfterConsume({
       productId: String(idsanpham),
@@ -607,7 +658,10 @@ async function truTonTheoItem(item) {
 
     sanphamdoc.soluongton = Math.max(0, tonggoc - soluong);
     await sanphamdoc.save();
-    return;
+    return {
+      fifoAllocations,
+      fifoApplied: fifoAllocations.length > 0
+    };
   }
 
   const bienthe = (sanphamdoc.bienthe || []).id(idbienthe);
@@ -624,6 +678,11 @@ async function truTonTheoItem(item) {
 
   sanphamdoc.soluongton = Math.max(0, tonggoc - soluong);
   await sanphamdoc.save();
+
+  return {
+    fifoAllocations,
+    fifoApplied: fifoAllocations.length > 0
+  };
 }
 
 function normalizeShippingRegion(raw) {
@@ -801,7 +860,17 @@ module.exports.xuLyThanhToan = async (req, res) => {
     }
 
     for (const it of danhsachitem) {
-      await truTonTheoItem(it);
+      const inventoryResult = await truTonTheoItem(it);
+      const fifoAllocations = Array.isArray(inventoryResult?.fifoAllocations)
+        ? inventoryResult.fifoAllocations
+          .map((a) => ({
+            lotId: String(a?.lotId || ''),
+            soLuong: Number(a?.soLuong || 0),
+            giaNhap: Number(a?.giaNhap || 0),
+            giaBanDeXuat: Number(a?.giaBanDeXuat || 0)
+          }))
+          .filter((a) => a.soLuong > 0)
+        : [];
       const lineTotal = Number.isFinite(Number(it.thanhtien))
         ? Number(it.thanhtien)
         : ((it.giagiam || it.gia || 0) * (it.soluong || 1));
@@ -817,7 +886,8 @@ module.exports.xuLyThanhToan = async (req, res) => {
         giagoc: it.gia,
         giaban: unitPriceAfterDiscount,
         soluong: it.soluong,
-        thanhtien: lineTotal
+        thanhtien: lineTotal,
+        fifoAllocations
       });
     }
 

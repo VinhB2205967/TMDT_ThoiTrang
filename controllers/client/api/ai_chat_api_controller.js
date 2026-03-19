@@ -437,7 +437,7 @@ module.exports.searchOpenClip = async (req, res) => {
     })
       .select('_id tensanpham hinhanh gia phantramgiamgia soluongton gioitinh loaisanpham')
       .sort({ ngaycapnhat: -1, ngaytao: -1 })
-      .limit(500)
+      .limit(280)
       .lean();
 
     const products = (rows || []).map((item) => {
