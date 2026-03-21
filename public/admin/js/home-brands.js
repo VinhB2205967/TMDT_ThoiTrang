@@ -36,7 +36,7 @@
   }
 
   async function capNhatToggle(id, loai, value) {
-    const endpoint = loai === 'featured' ? `/admin/brands/${id}/featured` : `/admin/brands/${id}/active`;
+    const endpoint = loai === 'featured' ? `/admin/api/brands/${id}/featured` : `/admin/api/brands/${id}/active`;
     const body = loai === 'featured' ? { noiBat: value } : { hienthi: value };
     return App.apiFetch(endpoint, {
       method: 'PATCH',
@@ -53,7 +53,7 @@
       fd.set('noiBat', toBoolString(fd.get('noiBat')));
       fd.set('hienthi', toBoolString(fd.get('hienthi')));
 
-      const res = await App.apiFetch('/admin/brands', {
+      const res = await App.apiFetch('/admin/api/brands', {
         method: 'POST',
         body: fd
       });
@@ -75,7 +75,7 @@
 
     if (action === 'delete') {
       if (!App.confirmDelete()) return;
-      const res = await App.apiFetch(`/admin/brands/${id}`, { method: 'DELETE' });
+      const res = await App.apiFetch(`/admin/api/brands/${id}`, { method: 'DELETE' });
       if (res.ok) {
         row.remove();
         thongBaoThanhCong(res, 'Đã xóa thương hiệu');
@@ -108,7 +108,7 @@
         fd.set('logo', fileInput.files[0]);
       }
 
-      const res = await App.apiFetch(`/admin/brands/${id}`, {
+      const res = await App.apiFetch(`/admin/api/brands/${id}`, {
         method: 'PUT',
         body: fd
       });

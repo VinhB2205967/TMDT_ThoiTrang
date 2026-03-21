@@ -376,7 +376,7 @@ function ganSubmitThemGioAjax() {
             soluong: Math.max(1, parseInt(String(formData.get('soluong') || '1'), 10) || 1)
         };
 
-        const { ok, data } = await goiApi('/cart/add', {
+        const { ok, data } = await goiApi('/api/cart/add', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)

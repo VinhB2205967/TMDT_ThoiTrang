@@ -135,7 +135,7 @@
   async function uploadMedia(file) {
     const formData = new FormData();
     formData.append('file', file);
-    const res = await fetch('/chat/upload', {
+    const res = await fetch('/api/chat/upload', {
       method: 'POST',
       credentials: 'same-origin',
       body: formData
@@ -152,7 +152,7 @@
     if (loaded && !force) return;
 
     historyLoading = (async () => {
-    const { ok, data } = await fetchJson('/chat/messages?limit=100');
+    const { ok, data } = await fetchJson('/api/chat/messages?limit=100');
       if (!ok || !data.success) return;
       renderMessages(data.messages || []);
       if (statusEl) {
@@ -170,13 +170,13 @@
   }
 
   async function loadUnread() {
-    const { ok, data } = await fetchJson('/chat/unread-count');
+    const { ok, data } = await fetchJson('/api/chat/unread-count');
     if (!ok || !data.success) return;
     setUnread(data.count || 0);
   }
 
   async function markRead() {
-    await fetchJson('/chat/read', { method: 'POST' });
+    await fetchJson('/api/chat/read', { method: 'POST' });
     socket.emit('mark_read');
     setUnread(0);
   }

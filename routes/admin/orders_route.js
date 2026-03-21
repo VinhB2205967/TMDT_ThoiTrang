@@ -4,7 +4,6 @@ const controller = require('../../controllers/admin/orders_controller');
 
 router.get('/', controller.danhSach);
 router.get('/export', controller.exportExcel);
-router.get('/api/new-summary', controller.tongQuanDonMoi);
 router.get('/:id', controller.chiTiet);
 
 router.post('/:id/status', controller.capNhatTrangThai);

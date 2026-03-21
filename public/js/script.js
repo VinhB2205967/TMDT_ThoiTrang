@@ -81,7 +81,7 @@
 		const cards = document.querySelectorAll('[data-product-id]');
 		if (!cards.length) return;
 
-		const { ok, data } = await goiApi('/favorites/ids', {}, { redirectOn401: false });
+		const { ok, data } = await goiApi('/api/favorites/ids', {}, { redirectOn401: false });
 		if (!ok || !data || !Array.isArray(data.ids)) return;
 
 		const set = new Set(data.ids);
@@ -103,7 +103,7 @@
 	}
 
 	async function doiYeuThich(productId, btn) {
-	const { ok, data } = await goiApi(`/favorites/toggle/${productId}`, { method: 'POST' });
+	const { ok, data } = await goiApi(`/api/favorites/toggle/${productId}`, { method: 'POST' });
 		if (!ok || !data) return;
 
 		const active = Boolean(data.active);
@@ -277,7 +277,7 @@
 		$('#qamQty').value = String(qty);
 
 		m.show();
-		const { ok, data } = await goiApi(`/products/${productId}/options`);
+		const { ok, data } = await goiApi(`/api/products/${productId}/options`);
 		if (!ok || !data || !data.success) {
 			$('#qamName').textContent = 'Không tải được sản phẩm';
 			return;
@@ -313,7 +313,7 @@
 
 		m.show();
 
-		const { ok, data } = await goiApi(`/products/${productId}/options`);
+		const { ok, data } = await goiApi(`/api/products/${productId}/options`);
 		if (!ok || !data || !data.success) {
 			$('#qamName').textContent = 'Không tải được sản phẩm';
 			return;
@@ -425,7 +425,7 @@
 
 		const sendUpdate = async (itemId, qty, inputEl) => {
 			pending.set(itemId, qty);
-			const { ok, data } = await goiApi('/cart/update', {
+			const { ok, data } = await goiApi('/api/cart/update', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ itemId, soluong: qty }),
@@ -626,7 +626,7 @@
 			soluong: qty
 		};
 
-		const endpoint = mucDichHienTai === 'buy' ? '/cart/buy-now' : (mucDichHienTai === 'edit' ? '/cart/update-options' : '/cart/add');
+		const endpoint = mucDichHienTai === 'buy' ? '/api/cart/buy-now' : (mucDichHienTai === 'edit' ? '/api/cart/update-options' : '/api/cart/add');
 		const payload = mucDichHienTai === 'edit'
 			? { ...body, itemId: idMucGioDangSua }
 			: body;
@@ -725,7 +725,7 @@
 			e.preventDefault();
 			const productId = removeFavoriteBtn.getAttribute('data-id');
 			if (!productId) return;
-			goiApi(`/favorites/remove/${productId}`, { method: 'POST' }).then(({ ok }) => {
+			goiApi(`/api/favorites/remove/${productId}`, { method: 'POST' }).then(({ ok }) => {
 				if (!ok) return;
 				const cardCol = removeFavoriteBtn.closest('.col-6, .col-md-4, .col-lg-3');
 				if (cardCol) cardCol.remove();

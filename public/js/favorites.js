@@ -29,10 +29,10 @@ const xoaYeuThich = async (nut) => {
     try {
         let duLieu;
         if (window.App && window.App.apiFetch) {
-            const r = await window.App.apiFetch(`/favorites/remove/${maSanPham}`, { method: 'POST' });
+            const r = await window.App.apiFetch(`/api/favorites/remove/${maSanPham}`, { method: 'POST' });
             duLieu = r.data;
         } else {
-            const res = await fetch(`/favorites/remove/${maSanPham}`, {
+            const res = await fetch(`/api/favorites/remove/${maSanPham}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             });

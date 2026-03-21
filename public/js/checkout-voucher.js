@@ -88,7 +88,7 @@ async function applyVoucher(code) {
   const subtotal = getSubtotal();
   const shippingRegion = shippingRegionSelect?.value || '';
 
-  const response = await fetch('/vouchers/apply', {
+  const response = await fetch('/api/vouchers/apply', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code, subtotal, shippingRegion })
@@ -318,7 +318,7 @@ function renderModalVouchers(vouchers) {
 async function loadVouchers() {
   if (!voucherList) return;
   try {
-    const response = await fetch('/vouchers/available');
+    const response = await fetch('/api/vouchers/available');
     const data = await response.json();
     if (!response.ok || !data.success) throw new Error(data.message || 'Không thể tải voucher');
 

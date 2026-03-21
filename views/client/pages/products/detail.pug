@@ -341,7 +341,7 @@ block main
                                         .review-header
                                             .reviewer-info
                                                 .avatar
-                                                    img(src=((r.user && r.user.avatar) ? r.user.avatar : '/images/avatar/avatar.png') alt=((r.user && r.user.ten) ? r.user.ten : 'Khách hàng') width='36' height='36' style='border-radius:50%;object-fit:cover;')
+                                                    img(src=((r.user && r.user.avatar) ? r.user.avatar : '/images/avatar/avatar.png') alt=((r.user && r.user.ten) ? r.user.ten : 'Khách hàng') width='36' height='36' style='border-radius:50%;object-fit:cover;' onerror="this.onerror=null;this.src='/images/avatar/avatar.png';")
                                                 .reviewer-name #{(r.user && r.user.ten) ? r.user.ten : 'Khách hàng'}
                                             .review-stars
                                                 - for (let i = 0; i < (r.diem || 0); i++)
@@ -357,7 +357,7 @@ block main
                                             .d-flex.flex-wrap.gap-2.mt-2
                                                 each img in r.hinhanh
                                                     a(href=img target='_blank' rel='noopener')
-                                                        img.rounded.border(src=img alt='review' width='84' height='84' style='object-fit:cover;')
+                                                        img.rounded.border(src=img alt='review' width='84' height='84' style='object-fit:cover;' onerror="this.closest('a') && (this.closest('a').style.display='none');")
                                         if r.videos && r.videos.length
                                             .d-flex.flex-wrap.gap-2.mt-2
                                                 each v in r.videos

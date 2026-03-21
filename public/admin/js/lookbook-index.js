@@ -1,6 +1,5 @@
 (() => {
   const App = window.App || {};
-  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
   async function handleAuthOrCsrf(res) {
     if (!res || res.status !== 403) return false;
@@ -14,13 +13,8 @@
     const ok = window.confirm('Bạn có chắc muốn xóa lookbook này?');
     if (!ok) return;
 
-    const body = new URLSearchParams();
-    if (csrfToken) body.set('_csrf', csrfToken);
-
-    const res = await App.apiFetch(`/admin/lookbook/delete/${id}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-      body: body.toString()
+    const res = await App.apiFetch(`/admin/api/lookbooks/${id}`, {
+      method: 'DELETE'
     });
 
     if (await handleAuthOrCsrf(res)) return;
@@ -28,19 +22,14 @@
   }
 
   async function toggleLookbook(id, button) {
-    const body = new URLSearchParams();
-    if (csrfToken) body.set('_csrf', csrfToken);
-
-    const res = await App.apiFetch(`/admin/lookbook/toggle/${id}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-      body: body.toString()
+    const res = await App.apiFetch(`/admin/api/lookbooks/${id}/toggle`, {
+      method: 'PATCH'
     });
 
     if (await handleAuthOrCsrf(res)) return;
-    if (!res.ok || !res.data) return;
+    if (!res.ok || !res.data || !res.data.data) return;
 
-    const active = Boolean(res.data.isActive);
+    const active = Boolean(res.data.data.isActive);
     button.dataset.active = String(active);
     button.className = `btn btn-sm ${active ? 'btn-success' : 'btn-outline-secondary'} js-toggle`;
     const icon = button.querySelector('i');

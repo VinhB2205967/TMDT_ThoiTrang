@@ -1,5 +1,25 @@
 const adminUsersService = require('../../services/account/admin-users.service');
 
+function usersHome() {
+  return adminUsersService.layDuongDanDanhSachMacDinh();
+}
+
+function flashByResult(req, result) {
+  req.flash(adminUsersService.xacDinhLoaiFlashKetQua(result), result.message);
+}
+
+async function xuLyAction(req, res, action, logLabel, errorMessage) {
+  try {
+    const result = await action();
+    flashByResult(req, result);
+    return res.redirect(result.redirect || usersHome());
+  } catch (err) {
+    console.error(logLabel, err);
+    req.flash('error', errorMessage);
+    return res.redirect(usersHome());
+  }
+}
+
 module.exports.danhSach = async (req, res) => {
   try {
     const data = await adminUsersService.getDanhSachData(req.query);
@@ -22,109 +42,85 @@ module.exports.chiTiet = async (req, res) => {
   } catch (err) {
     console.error('admin users detail error:', err);
     req.flash('error', 'Không thể tải chi tiết tài khoản');
-    return res.redirect('/admin/users');
-  }
-};
-
-module.exports.anhChupOnline = async (req, res) => {
-  try {
-    const data = await adminUsersService.getAnhChupOnlineData(req.query);
-    return res.json(data);
-  } catch (err) {
-    console.error('admin users onlineSnapshot error:', err);
-    return res.status(500).json({ now: new Date().toISOString(), users: [] });
+    return res.redirect(usersHome());
   }
 };
 
 module.exports.capNhatVaiTro = async (req, res) => {
-  try {
-    const result = await adminUsersService.capNhatVaiTro(req.params.id, req.body.vaitro);
-    req.flash(result.ok ? 'success' : 'error', result.message);
-    return res.redirect(result.redirect);
-  } catch (err) {
-    console.error('admin users updateRole error:', err);
-    req.flash('error', 'Không thể cập nhật vai trò');
-    return res.redirect('/admin/users');
-  }
+  return xuLyAction(
+    req,
+    res,
+    () => adminUsersService.capNhatVaiTro(req.params.id, req.body.vaitro),
+    'admin users updateRole error:',
+    'Không thể cập nhật vai trò'
+  );
 };
 
 module.exports.capNhatTrangThai = async (req, res) => {
-  try {
-    const result = await adminUsersService.capNhatTrangThai(req.params.id, req.body.trangthai);
-    req.flash(result.ok ? 'success' : 'error', result.message);
-    return res.redirect(result.redirect);
-  } catch (err) {
-    console.error('admin users updateStatus error:', err);
-    req.flash('error', 'Không thể cập nhật trạng thái');
-    return res.redirect('/admin/users');
-  }
+  return xuLyAction(
+    req,
+    res,
+    () => adminUsersService.capNhatTrangThai(req.params.id, req.body.trangthai),
+    'admin users updateStatus error:',
+    'Không thể cập nhật trạng thái'
+  );
 };
 
 module.exports.xoaMem = async (req, res) => {
-  try {
-    const result = await adminUsersService.xoaMem(req.params.id);
-    req.flash(result.ok ? 'success' : 'error', result.message);
-    return res.redirect(result.redirect);
-  } catch (err) {
-    console.error('admin users softDelete error:', err);
-    req.flash('error', 'Không thể xóa tài khoản');
-    return res.redirect('/admin/users');
-  }
+  return xuLyAction(
+    req,
+    res,
+    () => adminUsersService.xoaMem(req.params.id),
+    'admin users softDelete error:',
+    'Không thể xóa tài khoản'
+  );
 };
 
 module.exports.capNhatTuChiTiet = async (req, res) => {
-  try {
-    const result = await adminUsersService.capNhatTuChiTiet({
+  return xuLyAction(
+    req,
+    res,
+    () => adminUsersService.capNhatTuChiTiet({
       userId: req.params.id,
       body: req.body,
       referer: req.get('referer')
-    });
-    req.flash(result.ok ? 'success' : 'error', result.message);
-    return res.redirect(result.redirect);
-  } catch (err) {
-    console.error('admin users updateFromDetail error:', err);
-    req.flash('error', 'Không thể cập nhật tài khoản');
-    return res.redirect('/admin/users');
-  }
+    }),
+    'admin users updateFromDetail error:',
+    'Không thể cập nhật tài khoản'
+  );
 };
 
 module.exports.datMatKhauTuChiTiet = async (req, res) => {
-  try {
-    const result = await adminUsersService.datMatKhauTuChiTiet({
+  return xuLyAction(
+    req,
+    res,
+    () => adminUsersService.datMatKhauTuChiTiet({
       userId: req.params.id,
       newPassword: req.body.newPassword,
       confirmPassword: req.body.confirmPassword,
       referer: req.get('referer')
-    });
-    req.flash(result.ok ? 'success' : 'error', result.message);
-    return res.redirect(result.redirect);
-  } catch (err) {
-    console.error('admin users setPasswordFromDetail error:', err);
-    req.flash('error', 'Không thể đặt lại mật khẩu');
-    return res.redirect('/admin/users');
-  }
+    }),
+    'admin users setPasswordFromDetail error:',
+    'Không thể đặt lại mật khẩu'
+  );
 };
 
 module.exports.khoiPhucTuChiTiet = async (req, res) => {
-  try {
-    const result = await adminUsersService.khoiPhucTuChiTiet(req.params.id, req.get('referer'));
-    req.flash(result.ok ? 'success' : 'error', result.message);
-    return res.redirect(result.redirect);
-  } catch (err) {
-    console.error('admin users restoreFromDetail error:', err);
-    req.flash('error', 'Không thể khôi phục tài khoản');
-    return res.redirect('/admin/users');
-  }
+  return xuLyAction(
+    req,
+    res,
+    () => adminUsersService.khoiPhucTuChiTiet(req.params.id, req.get('referer')),
+    'admin users restoreFromDetail error:',
+    'Không thể khôi phục tài khoản'
+  );
 };
 
 module.exports.xoaVinhVien = async (req, res) => {
-  try {
-    const result = await adminUsersService.xoaVinhVien(req.params.id, req.get('referer'));
-    req.flash(result.ok ? 'success' : 'error', result.message);
-    return res.redirect(result.redirect);
-  } catch (err) {
-    console.error('admin users hardDelete error:', err);
-    req.flash('error', 'Không thể xóa vĩnh viễn tài khoản');
-    return res.redirect('/admin/users');
-  }
+  return xuLyAction(
+    req,
+    res,
+    () => adminUsersService.xoaVinhVien(req.params.id, req.get('referer')),
+    'admin users hardDelete error:',
+    'Không thể xóa vĩnh viễn tài khoản'
+  );
 };

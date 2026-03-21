@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const MAX_MS = 2 * 60 * 1000;
 
     async function checkOne(orderId) {
-      const res = await fetch(`/orders/${orderId}/payment-status`, {
+      const res = await fetch(`/api/orders/${orderId}/payment-status`, {
         method: 'GET',
         headers: { 'Accept': 'application/json' },
         credentials: 'same-origin'

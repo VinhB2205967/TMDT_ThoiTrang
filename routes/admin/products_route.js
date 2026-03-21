@@ -46,6 +46,5 @@ router.post('/:id/edit', uploadFields, controller.chinhSuaPost);
 router.get('/:id/delete', controller.xoaMem);
 router.post('/:id/restore', controller.khoiPhuc);
 router.post('/:id/hard-delete', controller.xoaVinhVien);
-router.patch('/:id/change-status', controller.doiTrangThai);
 
 module.exports = router;

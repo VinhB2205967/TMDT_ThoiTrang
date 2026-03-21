@@ -3,7 +3,7 @@ const router = express.Router();
 const controller = require('../../controllers/admin/reviews_controller');
 
 router.get('/', controller.danhSach);
-router.get('/stats', controller.thongKe);
+router.get('/:id', controller.chiTiet);
 router.post('/:id/visibility', controller.capNhatHienThi);
 router.post('/:id/delete', controller.xoa);
 router.patch('/:id/visibility', controller.capNhatHienThi);

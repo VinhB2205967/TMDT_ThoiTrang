@@ -55,6 +55,7 @@ const ADMIN_STATUS_LABELS = {
 };
 
 const ADMIN_FLOW = ['choxacnhan', 'daxacnhan', 'dangchuanbi', 'danggiao', 'dagiao'];
+const DEFAULT_ORDERS_LIST_URL = '/admin/orders';
 
 function chuanHoaTuKhoa(raw) {
   const k = String(raw || '').trim();
@@ -117,6 +118,37 @@ function layDuongDanDanhSachHopLe(raw) {
   if (!path.startsWith('/admin/orders')) return '';
   if (/^\/admin\/orders\/[^/?#]+/.test(path)) return '';
   return path;
+}
+
+function layDuongDanDanhSachMacDinh() {
+  return DEFAULT_ORDERS_LIST_URL;
+}
+
+function layDuongDanQuayLaiDanhSach({ fromBody, fromQuery } = {}) {
+  return layDuongDanDanhSachHopLe(fromBody)
+    || layDuongDanDanhSachHopLe(fromQuery)
+    || layDuongDanDanhSachMacDinh();
+}
+
+function taoDuongDanChiTietDon({ id, returnTo } = {}) {
+  const safeId = encodeURIComponent(String(id || '').trim());
+  const safeReturnTo = layDuongDanDanhSachHopLe(returnTo) || layDuongDanDanhSachMacDinh();
+  return `/admin/orders/${safeId}?returnTo=${encodeURIComponent(safeReturnTo)}`;
+}
+
+function taoTenFileXuatDonHang(now = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `don-hang-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.xlsx`;
+}
+
+function xacDinhLoaiFlashKetQua(result, options = {}) {
+  const { warningCodes = [], warningWhenPartial = false } = options || {};
+  if (!result || !result.ok) {
+    if (result && result.code && warningCodes.includes(result.code)) return 'warning';
+    return 'error';
+  }
+  if (warningWhenPartial && result.isPartial) return 'warning';
+  return 'success';
 }
 
 function buildBadgeClass(status) {
@@ -847,6 +879,11 @@ module.exports = {
   TRANG_THAI_CHO_PHEP,
   ADMIN_FLOW,
   buildBadgeClass,
+  layDuongDanDanhSachMacDinh,
+  layDuongDanQuayLaiDanhSach,
+  taoDuongDanChiTietDon,
+  taoTenFileXuatDonHang,
+  xacDinhLoaiFlashKetQua,
   layDuongDanDanhSachHopLe,
   getDanhSachData,
   getDanhSachFallbackData,

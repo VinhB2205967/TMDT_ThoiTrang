@@ -1,47 +1,30 @@
-const HomeSection = require('../../models/home_section_model');
-const { mergeSections } = require('../../services/content/home.service.js');
+const homeSectionsService = require('../../services/content/admin-home-sections.service.js');
+const { redirectBackOrDefault } = require('../../services/communication/redirect.service');
+
+function xuLyKetQuaSSR(req, res, result) {
+  if (req.flash && result.message) req.flash(result.ok ? 'success' : 'error', result.message);
+  return redirectBackOrDefault(req, res, '/admin/home-sections');
+}
 
 module.exports.danhSach = async (req, res) => {
-  const sections = await HomeSection.find({}).sort({ thuTu: 1 }).lean();
-  const data = mergeSections(sections);
-  const want = req.accepts(['html', 'json']);
-  if (want === 'html') {
-    return res.render('admin/pages/home/home_sections.pug', {
-      titlePage: 'Quản lý Trang chủ',
-      sections: data
-    });
-  }
-  return res.json({ success: true, data });
+  const result = await homeSectionsService.layDanhSachHomeSections();
+  return res.render('admin/pages/home/home_sections.pug', {
+    titlePage: 'Quản lý Trang chủ',
+    sections: result.data || []
+  });
 };
 
 module.exports.capNhat = async (req, res) => {
-  const data = await HomeSection.findOneAndUpdate({ key: req.params.key }, {
-    tieuDe: req.body.tieuDe,
-    hienthi: req.body.hienthi,
-    thuTu: req.body.thuTu,
-    config: req.body.config
-  }, { new: true, upsert: true });
-
-  res.json({ success: true, data });
+  const result = await homeSectionsService.capNhatHomeSection({ key: req.params.key, body: req.body || {} });
+  return xuLyKetQuaSSR(req, res, result);
 };
 
 module.exports.batTat = async (req, res) => {
-  const data = await HomeSection.findOne({ key: req.params.key });
-  if (!data) return res.status(404).json({ success: false, message: 'Not found' });
-  data.hienthi = !data.hienthi;
-  await data.save();
-  res.json({ success: true, data });
+  const result = await homeSectionsService.batTatHomeSection({ key: req.params.key });
+  return xuLyKetQuaSSR(req, res, result);
 };
 
 module.exports.sapXep = async (req, res) => {
-  const items = Array.isArray(req.body.items) ? req.body.items : [];
-  const bulk = items.map((item) => ({
-    updateOne: {
-      filter: { key: item.key },
-      update: { $set: { thuTu: Number(item.thuTu || 0) } }
-    }
-  }));
-
-  if (bulk.length) await HomeSection.bulkWrite(bulk);
-  res.json({ success: true });
+  const result = await homeSectionsService.sapXepHomeSections({ items: Array.isArray(req.body.items) ? req.body.items : [] });
+  return xuLyKetQuaSSR(req, res, result);
 };

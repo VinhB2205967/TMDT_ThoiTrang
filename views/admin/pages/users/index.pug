@@ -174,7 +174,7 @@ block scripts
         if (filters.deleted) params.set('deleted', filters.deleted);
         if (filters.page) params.set('page', String(filters.page));
 
-        const res = await fetch('/admin/users/online?' + params.toString(), {
+        const res = await fetch('/admin/api/users/online?' + params.toString(), {
           headers: { 'Accept': 'application/json' },
           credentials: 'same-origin'
         });
@@ -196,15 +196,16 @@ block scripts
         } catch {
           return;
         }
-        if (!data || !Array.isArray(data.users)) return;
+        const payload = data && data.data ? data.data : null;
+        if (!payload || !Array.isArray(payload.users)) return;
 
-        const ids = new Set(data.users.map(u => String(u.id)));
+        const ids = new Set(payload.users.map(u => String(u.id)));
         const allRows = Array.from(document.querySelectorAll('tr[data-user-id]'));
 
         // When filtering online/offline, keep the table consistent in realtime.
         // If a new matching user appears that isn't currently rendered, reload.
         if (filters.online === '1' || filters.online === '0') {
-          const anyMissing = data.users.some(u => !document.querySelector('tr[data-user-id="' + u.id + '"]'));
+          const anyMissing = payload.users.some(u => !document.querySelector('tr[data-user-id="' + u.id + '"]'));
           if (anyMissing) {
             location.reload();
             return;
@@ -215,7 +216,7 @@ block scripts
           }
         }
 
-        for (const u of data.users) {
+        for (const u of payload.users) {
           const row = document.querySelector('tr[data-user-id="' + u.id + '"]');
           if (!row) continue;
           const badge = row.querySelector('.user-online-badge');
@@ -235,7 +236,7 @@ block scripts
         if (filters.online !== '1' && filters.online !== '0') {
           const tbody = document.querySelector('table tbody');
           if (tbody) {
-            for (const u of data.users) {
+            for (const u of payload.users) {
               const row = document.querySelector('tr[data-user-id="' + u.id + '"]');
               if (row) tbody.appendChild(row);
             }

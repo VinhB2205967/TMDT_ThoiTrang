@@ -33,7 +33,6 @@ function uploadReturnProofSingle(req, res, next) {
 
 router.get('/', requireAuth, controller.danhSach);
 router.get('/:id', requireAuth, controller.chiTiet);
-router.get('/:id/payment-status', requireAuth, controller.kiemTraThanhToan);
 router.post('/:id/cancel', requireAuth, controller.huyDon);
 router.post('/:id/return-request', requireAuth, uploadReturnProofSingle, controller.yeuCauHoanHang);
 router.post('/:id/reorder', requireAuth, controller.muaLai);

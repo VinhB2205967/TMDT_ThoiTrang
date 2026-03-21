@@ -1,4 +1,3 @@
-const { muonJSON } = require('../../helpers/http');
 const cartService = require('../../services/cart');
 
 function applyFlash(req, flash) {
@@ -19,12 +18,12 @@ module.exports.danhSach = async (req, res) => {
     });
 
     return res.render('client/pages/cart/index.pug', {
-      titlePage: 'Gi? h�ng',
+      titlePage: 'Giỏ hàng',
       cart,
       fifoPriceNotice
     });
   } catch {
-    req.flash?.('error', 'Kh�ng th? t?i gi? h�ng. Vui l�ng th? l?i.');
+    req.flash?.('error', 'Không thể tải giỏ hàng. Vui lòng thử lại.');
     return res.redirect('/');
   }
 };
@@ -37,14 +36,11 @@ module.exports.them = async (req, res) => {
     });
 
     if (!result.ok) {
-      if (muonJSON(req)) return res.status(result.status || 400).json({ success: false, message: result.message });
       return res.redirect(result.redirect || '/products');
     }
 
-    if (muonJSON(req)) return res.json({ success: true, cartCount: result.cartCount });
     return res.redirect(result.redirect || '/cart');
   } catch {
-    if (muonJSON(req)) return res.status(500).json({ success: false, message: 'C� l?i x?y ra' });
     return res.redirect('/cart');
   }
 };
@@ -57,21 +53,11 @@ module.exports.muaNgay = async (req, res) => {
     });
 
     if (!result.ok) {
-      if (muonJSON(req)) return res.status(result.status || 400).json({ success: false, message: result.message });
       return res.redirect(result.redirect || '/products');
-    }
-
-    if (muonJSON(req)) {
-      return res.json({
-        success: true,
-        cartCount: result.cartCount,
-        redirect: result.redirect
-      });
     }
 
     return res.redirect(result.redirect || '/cart/checkout');
   } catch {
-    if (muonJSON(req)) return res.status(500).json({ success: false, message: 'C� l?i x?y ra' });
     return res.redirect('/cart');
   }
 };
@@ -84,14 +70,11 @@ module.exports.capNhatSoLuong = async (req, res) => {
     });
 
     if (!result.ok) {
-      if (muonJSON(req)) return res.status(result.status || 400).json({ success: false, message: result.message });
       return res.redirect(result.redirect || '/cart');
     }
 
-    if (muonJSON(req)) return res.json(result.payload || { success: true });
     return res.redirect(result.redirect || '/cart');
   } catch {
-    if (muonJSON(req)) return res.status(500).json({ success: false, message: 'C� l?i x?y ra' });
     return res.redirect('/cart');
   }
 };
@@ -104,12 +87,12 @@ module.exports.capNhatTuyChon = async (req, res) => {
     });
 
     if (!result.ok) {
-      return res.status(result.status || 400).json({ success: false, message: result.message || 'C� l?i x?y ra' });
+      return res.redirect('/cart');
     }
 
-    return res.json(result.payload || { success: true });
+    return res.redirect('/cart');
   } catch {
-    return res.status(500).json({ success: false, message: 'C� l?i x?y ra' });
+    return res.redirect('/cart');
   }
 };
 
@@ -120,19 +103,17 @@ module.exports.xoa = async (req, res) => {
       itemId: req.body.itemId
     });
 
-    return muonJSON(req) ? res.json(result) : res.redirect('/cart');
+    return res.redirect('/cart');
   } catch {
-    if (muonJSON(req)) return res.status(500).json({ success: false, message: 'C� l?i x?y ra' });
     return res.redirect('/cart');
   }
 };
 
 module.exports.xoaHet = async (req, res) => {
   try {
-    const result = await cartService.clearCart({ userId: req.user._id });
-    return muonJSON(req) ? res.json(result) : res.redirect('/cart');
+    await cartService.clearCart({ userId: req.user._id });
+    return res.redirect('/cart');
   } catch {
-    if (muonJSON(req)) return res.status(500).json({ success: false, message: 'C� l?i x?y ra' });
     return res.redirect('/cart');
   }
 };
@@ -145,11 +126,11 @@ module.exports.trangThanhToan = async (req, res) => {
     });
 
     return res.render('client/pages/cart/checkout.pug', {
-      titlePage: 'Thanh to�n',
+      titlePage: 'Thanh toán',
       ...data
     });
   } catch {
-    req.flash?.('error', 'Kh�ng th? t?i trang thanh to�n. Vui l�ng th? l?i.');
+    req.flash?.('error', 'Không thể tải trang thanh toán. Vui lòng thử lại.');
     return res.redirect('/cart');
   }
 };
@@ -174,8 +155,7 @@ module.exports.xuLyThanhToan = async (req, res) => {
 
     return res.redirect(result.redirect || '/orders');
   } catch (error) {
-    const message = resolveErrorMessage(error, 'C� l?i x?y ra');
-    if (muonJSON(req)) return res.status(500).json({ success: false, message });
+    const message = resolveErrorMessage(error, 'Có lỗi xảy ra');
     req.flash?.('error', message);
     return res.redirect('/cart/checkout');
   }
@@ -187,7 +167,7 @@ module.exports.momoReturn = async (req, res) => {
     applyFlash(req, result.flash);
     return res.redirect(result.redirect || '/orders');
   } catch {
-    req.flash?.('error', 'C� l?i khi x? l� thanh to�n MoMo');
+    req.flash?.('error', 'Có lỗi khi xử lý thanh toán MoMo');
     return res.redirect('/orders');
   }
 };
@@ -207,7 +187,7 @@ module.exports.vnpayReturn = async (req, res) => {
     applyFlash(req, result.flash);
     return res.redirect(result.redirect || '/orders');
   } catch {
-    req.flash?.('error', 'C� l?i khi x? l� thanh to�n VNPAY');
+    req.flash?.('error', 'Có lỗi khi xử lý thanh toán VNPAY');
     return res.redirect('/orders');
   }
 };

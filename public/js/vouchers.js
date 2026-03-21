@@ -148,7 +148,7 @@ function applyFilters() {
 
 async function handleSave(voucher, button) {
   try {
-    const response = await fetch('/vouchers/save', {
+    const response = await fetch('/api/vouchers/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code: voucher.code })
@@ -176,7 +176,7 @@ async function applyVoucher() {
   const shippingRegion = calcRegion?.value || '';
 
   try {
-    const response = await fetch('/vouchers/apply', {
+    const response = await fetch('/api/vouchers/apply', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code, subtotal, shippingRegion })
@@ -195,7 +195,7 @@ async function applyVoucher() {
 
 async function loadVouchers() {
   try {
-    const response = await fetch('/vouchers/available');
+    const response = await fetch('/api/vouchers/available');
     const data = await response.json();
     if (!response.ok || !data.success) throw new Error(data.message || 'Không thể tải voucher');
     allVouchers = data.vouchers || [];

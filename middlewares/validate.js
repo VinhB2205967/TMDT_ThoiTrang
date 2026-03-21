@@ -1,4 +1,6 @@
 const { validationResult } = require('express-validator');
+const { laYeuCauApi, traJsonThatBai } = require('../services/communication/hybrid-response.service');
+const { redirectBackOrDefault } = require('../services/communication/redirect.service');
 
 function validateRequest(options = {}) {
   const {
@@ -13,6 +15,16 @@ function validateRequest(options = {}) {
 
     const first = errors.array({ onlyFirstError: true })[0];
     const message = first?.msg || errorMessage;
+
+    if (laYeuCauApi(req)) {
+      return traJsonThatBai(res, {
+        status: 422,
+        code: 'VALIDATION_ERROR',
+        message,
+        errors: errors.array()
+      });
+    }
+
     if (req.flash) req.flash('error', message);
 
     if (req.flash && Array.isArray(preserveFields) && preserveFields.length > 0) {
@@ -23,7 +35,7 @@ function validateRequest(options = {}) {
       req.flash('formData', JSON.stringify(payload));
     }
 
-    return res.redirect(req.get('Referrer') || redirectTo);
+    return redirectBackOrDefault(req, res, redirectTo);
   };
 }
 

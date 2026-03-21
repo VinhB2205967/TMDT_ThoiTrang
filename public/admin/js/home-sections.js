@@ -11,51 +11,67 @@
     window.alert(message);
   };
 
+  function taoPayloadTuDong(row) {
+    const limitEl = row.querySelector('input[name="limit"]');
+    const payload = {
+      hienthi: Boolean(row.querySelector('input[name="hienthi"]')?.checked),
+      thuTu: Number(row.querySelector('input[name="thuTu"]')?.value || 0),
+      config: {}
+    };
+
+    if (limitEl) {
+      const limitVal = Number(limitEl.value || 0);
+      if (limitVal > 0) payload.config.limit = limitVal;
+    }
+
+    return payload;
+  }
+
   document.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
-    const row = btn.closest('tr');
-    if (!row) return;
-    const key = row.getAttribute('data-key');
     const action = btn.getAttribute('data-action');
 
-    if (action === 'toggle') {
-      const res = await App.apiFetch(`/admin/home-sections/${key}/toggle`, { method: 'PATCH' });
-      if (res.ok && res.data && res.data.data) {
-        const checkbox = row.querySelector('input[name="hienthi"]');
-        if (checkbox) checkbox.checked = Boolean(res.data.data.hienthi);
-        thongBaoThanhCong(res, checkbox && checkbox.checked ? 'Đã bật hiển thị block' : 'Đã tắt hiển thị block');
-      } else if (!res.ok) {
-        thongBao(res, 'Không thể bật/tắt block');
-      }
+    if (action !== 'save-all') return;
+
+    const rows = Array.from(document.querySelectorAll('tr[data-key]'));
+    if (!rows.length) {
+      thongBao(null, 'Không có block để lưu');
       return;
     }
 
-    if (action === 'save') {
-      const limitEl = row.querySelector('input[name="limit"]');
-      const payload = {
-        hienthi: Boolean(row.querySelector('input[name="hienthi"]')?.checked),
-        thuTu: Number(row.querySelector('input[name="thuTu"]')?.value || 0),
-        config: {}
-      };
+    btn.disabled = true;
+    const oldLabel = btn.textContent;
+    btn.textContent = 'Đang lưu...';
 
-      if (limitEl) {
-        const limitVal = Number(limitEl.value || 0);
-        if (limitVal > 0) payload.config.limit = limitVal;
-      }
+    const loi = [];
+    let savedCount = 0;
 
-      const res = await App.apiFetch(`/admin/home-sections/${key}`, {
+    for (const row of rows) {
+      const key = row.getAttribute('data-key');
+      const payload = taoPayloadTuDong(row);
+
+      const res = await App.apiFetch(`/admin/api/home-sections/${key}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
       if (res.ok) {
-        thongBaoThanhCong(res, 'Lưu cấu hình block thành công');
-        return;
+        savedCount += 1;
+      } else {
+        loi.push(key);
       }
-
-      thongBao(res, 'Không thể lưu cấu hình block');
     }
+
+    btn.disabled = false;
+    btn.textContent = oldLabel;
+
+    if (!loi.length) {
+      thongBaoThanhCong(null, `Đã lưu ${savedCount} block thành công`);
+      return;
+    }
+
+    thongBao(null, `Đã lưu ${savedCount} block. Lỗi: ${loi.join(', ')}`);
   });
 })();

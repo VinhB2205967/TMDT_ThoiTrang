@@ -277,30 +277,31 @@
     setLoading(true);
     try {
       const query = getFilters();
-      const res = await fetch(`/admin/reports/data?${query}`);
+      const res = await fetch(`/admin/api/reports/data?${query}`);
       const payload = await res.json();
-      if (!payload.success) throw new Error(payload.message || 'Error');
-      latestData = payload;
+      const data = payload && payload.data ? payload.data : payload;
+      if (!data || !data.success) throw new Error((data && data.message) || 'Error');
+      latestData = data;
 
-      updateMetric('totalRevenue', payload.overview.totalRevenue, formatCurrency);
-      updateMetric('totalOrders', payload.overview.totalOrders, formatNumber);
-      updateMetric('totalSold', payload.overview.totalSold, formatNumber);
-      updateMetric('profit', payload.overview.profit, formatCurrency);
-      updateMetric('profitMargin', payload.overview.profitMargin, formatPercent);
-      updateMetric('totalCost', payload.overview.totalCost, formatCurrency);
-      updateProfitStatus(payload.overview.profit);
+      updateMetric('totalRevenue', data.overview.totalRevenue, formatCurrency);
+      updateMetric('totalOrders', data.overview.totalOrders, formatNumber);
+      updateMetric('totalSold', data.overview.totalSold, formatNumber);
+      updateMetric('profit', data.overview.profit, formatCurrency);
+      updateMetric('profitMargin', data.overview.profitMargin, formatPercent);
+      updateMetric('totalCost', data.overview.totalCost, formatCurrency);
+      updateProfitStatus(data.overview.profit);
 
-      const growthValue = payload.advanced.growth;
+      const growthValue = data.advanced.growth;
       updateMetric('growth', growthValue, (value) => (value == null ? '0%' : `${value.toFixed(1)}%`));
-      updateMetric('growthSub', payload.advanced.previousRevenue, (value) => `Kỳ trước: ${formatCurrency(value)}`);
+      updateMetric('growthSub', data.advanced.previousRevenue, (value) => `Kỳ trước: ${formatCurrency(value)}`);
 
       if (lossAlert) {
-        lossAlert.classList.toggle('d-none', !payload.advanced.negativeProfit);
+        lossAlert.classList.toggle('d-none', !data.advanced.negativeProfit);
       }
 
-      updateCharts(payload.charts);
-      updateTable(payload.table.rows);
-      updateLists(payload.advanced.topProducts, payload.advanced.topCustomers);
+      updateCharts(data.charts);
+      updateTable(data.table.rows);
+      updateLists(data.advanced.topProducts, data.advanced.topCustomers);
     } catch (err) {
       console.error('reports fetch error:', err);
     } finally {

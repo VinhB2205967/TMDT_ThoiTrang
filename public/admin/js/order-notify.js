@@ -3,7 +3,7 @@
   if (!runtime.adminPath) return;
 
   const badgeEl = document.getElementById('adminOrderMenuUnread');
-  const summaryUrl = `${runtime.adminPath}/orders/api/new-summary`;
+  const summaryUrl = `${runtime.adminPath}/api/orders/new-summary`;
   const storageKey = 'adminOrderLatestOrderId';
   let initialized = false;
 

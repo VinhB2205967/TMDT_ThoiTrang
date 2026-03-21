@@ -190,16 +190,17 @@
   async function uploadMedia(file) {
     const formData = new FormData();
     formData.append('file', file);
-    const res = await fetch(`${runtime.adminPath}/chats/api/upload`, {
+    const res = await fetch(`${runtime.adminPath}/api/chats/upload`, {
       method: 'POST',
       credentials: 'same-origin',
       body: formData
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data || !data.success || !data.media) {
+    const payload = data && data.data ? data.data : {};
+    if (!res.ok || !data || !data.success || !payload.media) {
       throw new Error((data && data.message) || 'Upload thất bại');
     }
-    return data.media;
+    return payload.media;
   }
 
   function renderConversationList() {
@@ -305,7 +306,7 @@
 
   async function markRead(userId) {
     if (!userId) return;
-    await fetchJson(`${runtime.adminPath}/chats/api/read/${userId}`, { method: 'POST' });
+    await fetchJson(`${runtime.adminPath}/api/chats/read/${userId}`, { method: 'POST' });
     socket.emit('mark_read', { userId });
     conversations = conversations.map((item) => (
       item.clientId === userId ? { ...item, unreadCount: 0 } : item
@@ -316,14 +317,15 @@
 
   async function openConversation(userId) {
     activeUserId = userId;
-    const { ok, data } = await fetchJson(`${runtime.adminPath}/chats/api/messages/${userId}`);
+    const { ok, data } = await fetchJson(`${runtime.adminPath}/api/chats/messages/${userId}`);
     if (!ok || !data.success) return;
-    if (titleEl) titleEl.textContent = data.user && data.user.userName ? data.user.userName : 'Khách hàng';
+    const payload = data.data || {};
+    if (titleEl) titleEl.textContent = payload.user && payload.user.userName ? payload.user.userName : 'Khách hàng';
     if (statusEl) {
-      statusEl.textContent = data.online ? 'Online' : 'Offline';
-      statusEl.className = `badge ${data.online ? 'text-bg-success' : 'text-bg-secondary'}`;
+      statusEl.textContent = payload.online ? 'Online' : 'Offline';
+      statusEl.className = `badge ${payload.online ? 'text-bg-success' : 'text-bg-secondary'}`;
     }
-    renderMessages(data.messages || []);
+    renderMessages(payload.messages || []);
     if (emptyEl) emptyEl.classList.add('d-none');
     renderConversationList();
     socket.emit('join_user_room', { userId });
@@ -335,9 +337,9 @@
 
   async function loadConversations() {
     const q = searchKeyword ? `?q=${encodeURIComponent(searchKeyword)}` : '';
-    const { ok, data } = await fetchJson(`${runtime.adminPath}/chats/api/conversations${q}`);
+    const { ok, data } = await fetchJson(`${runtime.adminPath}/api/chats/conversations${q}`);
     if (!ok || !data.success) return;
-    conversations = data.conversations || [];
+    conversations = (data.data && data.data.conversations) || [];
     renderConversationList();
     setUnreadTotal(conversations.reduce((acc, item) => acc + Number(item.unreadCount || 0), 0));
     if (conversations.length && !activeUserId && !isMobileView()) {

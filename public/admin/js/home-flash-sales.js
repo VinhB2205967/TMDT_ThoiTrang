@@ -50,7 +50,7 @@
         sanpham: selected
       };
 
-      const res = await App.apiFetch('/admin/flash-sales', {
+      const res = await App.apiFetch('/admin/api/flash-sales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -74,7 +74,7 @@
 
     if (action === 'delete') {
       if (!App.confirmDelete()) return;
-      const res = await App.apiFetch(`/admin/flash-sales/${id}`, { method: 'DELETE' });
+      const res = await App.apiFetch(`/admin/api/flash-sales/${id}`, { method: 'DELETE' });
       if (res.ok) {
         row.remove();
         thongBaoThanhCong(res, 'Đã xóa Flash Sale');
@@ -84,7 +84,7 @@
     }
 
     if (action === 'toggle') {
-      const res = await App.apiFetch(`/admin/flash-sales/${id}/toggle`, { method: 'PATCH' });
+      const res = await App.apiFetch(`/admin/api/flash-sales/${id}/toggle`, { method: 'PATCH' });
       if (res.ok && res.data && res.data.data) {
         const checkbox = row.querySelector('input[name="hienthi"]');
         if (checkbox) checkbox.checked = Boolean(res.data.data.hienthi);
@@ -104,7 +104,7 @@
         sanpham: laySanPhamTuSelect(row.querySelector('select[name="sanpham"]'))
       };
 
-      const res = await App.apiFetch(`/admin/flash-sales/${id}`, {
+      const res = await App.apiFetch(`/admin/api/flash-sales/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

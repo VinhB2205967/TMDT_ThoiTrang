@@ -14,12 +14,35 @@ function isVideoUrl(url) {
   return /\.(mp4|mov|webm|mkv)(\?.*)?$/i.test(String(url || ''));
 }
 
+function normalizeMediaUrl(rawUrl) {
+  let val = String(rawUrl || '').trim();
+  if (!val) return '';
+
+  val = val.replace(/\\/g, '/');
+
+  if (/^https?:\/\//i.test(val) || val.startsWith('//')) return val;
+
+  const lower = val.toLowerCase();
+  if (lower.startsWith('/public/uploads/')) return val.slice('/public'.length);
+  if (lower.startsWith('public/uploads/')) return `/${val.slice('public/'.length)}`;
+  if (lower.startsWith('/uploads/')) return val;
+  if (lower.startsWith('uploads/')) return `/${val}`;
+
+  const uploadsAt = lower.indexOf('/uploads/');
+  if (uploadsAt >= 0) return val.slice(uploadsAt);
+
+  const uploadsNoSlashAt = lower.indexOf('uploads/');
+  if (uploadsNoSlashAt >= 0) return `/${val.slice(uploadsNoSlashAt)}`;
+
+  return val.startsWith('/') ? val : `/${val}`;
+}
+
 function splitMediaUrls(urls) {
   const list = Array.isArray(urls) ? urls : [];
   const images = [];
   const videos = [];
   list.forEach((url) => {
-    const val = String(url || '').trim();
+    const val = normalizeMediaUrl(url);
     if (!val) return;
     if (isVideoUrl(val)) videos.push(val);
     else images.push(val);
@@ -92,7 +115,11 @@ function parseRemoveList(value) {
 
 function normalizeReviewMedia(review) {
   const old = splitMediaUrls(review && review.hinhanh);
-  const videos = old.videos.concat(Array.isArray(review && review.videos) ? review.videos : []);
+  const videos = old.videos.concat(
+    (Array.isArray(review && review.videos) ? review.videos : [])
+      .map((v) => normalizeMediaUrl(v))
+      .filter(Boolean)
+  );
   return {
     images: old.images,
     videos: Array.from(new Set(videos.map((v) => String(v || '').trim()).filter(Boolean)))

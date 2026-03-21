@@ -3,7 +3,6 @@ const router = express.Router();
 const controller = require('../../controllers/admin/categories_controller');
 
 router.get('/', controller.danhSach);
-router.get('/tree.json', controller.treeJson);
 router.post('/create', controller.taoMoi);
 router.post('/sort', controller.sapXep);
 

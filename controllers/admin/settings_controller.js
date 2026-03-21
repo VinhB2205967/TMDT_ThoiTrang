@@ -1,19 +1,16 @@
 const Setting = require('../../models/setting_model');
+const { redirectBackOrDefault } = require('../../services/communication/redirect.service');
 
 module.exports.getHomeSettings = async (req, res) => {
   const data = await Setting.find({ key: { $in: ['home_new_limit', 'home_best_limit', 'home_blog_limit'] } }).lean();
-  const want = req.accepts(['html', 'json']);
-  if (want === 'html') {
-    const map = data.reduce((acc, item) => {
-      acc[item.key] = item.value;
-      return acc;
-    }, {});
-    return res.render('admin/pages/home/settings.pug', {
-      titlePage: 'Cấu hình Trang chủ',
-      settings: map
-    });
-  }
-  return res.json({ success: true, data });
+  const map = data.reduce((acc, item) => {
+    acc[item.key] = item.value;
+    return acc;
+  }, {});
+  return res.render('admin/pages/home/settings.pug', {
+    titlePage: 'Cấu hình Trang chủ',
+    settings: map
+  });
 };
 
 module.exports.updateHomeSettings = async (req, res) => {
@@ -32,5 +29,6 @@ module.exports.updateHomeSettings = async (req, res) => {
   }));
 
   await Setting.bulkWrite(bulk);
-  res.json({ success: true });
+  if (req.flash) req.flash('success', 'Cập nhật cấu hình thành công');
+  return redirectBackOrDefault(req, res, '/admin/settings/home');
 };

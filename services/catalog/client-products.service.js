@@ -156,6 +156,26 @@ function ganGiaFlashSaleChoSanPham(product, flashPercentMap) {
   return product;
 }
 
+function chuanHoaUrlMedia(rawUrl) {
+  const val = String(rawUrl || '').trim();
+  if (!val) return '';
+  if (/^https?:\/\//i.test(val) || val.startsWith('//')) return val;
+
+  const lower = val.toLowerCase();
+  if (lower.startsWith('/public/uploads/')) return val.slice('/public'.length);
+  if (lower.startsWith('public/uploads/')) return `/${val.slice('public/'.length)}`;
+  if (lower.startsWith('/uploads/')) return val;
+  if (lower.startsWith('uploads/')) return `/${val}`;
+
+  const uploadsAt = lower.indexOf('/uploads/');
+  if (uploadsAt >= 0) return val.slice(uploadsAt);
+
+  const uploadsNoSlashAt = lower.indexOf('uploads/');
+  if (uploadsNoSlashAt >= 0) return `/${val.slice(uploadsNoSlashAt)}`;
+
+  return val.startsWith('/') ? val : `/${val}`;
+}
+
 function parseOpenclipIds(raw) {
   const text = String(raw || '').trim();
   if (!text) return [];
@@ -429,15 +449,21 @@ async function getChiTietData(idsanpham, query = {}) {
   const tachMedia = (review) => {
     const hinhList = Array.isArray(review && review.hinhanh) ? review.hinhanh : [];
     const videoList = Array.isArray(review && review.videos) ? review.videos : [];
-    const hinhanh = hinhList.filter((u) => !laVideo(u));
-    const videos = Array.from(new Set(hinhList.filter((u) => laVideo(u)).concat(videoList).map((u) => String(u || '').trim()).filter(Boolean)));
+    const mediaDaChuanHoa = hinhList
+      .concat(videoList)
+      .map((u) => chuanHoaUrlMedia(u))
+      .filter(Boolean);
+    const hinhanh = Array.from(new Set(mediaDaChuanHoa.filter((u) => !laVideo(u))));
+    const videos = Array.from(new Set(mediaDaChuanHoa.filter((u) => laVideo(u))));
+    const userAvatar = chuanHoaUrlMedia(review && review.nguoidung_id && review.nguoidung_id.avatar)
+      || '/images/avatar/avatar.png';
     return {
       ...review,
       hinhanh,
       videos,
       user: {
         ten: review && review.nguoidung_id && review.nguoidung_id.hoten ? String(review.nguoidung_id.hoten) : 'Khách hàng',
-        avatar: review && review.nguoidung_id && review.nguoidung_id.avatar ? String(review.nguoidung_id.avatar) : '/images/avatar/avatar.png'
+        avatar: userAvatar
       }
     };
   };

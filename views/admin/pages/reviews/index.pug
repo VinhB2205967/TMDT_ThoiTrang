@@ -67,7 +67,12 @@ block main
                 each r in reviews
                   - const hasImg = r.hinhanh && r.hinhanh.length
                   tr
-                    td #{(r.sanpham_id && r.sanpham_id.tensanpham) || '—'}
+                    td
+                      .fw-semibold #{(r.sanpham_id && r.sanpham_id.tensanpham) || '—'}
+                      if r.productStats && r.productStats.totalReviews > 0
+                        .small.text-muted
+                          | TB: #{r.productStats.avgRating}/5
+                          |  (#{r.productStats.totalReviews} đánh giá)
                     td #{(r.nguoidung_id && (r.nguoidung_id.hoten || r.nguoidung_id.email)) || '—'}
                     td #{r.diem || 0}⭐
                     td #{(r.noidung || '').slice(0, 60)}#{(r.noidung && r.noidung.length > 60) ? '...' : ''}
@@ -77,6 +82,7 @@ block main
                     td
                       span.badge(class=r.hienthi ? 'bg-success' : 'bg-danger') #{r.hienthi ? 'Hiện' : 'Ẩn'}
                     td.text-nowrap
+                      a.btn.btn-sm.btn-outline-primary.me-1(href=`/admin/reviews/${r._id}`) Xem
                       form.d-inline(method='POST' action=`/admin/reviews/${r._id}/visibility`)
                         input(type='hidden' name='action' value=(r.hienthi ? 'hide' : 'show'))
                         if !r.hienthi

@@ -71,8 +71,8 @@
     setUnread(payload.count || 0);
   });
 
-  fetchJson(`${runtime.adminPath}/chats/api/unread-total`).then(({ ok, data }) => {
+  fetchJson(`${runtime.adminPath}/api/chats/unread-total`).then(({ ok, data }) => {
     if (!ok || !data || !data.success) return;
-    setUnread(data.count || 0);
+    setUnread((data.data && data.data.count) || 0);
   });
 })();

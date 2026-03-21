@@ -13,7 +13,7 @@
       home_blog_limit: Number(fd.get('home_blog_limit') || 6)
     };
 
-    const res = await App.apiFetch('/admin/settings/home', {
+    const res = await App.apiFetch('/admin/api/settings/home', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)

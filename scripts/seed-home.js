@@ -13,12 +13,12 @@ const Sanpham = require('../models/product_model');
 async function seedSections() {
   const defaults = [
     { key: 'banner_slider', tieuDe: 'Banner Slider', hienthi: true, thuTu: 1, config: {} },
-    { key: 'new_products', tieuDe: 'San pham moi', hienthi: true, thuTu: 2, config: { limit: 8 } },
-    { key: 'best_sellers', tieuDe: 'Ban chay nhat', hienthi: true, thuTu: 3, config: { limit: 8 } },
+    { key: 'new_products', tieuDe: 'Sản phẩm mới', hienthi: true, thuTu: 2, config: { limit: 8 } },
+    { key: 'best_sellers', tieuDe: 'Bán chạy nhất', hienthi: true, thuTu: 3, config: { limit: 8 } },
     { key: 'flash_sale', tieuDe: 'Flash Sale', hienthi: true, thuTu: 4, config: {} },
     { key: 'lookbook', tieuDe: 'Lookbook', hienthi: true, thuTu: 5, config: {} },
-    { key: 'brands', tieuDe: 'Thuong hieu noi bat', hienthi: true, thuTu: 6, config: {} },
-    { key: 'blog', tieuDe: 'Blog thoi trang', hienthi: true, thuTu: 7, config: { limit: 6 } }
+    { key: 'brands', tieuDe: 'Thương hiệu nổi bật', hienthi: true, thuTu: 6, config: {} },
+    { key: 'blog', tieuDe: 'Blog thời trang', hienthi: true, thuTu: 7, config: { limit: 6 } }
   ];
 
   for (const item of defaults) {

@@ -5,6 +5,8 @@ block main
     h1.mb-3 Cấu hình hiển thị Trang chủ
     .card
       .card-body
+        .d-flex.justify-content-end.mb-3
+          button.btn.btn-primary(type="button" data-action="save-all") Lưu thay đổi
         table.table.table-striped.align-middle
           thead
             tr
@@ -12,14 +14,16 @@ block main
               th Thứ tự
               th Hiển thị
               th Giới hạn
-              th Hành động
           tbody
             if sections && sections.length
               each item in sections
                 tr(data-key=item.key)
                   td #{item.tieuDe || item.key}
                   td
-                    input.form-control.form-control-sm(type="number" name="thuTu" value=item.thuTu min="0")
+                    if item.key === 'banner_slider'
+                      input.form-control.form-control-sm(type="number" name="thuTu" value="1" min="1" readonly)
+                    else
+                      input.form-control.form-control-sm(type="number" name="thuTu" value=item.thuTu min="0")
                   td
                     input.form-check-input(type="checkbox" name="hienthi" checked=item.hienthi)
                   td
@@ -27,13 +31,9 @@ block main
                       input.form-control.form-control-sm(type="number" name="limit" value=(item.config && item.config.limit ? item.config.limit : '') min="1")
                     else
                       span.text-muted --
-                  td
-                    .d-flex.gap-2
-                      button.btn.btn-sm.btn-outline-primary(type="button" data-action="save") Lưu
-                      button.btn.btn-sm.btn-outline-secondary(type="button" data-action="toggle") Bật/Tắt
             else
               tr
-                td(colspan="5").text-muted Chưa có cấu hình.
+                td(colspan="4").text-muted Chưa có cấu hình.
 
 block scripts
   script(src="/admin/js/home-sections.js")

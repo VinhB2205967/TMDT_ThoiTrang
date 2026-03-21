@@ -16,9 +16,4 @@ router.post('/delete/:id', controller.xoa);
 router.patch('/toggle/:id', controller.batTat);
 router.post('/toggle/:id', controller.batTat);
 
-router.post('/', uploadLookbook.single('image'), controller.taoMoi);
-router.put('/:id', uploadLookbook.single('image'), controller.capNhat);
-router.delete('/:id', controller.xoa);
-router.patch('/:id/toggle', controller.batTat);
-
 module.exports = router;

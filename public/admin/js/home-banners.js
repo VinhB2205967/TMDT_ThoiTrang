@@ -42,7 +42,7 @@
       fd.set('thuTu', String(Number(fd.get('thuTu') || 0)));
       fd.set('hienthi', String(Boolean(fd.get('hienthi'))));
 
-      const res = await App.apiFetch('/admin/banners', {
+      const res = await App.apiFetch('/admin/api/banners', {
         method: 'POST',
         body: fd
       });
@@ -73,7 +73,7 @@
 
     if (action === 'delete') {
       if (!App.confirmDelete()) return;
-      const res = await App.apiFetch(`/admin/banners/${id}`, { method: 'DELETE' });
+      const res = await App.apiFetch(`/admin/api/banners/${id}`, { method: 'DELETE' });
       if (res.ok) {
         row.remove();
         thongBaoThanhCong(res, 'Đã xóa banner');
@@ -84,7 +84,7 @@
     }
 
     if (action === 'toggle') {
-      const res = await App.apiFetch(`/admin/banners/${id}/toggle`, { method: 'PATCH' });
+      const res = await App.apiFetch(`/admin/api/banners/${id}/toggle`, { method: 'PATCH' });
       if (res.ok && res.data && res.data.data) {
         const checkbox = row.querySelector('input[name="hienthi"]');
         if (checkbox) checkbox.checked = Boolean(res.data.data.hienthi);
@@ -110,7 +110,7 @@
         fd.set('image', fileInput.files[0]);
       }
 
-      const res = await App.apiFetch(`/admin/banners/${id}`, {
+      const res = await App.apiFetch(`/admin/api/banners/${id}`, {
         method: 'PUT',
         body: fd
       });

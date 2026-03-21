@@ -29,6 +29,16 @@ function taoMaPhieuNhap() {
   return `NK${y}${m}${day}-${h}${min}${s}-${rand}`;
 }
 
+function layDuongDanImports({ adminPrefix = '/admin', subPath = '' } = {}) {
+  const base = String(adminPrefix || '/admin').replace(/\/$/, '');
+  const tail = String(subPath || '').replace(/^\//, '');
+  return tail ? `${base}/imports/${tail}` : `${base}/imports`;
+}
+
+function xacDinhLoaiFlashKetQua(result) {
+  return result && result.ok ? 'success' : 'error';
+}
+
 function taoThongTinNhanVienKy({ adminUser, user }, fallback = {}) {
   const actor = adminUser || user || null;
   const tenNhanVien = String(
@@ -549,6 +559,8 @@ async function xuatKhoPhieuNhap({ id, adminUser, user }) {
 }
 
 module.exports = {
+  layDuongDanImports,
+  xacDinhLoaiFlashKetQua,
   getDanhSachData,
   getTaoMoiData,
   taoMoiPhieuNhap,

@@ -11,6 +11,7 @@ const {
 const { setPasswordByUserId, syncRoleStatusFromUser } = require('./index.js');
 
 const ONLINE_WINDOW_MS = 5 * 60 * 1000;
+const DEFAULT_USERS_URL = '/admin/users';
 
 function chuanHoaTuKhoa(tukhoa) {
   const k = String(tukhoa || '').trim();
@@ -134,7 +135,15 @@ function taoChuoiBoLoc({ vaitro, trangthai, online, deleted, limit }) {
 function quayLaiChiTietHoacDanhSach(referer, userid) {
   const ref = String(referer || '');
   if (ref.includes(`/admin/users/${userid}`)) return `/admin/users/${userid}`;
-  return '/admin/users';
+  return DEFAULT_USERS_URL;
+}
+
+function layDuongDanDanhSachMacDinh() {
+  return DEFAULT_USERS_URL;
+}
+
+function xacDinhLoaiFlashKetQua(result) {
+  return result && result.ok ? 'success' : 'error';
 }
 
 function getDanhSachFallbackData() {
@@ -197,12 +206,12 @@ async function getDanhSachData(query = {}) {
 async function getChiTietData(id) {
   const userid = String(id || '');
   if (!mongoose.Types.ObjectId.isValid(userid)) {
-    return { ok: false, message: 'ID không hợp lệ', redirect: '/admin/users' };
+    return { ok: false, message: 'ID không hợp lệ', redirect: DEFAULT_USERS_URL };
   }
 
   const taikhoan = await Nguoidung.findById(userid).lean();
   if (!taikhoan) {
-    return { ok: false, message: 'Không tìm thấy người dùng', redirect: '/admin/users' };
+    return { ok: false, message: 'Không tìm thấy người dùng', redirect: DEFAULT_USERS_URL };
   }
 
   const [taikhoandagan] = await ganThongTinAccount([taikhoan]);
@@ -268,39 +277,39 @@ async function getAnhChupOnlineData(query = {}) {
 async function capNhatVaiTro(userId, vaitro) {
   const id = String(userId || '');
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return { ok: false, message: 'ID không hợp lệ', redirect: '/admin/users' };
+    return { ok: false, message: 'ID không hợp lệ', redirect: DEFAULT_USERS_URL };
   }
 
   const role = String(vaitro || '').trim();
   if (role !== 'admin' && role !== 'user') {
-    return { ok: false, message: 'Vai trò không hợp lệ', redirect: '/admin/users' };
+    return { ok: false, message: 'Vai trò không hợp lệ', redirect: DEFAULT_USERS_URL };
   }
 
   await syncRoleStatusFromUser({ userId: id, vaitro: role });
   await Nguoidung.updateOne({ _id: id, daxoa: { $ne: true } }, { $set: { ngaycapnhat: new Date() } }).catch(() => {});
-  return { ok: true, message: 'Cập nhật vai trò thành công', redirect: '/admin/users' };
+  return { ok: true, message: 'Cập nhật vai trò thành công', redirect: DEFAULT_USERS_URL };
 }
 
 async function capNhatTrangThai(userId, trangthai) {
   const id = String(userId || '');
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return { ok: false, message: 'ID không hợp lệ', redirect: '/admin/users' };
+    return { ok: false, message: 'ID không hợp lệ', redirect: DEFAULT_USERS_URL };
   }
 
   const status = String(trangthai || '').trim();
   if (status !== 'active' && status !== 'noactive') {
-    return { ok: false, message: 'Trạng thái không hợp lệ', redirect: '/admin/users' };
+    return { ok: false, message: 'Trạng thái không hợp lệ', redirect: DEFAULT_USERS_URL };
   }
 
   await syncRoleStatusFromUser({ userId: id, trangthai: status });
   await Nguoidung.updateOne({ _id: id, daxoa: { $ne: true } }, { $set: { ngaycapnhat: new Date() } }).catch(() => {});
-  return { ok: true, message: 'Cập nhật trạng thái thành công', redirect: '/admin/users' };
+  return { ok: true, message: 'Cập nhật trạng thái thành công', redirect: DEFAULT_USERS_URL };
 }
 
 async function xoaMem(userId) {
   const id = String(userId || '');
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return { ok: false, message: 'ID không hợp lệ', redirect: '/admin/users' };
+    return { ok: false, message: 'ID không hợp lệ', redirect: DEFAULT_USERS_URL };
   }
 
   await Nguoidung.updateOne(
@@ -308,13 +317,13 @@ async function xoaMem(userId) {
     { $set: { daxoa: true, ngaycapnhat: new Date() } }
   );
 
-  return { ok: true, message: 'Đã xóa (mềm) tài khoản', redirect: '/admin/users' };
+  return { ok: true, message: 'Đã xóa (mềm) tài khoản', redirect: DEFAULT_USERS_URL };
 }
 
 async function capNhatTuChiTiet({ userId, body, referer }) {
   const id = String(userId || '');
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return { ok: false, message: 'ID không hợp lệ', redirect: '/admin/users' };
+    return { ok: false, message: 'ID không hợp lệ', redirect: DEFAULT_USERS_URL };
   }
 
   const hoten = chuanHoaChuoi(body.hoten);
@@ -364,7 +373,7 @@ async function capNhatTuChiTiet({ userId, body, referer }) {
 async function datMatKhauTuChiTiet({ userId, newPassword, confirmPassword, referer }) {
   const id = String(userId || '');
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return { ok: false, message: 'ID không hợp lệ', redirect: '/admin/users' };
+    return { ok: false, message: 'ID không hợp lệ', redirect: DEFAULT_USERS_URL };
   }
 
   const newpassword = String(newPassword || '');
@@ -413,10 +422,12 @@ async function xoaVinhVien(userId, referer) {
     };
   }
 
-  return { ok: true, message: 'Đã xóa vĩnh viễn tài khoản', redirect: '/admin/users' };
+  return { ok: true, message: 'Đã xóa vĩnh viễn tài khoản', redirect: DEFAULT_USERS_URL };
 }
 
 module.exports = {
+  layDuongDanDanhSachMacDinh,
+  xacDinhLoaiFlashKetQua,
   getDanhSachData,
   getDanhSachFallbackData,
   getChiTietData,

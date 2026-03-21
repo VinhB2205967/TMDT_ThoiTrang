@@ -117,18 +117,6 @@ const xoaMem = async (req, res) => {
     }
 };
 
-// Đổi trạng thái
-const doiTrangThai = async (req, res) => {
-    try {
-        const { status } = req.body;
-        await productsAdminService.doiTrangThaiSanPham(req.params.id, status);
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Change status error:', error);
-        res.status(500).json({ success: false, message: 'Không thể thay đổi trạng thái' });
-    }
-};
-
 module.exports = { 
     danhSach,
     taoMoi,
@@ -137,6 +125,5 @@ module.exports = {
     chinhSuaPost,
     xoaMem,
     khoiPhuc,
-    xoaVinhVien,
-    doiTrangThai
+    xoaVinhVien
 };

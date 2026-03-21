@@ -49,6 +49,4 @@ router.post('/:id/delete', requireAuth, controller.xoa);
 router.patch('/:id', requireAuth, uploadReviewMedia, controller.capNhat);
 router.delete('/:id', requireAuth, controller.xoa);
 
-router.get('/products/:id', controller.layDanhSachTheoSanPham);
-
 module.exports = router;

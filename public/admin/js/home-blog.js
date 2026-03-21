@@ -41,7 +41,7 @@
       const fd = new FormData(form);
       fd.set('xuatban', String(Boolean(fd.get('xuatban'))));
 
-      const res = await App.apiFetch('/admin/blog', {
+      const res = await App.apiFetch('/admin/api/blog', {
         method: 'POST',
         body: fd
       });
@@ -71,7 +71,7 @@
 
     if (action === 'delete') {
       if (!App.confirmDelete()) return;
-      const res = await App.apiFetch(`/admin/blog/${id}`, { method: 'DELETE' });
+      const res = await App.apiFetch(`/admin/api/blog/${id}`, { method: 'DELETE' });
       if (res.ok) {
         row.remove();
         thongBaoThanhCong(res, 'Đã xóa bài viết');
@@ -83,7 +83,7 @@
 
     if (action === 'publish') {
       const xuatban = Boolean(row.querySelector('input[name="xuatban"]')?.checked);
-      const res = await App.apiFetch(`/admin/blog/${id}/publish`, {
+      const res = await App.apiFetch(`/admin/api/blog/${id}/publish`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ xuatban })
@@ -110,7 +110,7 @@
         fd.set('image', fileInput.files[0]);
       }
 
-      const res = await App.apiFetch(`/admin/blog/${id}`, {
+      const res = await App.apiFetch(`/admin/api/blog/${id}`, {
         method: 'PUT',
         body: fd
       });

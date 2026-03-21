@@ -1,7 +1,22 @@
 const importsService = require('../../services/inventory/admin-imports.service.js');
+const { redirectBackOrDefault } = require('../../services/communication/redirect.service');
 
 function adminBase(req) {
   return req.app.locals.admin || '/admin';
+}
+
+function importsPath(req, subPath = '') {
+  return importsService.layDuongDanImports({ adminPrefix: adminBase(req), subPath });
+}
+
+function redirectVe(req, res, fallback) {
+  return redirectBackOrDefault(req, res, fallback);
+}
+
+function xuLyKetQuaSSR(req, res, result, { successPath, errorPath }) {
+  if (req.flash && result.message) req.flash(importsService.xacDinhLoaiFlashKetQua(result), result.message);
+  const fallback = result.ok ? successPath : (errorPath || successPath);
+  return redirectVe(req, res, fallback);
 }
 
 const danhSach = async (req, res) => {
@@ -34,16 +49,14 @@ const taoMoiPost = async (req, res) => {
     });
 
     if (!result.ok) {
-      req.flash('error', result.message);
-      return res.redirect(req.get('Referrer') || `${adminBase(req)}/imports/create`);
+      return xuLyKetQuaSSR(req, res, result, { successPath: importsPath(req), errorPath: importsPath(req, 'create') });
     }
 
-    req.flash('success', result.message);
-    return res.redirect(`${adminBase(req)}/imports`);
+    return xuLyKetQuaSSR(req, res, result, { successPath: importsPath(req), errorPath: importsPath(req, 'create') });
   } catch (error) {
     console.error('Create import receipt error:', error);
     req.flash('error', `Không thể tạo phiếu nhập: ${error.message}`);
-    return res.redirect(req.get('Referrer') || `${adminBase(req)}/imports/create`);
+    return redirectVe(req, res, importsPath(req, 'create'));
   }
 };
 
@@ -82,34 +95,34 @@ const chinhSuaPost = async (req, res) => {
     });
 
     if (!result.ok) {
-      req.flash('error', result.message);
-      return res.redirect(req.get('Referrer') || `${adminBase(req)}/imports/${result.receiptId || req.params.id}/edit`);
+      return xuLyKetQuaSSR(req, res, result, {
+        successPath: importsPath(req, `${result.receiptId || req.params.id}`),
+        errorPath: importsPath(req, `${result.receiptId || req.params.id}/edit`)
+      });
     }
 
-    req.flash('success', result.message);
-    return res.redirect(`${adminBase(req)}/imports/${result.receiptId}`);
+    return xuLyKetQuaSSR(req, res, result, {
+      successPath: importsPath(req, `${result.receiptId}`),
+      errorPath: importsPath(req, `${req.params.id}/edit`)
+    });
   } catch (error) {
     console.error('Import receipt edit save error:', error);
     req.flash('error', `Không thể lưu chỉnh sửa: ${error.message}`);
-    return res.redirect(req.get('Referrer') || `${adminBase(req)}/imports/${req.params.id}/edit`);
+    return redirectVe(req, res, importsPath(req, `${req.params.id}/edit`));
   }
 };
 
 const xoaPhieu = async (req, res) => {
   try {
     const result = await importsService.xoaPhieuNhap(req.params.id);
-    if (!result.ok) {
-      req.flash('error', result.message);
-      if (result.receiptId) return res.redirect(`${adminBase(req)}/imports/${result.receiptId}`);
-      return res.redirect(`${adminBase(req)}/imports`);
-    }
-
-    req.flash('success', result.message);
-    return res.redirect(`${adminBase(req)}/imports`);
+    return xuLyKetQuaSSR(req, res, result, {
+      successPath: importsPath(req),
+      errorPath: result.receiptId ? importsPath(req, `${result.receiptId}`) : importsPath(req)
+    });
   } catch (error) {
     console.error('Delete import receipt error:', error);
     req.flash('error', `Không thể xóa phiếu nhập: ${error.message}`);
-    return res.redirect(req.get('Referrer') || `${adminBase(req)}/imports`);
+    return redirectVe(req, res, importsPath(req));
   }
 };
 
@@ -121,18 +134,14 @@ const xuatKhoPhieuPost = async (req, res) => {
       user: req.user
     });
 
-    if (!result.ok) {
-      req.flash('error', result.message);
-      if (result.receiptId) return res.redirect(`${adminBase(req)}/imports/${result.receiptId}`);
-      return res.redirect(`${adminBase(req)}/imports`);
-    }
-
-    req.flash('success', result.message);
-    return res.redirect(`${adminBase(req)}/imports/${result.receiptId}`);
+    return xuLyKetQuaSSR(req, res, result, {
+      successPath: importsPath(req, `${result.receiptId}`),
+      errorPath: result.receiptId ? importsPath(req, `${result.receiptId}`) : importsPath(req)
+    });
   } catch (error) {
     console.error('Export import receipt error:', error);
     req.flash('error', `Không thể xuất kho phiếu nhập: ${error.message}`);
-    return res.redirect(req.get('Referrer') || `${adminBase(req)}/imports`);
+    return redirectVe(req, res, importsPath(req));
   }
 };
 

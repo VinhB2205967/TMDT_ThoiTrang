@@ -1,0 +1,234 @@
+extends ../../layouts/default.pug
+
+block styles
+  style.
+    .review-detail-page {
+      color: #0f172a;
+    }
+    .review-detail-page .card {
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+    }
+    .review-detail-page .card-header {
+      border-bottom: 1px solid rgba(15, 23, 42, 0.12);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #0b1324;
+    }
+    .review-rating {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: #fff3c4;
+      border: 1px solid #f7c948;
+    }
+    .review-rating .bi-star-fill {
+      font-size: 1rem;
+    }
+    .review-rating .off {
+      color: #a1a1aa;
+    }
+    .review-meta-label {
+      color: #475569;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 2px;
+      font-weight: 700;
+    }
+    .review-media-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 10px;
+    }
+    .review-media-thumb {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 1px solid rgba(15, 23, 42, 0.2);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      background: #f8fafc;
+      cursor: zoom-in;
+    }
+    .review-media-thumb:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
+    }
+    .review-video-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 10px;
+    }
+    .review-video-trigger {
+      width: 100%;
+      text-align: left;
+      border: 1px solid rgba(15, 23, 42, 0.2);
+      background: #f8fafc;
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: #1e293b;
+      font-weight: 600;
+    }
+    .review-video-trigger:hover {
+      background: #eef2ff;
+      border-color: #6475e3;
+    }
+    .review-preview-video {
+      width: 100%;
+      max-height: 70vh;
+      border-radius: 10px;
+      background: #000;
+    }
+    .review-preview-image {
+      width: 100%;
+      max-height: 75vh;
+      object-fit: contain;
+      border-radius: 10px;
+      background: #0f172a;
+    }
+
+block main
+  .container-fluid.p-4.review-detail-page
+    .d-flex.justify-content-between.align-items-center.flex-wrap.gap-2.mb-3
+      h1.mb-0 Chi tiết đánh giá
+      a.btn.btn-outline-secondary(href=(listUrl || '/admin/reviews')) Quay lại danh sách
+
+    if !review
+      .alert.alert-warning Không tìm thấy dữ liệu đánh giá.
+    else
+      .row.g-3
+        .col-12.col-xl-8
+          .card.border-0.shadow-sm
+            .card-header.bg-white.fw-semibold Nội dung đánh giá
+            .card-body
+              .mb-3.d-flex.align-items-center.flex-wrap.gap-2
+                span.badge(class=review.hienthi ? 'bg-success' : 'bg-danger') #{review.hienthi ? 'Hiện' : 'Ẩn'}
+                .review-rating
+                  - const diem = Number(review.diem || 0)
+                  each star in [1,2,3,4,5]
+                    i.bi.bi-star-fill(class=(star <= diem ? 'text-warning' : 'off'))
+                  span.fw-semibold.ms-1 #{diem}/5
+                if review.biBaoCao
+                  span.badge.bg-warning.text-dark Bị báo cáo
+              if review.tieude
+                h5.mb-2 #{review.tieude}
+              p.mb-0(style='white-space: pre-wrap;') #{review.noidung || '—'}
+
+          .card.border-0.shadow-sm.mt-3
+            .card-header.bg-white.fw-semibold Ảnh / Video
+            .card-body
+              - const images = Array.isArray(review.hinhanh) ? review.hinhanh : []
+              - const videos = Array.isArray(review.videos) ? review.videos : []
+              if !images.length && !videos.length
+                .text-muted Không có media.
+              if images.length
+                .mb-3
+                  .fw-semibold.mb-2 Ảnh
+                  .review-media-grid
+                    each img in images
+                      button.btn.p-0.border-0.bg-transparent(type='button' data-review-media='image' data-review-src=img)
+                        img.review-media-thumb(src=img alt='review-image')
+              if videos.length
+                .fw-semibold.mb-2 Video
+                .review-video-grid
+                  each v, idx in videos
+                    button.review-video-trigger(type='button' data-review-media='video' data-review-src=v)
+                      i.bi.bi-play-btn-fill.me-2
+                      | Video #{idx + 1}
+
+        .col-12.col-xl-4
+          .card.border-0.shadow-sm
+            .card-header.bg-white.fw-semibold Thông tin liên quan
+            .card-body
+              .mb-2
+                .review-meta-label Sản phẩm
+                .fw-semibold #{(review.sanpham_id && review.sanpham_id.tensanpham) || '—'}
+                if productStats && productStats.totalReviews > 0
+                  .small.text-muted TB: #{productStats.avgRating}/5 (#{productStats.totalReviews} đánh giá)
+              .mb-2
+                .review-meta-label Người dùng
+                .fw-semibold #{(review.nguoidung_id && (review.nguoidung_id.hoten || review.nguoidung_id.email)) || '—'}
+              .mb-2
+                .review-meta-label Đơn hàng
+                .fw-semibold #{(review.donhang_id && review.donhang_id.madonhang) || '—'}
+              .mb-2
+                .review-meta-label Màu / Size
+                .fw-semibold #{review.mausac || '—'} / #{review.kichco || '—'}
+              .mb-2
+                .review-meta-label Ngày tạo
+                .fw-semibold #{review.ngaytao ? new Date(review.ngaytao).toLocaleString('vi-VN') : '—'}
+              if review.lydoan
+                .mb-2
+                  .review-meta-label Lý do ẩn
+                  .fw-semibold #{review.lydoan}
+              if review.anboi
+                .mb-2
+                  .review-meta-label Ẩn bởi
+                  .fw-semibold #{review.anboi.hoten || review.anboi.email || '—'}
+              if review.ngayan
+                .mb-2
+                  .review-meta-label Ngày ẩn
+                  .fw-semibold #{new Date(review.ngayan).toLocaleString('vi-VN')}
+
+      .modal.fade#reviewMediaPreviewModal(tabindex='-1' aria-hidden='true')
+        .modal-dialog.modal-xl.modal-dialog-centered
+          .modal-content
+            .modal-header
+              h5.modal-title Xem media
+              button.btn-close(type='button' data-bs-dismiss='modal' aria-label='Close')
+            .modal-body
+              #reviewMediaPreviewContainer
+            .modal-footer
+              button.btn.btn-secondary(type='button' data-bs-dismiss='modal') Đóng
+
+block scripts
+  script.
+    (function () {
+      const modalEl = document.getElementById('reviewMediaPreviewModal');
+      const container = document.getElementById('reviewMediaPreviewContainer');
+      if (!modalEl || !container || !window.bootstrap) return;
+
+      const previewModal = new window.bootstrap.Modal(modalEl);
+
+      document.addEventListener('click', (event) => {
+        const trigger = event.target.closest('[data-review-media]');
+        if (!trigger) return;
+
+        const mediaType = trigger.getAttribute('data-review-media');
+        const src = trigger.getAttribute('data-review-src');
+        if (!src) return;
+
+        container.innerHTML = '';
+
+        if (mediaType === 'video') {
+          const video = document.createElement('video');
+          video.className = 'review-preview-video';
+          video.src = src;
+          video.controls = true;
+          video.autoplay = true;
+          container.appendChild(video);
+        } else {
+          const img = document.createElement('img');
+          img.className = 'review-preview-image';
+          img.src = src;
+          img.alt = 'review-media-preview';
+          container.appendChild(img);
+        }
+
+        previewModal.show();
+      });
+
+      modalEl.addEventListener('hidden.bs.modal', () => {
+        const video = container.querySelector('video');
+        if (video) {
+          video.pause();
+          video.removeAttribute('src');
+          video.load();
+        }
+        container.innerHTML = '';
+      });
+    })();

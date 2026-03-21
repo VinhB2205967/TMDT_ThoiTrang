@@ -7,21 +7,53 @@ const BlogPost = require('../../models/blog_model');
 const Sanpham = require('../../models/product_model');
 const { getFlashSaleActive } = require('../catalog/flashSale.service.js');
 
+const HOME_SECTION_TITLES = {
+  banner_slider: 'Banner Slider',
+  new_products: 'Sản phẩm mới',
+  best_sellers: 'Bán chạy nhất',
+  flash_sale: 'Flash Sale',
+  brands: 'Thương hiệu nổi bật',
+  lookbook: 'Lookbook',
+  blog: 'Blog thời trang'
+};
+
 const defaultSections = [
   { key: 'banner_slider', tieuDe: 'Banner Slider', hienthi: true, thuTu: 1, config: {} },
-  { key: 'new_products', tieuDe: 'San pham moi', hienthi: true, thuTu: 2, config: { limit: 8 } },
-  { key: 'best_sellers', tieuDe: 'Ban chay nhat', hienthi: true, thuTu: 3, config: { limit: 8 } },
+  { key: 'new_products', tieuDe: 'Sản phẩm mới', hienthi: true, thuTu: 2, config: { limit: 8 } },
+  { key: 'best_sellers', tieuDe: 'Bán chạy nhất', hienthi: true, thuTu: 3, config: { limit: 8 } },
   { key: 'flash_sale', tieuDe: 'Flash Sale', hienthi: true, thuTu: 4, config: {} },
-  { key: 'brands', tieuDe: 'Thuong hieu noi bat', hienthi: true, thuTu: 5, config: {} },
+  { key: 'brands', tieuDe: 'Thương hiệu nổi bật', hienthi: true, thuTu: 5, config: {} },
   { key: 'lookbook', tieuDe: 'Lookbook', hienthi: true, thuTu: 6, config: {} },
-  { key: 'blog', tieuDe: 'Blog thoi trang', hienthi: true, thuTu: 7, config: { limit: 6 } }
+  { key: 'blog', tieuDe: 'Blog thời trang', hienthi: true, thuTu: 7, config: { limit: 6 } }
 ];
 
+function normalizeSectionTitle(section) {
+  const key = String(section?.key || '').trim();
+  if (!key || !HOME_SECTION_TITLES[key]) return section;
+
+  const rawTitle = String(section?.tieuDe || '').trim().toLowerCase();
+  const shouldReplace = !rawTitle
+    || rawTitle === 'san pham moi'
+    || rawTitle === 'ban chay nhat'
+    || rawTitle === 'thuong hieu noi bat'
+    || rawTitle === 'blog thoi trang';
+
+  if (!shouldReplace) return section;
+  return { ...section, tieuDe: HOME_SECTION_TITLES[key] };
+}
+
 function mergeSections(dbSections) {
-  if (!Array.isArray(dbSections) || dbSections.length === 0) return [...defaultSections];
-  const map = new Map(dbSections.map((s) => [s.key, s]));
-  const merged = defaultSections.map((d) => ({ ...d, ...(map.get(d.key) || {}) }));
-  return merged.sort((a, b) => (a.thuTu || 0) - (b.thuTu || 0));
+  const raw = Array.isArray(dbSections) && dbSections.length > 0 ? dbSections : [];
+  const map = new Map(raw.map((s) => [s.key, s]));
+  const merged = defaultSections.map((d) => normalizeSectionTitle({ ...d, ...(map.get(d.key) || {}) }));
+
+  const banner = merged.find((s) => s.key === 'banner_slider');
+  const others = merged
+    .filter((s) => s.key !== 'banner_slider')
+    .sort((a, b) => (a.thuTu || 0) - (b.thuTu || 0));
+
+  if (!banner) return others;
+  return [{ ...banner, thuTu: 1 }, ...others];
 }
 
 function getSettingValue(map, key, fallback) {

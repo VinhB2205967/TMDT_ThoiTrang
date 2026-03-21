@@ -15,7 +15,6 @@ router.post('/image-search', (req, res, next) => {
 // Specific routes MUST come before :id
 router.get('/', controller.danhSach);
 router.get('/filter', controller.danhSach);
-router.get('/:id/options', controller.tuyChon);
 router.get('/:id', controller.chiTiet);
 
 module.exports = router;

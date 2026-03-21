@@ -3,7 +3,6 @@ const router = express.Router();
 const controller = require('../../controllers/admin/users_controller');
 
 router.get('/', controller.danhSach);
-router.get('/online', controller.anhChupOnline);
 router.get('/:id', controller.chiTiet);
 
 router.post('/:id/update', controller.capNhatTuChiTiet);

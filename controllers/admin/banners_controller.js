@@ -1,85 +1,58 @@
-const Banner = require('../../models/banner_model');
+const bannersService = require('../../services/content/admin-banners.service');
+const { redirectBackOrDefault } = require('../../services/communication/redirect.service');
+
+function xuLyKetQuaSSR(req, res, result) {
+  if (req.flash && result.message) req.flash(result.ok ? 'success' : 'error', result.message);
+  return redirectBackOrDefault(req, res, '/admin/banners');
+}
 
 module.exports.danhSach = async (req, res) => {
-  const data = await Banner.find({}).sort({ thuTu: 1, ngaytao: -1 }).lean();
-  const ctaLinkSuggestions = [
-    '/',
-    '/products',
-    '/products?sort=ngaytao-desc',
-    '/products?sort=gia-asc',
-    '/products?sort=gia-desc',
-    '/products?loaisanpham=ao',
-    '/products?loaisanpham=quan',
-    '/products?loaisanpham=vay',
-    '/products?gioitinh=nu',
-    '/products?gioitinh=nam',
-    '/lookbook',
-    '/blog',
-    '/brands',
-    '/#flash-sale',
-    '/#new-products',
-    '/#best-sellers'
-  ];
-  const want = req.accepts(['html', 'json']);
-  if (want === 'html') {
+  try {
+    const result = await bannersService.layDanhSachBanner();
     return res.render('admin/pages/home/banners.pug', {
       titlePage: 'Quản lý Banner',
-      banners: data,
-      bannerTypes: ['collection', 'sale', 'lookbook', 'general'],
-      ctaLinkSuggestions
+      banners: result.data,
+      bannerTypes: result.meta.bannerTypes,
+      ctaLinkSuggestions: result.meta.ctaLinkSuggestions
     });
+  } catch (error) {
+    console.error('banners.danhSach error:', error);
+    return res.status(500).send('Không thể tải danh sách banner');
   }
-  return res.json({ success: true, data });
 };
 
 module.exports.taoMoi = async (req, res) => {
-  const image = req.file?.filename ? `/uploads/banners/${req.file.filename}` : (req.body.hinhanh || '');
-  if (!image) return res.status(400).json({ success: false, message: 'Thiếu hình ảnh' });
-
-  const payload = {
-    tieude: req.body.tieude,
-    mota: req.body.mota,
-    hinhanh: image,
-    nut_text: req.body.nut_text,
-    nut_link: req.body.nut_link,
-    loai: req.body.loai || 'general',
-    hienthi: req.body.hienthi !== undefined ? String(req.body.hienthi) === 'true' || req.body.hienthi === true : true,
-    thuTu: Number(req.body.thuTu || 0)
-  };
-
-  const data = await Banner.create(payload);
-  res.json({ success: true, data });
+  try {
+    const result = await bannersService.taoBanner({ body: req.body || {}, file: req.file });
+    return xuLyKetQuaSSR(req, res, result);
+  } catch (error) {
+    return xuLyKetQuaSSR(req, res, { ok: false, message: error.message });
+  }
 };
 
 module.exports.capNhat = async (req, res) => {
-  const payload = {};
-  if (req.body.tieude !== undefined) payload.tieude = req.body.tieude;
-  if (req.body.mota !== undefined) payload.mota = req.body.mota;
-  if (req.body.nut_text !== undefined) payload.nut_text = req.body.nut_text;
-  if (req.body.nut_link !== undefined) payload.nut_link = req.body.nut_link;
-  if (req.body.loai !== undefined) payload.loai = req.body.loai;
-  if (req.body.hienthi !== undefined) payload.hienthi = String(req.body.hienthi) === 'true' || req.body.hienthi === true;
-  if (req.body.thuTu !== undefined) payload.thuTu = Number(req.body.thuTu || 0);
-
-  if (req.file?.filename) {
-    payload.hinhanh = `/uploads/banners/${req.file.filename}`;
+  try {
+    const result = await bannersService.capNhatBanner({ id: req.params.id, body: req.body || {}, file: req.file });
+    return xuLyKetQuaSSR(req, res, result);
+  } catch (error) {
+    return xuLyKetQuaSSR(req, res, { ok: false, message: error.message });
   }
-
-  const data = await Banner.findByIdAndUpdate(req.params.id, payload, { new: true });
-  if (!data) return res.status(404).json({ success: false, message: 'Not found' });
-  res.json({ success: true, data });
 };
 
 module.exports.xoa = async (req, res) => {
-  const data = await Banner.findByIdAndDelete(req.params.id);
-  if (!data) return res.status(404).json({ success: false, message: 'Not found' });
-  res.json({ success: true });
+  try {
+    const result = await bannersService.xoaBanner({ id: req.params.id });
+    return xuLyKetQuaSSR(req, res, result);
+  } catch (error) {
+    return xuLyKetQuaSSR(req, res, { ok: false, message: error.message });
+  }
 };
 
 module.exports.batTat = async (req, res) => {
-  const data = await Banner.findById(req.params.id);
-  if (!data) return res.status(404).json({ success: false, message: 'Not found' });
-  data.hienthi = !data.hienthi;
-  await data.save();
-  res.json({ success: true, data });
+  try {
+    const result = await bannersService.batTatBanner({ id: req.params.id });
+    return xuLyKetQuaSSR(req, res, result);
+  } catch (error) {
+    return xuLyKetQuaSSR(req, res, { ok: false, message: error.message });
+  }
 };
