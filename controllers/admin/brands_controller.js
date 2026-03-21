@@ -1,4 +1,4 @@
-const Brand = require('../../models/brand_model');
+﻿const Brand = require('../../models/brand_model');
 const Sanpham = require('../../models/product_model');
 const mongoose = require('mongoose');
 

@@ -175,18 +175,21 @@ function buildStatusClass(status) {
   }
 }
 
-function buildOrderMatch(filters, range) {
+function buildOrderMatch(filters, range, options = {}) {
+  const prefix = String(options.prefix || '');
+  const path = (field) => `${prefix}${field}`;
+
   const match = {
-    daxoa: { $ne: true },
-    $or: [{ trangthai: 'dagiao' }, { dathanhtoan: true }]
+    [path('daxoa')]: { $ne: true },
+    $or: [{ [path('trangthai')]: 'dagiao' }, { [path('dathanhtoan')]: true }]
   };
 
   if (filters.status && filters.status !== 'all') {
-    match.trangthai = filters.status;
+    match[path('trangthai')] = filters.status;
   }
 
   if (range && range.from && range.to) {
-    match.ngaytao = { $gte: range.from, $lte: range.to };
+    match[path('ngaytao')] = { $gte: range.from, $lte: range.to };
   }
 
   return match;
@@ -244,8 +247,43 @@ function resolveCostAtDate(costTimeline, item, orderDate) {
   return resolved;
 }
 
+function toPositiveNumber(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return n;
+}
+
+function calcFifoCostFromItem(item) {
+  const rows = Array.isArray(item?.fifoAllocations) ? item.fifoAllocations : [];
+  if (!rows.length) {
+    return {
+      hasFifo: false,
+      qtyFromFifo: 0,
+      costFromFifo: 0
+    };
+  }
+
+  let qtyFromFifo = 0;
+  let costFromFifo = 0;
+
+  rows.forEach((row) => {
+    const soLuong = toPositiveNumber(row?.soLuong);
+    if (soLuong <= 0) return;
+
+    const giaNhap = Math.max(0, Number(row?.giaNhap || 0));
+    qtyFromFifo += soLuong;
+    costFromFifo += (soLuong * giaNhap);
+  });
+
+  return {
+    hasFifo: qtyFromFifo > 0,
+    qtyFromFifo,
+    costFromFifo
+  };
+}
+
 function buildItemPipeline(filters, range) {
-  const orderMatch = buildOrderMatch(filters, range);
+  const orderMatch = buildOrderMatch(filters, range, { prefix: 'order.' });
 
   const pipeline = [
     {
@@ -288,6 +326,7 @@ function buildItemPipeline(filters, range) {
       orderId: '$donhang_id',
       itemQty: '$soluong',
       itemRevenue: 1,
+      fifoAllocations: { $ifNull: ['$fifoAllocations', []] },
       productName: { $ifNull: ['$tensanpham', '$product.tensanpham'] },
       productId: '$sanpham_id',
       variantId: '$bienthe_id',
@@ -400,8 +439,17 @@ async function getDuLieuBaoCao(query = {}) {
 
     const revenue = Number(item.itemRevenue || 0);
     const qty = Number(item.itemQty || 0);
-    const unitCost = resolveCostAtDate(costTimeline, item, order.ngaytao);
-    const cost = unitCost * qty;
+    const fifoCost = calcFifoCostFromItem(item);
+
+    let cost = fifoCost.costFromFifo;
+    if (!fifoCost.hasFifo) {
+      const unitCost = resolveCostAtDate(costTimeline, item, order.ngaytao);
+      cost = unitCost * qty;
+    } else if (fifoCost.qtyFromFifo < qty) {
+      const unitCost = resolveCostAtDate(costTimeline, item, order.ngaytao);
+      const missingQty = Math.max(0, qty - fifoCost.qtyFromFifo);
+      cost += (unitCost * missingQty);
+    }
 
     totalCost += cost;
     totalQty += qty;

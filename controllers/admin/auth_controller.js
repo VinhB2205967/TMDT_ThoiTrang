@@ -1,4 +1,4 @@
-const bcrypt = require('bcryptjs');
+﻿const bcrypt = require('bcryptjs');
 const nguoidung = require('../../models/user_model');
 const systemConfig = require('../../config/system');
 const { writeLoginLog } = require('../../services/loginLog');

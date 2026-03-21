@@ -64,7 +64,7 @@ module.exports.tongQuanDonMoi = async (req, res) => {
 
 module.exports.capNhatTrangThai = async (req, res) => {
   const id = req.params.id;
-  const nextStatus = String(req.body.trangthai || '').trim();
+  const nextStatus = String(req.body.status || req.body.trangthai || '').trim();
   const returnTo = ordersAdminService.layDuongDanDanhSachHopLe(req.body.returnTo) || ordersAdminService.layDuongDanDanhSachHopLe(req.query.returnTo) || '/admin/orders';
 
   try {
@@ -76,15 +76,15 @@ module.exports.capNhatTrangThai = async (req, res) => {
 
     if (!result.ok) {
       req.flash(result.code === 'MAIL_ERROR' ? 'warning' : 'error', result.message);
-      return res.redirect(`/admin/orders/detail/${id}?returnTo=${encodeURIComponent(returnTo)}`);
+      return res.redirect(`/admin/orders/${id}?returnTo=${encodeURIComponent(returnTo)}`);
     }
 
     req.flash('success', result.message || 'Cập nhật trạng thái thành công');
-    return res.redirect(`/admin/orders/detail/${id}?returnTo=${encodeURIComponent(returnTo)}`);
+    return res.redirect(`/admin/orders/${id}?returnTo=${encodeURIComponent(returnTo)}`);
   } catch (err) {
     console.error('orders.capNhatTrangThai error:', err);
     req.flash('error', 'Lỗi hệ thống khi cập nhật trạng thái');
-    return res.redirect(`/admin/orders/detail/${id}?returnTo=${encodeURIComponent(returnTo)}`);
+    return res.redirect(`/admin/orders/${id}?returnTo=${encodeURIComponent(returnTo)}`);
   }
 };
 
@@ -92,7 +92,7 @@ module.exports.duyetHoanHang = async (req, res) => {
   try {
     const result = await ordersAdminService.duyetHoanHang({
       id: req.params.id,
-      note: req.body.adminNote
+      note: req.body.note || req.body.adminNote
     });
     req.flash(result.ok ? 'success' : 'error', result.message);
   } catch (err) {
@@ -107,7 +107,7 @@ module.exports.tuChoiHoanHang = async (req, res) => {
   try {
     const result = await ordersAdminService.tuChoiHoanHang({
       id: req.params.id,
-      note: req.body.adminNote
+      note: req.body.note || req.body.adminNote
     });
     req.flash(result.ok ? 'success' : 'error', result.message);
   } catch (err) {
@@ -163,7 +163,7 @@ module.exports.huyDon = async (req, res) => {
   try {
     const result = await ordersAdminService.huyDon({
       id: req.params.id,
-      reason: req.body.lydohuy
+      reason: req.body.reason || req.body.lydohuy
     });
 
     req.flash(result.ok ? (result.isPartial ? 'warning' : 'success') : 'error', result.message);

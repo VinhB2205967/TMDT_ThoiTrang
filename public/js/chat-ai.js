@@ -121,6 +121,13 @@
 			.replace(/\s{2,}/g, ' ')
 			.trim();
 
+		// Repair malformed path fragments produced by AI text transforms.
+		raw = raw
+			.replace(/(^|\/)s[aả]n\s*[-_]?\s*ph[aẩ]m\//gi, '$1products/')
+			.replace(/(^|\/)san\s*[-_]?\s*pham\//gi, '$1products/')
+			.replace(/(^|\/)ph[aẩ]m\//gi, '$1products/')
+			.replace(/(^|\/)pham\//gi, '$1products/');
+
 		const queryMatch = raw.match(/\?[^\s#)]+/);
 		const query = queryMatch ? queryMatch[0] : '';
 
@@ -133,14 +140,14 @@
 			.replace(/\s+/g, ' ')
 			.trim();
 
-		const mentionsProductPath = /\/(?:san\s*pham|sản\s*phẩm|products?)\b/i.test(lower);
+		const mentionsProductPath = /\/(?:san\s*[-_]?\s*pham|products?|pham)\b/i.test(lower);
 
 		if (byId && mentionsProductPath) {
 			const id = byId[1];
 			return `/products/${id}`;
 		}
 
-		if (lower.includes('/san pham') || lower.includes('/sản phẩm') || /\/products?\s*pham\b/i.test(lower)) {
+		if (lower.includes('/san pham') || lower.includes('/san-pham') || /\/products?\s*pham\b/i.test(lower) || /(?:^|\/)pham\/[a-f0-9]{24}/i.test(lower)) {
 			return byId ? `/products/${byId[1]}` : '';
 		}
 
@@ -154,6 +161,7 @@
 		const normalized = raw
 			.replace(/\*\*/g, '')
 			.replace(/^\s*#{1,6}\s*/gm, '')
+			.replace(/(?:s[aả]n\s*[-_]?\s*ph[aẩ]m|san\s*[-_]?\s*pham|ph[aẩ]m|pham)\/([a-f0-9]{24})/gi, '/products/$1')
 			.replace(/:\s*(?=\d+\.\s)/g, ':\n')
 			.replace(/([\p{L}\)])\s(?=\d+\.\s)/gu, '$1\n')
 			.replace(/(tại\s+đây)\s(?=\d+\.)/gi, '$1\n')
@@ -282,7 +290,7 @@
 		// If answer is numbered list, keep exactly one link per item based on product name mention.
 		const blocks = output.match(/\d+\.[\s\S]*?(?=\n\d+\.|$)/g);
 		if (blocks && blocks.length > 0) {
-			const rebuilt = blocks.map((block) => {
+			const rebuilt = blocks.map((block, blockIndex) => {
 				const cleanBlock = String(block || '')
 					.replace(/\[tại\s+đây\]\([^)]*\)/gi, '')
 					.replace(/\btại\s+đây\b/gi, '')
@@ -301,8 +309,13 @@
 					}
 				}
 
+				if (!picked && products[blockIndex] && products[blockIndex].url) {
+					picked = products[blockIndex];
+				}
+
 				if (!picked || !picked.url) return cleanBlock;
 				const detailUrl = normalizeProductUrl(String(picked.url));
+				if (!detailUrl) return cleanBlock;
 				return `${cleanBlock} Xem thêm: [tại đây](${detailUrl})`;
 			});
 

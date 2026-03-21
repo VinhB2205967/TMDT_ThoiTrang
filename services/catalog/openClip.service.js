@@ -12,8 +12,9 @@ const OPENCLIP_SCRIPT_PATH = String(
 const OPENCLIP_MODEL_NAME = String(process.env.OPENCLIP_MODEL_NAME || 'ViT-B-32').trim() || 'ViT-B-32';
 const OPENCLIP_PRETRAINED = String(process.env.OPENCLIP_PRETRAINED || 'laion2b_s34b_b79k').trim() || 'laion2b_s34b_b79k';
 const OPENCLIP_TIMEOUT_MS = Number(process.env.OPENCLIP_TIMEOUT_MS || 40000);
+const OPENCLIP_STARTUP_TIMEOUT_MS = Number(process.env.OPENCLIP_STARTUP_TIMEOUT_MS || Math.max(OPENCLIP_TIMEOUT_MS, 300000));
 const OPENCLIP_TEXT_CANDIDATE_LIMIT = Number(process.env.OPENCLIP_TEXT_CANDIDATE_LIMIT || process.env.OPENCLIP_CANDIDATE_LIMIT || 120);
-const OPENCLIP_IMAGE_CANDIDATE_LIMIT = Number(process.env.OPENCLIP_IMAGE_CANDIDATE_LIMIT || 360);
+const OPENCLIP_IMAGE_CANDIDATE_LIMIT = Number(process.env.OPENCLIP_IMAGE_CANDIDATE_LIMIT || 220);
 const OPENCLIP_TOP_K = Number(process.env.OPENCLIP_TOP_K || 6);
 const OPENCLIP_IMAGE_CACHE_TTL_MS = Number(process.env.OPENCLIP_IMAGE_CACHE_TTL_MS || 120000);
 const OPENCLIP_IMAGE_CACHE_MAX = Number(process.env.OPENCLIP_IMAGE_CACHE_MAX || 80);
@@ -201,8 +202,20 @@ function getPythonCandidates() {
 }
 
 function buildWorkerError(message, state, rawPayload) {
-  const suffix = state && state.stderr
-    ? `:${String(state.stderr).trim()}`
+  const stderr = String(state && state.stderr ? state.stderr : '')
+    .split(/\r?\n/)
+    .map((line) => String(line || '').trim())
+    .filter(Boolean)
+    .filter((line) => {
+      const lower = line.toLowerCase();
+      if (lower.includes('you are sending unauthenticated requests to the hf hub')) return false;
+      if (lower.startsWith('warning:huggingface_hub.utils._http:warning:')) return false;
+      return true;
+    })
+    .join('\n');
+
+  const suffix = stderr
+    ? `:${stderr}`
     : '';
   const error = new Error(`${message}${suffix}`);
   error.rawPayload = rawPayload;
@@ -376,7 +389,7 @@ async function ensureWorker(pythonBin) {
 
   const nextWorker = createWorkerState(pythonBin);
   activeWorkerStartupBin = pythonBin;
-  activeWorkerStartup = sendWorkerRequest(nextWorker, { command: 'ping', warm: true })
+  activeWorkerStartup = sendWorkerRequest(nextWorker, { command: 'ping', warm: true }, OPENCLIP_STARTUP_TIMEOUT_MS)
     .then(() => {
       const previous = activeWorker;
       activeWorker = nextWorker;
@@ -407,6 +420,15 @@ async function runPythonRankWithBin({ pythonBin, query, imageQueryPath, candidat
   });
 }
 
+async function runPythonClassifyWithBin({ pythonBin, imageQueryPath, labels }) {
+  const worker = await ensureWorker(pythonBin);
+  return sendWorkerRequest(worker, {
+    command: 'classify',
+    imageQueryPath: String(imageQueryPath || '').trim(),
+    labels: Array.isArray(labels) ? labels : []
+  });
+}
+
 async function runPythonRank({ query, imageQueryPath, candidates, topK = OPENCLIP_TOP_K }) {
   const candidatesBin = getPythonCandidates();
   let lastError = null;
@@ -414,6 +436,27 @@ async function runPythonRank({ query, imageQueryPath, candidates, topK = OPENCLI
   for (const pythonBin of candidatesBin) {
     try {
       return await runPythonRankWithBin({ pythonBin, query, imageQueryPath, candidates, topK });
+    } catch (error) {
+      lastError = error;
+      const shouldRetry = isRetryableWorkerError(error);
+      if (!shouldRetry) throw error;
+      if (activeWorker && activeWorker.pythonBin === pythonBin) {
+        stopWorker(activeWorker);
+        activeWorker = null;
+      }
+    }
+  }
+
+  throw lastError || new Error('OPENCLIP_PYTHON_NOT_AVAILABLE');
+}
+
+async function runPythonClassify({ imageQueryPath, labels }) {
+  const candidatesBin = getPythonCandidates();
+  let lastError = null;
+
+  for (const pythonBin of candidatesBin) {
+    try {
+      return await runPythonClassifyWithBin({ pythonBin, imageQueryPath, labels });
     } catch (error) {
       lastError = error;
       const shouldRetry = isRetryableWorkerError(error);
@@ -482,7 +525,7 @@ async function rankProductsByImage({ imagePath, products, topK = OPENCLIP_TOP_K 
 
   const workerTopK = Math.min(
     Math.max(1, candidates.length),
-    Math.max(120, Number(topK || 1) * 4)
+    Math.max(80, Number(topK || 1) * 3)
   );
 
   const result = await runPythonRank({ imageQueryPath: imagePath, candidates, topK: workerTopK });
@@ -505,6 +548,47 @@ async function rankProductsByImage({ imagePath, products, topK = OPENCLIP_TOP_K 
 
   setCachedImageRank(cacheKey, output);
   return output;
+}
+
+async function classifyImageCategory({ imagePath, labels }) {
+  if (!isEnabled()) {
+    return { used: false, reason: 'OPENCLIP_DISABLED', predictedKey: '', labels: [], meta: {} };
+  }
+
+  if (!imagePath || !fs.existsSync(imagePath)) {
+    return { used: false, reason: 'QUERY_IMAGE_NOT_FOUND', predictedKey: '', labels: [], meta: {} };
+  }
+
+  const normalizedLabels = Array.isArray(labels)
+    ? labels
+      .map((item) => {
+        if (!item || typeof item !== 'object') return null;
+        const key = String(item.key || '').trim();
+        const prompts = Array.isArray(item.prompts)
+          ? item.prompts.map((prompt) => String(prompt || '').trim()).filter(Boolean)
+          : [];
+        if (!key || prompts.length === 0) return null;
+        return { key, prompts };
+      })
+      .filter(Boolean)
+    : [];
+
+  if (normalizedLabels.length === 0) {
+    return { used: false, reason: 'NO_LABELS', predictedKey: '', labels: [], meta: {} };
+  }
+
+  const result = await runPythonClassify({ imageQueryPath: imagePath, labels: normalizedLabels });
+  return {
+    used: true,
+    predictedKey: String(result.predictedKey || '').trim(),
+    labels: Array.isArray(result.labels) ? result.labels : [],
+    meta: {
+      model: String(result.model || OPENCLIP_MODEL_NAME),
+      pretrained: String(result.pretrained || OPENCLIP_PRETRAINED),
+      device: String(result.device || ''),
+      mode: String(result.mode || 'classify')
+    }
+  };
 }
 
 async function prewarmOpenClipWorker() {
@@ -544,6 +628,7 @@ async function prewarmOpenClipWorker() {
 module.exports = {
   rankProductsByQuery,
   rankProductsByImage,
+  classifyImageCategory,
   isEnabled,
   prewarmOpenClipWorker
 };

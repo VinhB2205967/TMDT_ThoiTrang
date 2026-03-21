@@ -83,6 +83,188 @@ function isGeminiTransientError(message) {
     || m.includes('this operation was aborted');
 }
 
+function isOllamaInsufficientMemoryError(message) {
+  const m = String(message || '').toLowerCase();
+  return m.includes('requires more system memory')
+    || (m.includes('system memory') && m.includes('available'))
+    || m.includes('insufficient memory');
+}
+
+function parseMoneyToVnd(valueText, unitText = '') {
+  const rawNumber = String(valueText || '').replace(/\s+/g, '').replace(/,/g, '.').replace(/\.(?=\d{3}(\D|$))/g, '');
+  const base = Number(rawNumber);
+  if (!Number.isFinite(base) || base <= 0) return 0;
+
+  const unit = String(unitText || '').toLowerCase();
+  if (unit.startsWith('tr') || unit.includes('trieu') || unit.includes('triệu')) return Math.round(base * 1000000);
+  if (unit === 'k' || unit.includes('ngan') || unit.includes('ngàn')) return Math.round(base * 1000);
+  // Vietnamese shopping queries often use shorthand like "duoi 60" meaning 60.000đ.
+  if (!unit && base < 1000) return Math.round(base * 1000);
+  return Math.round(base);
+}
+
+function extractPriceConstraint(question) {
+  const q = normalizeText(question)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd');
+
+  const amount = '(\\d[\\d\\s.,]*)(?:\\s*(k|ngan|tr|trieu|d))?';
+
+  const rangeMatch = q.match(new RegExp(`(?:tu|from)\\s*${amount}\\s*(?:den|toi|to|-)\\s*${amount}`));
+  if (rangeMatch) {
+    const min = parseMoneyToVnd(rangeMatch[1], rangeMatch[2]);
+    const max = parseMoneyToVnd(rangeMatch[3], rangeMatch[4]);
+    if (min > 0 && max > 0) {
+      return {
+        min: Math.min(min, max),
+        max: Math.max(min, max),
+        minInclusive: true,
+        maxInclusive: true
+      };
+    }
+  }
+
+  const underMatch = q.match(new RegExp(`(?:duoi|nho hon|it hon|less than)\\s*${amount}`));
+  if (underMatch) {
+    const max = parseMoneyToVnd(underMatch[1], underMatch[2]);
+    if (max > 0) return { max, maxInclusive: false };
+  }
+
+  const maxMatch = q.match(new RegExp(`(?:toi da|khong qua|khong vuot qua|max|duoi bang|<=)\\s*${amount}`));
+  if (maxMatch) {
+    const max = parseMoneyToVnd(maxMatch[1], maxMatch[2]);
+    if (max > 0) return { max, maxInclusive: true };
+  }
+
+  const overMatch = q.match(new RegExp(`(?:tren|lon hon|hon|more than|greater than)\\s*${amount}`));
+  if (overMatch) {
+    const min = parseMoneyToVnd(overMatch[1], overMatch[2]);
+    if (min > 0) return { min, minInclusive: false };
+  }
+
+  const minMatch = q.match(new RegExp(`(?:tu|from|>=|tren bang)\\s*${amount}`));
+  if (minMatch) {
+    const min = parseMoneyToVnd(minMatch[1], minMatch[2]);
+    if (min > 0) return { min, minInclusive: true };
+  }
+
+  return null;
+}
+
+function matchPriceConstraint(price, constraint) {
+  const amount = Number(price || 0);
+  if (!constraint || !Number.isFinite(amount) || amount <= 0) return true;
+
+  if (Number.isFinite(constraint.min)) {
+    const allow = constraint.minInclusive ? amount >= constraint.min : amount > constraint.min;
+    if (!allow) return false;
+  }
+
+  if (Number.isFinite(constraint.max)) {
+    const allow = constraint.maxInclusive ? amount <= constraint.max : amount < constraint.max;
+    if (!allow) return false;
+  }
+
+  return true;
+}
+
+function getCurrentPriceFromRecord(item) {
+  const row = item && typeof item === 'object' ? item : {};
+  const candidates = [];
+
+  const fromVirtual = Number(row.giaMoi || 0);
+  if (Number.isFinite(fromVirtual) && fromVirtual > 0) candidates.push(fromVirtual);
+
+  const fromDiscountField = Number(row.giaSauGiam || 0);
+  if (Number.isFinite(fromDiscountField) && fromDiscountField > 0) candidates.push(fromDiscountField);
+
+  const base = Number(row.gia || 0);
+  const percent = Number(row.phantramgiamgia || 0);
+  if (base > 0) {
+    const effectiveBase = percent > 0 ? Math.round(base * (1 - percent / 100)) : base;
+    if (effectiveBase > 0) candidates.push(effectiveBase);
+  }
+
+  if (Array.isArray(row.bienthe)) {
+    row.bienthe.forEach((variant) => {
+      if (!variant || typeof variant !== 'object') return;
+      const variantBase = Number(variant.gia || 0);
+      if (!Number.isFinite(variantBase) || variantBase <= 0) return;
+      const variantPercent = Number(variant.phantramgiamgia || 0);
+      const variantCurrent = variantPercent > 0
+        ? Math.round(variantBase * (1 - variantPercent / 100))
+        : variantBase;
+      if (variantCurrent > 0) candidates.push(variantCurrent);
+    });
+  }
+
+  if (candidates.length === 0) return 0;
+  return Math.min(...candidates);
+}
+
+async function getActiveFlashSalePriceMap(productIds) {
+  const ids = Array.isArray(productIds)
+    ? productIds.map((id) => String(id || '')).filter(Boolean)
+    : [];
+  if (ids.length === 0) return new Map();
+
+  const now = new Date();
+  const sales = await FlashSale.find({
+    hienthi: true,
+    batdau: { $lte: now },
+    ketthuc: { $gte: now },
+    'sanpham.sanpham_id': { $in: ids }
+  })
+    .select('phantramgiamgia sanpham')
+    .lean();
+
+  const map = new Map();
+  (sales || []).forEach((sale) => {
+    const salePercent = Number(sale && sale.phantramgiamgia || 0);
+    const items = Array.isArray(sale && sale.sanpham) ? sale.sanpham : [];
+    items.forEach((entry) => {
+      const id = String(entry && entry.sanpham_id || '');
+      if (!id || !ids.includes(id)) return;
+
+      const fixedPrice = Number(entry && entry.giagiam || 0);
+      const prev = map.get(id) || { percent: 0, fixedPrice: 0 };
+      map.set(id, {
+        percent: Math.max(Number(prev.percent || 0), salePercent),
+        fixedPrice: fixedPrice > 0
+          ? (Number(prev.fixedPrice || 0) > 0 ? Math.min(Number(prev.fixedPrice || 0), fixedPrice) : fixedPrice)
+          : Number(prev.fixedPrice || 0)
+      });
+    });
+  });
+
+  return map;
+}
+
+function applyFlashSaleToCurrentPrice({ record, currentPrice, flashEntry }) {
+  const basePrice = Number(record && record.gia || 0);
+  const priceCandidates = [];
+  const current = Number(currentPrice || 0);
+  if (current > 0) priceCandidates.push(current);
+
+  const flash = flashEntry && typeof flashEntry === 'object' ? flashEntry : null;
+  if (flash) {
+    const percent = Number(flash.percent || 0);
+    if (basePrice > 0 && percent > 0) {
+      priceCandidates.push(Math.round(basePrice * (1 - percent / 100)));
+    }
+
+    const fixed = Number(flash.fixedPrice || 0);
+    if (fixed > 0 && (basePrice <= 0 || fixed <= basePrice)) {
+      priceCandidates.push(fixed);
+    }
+  }
+
+  if (priceCandidates.length === 0) return 0;
+  return Math.min(...priceCandidates.filter((v) => Number.isFinite(v) && v > 0));
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -126,8 +308,6 @@ function humanizeReply(text) {
     .replace(/\bsizeguides\b/gi, 'bảng size')
     .replace(/\bmyorders\b/gi, 'đơn hàng của bạn')
     .replace(/\bmyvouchers\b/gi, 'voucher của bạn')
-    .replace(/\bproducts\b/gi, 'sản phẩm')
-    .replace(/\bvouchers\b/gi, 'voucher')
     .replace(/https?:\/\/(?:www\.)?(?:website|example\.com|localhost(?::\d+)?)(\/[\w\-À-ỹ\/%]*)?/gi, (_, path) => normalizeInternalPath(path))
     .replace(/\bwebsite\/(orders|products|vouchers|size-guide|cart)\b/gi, (_, segment) => normalizeInternalPath(`/${segment}`));
 
@@ -163,6 +343,9 @@ function buildSystemPrompt() {
 
 'Khi người dùng hỏi về sản phẩm bán chạy, xu hướng hoặc thống kê, ưu tiên sử dụng dữ liệu thống kê và sản phẩm bán chạy.',
 
+'Khi sản phẩm có giảm giá, luôn ưu tiên dùng giá đã giảm làm giá chính để tư vấn.',
+'Chỉ nêu thêm giá gốc khi cần so sánh, không được báo giá gốc thành giá hiện tại.',
+
 'Khi người dùng hỏi tư vấn mua hàng theo mùa hoặc dịp (ví dụ: mùa hè, mùa đông, đi biển, đi tiệc...).',
 'Chỉ được gợi ý các sản phẩm thực sự phù hợp với mùa hoặc dịp đó.',
 
@@ -187,6 +370,31 @@ function resolveSystemPrompt(systemPrompt) {
   return custom || buildSystemPrompt();
 }
 
+function mapProductPriceForAI(item) {
+  const product = item && typeof item === 'object' ? item : {};
+  const originalPrice = Number(product.gia || 0);
+  const discountedPrice = Number(product.giaSauGiam || 0);
+  const displayPrice = discountedPrice > 0 ? discountedPrice : originalPrice;
+  const hasDiscount = originalPrice > 0 && displayPrice > 0 && displayPrice < originalPrice;
+
+  return {
+    ...product,
+    gia: displayPrice,
+    giaSauGiam: displayPrice,
+    giaGoc: originalPrice,
+    coGiamGia: hasDiscount
+  };
+}
+
+function buildModelContext(context) {
+  const base = context && typeof context === 'object' ? context : {};
+  return {
+    ...base,
+    products: Array.isArray(base.products) ? base.products.map(mapProductPriceForAI) : [],
+    topSelling: Array.isArray(base.topSelling) ? base.topSelling.map(mapProductPriceForAI) : []
+  };
+}
+
 function takeRecentMessages(messages, limit = 8) {
   if (!Array.isArray(messages)) return [];
   return messages
@@ -206,18 +414,26 @@ function buildSearchTerms(question) {
     'la', 'là', 'co', 'có', 'khong', 'không', 'toi', 'tôi', 'can', 'cần',
     'tim', 'tìm', 'cho', 'xin', 'nhe', 'nhé', 'giup', 'giúp', 've', 'về',
     'san', 'pham', 'sản', 'phẩm', 'bao', 'nhieu', 'nhiêu', 'gia', 'giá',
-    'duoc', 'được', 'khuyen', 'nghi', 'gợi', 'ý', 'coi', 'xem'
+    'duoc', 'được', 'khuyen', 'nghi', 'gợi', 'ý', 'coi', 'xem',
+    'duoi', 'dưới', 'tren', 'trên', 'tu', 'từ', 'den', 'đến', 'toi', 'tới',
+    'khoang', 'khoảng', 'tam', 'tầm', 'gia re', 'gia rẻ', 're', 'rẻ'
   ]);
 
-  const terms = normalized
+  const accentedTerms = normalized
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .map((item) => item.trim())
+    .filter((item) => item.length >= 2 && !stopWords.has(item) && !/^\d+$/.test(item));
+
+  const asciiTerms = normalized
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/)
     .map((item) => item.trim())
-    .filter((item) => item.length >= 2 && !stopWords.has(item));
+    .filter((item) => item.length >= 2 && !stopWords.has(item) && !/^\d+$/.test(item));
 
-  return Array.from(new Set(terms)).slice(0, 6);
+  return Array.from(new Set([...accentedTerms, ...asciiTerms])).slice(0, 8);
 }
 
 function extractProductIntent(question) {
@@ -306,6 +522,9 @@ function buildSystemPrompt() {
 'Không tự tạo đánh giá nếu dữ liệu không có.',
 
 'Khi người dùng hỏi về sản phẩm bán chạy, xu hướng hoặc thống kê, ưu tiên sử dụng dữ liệu thống kê và sản phẩm bán chạy.',
+
+'Khi sản phẩm có giảm giá, luôn ưu tiên dùng giá đã giảm làm giá chính để tư vấn.',
+'Chỉ nêu thêm giá gốc khi cần so sánh, không được báo giá gốc thành giá hiện tại.',
 
 'Khi người dùng hỏi tư vấn mua hàng theo mùa hoặc dịp (ví dụ: mùa hè, mùa đông, đi biển, đi tiệc...).',
 'Chỉ được gợi ý các sản phẩm thực sự phù hợp với mùa hoặc dịp đó.',
@@ -422,15 +641,44 @@ async function getTopSellingProducts() {
         hinhanh: '$product.hinhanh',
         totalSold: 1,
         gia: '$product.gia',
-        phantramgiamgia: '$product.phantramgiamgia'
+        phantramgiamgia: '$product.phantramgiamgia',
+        giaSauGiam: {
+          $cond: [
+            { $gt: [{ $ifNull: ['$product.phantramgiamgia', 0] }, 0] },
+            {
+              $round: [
+                {
+                  $multiply: [
+                    { $ifNull: ['$product.gia', 0] },
+                    {
+                      $subtract: [
+                        1,
+                        { $divide: [{ $ifNull: ['$product.phantramgiamgia', 0] }, 100] }
+                      ]
+                    }
+                  ]
+                },
+                0
+              ]
+            },
+            { $ifNull: ['$product.gia', 0] }
+          ]
+        }
       }
     }
   ]);
 
+  const flashMap = await getActiveFlashSalePriceMap((top || []).map((item) => item.sanpham_id));
+
   return (top || []).map((item) => {
     const gia = Number(item.gia || 0);
     const percent = Number(item.phantramgiamgia || 0);
-    const giaSauGiam = percent > 0 ? Math.round(gia * (1 - percent / 100)) : gia;
+    const baseCurrent = getCurrentPriceFromRecord(item);
+    const giaSauGiam = applyFlashSaleToCurrentPrice({
+      record: item,
+      currentPrice: baseCurrent,
+      flashEntry: flashMap.get(String(item.sanpham_id || ''))
+    });
 
     return {
       id: item.sanpham_id ? String(item.sanpham_id) : '',
@@ -565,6 +813,7 @@ async function getSettingsSnapshot() {
 async function getProductContext(question) {
   const terms = buildSearchTerms(question);
   const intent = extractProductIntent(question);
+  const priceConstraint = extractPriceConstraint(question);
   const query = { daxoa: { $ne: true }, trangthai: { $in: ['active', 'dangban'] } };
 
   const orConditions = [];
@@ -618,13 +867,20 @@ async function getProductContext(question) {
   const products = await Sanpham.find(query)
     .select('_id tensanpham hinhanh mota gia phantramgiamgia soluongton gioitinh loaisanpham mausac_chinh sizes bienthe')
     .sort({ ngaycapnhat: -1, ngaytao: -1 })
-    .limit(6)
-    .lean();
+    .limit(priceConstraint ? 48 : 6)
+    .lean({ virtuals: true });
 
-  return products.map((item) => {
+  const flashMap = await getActiveFlashSalePriceMap((products || []).map((item) => item && item._id));
+
+  const mapped = products.map((item) => {
     const basePrice = Number(item.gia || 0);
     const percent = Number(item.phantramgiamgia || 0);
-    const finalPrice = percent > 0 ? Math.round(basePrice * (1 - percent / 100)) : basePrice;
+    const baseCurrent = getCurrentPriceFromRecord(item);
+    const finalPrice = applyFlashSaleToCurrentPrice({
+      record: item,
+      currentPrice: baseCurrent,
+      flashEntry: flashMap.get(String(item && item._id || ''))
+    });
 
     const sizeSet = new Set();
     const colorSet = new Set();
@@ -684,6 +940,12 @@ async function getProductContext(question) {
       mauSacChiTiet: Array.from(colorDetailMap.values()).slice(0, 12)
     };
   });
+
+  if (!priceConstraint) return mapped;
+
+  return mapped
+    .filter((item) => matchPriceConstraint(item.giaSauGiam || item.gia, priceConstraint))
+    .slice(0, 6);
 }
 
 function buildOpenClipReply(question, products, openClipMeta) {
@@ -930,12 +1192,19 @@ async function buildDataContext({ question, userId, useOpenClip = false }) {
         .select('_id tensanpham hinhanh gia phantramgiamgia soluongton gioitinh loaisanpham sizes bienthe ngaycapnhat ngaytao')
         .sort({ ngaycapnhat: -1, ngaytao: -1 })
         .limit(48)
-        .lean();
+        .lean({ virtuals: true });
+
+      const flashMap = await getActiveFlashSalePriceMap((baseCandidates || []).map((item) => item && item._id));
 
       const mappedCandidates = (baseCandidates || []).map((item) => {
         const basePrice = Number(item.gia || 0);
         const percent = Number(item.phantramgiamgia || 0);
-        const finalPrice = percent > 0 ? Math.round(basePrice * (1 - percent / 100)) : basePrice;
+        const baseCurrent = getCurrentPriceFromRecord(item);
+        const finalPrice = applyFlashSaleToCurrentPrice({
+          record: item,
+          currentPrice: baseCurrent,
+          flashEntry: flashMap.get(String(item && item._id || ''))
+        });
 
         const sizeSet = new Set();
         if (Array.isArray(item.sizes)) {
@@ -1012,7 +1281,7 @@ async function askOllama({ question, history, context, systemPrompt }) {
     { role: 'system', content: finalSystemPrompt },
     {
       role: 'system',
-      content: `Context JSON: ${JSON.stringify(context)}`
+      content: `Context JSON: ${JSON.stringify(buildModelContext(context))}`
     },
     ...takeRecentMessages(history, 8),
     { role: 'user', content: compactWhitespace(question) }
@@ -1061,6 +1330,7 @@ async function askGemini({ question, history, context, model, systemPrompt }) {
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+  const contextForModel = buildModelContext(context);
 
   const finalSystemPrompt = resolveSystemPrompt(systemPrompt);
   const callGeminiByModel = async (modelName, maxAttempts = 2) => {
@@ -1070,7 +1340,7 @@ async function askGemini({ question, history, context, model, systemPrompt }) {
     const contents = [
       {
         role: 'user',
-        parts: [{ text: `Context JSON: ${JSON.stringify(context)}` }]
+        parts: [{ text: `Context JSON: ${JSON.stringify(contextForModel)}` }]
       },
       ...takeRecentMessages(history, 8).map((item) => ({
         role: item.role === 'assistant' ? 'model' : 'user',
@@ -1191,13 +1461,14 @@ async function askOpenRouter({ question, history, context, systemPrompt }) {
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), OPENROUTER_TIMEOUT_MS);
+  const contextForModel = buildModelContext(context);
 
   const finalSystemPrompt = resolveSystemPrompt(systemPrompt);
   const messages = [
     { role: 'system', content: finalSystemPrompt },
     {
       role: 'system',
-      content: `Context JSON: ${JSON.stringify(context)}`
+      content: `Context JSON: ${JSON.stringify(contextForModel)}`
     },
     ...takeRecentMessages(history, 8),
     { role: 'user', content: compactWhitespace(question) }
@@ -1273,7 +1544,30 @@ async function askAI({ question, history, context, provider, model, systemPrompt
   if (selected === 'openrouter') {
     return askOpenRouter({ question, history, context, systemPrompt });
   }
-  return askOllama({ question, history, context, systemPrompt });
+
+  try {
+    return await askOllama({ question, history, context, systemPrompt });
+  } catch (error) {
+    if (!isOllamaInsufficientMemoryError(error && error.message)) throw error;
+
+    if (OPENROUTER_API_KEY) {
+      try {
+        return await askOpenRouter({ question, history, context, systemPrompt });
+      } catch {
+        // Continue to next fallback.
+      }
+    }
+
+    if (GEMINI_API_KEY) {
+      try {
+        return await askGemini({ question, history, context, model: GEMINI_FALLBACK_MODEL, systemPrompt });
+      } catch {
+        // No more fallback available.
+      }
+    }
+
+    throw new Error('OLLAMA_MEMORY_INSUFFICIENT');
+  }
 }
 
 module.exports = {

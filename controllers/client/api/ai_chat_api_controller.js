@@ -1,7 +1,41 @@
 const fs = require('fs');
 const { Sanpham } = require('../../../models');
 const { buildDataContext, askAI } = require('../../../services/content/aiChat.service.js');
-const { rankProductsByQuery, rankProductsByImage } = require('../../../services/catalog/openClip.service.js');
+const { rankProductsByQuery, rankProductsByImage, classifyImageCategory } = require('../../../services/catalog/openClip.service.js');
+
+const ALLOWED_PRODUCT_TYPES = new Set(['ao', 'quan', 'vay', 'phukien', 'giay', 'tui', 'aokhoac']);
+const OPENCLIP_IMAGE_TYPE_MIN_SCORE = Number(process.env.OPENCLIP_IMAGE_TYPE_MIN_SCORE || 0.23);
+const OPENCLIP_IMAGE_TYPE_MIN_MARGIN = Number(process.env.OPENCLIP_IMAGE_TYPE_MIN_MARGIN || 0.03);
+const OPENCLIP_IMAGE_CATEGORY_LABELS = [
+  {
+    key: 'ao',
+    prompts: ['áo', 'áo thun', 'áo sơ mi', 'shirt', 't-shirt', 'fashion top']
+  },
+  {
+    key: 'aokhoac',
+    prompts: ['áo khoác', 'jacket', 'blazer', 'outerwear jacket']
+  },
+  {
+    key: 'quan',
+    prompts: ['quần', 'quần jean', 'trousers', 'pants', 'fashion bottom']
+  },
+  {
+    key: 'vay',
+    prompts: ['váy', 'đầm', 'dress', 'skirt']
+  },
+  {
+    key: 'giay',
+    prompts: ['giày', 'sneaker', 'shoe', 'sandal']
+  },
+  {
+    key: 'tui',
+    prompts: ['túi', 'túi xách', 'handbag', 'bag']
+  },
+  {
+    key: 'phukien',
+    prompts: ['phụ kiện thời trang', 'accessory', 'fashion accessory', 'thắt lưng', 'mũ']
+  }
+];
 
 function normalizeMessage(input) {
   return String(input || '').trim();
@@ -15,6 +49,130 @@ function normalizeForCompare(input) {
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function getCurrentPriceFromRecord(item) {
+  const row = item && typeof item === 'object' ? item : {};
+  const candidates = [];
+
+  const fromVirtual = Number(row.giaMoi || 0);
+  if (Number.isFinite(fromVirtual) && fromVirtual > 0) candidates.push(fromVirtual);
+
+  const fromDiscountField = Number(row.giaSauGiam || 0);
+  if (Number.isFinite(fromDiscountField) && fromDiscountField > 0) candidates.push(fromDiscountField);
+
+  const base = Number(row.gia || 0);
+  const percent = Number(row.phantramgiamgia || 0);
+  if (base > 0) {
+    const effectiveBase = percent > 0 ? Math.round(base * (1 - percent / 100)) : base;
+    if (effectiveBase > 0) candidates.push(effectiveBase);
+  }
+
+  if (Array.isArray(row.bienthe)) {
+    row.bienthe.forEach((variant) => {
+      if (!variant || typeof variant !== 'object') return;
+      const variantBase = Number(variant.gia || 0);
+      if (!Number.isFinite(variantBase) || variantBase <= 0) return;
+      const variantPercent = Number(variant.phantramgiamgia || 0);
+      const variantCurrent = variantPercent > 0
+        ? Math.round(variantBase * (1 - variantPercent / 100))
+        : variantBase;
+      if (variantCurrent > 0) candidates.push(variantCurrent);
+    });
+  }
+
+  if (candidates.length === 0) return 0;
+  return Math.min(...candidates);
+}
+
+function parseMoneyToVnd(valueText, unitText = '') {
+  const rawNumber = String(valueText || '').replace(/\s+/g, '').replace(/,/g, '.').replace(/\.(?=\d{3}(\D|$))/g, '');
+  const base = Number(rawNumber);
+  if (!Number.isFinite(base) || base <= 0) return 0;
+
+  const unit = String(unitText || '').toLowerCase();
+  if (unit.startsWith('tr') || unit.includes('trieu') || unit.includes('triệu')) return Math.round(base * 1000000);
+  if (unit === 'k' || unit.includes('ngan') || unit.includes('ngàn')) return Math.round(base * 1000);
+  // Vietnamese shopping queries often use shorthand like "duoi 60" meaning 60.000đ.
+  if (!unit && base < 1000) return Math.round(base * 1000);
+  return Math.round(base);
+}
+
+function extractPriceConstraint(question) {
+  const q = String(question || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd');
+
+  if (!q) return null;
+  const amount = '(\\d[\\d\\s.,]*)(?:\\s*(k|ngan|tr|trieu|d))?';
+
+  const rangeMatch = q.match(new RegExp(`(?:tu|from)\\s*${amount}\\s*(?:den|toi|to|-)\\s*${amount}`));
+  if (rangeMatch) {
+    const min = parseMoneyToVnd(rangeMatch[1], rangeMatch[2]);
+    const max = parseMoneyToVnd(rangeMatch[3], rangeMatch[4]);
+    if (min > 0 && max > 0) {
+      return {
+        min: Math.min(min, max),
+        max: Math.max(min, max),
+        minInclusive: true,
+        maxInclusive: true
+      };
+    }
+  }
+
+  const underMatch = q.match(new RegExp(`(?:duoi|nho hon|it hon|less than)\\s*${amount}`));
+  if (underMatch) {
+    const max = parseMoneyToVnd(underMatch[1], underMatch[2]);
+    if (max > 0) return { max, maxInclusive: false };
+  }
+
+  const maxMatch = q.match(new RegExp(`(?:toi da|khong qua|khong vuot qua|max|duoi bang|<=)\\s*${amount}`));
+  if (maxMatch) {
+    const max = parseMoneyToVnd(maxMatch[1], maxMatch[2]);
+    if (max > 0) return { max, maxInclusive: true };
+  }
+
+  const overMatch = q.match(new RegExp(`(?:tren|lon hon|hon|more than|greater than)\\s*${amount}`));
+  if (overMatch) {
+    const min = parseMoneyToVnd(overMatch[1], overMatch[2]);
+    if (min > 0) return { min, minInclusive: false };
+  }
+
+  const minMatch = q.match(new RegExp(`(?:tu|from|>=|tren bang)\\s*${amount}`));
+  if (minMatch) {
+    const min = parseMoneyToVnd(minMatch[1], minMatch[2]);
+    if (min > 0) return { min, minInclusive: true };
+  }
+
+  return null;
+}
+
+function matchPriceConstraint(price, constraint) {
+  const amount = Number(price || 0);
+  if (!constraint || !Number.isFinite(amount) || amount <= 0) return true;
+
+  if (Number.isFinite(constraint.min)) {
+    const allow = constraint.minInclusive ? amount >= constraint.min : amount > constraint.min;
+    if (!allow) return false;
+  }
+
+  if (Number.isFinite(constraint.max)) {
+    const allow = constraint.maxInclusive ? amount <= constraint.max : amount < constraint.max;
+    if (!allow) return false;
+  }
+
+  return true;
+}
+
+function applyPriceConstraintToProducts(products, constraint) {
+  const rows = Array.isArray(products) ? products : [];
+  if (!constraint) return rows;
+  return rows.filter((item) => {
+    const finalPrice = Number(item && (item.giaSauGiam || item.gia) || 0);
+    return matchPriceConstraint(finalPrice, constraint);
+  });
 }
 
 function shouldSuggestProducts(question) {
@@ -153,7 +311,29 @@ function buildColorAvailabilityAnswer(context, requestedColor) {
   return lines.join('\n');
 }
 
-function toSuggestedProducts(context, answerText) {
+function detectRequestedGroups(question) {
+  const q = normalizeForCompare(question);
+  if (!q) return [];
+
+  const groups = [];
+  if (/(\bnon\b|\bmu\b|\bhat\b|\bcap\b)/.test(q)) groups.push('hat');
+  if (/(\bao\b|\bpolo\b|\bthun\b|\bso mi\b|\bkhoac\b|\bhoodie\b|\bblazer\b|\bshirt\b)/.test(q)) groups.push('top');
+  if (/(\bquan\b|\bjean\b|\bshort\b|\bjogger\b|\btrouser\b|\bpant\b)/.test(q)) groups.push('bottom');
+
+  return groups;
+}
+
+function productMatchesGroup(product, group) {
+  const text = normalizeForCompare(`${product && product.name ? product.name : ''} ${product && product.url ? product.url : ''}`);
+  if (!text) return false;
+
+  if (group === 'hat') return /(\bnon\b|\bmu\b|\bhat\b|\bcap\b)/.test(text);
+  if (group === 'top') return /(\bao\b|\bpolo\b|\bthun\b|\bso mi\b|\bkhoac\b|\bhoodie\b|\bblazer\b|\bshirt\b)/.test(text);
+  if (group === 'bottom') return /(\bquan\b|\bjean\b|\bshort\b|\bjogger\b|\btrouser\b|\bpant\b)/.test(text);
+  return false;
+}
+
+function toSuggestedProducts(context, answerText, questionText) {
   const byId = new Map();
 
   const push = (item) => {
@@ -179,7 +359,8 @@ function toSuggestedProducts(context, answerText) {
   // Suggest from both contextual search results and top-selling products.
   (Array.isArray(context.products) ? context.products : []).forEach(push);
   (Array.isArray(context.topSelling) ? context.topSelling : []).forEach(push);
-  const candidates = Array.from(byId.values());
+  const priceConstraint = extractPriceConstraint(questionText);
+  const candidates = Array.from(byId.values()).filter((item) => matchPriceConstraint(item.price, priceConstraint));
   if (candidates.length === 0) return [];
 
   const answerNorm = normalizeForCompare(answerText);
@@ -199,7 +380,31 @@ function toSuggestedProducts(context, answerText) {
     return tokens.some((token) => answerNorm.includes(token));
   });
 
-  return (matched.length > 0 ? matched : candidates).slice(0, 4);
+  const baseList = matched.length > 0 ? matched : candidates;
+
+  const requestedGroups = detectRequestedGroups(questionText);
+  if (requestedGroups.length === 0) {
+    return baseList.slice(0, 4);
+  }
+
+  const selected = [];
+  const selectedIds = new Set();
+  const take = (item) => {
+    if (!item) return;
+    const id = String(item.id || '');
+    if (!id || selectedIds.has(id)) return;
+    selected.push(item);
+    selectedIds.add(id);
+  };
+
+  // Ensure each requested outfit group has at least one representative if available.
+  requestedGroups.forEach((group) => {
+    const first = baseList.find((item) => productMatchesGroup(item, group));
+    take(first);
+  });
+
+  baseList.forEach(take);
+  return selected.slice(0, 4);
 }
 
 function extractOrderCodes(message) {
@@ -293,6 +498,12 @@ module.exports.sendMessage = async (req, res) => {
       useOpenClip: provider === 'openclip'
     });
 
+    const priceConstraint = extractPriceConstraint(question);
+    if (priceConstraint) {
+      context.products = applyPriceConstraintToProducts(context.products, priceConstraint).slice(0, 6);
+      context.topSelling = applyPriceConstraintToProducts(context.topSelling, priceConstraint).slice(0, 8);
+    }
+
     const exactOrder = buildExactOrderAnswer(question, context && context.myOrders);
     if (exactOrder) {
       return res.json({
@@ -337,7 +548,7 @@ module.exports.sendMessage = async (req, res) => {
         answer,
         model: ai.model,
         provider: ai.provider || provider,
-        suggestedProducts: (provider === 'openclip' || shouldSuggestProducts(question)) ? toSuggestedProducts(context, answer) : [],
+        suggestedProducts: (provider === 'openclip' || shouldSuggestProducts(question)) ? toSuggestedProducts(context, answer, question) : [],
         contextMeta: {
           products: Array.isArray(context.products) ? context.products.length : 0,
           hasFlashSale: Boolean(context.flashSale),
@@ -414,6 +625,13 @@ module.exports.sendMessage = async (req, res) => {
       });
     }
 
+    if (msg.includes('OLLAMA_MEMORY_INSUFFICIENT') || lower.includes('requires more system memory')) {
+      return res.status(503).json({
+        success: false,
+        message: 'Model Ollama hiện tại cần nhiều RAM hơn máy đang có. Vui lòng đổi model nhẹ hơn (ví dụ gemma3:1b hoặc gemma2:2b), hoặc chọn Gemini/OpenRouter.'
+      });
+    }
+
     console.error('AI chat error:', error);
     return res.status(500).json({ success: false, message: 'Không thể xử lý câu hỏi lúc này' });
   }
@@ -435,21 +653,22 @@ module.exports.searchOpenClip = async (req, res) => {
       trangthai: { $in: ['active', 'dangban'] },
       hinhanh: { $exists: true, $ne: '' }
     })
-      .select('_id tensanpham hinhanh gia phantramgiamgia soluongton gioitinh loaisanpham')
+      .select('_id tensanpham hinhanh gia phantramgiamgia soluongton gioitinh loaisanpham bienthe')
       .sort({ ngaycapnhat: -1, ngaytao: -1 })
       .limit(280)
-      .lean();
+      .lean({ virtuals: true });
 
     const products = (rows || []).map((item) => {
       const basePrice = Number(item.gia || 0);
       const percent = Number(item.phantramgiamgia || 0);
+      const currentPrice = getCurrentPriceFromRecord(item);
       return {
         id: String(item._id || ''),
         tensanpham: String(item.tensanpham || 'Sản phẩm'),
         imageUrl: String(item.hinhanh || '/images/shopping.png'),
         url: item._id ? `/products/${item._id}` : '',
         gia: basePrice,
-        giaSauGiam: percent > 0 ? Math.round(basePrice * (1 - percent / 100)) : basePrice,
+        giaSauGiam: currentPrice,
         phantramgiamgia: percent,
         soluongton: Number(item.soluongton || 0),
         gioitinh: String(item.gioitinh || ''),
@@ -487,26 +706,96 @@ module.exports.searchOpenClipByImage = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Vui lòng chọn ảnh để tìm kiếm' });
     }
 
-    const rows = await Sanpham.find({
+    const requestedType = String(req.body && req.body.loaisanpham || '').trim().toLowerCase();
+    const manualType = ALLOWED_PRODUCT_TYPES.has(requestedType) ? requestedType : '';
+
+    let detectedType = '';
+    let confidentDetectedType = '';
+    let detectMeta = null;
+
+    if (!manualType) {
+      try {
+        const detected = await classifyImageCategory({
+          imagePath: uploadedPath,
+          labels: OPENCLIP_IMAGE_CATEGORY_LABELS
+        });
+
+        detectedType = String(detected && detected.predictedKey ? detected.predictedKey : '').trim().toLowerCase();
+        if (!ALLOWED_PRODUCT_TYPES.has(detectedType)) detectedType = '';
+
+        const scoredLabels = Array.isArray(detected && detected.labels) ? detected.labels : [];
+        const top1 = scoredLabels[0] || null;
+        const top2 = scoredLabels[1] || null;
+        const top1Score = Number(top1 && top1.score);
+        const top2Score = Number(top2 && top2.score);
+        const scoreMargin = Number.isFinite(top1Score) && Number.isFinite(top2Score)
+          ? (top1Score - top2Score)
+          : Number.POSITIVE_INFINITY;
+
+        const passMinScore = Number.isFinite(top1Score) && top1Score >= OPENCLIP_IMAGE_TYPE_MIN_SCORE;
+        const passMargin = Number.isFinite(scoreMargin) && scoreMargin >= OPENCLIP_IMAGE_TYPE_MIN_MARGIN;
+
+        if (detectedType && passMinScore && passMargin) {
+          confidentDetectedType = detectedType;
+        }
+
+        detectMeta = {
+          ...detected,
+          top1Score: Number.isFinite(top1Score) ? top1Score : 0,
+          top2Score: Number.isFinite(top2Score) ? top2Score : 0,
+          scoreMargin: Number.isFinite(scoreMargin) ? scoreMargin : 0,
+          minScoreThreshold: OPENCLIP_IMAGE_TYPE_MIN_SCORE,
+          minMarginThreshold: OPENCLIP_IMAGE_TYPE_MIN_MARGIN,
+          passMinScore,
+          passMargin,
+          confident: Boolean(detectedType && passMinScore && passMargin)
+        };
+      } catch (detectError) {
+        detectMeta = {
+          used: false,
+          reason: 'CLASSIFY_FAILED',
+          message: detectError && detectError.message ? String(detectError.message) : 'UNKNOWN'
+        };
+      }
+    }
+
+    const selectedType = manualType || confidentDetectedType;
+
+    const baseFilter = {
       daxoa: { $ne: true },
       trangthai: { $in: ['active', 'dangban'] },
       hinhanh: { $exists: true, $ne: '' }
-    })
-      .select('_id tensanpham hinhanh gia phantramgiamgia soluongton gioitinh loaisanpham')
+    };
+
+    const typedFilter = selectedType ? { ...baseFilter, loaisanpham: selectedType } : { ...baseFilter };
+
+    let rows = await Sanpham.find(typedFilter)
+      .select('_id tensanpham hinhanh gia phantramgiamgia soluongton gioitinh loaisanpham bienthe')
       .sort({ ngaycapnhat: -1, ngaytao: -1 })
-      .limit(500)
-      .lean();
+      .limit(selectedType ? 180 : 320)
+      .lean({ virtuals: true });
+
+    let broadened = false;
+    if (selectedType && rows.length < 24) {
+      broadened = true;
+      rows = await Sanpham.find(baseFilter)
+        .select('_id tensanpham hinhanh gia phantramgiamgia soluongton gioitinh loaisanpham bienthe')
+        .sort({ ngaycapnhat: -1, ngaytao: -1 })
+        .limit(300)
+        .lean({ virtuals: true });
+    }
 
     const products = (rows || []).map((item) => {
       const basePrice = Number(item.gia || 0);
       const percent = Number(item.phantramgiamgia || 0);
+      const currentPrice = getCurrentPriceFromRecord(item);
       return {
         id: String(item._id || ''),
         tensanpham: String(item.tensanpham || 'Sản phẩm'),
         imageUrl: String(item.hinhanh || '/images/shopping.png'),
         url: item._id ? `/products/${item._id}` : '',
         gia: basePrice,
-        giaSauGiam: percent > 0 ? Math.round(basePrice * (1 - percent / 100)) : basePrice,
+        giaSauGiam: currentPrice,
         phantramgiamgia: percent,
         soluongton: Number(item.soluongton || 0),
         gioitinh: String(item.gioitinh || ''),
@@ -530,7 +819,24 @@ module.exports.searchOpenClipByImage = async (req, res) => {
           pretrained: ranked.meta && ranked.meta.pretrained ? ranked.meta.pretrained : '',
           device: ranked.meta && ranked.meta.device ? ranked.meta.device : '',
           mode: ranked.meta && ranked.meta.mode ? ranked.meta.mode : 'image',
-          candidates: Number(ranked.meta && ranked.meta.candidates ? ranked.meta.candidates : 0)
+          candidates: Number(ranked.meta && ranked.meta.candidates ? ranked.meta.candidates : 0),
+          selectedType,
+          typeFilterApplied: Boolean(selectedType) && !broadened,
+          typeFilterBroadened: Boolean(selectedType) && broadened,
+          manualType,
+          detectedType,
+          confidentDetectedType,
+          classifyUsed: Boolean(detectMeta && detectMeta.used),
+          classifyReason: detectMeta && detectMeta.reason ? detectMeta.reason : '',
+          classifyConfident: Boolean(detectMeta && detectMeta.confident),
+          classifyTop1Score: detectMeta && Number.isFinite(Number(detectMeta.top1Score)) ? Number(detectMeta.top1Score) : 0,
+          classifyTop2Score: detectMeta && Number.isFinite(Number(detectMeta.top2Score)) ? Number(detectMeta.top2Score) : 0,
+          classifyScoreMargin: detectMeta && Number.isFinite(Number(detectMeta.scoreMargin)) ? Number(detectMeta.scoreMargin) : 0,
+          classifyMinScoreThreshold: OPENCLIP_IMAGE_TYPE_MIN_SCORE,
+          classifyMinMarginThreshold: OPENCLIP_IMAGE_TYPE_MIN_MARGIN,
+          classifyTopScore: detectMeta && Array.isArray(detectMeta.labels) && detectMeta.labels[0] && Number.isFinite(Number(detectMeta.labels[0].score))
+            ? Number(detectMeta.labels[0].score)
+            : 0
         }
       }
     });
