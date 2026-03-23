@@ -65,7 +65,7 @@ block main
               select.form-select.form-select-sm(name='status' style='max-width:220px' required)
                 option(value='') Chọn trạng thái cần cập nhật
                 each st in (statusOptions || [])
-                  if st !== 'dahuy'
+                  if st !== 'dahuy' && st !== 'requested_return'
                     option(value=st) #{(statusLabels && statusLabels[st]) || st}
               input(type='hidden' name='returnTo' value=(currentListUrl || `${admin}/orders`))
               button#orderBulkSubmit.btn.btn-sm.btn-primary(type='submit' disabled) Cập nhật đã chọn
@@ -89,6 +89,7 @@ block main
                 each o in orders
                   - const badge = (badgeClass && typeof badgeClass === 'function') ? badgeClass(o.trangthai) : 'bg-secondary'
                   - const label = (statusLabels && statusLabels[o.trangthai]) || o.trangthai || '—'
+                  - const actionNext = (o.allowedNext || []).filter((st) => !(o.trangthai === 'choxacnhan' && st === 'daxacnhan'))
                   tr
                     td
                       input.order-row-check.form-check-input(type='checkbox' value=String(o._id))
@@ -114,16 +115,23 @@ block main
                           button.btn.btn-sm.btn-success.me-1(type='submit' onclick="return confirm('Xác nhận đơn hàng này?')")
                             i.bi.bi-check2-circle
                             |  Xác nhận
-                      if o.allowedNext && o.allowedNext.length
-                        .btn-group
-                          button.btn.btn-sm.btn-outline-secondary.dropdown-toggle(type='button' data-bs-toggle='dropdown' aria-expanded='false') Cập nhật
-                          ul.dropdown-menu
-                            each st in o.allowedNext
-                              li
-                                form(method='POST', action=`${admin}/orders/${o._id}/status`)
-                                  input(type='hidden' name='status' value=st)
-                                  input(type='hidden' name='returnTo' value=(currentListUrl || `${admin}/orders`))
-                                  button.dropdown-item(type='submit' onclick="return confirm('Xác nhận cập nhật trạng thái?')") #{(statusLabels && statusLabels[st]) || st}
+                      if actionNext && actionNext.length
+                        if actionNext.length === 1
+                          - const st = actionNext[0]
+                          form.d-inline(method='POST', action=`${admin}/orders/${o._id}/status`)
+                            input(type='hidden' name='status' value=st)
+                            input(type='hidden' name='returnTo' value=(currentListUrl || `${admin}/orders`))
+                            button.btn.btn-sm.btn-outline-secondary.me-1(type='submit' onclick="return confirm('Xác nhận cập nhật trạng thái?')") #{(statusLabels && statusLabels[st]) || st}
+                        else
+                          .btn-group.me-1
+                            button.btn.btn-sm.btn-outline-secondary.dropdown-toggle(type='button' data-bs-toggle='dropdown' aria-expanded='false') Cập nhật
+                            ul.dropdown-menu
+                              each st in actionNext
+                                li
+                                  form(method='POST', action=`${admin}/orders/${o._id}/status`)
+                                    input(type='hidden' name='status' value=st)
+                                    input(type='hidden' name='returnTo' value=(currentListUrl || `${admin}/orders`))
+                                    button.dropdown-item(type='submit' onclick="return confirm('Xác nhận cập nhật trạng thái?')") #{(statusLabels && statusLabels[st]) || st}
                       else
                         span.text-muted.small —
 

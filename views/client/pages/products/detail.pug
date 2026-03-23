@@ -104,8 +104,8 @@ block main
                                             .color-selector
                                                 each v, idx in product.bienthe
                                                     - var colorName = v.mausac || ('Màu ' + (idx + 1))
-                                                    - var variantGia = v.gia || product.gia
-                                                    - var variantGiamGia = v.phantramgiamgia !== undefined ? v.phantramgiamgia : product.phantramgiamgia
+                                                    - var variantGia = (v.gia === null || v.gia === undefined) ? product.gia : v.gia
+                                                    - var variantGiamGia = (v.phantramgiamgia === null || v.phantramgiamgia === undefined) ? product.phantramgiamgia : v.phantramgiamgia
                                                     - var variantGiaMoi = variantGiamGia > 0 ? Math.round(variantGia * (100 - variantGiamGia) / 100) : variantGia
                                                     input.color-input(
                                                         type='radio' 

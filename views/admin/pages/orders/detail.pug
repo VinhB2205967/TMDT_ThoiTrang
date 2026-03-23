@@ -156,12 +156,11 @@ block main
                     i.bi.bi-check2-circle.me-1
                     | Xác nhận đơn
               if allowedNext && allowedNext.length
-                form(method='POST', action=`${admin}/orders/${order._id}/status`)
-                  select.form-select.mb-2(name='status' required)
-                    option(value='' selected) -- Chọn trạng thái --
-                    each st in allowedNext
-                      option(value=st) #{(statusLabels && statusLabels[st]) || st}
-                  button.btn.btn-primary(type='submit' onclick="return confirm('Xác nhận cập nhật trạng thái?')") Cập nhật trạng thái
+                .d-flex.flex-wrap.gap-2
+                  each st in allowedNext
+                    form(method='POST', action=`${admin}/orders/${order._id}/status`)
+                      input(type='hidden' name='status' value=st)
+                      button.btn.btn-outline-primary(type='submit' onclick="return confirm('Xác nhận cập nhật trạng thái?')") #{(statusLabels && statusLabels[st]) || st}
               else
                 .text-muted.small Không có thao tác trạng thái tiếp theo.
 
@@ -204,11 +203,28 @@ block main
 
                 if ['approved_return', 'return_shipping'].includes(order.trangthai)
                   form.mb-2(method='POST', action=`${admin}/orders/${order._id}/return/received`)
-                    button.btn.btn-sm.btn-primary(type='submit' onclick="return confirm('Xác nhận đã nhận hàng hoàn?')") Đã nhận hàng hoàn
+                    .small.text-muted.mb-2 Nhập số lượng thực nhận cho từng dòng (để trống hoặc 0 sẽ bỏ qua dòng đó).
+                    if items && items.length
+                      .border.rounded.p-2.mb-2(style='max-height: 280px; overflow:auto;')
+                        each it, idx in items
+                          .d-flex.justify-content-between.align-items-center.gap-2.py-1
+                            .flex-grow-1
+                              .fw-semibold #{it.tensanpham || 'Sản phẩm'}
+                              .small.text-muted #{[it.kichco, it.mausac].filter(Boolean).join(' / ') || 'Mặc định'} • Đã mua: #{it.soluong || 0}
+                            input(type='hidden' name=`returnItems[${idx}][orderItemId]` value=String(it._id || ''))
+                            input.form-control.form-control-sm(type='number' name=`returnItems[${idx}][qty]` value=(it.soluong || 0) min='0' max=String(it.soluong || 0) step='1' style='width:96px')
+                    button.btn.btn-sm.btn-primary(type='submit' onclick="return confirm('Xác nhận đã nhận hàng hoàn và tạo phiếu nhập hoàn trả?')") Xác nhận nhận hàng hoàn
 
-                if order.trangthai === 'returned'
+                if ['returned', 'returned_full', 'returned_partial'].includes(order.trangthai)
                   form(method='POST', action=`${admin}/orders/${order._id}/return/refund`)
                     button.btn.btn-sm.btn-dark(type='submit' onclick="return confirm('Xác nhận hoàn tiền đơn hàng này?')") Hoàn tiền
+
+                if order.trangthai === 'refunded'
+                  form.mt-2(method='POST', action=`${admin}/orders/${order._id}/return/received`)
+                    if hasReturnImport
+                      button.btn.btn-sm.btn-success(type='button' disabled) Đã đồng bộ nhập kho hoàn trả
+                    else
+                      button.btn.btn-sm.btn-outline-primary(type='submit' onclick="return confirm('Đồng bộ nhập kho hoàn trả cho đơn đã hoàn tiền?')") Đồng bộ nhập kho hoàn trả
 
               hr
               .fw-semibold.mb-2 Timeline trạng thái

@@ -77,7 +77,8 @@ async function damBaoDanhMucMacDinh() {
 }
 
 async function layBoLocNangCao() {
-  let [occasionTree, ageGroupTree, brands] = await Promise.all([
+  let [categoryTree, occasionTree, ageGroupTree, brands] = await Promise.all([
+    getCategoryTree({ type: 'category', isActive: true }),
     getCategoryTree({ type: 'occasion', isActive: true }),
     getCategoryTree({ type: 'age_group', isActive: true }),
     Brand.find({
@@ -86,7 +87,10 @@ async function layBoLocNangCao() {
     }).sort({ order: 1, thuTu: 1, ten: 1 }).lean()
   ]);
 
-  if (!flattenTreeOptions(occasionTree).length || !flattenTreeOptions(ageGroupTree).length) {
+  const getChildOptions = (tree) => flattenTreeOptions(tree)
+    .filter((item) => Number(item && item.level ? item.level : 0) > 0);
+
+  if (!getChildOptions(occasionTree).length || !getChildOptions(ageGroupTree).length) {
     await damBaoDanhMucMacDinh();
     [occasionTree, ageGroupTree] = await Promise.all([
       getCategoryTree({ type: 'occasion', isActive: true }),
@@ -94,9 +98,28 @@ async function layBoLocNangCao() {
     ]);
   }
 
+  const categoryOptions = [];
+  const flattenCategoryChildren = (nodes = []) => {
+    for (const node of nodes) {
+      if (node && node.parent_id) {
+        categoryOptions.push({
+          _id: node._id,
+          name: node.name,
+          slug: node.slug,
+          level: Number(node.level || 1)
+        });
+      }
+      if (Array.isArray(node?.children) && node.children.length) {
+        flattenCategoryChildren(node.children);
+      }
+    }
+  };
+  flattenCategoryChildren(categoryTree);
+
   return {
-    occasionOptions: flattenTreeOptions(occasionTree),
-    ageGroupOptions: flattenTreeOptions(ageGroupTree),
+    categoryOptions,
+    occasionOptions: getChildOptions(occasionTree),
+    ageGroupOptions: getChildOptions(ageGroupTree),
     brandOptions: brands || []
   };
 }
@@ -278,6 +301,7 @@ async function getDanhSachData(query = {}) {
     daxoa: { $ne: true },
     trangthai: 'dangban'
   };
+  const andConditions = [];
 
   if (doituongtimkiem.keyword && openclipIds.length === 0) {
     boloc.tensanpham = doituongtimkiem.regex;
@@ -287,25 +311,33 @@ async function getDanhSachData(query = {}) {
     boloc._id = { $in: openclipIds.map((id) => new mongoose.Types.ObjectId(id)) };
   }
 
-  const taploaichophep = new Set(['ao', 'quan', 'vay', 'phukien', 'giay', 'tui', 'aokhoac']);
-  if (query.loaisanpham && taploaichophep.has(query.loaisanpham)) {
-    boloc.loaisanpham = query.loaisanpham;
+  const loaiSanPham = String(query.loaisanpham || '').trim();
+  if (loaiSanPham) {
+    boloc.loaisanpham = loaiSanPham;
   }
 
-  const tapgioitinhchophep = new Set(['nam', 'nu', 'unisex', 'tre-em']);
+  const tapgioitinhchophep = new Set(['nam', 'nu', 'unisex']);
   if (query.gioitinh && tapgioitinhchophep.has(query.gioitinh)) {
     boloc.gioitinh = query.gioitinh;
   }
 
   if (query.brand && mongoose.Types.ObjectId.isValid(query.brand)) {
-    boloc.$or = [
+    andConditions.push({
+      $or: [
       { thuonghieu_id: query.brand },
       { brand: query.brand }
-    ];
+      ]
+    });
   }
 
   if (query.occasion && mongoose.Types.ObjectId.isValid(query.occasion)) {
-    boloc.occasion = query.occasion;
+    andConditions.push({
+      $or: [
+        { occasion: query.occasion },
+        { dip_sudung_id: query.occasion },
+        { occasions: query.occasion }
+      ]
+    });
   }
 
   if (query.ageGroup && mongoose.Types.ObjectId.isValid(query.ageGroup)) {
@@ -332,6 +364,10 @@ async function getDanhSachData(query = {}) {
         }
       ]
     };
+  }
+
+  if (andConditions.length) {
+    boloc.$and = andConditions;
   }
 
   const sapxep = openclipIds.length > 0 && sortOption.isDefault
@@ -415,14 +451,17 @@ async function getChiTietData(idsanpham, query = {}) {
     capnhatsp.bienthe.forEach((bienthe, idx) => {
       const hinhbienthe = productViewHelper.chuanHoaAnh(bienthe.hinhanh);
       const sizebienthe = bienthe.sizes || [];
+      const phanTramGiamGiaBienThe = (bienthe.phantramgiamgia === null || bienthe.phantramgiamgia === undefined)
+        ? capnhatsp.phantramgiamgia
+        : bienthe.phantramgiamgia;
       tatcabienthe.push({
         ...bienthe,
         _id: bienthe._id || `variant_${idx}`,
         mausac: bienthe.mausac || `Màu ${tatcabienthe.length + 1}`,
         hinhanh: (hinhbienthe && hinhbienthe !== '/images/shopping.png') ? hinhbienthe : capnhatsp.hinhanh,
         colorCode: productViewHelper.layMaMau(bienthe.mausac),
-        gia: bienthe.gia || capnhatsp.gia,
-        phantramgiamgia: bienthe.phantramgiamgia || capnhatsp.phantramgiamgia,
+        gia: (bienthe.gia === null || bienthe.gia === undefined) ? capnhatsp.gia : bienthe.gia,
+        phantramgiamgia: phanTramGiamGiaBienThe,
         sizes: sizebienthe
       });
     });
@@ -668,9 +707,54 @@ async function timBangAnhData(uploadedPath) {
   };
 }
 
+async function getSearchSuggestionsData(rawKeyword, options = {}) {
+  const keyword = String(rawKeyword || '').trim();
+  if (!keyword) return [];
+
+  const parsed = searchHelper({ keyword }, { keywordKey: 'keyword' });
+  if (!parsed.regex) return [];
+
+  const limitRaw = Number(options.limit || 6);
+  const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(10, limitRaw)) : 6;
+
+  const rows = await sanpham.find({
+    daxoa: { $ne: true },
+    trangthai: 'dangban',
+    tensanpham: parsed.regex
+  })
+    .select('_id tensanpham hinhanh gia phantramgiamgia ngaycapnhat ngaytao')
+    .sort({ luotmua: -1, ngaycapnhat: -1, ngaytao: -1 })
+    .limit(limit)
+    .lean();
+
+  if (!rows.length) return [];
+
+  const ids = rows.map((item) => String(item._id || '')).filter(Boolean);
+  const flashPercentMap = await getFlashSalePercentMap(ids);
+
+  return rows.map((item) => {
+    const gia = Number(item.gia || 0);
+    const phanTramDoc = Number(item.phantramgiamgia || 0);
+    const phanTramFlash = Number(flashPercentMap.get(String(item._id)) || 0);
+    const phanTram = Math.max(phanTramDoc, phanTramFlash);
+    const giaSauGiam = phanTram > 0 ? tinhGiaFlash(gia, phanTram) : gia;
+
+    return {
+      _id: String(item._id || ''),
+      ten: String(item.tensanpham || 'Sản phẩm'),
+      anh: productViewHelper.chuanHoaAnh(item.hinhanh),
+      gia,
+      giaSauGiam: Number.isFinite(giaSauGiam) ? giaSauGiam : gia,
+      phantramgiamgia: phanTram,
+      url: item._id ? `/products/${item._id}` : '/products'
+    };
+  });
+}
+
 module.exports = {
   getDanhSachData,
   getChiTietData,
   getTuyChonData,
-  timBangAnhData
+  timBangAnhData,
+  getSearchSuggestionsData
 };

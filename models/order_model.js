@@ -92,6 +92,8 @@ const orderSchema = new mongoose.Schema({
       'rejected_return',
       'return_shipping',
       'returned',
+      'returned_full',
+      'returned_partial',
       'refunded',
       'dahuy',
       'hoanhang'
@@ -123,6 +125,19 @@ const orderSchema = new mongoose.Schema({
     rejectedAt: Date,
     returnedAt: Date,
     refundedAt: Date
+  },
+
+  tonggiamdoanhthu_hoantra: {
+    type: Number,
+    default: 0
+  },
+  tonggiamloinhuan_hoantra: {
+    type: Number,
+    default: 0
+  },
+  tongsoluong_hoantra: {
+    type: Number,
+    default: 0
   },
 
   daxoa: {

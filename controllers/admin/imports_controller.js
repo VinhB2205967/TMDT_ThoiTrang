@@ -1,22 +1,8 @@
 const importsService = require('../../services/inventory/admin-imports.service.js');
-const { redirectBackOrDefault } = require('../../services/communication/redirect.service');
-
-function adminBase(req) {
-  return req.app.locals.admin || '/admin';
-}
+const adminControllerService = require('../../services/communication/admin-controller.service');
 
 function importsPath(req, subPath = '') {
-  return importsService.layDuongDanImports({ adminPrefix: adminBase(req), subPath });
-}
-
-function redirectVe(req, res, fallback) {
-  return redirectBackOrDefault(req, res, fallback);
-}
-
-function xuLyKetQuaSSR(req, res, result, { successPath, errorPath }) {
-  if (req.flash && result.message) req.flash(importsService.xacDinhLoaiFlashKetQua(result), result.message);
-  const fallback = result.ok ? successPath : (errorPath || successPath);
-  return redirectVe(req, res, fallback);
+  return importsService.layDuongDanImports({ adminPrefix: adminControllerService.layAdminBase(req), subPath });
 }
 
 const danhSach = async (req, res) => {
@@ -49,14 +35,22 @@ const taoMoiPost = async (req, res) => {
     });
 
     if (!result.ok) {
-      return xuLyKetQuaSSR(req, res, result, { successPath: importsPath(req), errorPath: importsPath(req, 'create') });
+      return adminControllerService.xuLyKetQuaSSR(req, res, result, {
+        successPath: importsPath(req),
+        errorPath: importsPath(req, 'create'),
+        resolveFlashType: importsService.xacDinhLoaiFlashKetQua
+      });
     }
 
-    return xuLyKetQuaSSR(req, res, result, { successPath: importsPath(req), errorPath: importsPath(req, 'create') });
+    return adminControllerService.xuLyKetQuaSSR(req, res, result, {
+      successPath: importsPath(req),
+      errorPath: importsPath(req, 'create'),
+      resolveFlashType: importsService.xacDinhLoaiFlashKetQua
+    });
   } catch (error) {
     console.error('Create import receipt error:', error);
     req.flash('error', `Không thể tạo phiếu nhập: ${error.message}`);
-    return redirectVe(req, res, importsPath(req, 'create'));
+    return adminControllerService.redirectVe(req, res, importsPath(req, 'create'));
   }
 };
 
@@ -75,7 +69,13 @@ const chiTiet = async (req, res) => {
 const chinhSua = async (req, res) => {
   try {
     const result = await importsService.getChinhSuaData(req.params.id);
-    if (!result.ok) return res.status(404).send(result.message);
+    if (!result.ok) {
+      if (result.code === 'READ_ONLY_RETURN' || result.code === 'READ_ONLY_CONFIRMED') {
+        req.flash('warning', result.message || 'Phiếu nhập hoàn trả không cho chỉnh sửa.');
+        return adminControllerService.redirectVe(req, res, importsPath(req, `${result.receiptId || req.params.id}`));
+      }
+      return res.status(404).send(result.message);
+    }
 
     return res.render('admin/pages/imports/edit.pug', result.data);
   } catch (error) {
@@ -95,34 +95,37 @@ const chinhSuaPost = async (req, res) => {
     });
 
     if (!result.ok) {
-      return xuLyKetQuaSSR(req, res, result, {
+      return adminControllerService.xuLyKetQuaSSR(req, res, result, {
         successPath: importsPath(req, `${result.receiptId || req.params.id}`),
-        errorPath: importsPath(req, `${result.receiptId || req.params.id}/edit`)
+        errorPath: importsPath(req, `${result.receiptId || req.params.id}/edit`),
+        resolveFlashType: importsService.xacDinhLoaiFlashKetQua
       });
     }
 
-    return xuLyKetQuaSSR(req, res, result, {
+    return adminControllerService.xuLyKetQuaSSR(req, res, result, {
       successPath: importsPath(req, `${result.receiptId}`),
-      errorPath: importsPath(req, `${req.params.id}/edit`)
+      errorPath: importsPath(req, `${req.params.id}/edit`),
+      resolveFlashType: importsService.xacDinhLoaiFlashKetQua
     });
   } catch (error) {
     console.error('Import receipt edit save error:', error);
     req.flash('error', `Không thể lưu chỉnh sửa: ${error.message}`);
-    return redirectVe(req, res, importsPath(req, `${req.params.id}/edit`));
+    return adminControllerService.redirectVe(req, res, importsPath(req, `${req.params.id}/edit`));
   }
 };
 
 const xoaPhieu = async (req, res) => {
   try {
     const result = await importsService.xoaPhieuNhap(req.params.id);
-    return xuLyKetQuaSSR(req, res, result, {
+    return adminControllerService.xuLyKetQuaSSR(req, res, result, {
       successPath: importsPath(req),
-      errorPath: result.receiptId ? importsPath(req, `${result.receiptId}`) : importsPath(req)
+      errorPath: result.receiptId ? importsPath(req, `${result.receiptId}`) : importsPath(req),
+      resolveFlashType: importsService.xacDinhLoaiFlashKetQua
     });
   } catch (error) {
     console.error('Delete import receipt error:', error);
     req.flash('error', `Không thể xóa phiếu nhập: ${error.message}`);
-    return redirectVe(req, res, importsPath(req));
+    return adminControllerService.redirectVe(req, res, importsPath(req));
   }
 };
 
@@ -134,14 +137,15 @@ const xuatKhoPhieuPost = async (req, res) => {
       user: req.user
     });
 
-    return xuLyKetQuaSSR(req, res, result, {
+    return adminControllerService.xuLyKetQuaSSR(req, res, result, {
       successPath: importsPath(req, `${result.receiptId}`),
-      errorPath: result.receiptId ? importsPath(req, `${result.receiptId}`) : importsPath(req)
+      errorPath: result.receiptId ? importsPath(req, `${result.receiptId}`) : importsPath(req),
+      resolveFlashType: importsService.xacDinhLoaiFlashKetQua
     });
   } catch (error) {
     console.error('Export import receipt error:', error);
     req.flash('error', `Không thể xuất kho phiếu nhập: ${error.message}`);
-    return redirectVe(req, res, importsPath(req));
+    return adminControllerService.redirectVe(req, res, importsPath(req));
   }
 };
 

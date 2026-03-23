@@ -6,22 +6,22 @@ const MOMO_MACDINH = {
   accessKey: '',
   secretKey: ''
 };
-
+// Lấy giá trị môi trường với tên biến và giá trị mặc định nếu không tồn tại
 function layGiaTriMoiTruong(name, fallback = '') {
   const value = String(process.env[name] || '').trim();
   return value || fallback;
 }
-
+// Tạo chữ ký HMAC SHA256 cho yêu cầu MoMo
 function taoSignature({ accessKey, amount, extraData, ipnUrl, orderId, orderInfo, partnerCode, redirectUrl, requestId, requestType }, secretKey) {
   const rawSignature = `accessKey=${accessKey}&amount=${amount}&extraData=${extraData}&ipnUrl=${ipnUrl}&orderId=${orderId}&orderInfo=${orderInfo}&partnerCode=${partnerCode}&redirectUrl=${redirectUrl}&requestId=${requestId}&requestType=${requestType}`;
   return crypto.createHmac('sha256', secretKey)
     .update(rawSignature)
     .digest('hex');
 }
-
+// Gửi yêu cầu thanh toán đến MoMo
 function guiYeuCauMoMo(requestBody) {
   const payload = JSON.stringify(requestBody);
-
+//
   const options = {
     hostname: 'test-payment.momo.vn',
     port: 443,
@@ -32,7 +32,7 @@ function guiYeuCauMoMo(requestBody) {
       'Content-Length': Buffer.byteLength(payload)
     }
   };
-
+// Trả về một Promise để xử lý kết quả bất đồng bộ
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
       let data = '';
@@ -53,7 +53,7 @@ function guiYeuCauMoMo(requestBody) {
     req.end();
   });
 }
-
+// Gửi yêu cầu hoàn tiền đến MoMo
 function guiYeuCauHoanTien(requestBody) {
   const payload = JSON.stringify(requestBody);
 

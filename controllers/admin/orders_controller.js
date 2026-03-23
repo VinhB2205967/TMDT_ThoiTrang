@@ -1,4 +1,5 @@
 ﻿const ordersAdminService = require('../../services/order/admin-orders.service.js');
+const adminControllerService = require('../../services/communication/admin-controller.service');
 
 module.exports.danhSach = async (req, res) => {
   try {
@@ -79,57 +80,65 @@ module.exports.capNhatTrangThai = async (req, res) => {
 };
 
 module.exports.duyetHoanHang = async (req, res) => {
+  const redirectUrl = adminControllerService.taoDuongDanChiTietDon(req, req.params.id);
   try {
     const result = await ordersAdminService.duyetHoanHang({
       id: req.params.id,
       note: req.body.note || req.body.adminNote
     });
-    req.flash(ordersAdminService.xacDinhLoaiFlashKetQua(result), result.message);
+    adminControllerService.flashKetQua(req, result, ordersAdminService.xacDinhLoaiFlashKetQua);
   } catch (err) {
     console.error('duyetHoanHang error:', err);
     req.flash('error', 'Có lỗi khi duyệt hoàn hàng');
   }
 
-  return res.redirect('back');
+  return res.redirect(redirectUrl);
 };
 
 module.exports.tuChoiHoanHang = async (req, res) => {
+  const redirectUrl = adminControllerService.taoDuongDanChiTietDon(req, req.params.id);
   try {
     const result = await ordersAdminService.tuChoiHoanHang({
       id: req.params.id,
       note: req.body.note || req.body.adminNote
     });
-    req.flash(ordersAdminService.xacDinhLoaiFlashKetQua(result), result.message);
+    adminControllerService.flashKetQua(req, result, ordersAdminService.xacDinhLoaiFlashKetQua);
   } catch (err) {
     console.error('tuChoiHoanHang error:', err);
     req.flash('error', 'Có lỗi khi từ chối hoàn hàng');
   }
 
-  return res.redirect('back');
+  return res.redirect(redirectUrl);
 };
 
 module.exports.xacNhanDaNhanHangHoan = async (req, res) => {
+  const redirectUrl = adminControllerService.taoDuongDanChiTietDon(req, req.params.id);
   try {
-    const result = await ordersAdminService.xacNhanDaNhanHangHoan(req.params.id);
-    req.flash(ordersAdminService.xacDinhLoaiFlashKetQua(result), result.message);
+    const result = await ordersAdminService.xacNhanDaNhanHangHoan({
+      id: req.params.id,
+      payload: req.body || {},
+      actor: req.user || null
+    });
+    adminControllerService.flashKetQua(req, result, ordersAdminService.xacDinhLoaiFlashKetQua);
   } catch (err) {
     console.error('xacNhanDaNhanHangHoan error:', err);
     req.flash('error', 'Có lỗi khi xác nhận nhận hàng hoàn');
   }
 
-  return res.redirect('back');
+  return res.redirect(redirectUrl);
 };
 
 module.exports.hoanTienDon = async (req, res) => {
+  const redirectUrl = adminControllerService.taoDuongDanChiTietDon(req, req.params.id);
   try {
     const result = await ordersAdminService.hoanTienDon(req.params.id);
-    req.flash(ordersAdminService.xacDinhLoaiFlashKetQua(result), result.message);
+    adminControllerService.flashKetQua(req, result, ordersAdminService.xacDinhLoaiFlashKetQua);
   } catch (err) {
     console.error('hoanTienDon error:', err);
     req.flash('error', 'Có lỗi khi hoàn tiền');
   }
 
-  return res.redirect('back');
+  return res.redirect(redirectUrl);
 };
 
 module.exports.capNhatTrangThaiHangLoat = async (req, res) => {

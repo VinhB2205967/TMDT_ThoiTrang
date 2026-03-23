@@ -1,18 +1,110 @@
 const mongoose = require('mongoose');
+const Chitietdonhang = require('../../models/order_item_model');
 const Sanpham = require('../../models/product_model');
 const PhieuXuatKho = require('../../models/export_receipt_model');
 const { SIZE_LIST } = require('../../config/constants');
 const { tinhTongTon } = require('../../services/catalog/productStock.service.js');
 const {
-  calcTotals,
-  calcFinanceByAllocations,
-  buildCostMapForProductIds,
-  consumeLotsFIFO,
-  resolveAvgCost,
+  tinhTongSoLieu,
+  tinhTaiChinhTheoPhanBo,
+  taoBanDoGiaVonTrungBinhTheoSanPham,
+  xuatTonTheoLoFIFO,
+  layGiaDeXuatSauKhiXuat,
+  apDungGiaDeXuatChoSanPham,
+  layGiaVonTrungBinh,
   taoThongTinNhanVienKy,
   taoMaPhieuXuat,
-  congTonKhoTheoDong
+  truTonKhoTheoDong
 } = require('./exportReceipt.service.js');
+
+function buildLineKey({ sanphamid, bientheid, kichco }) {
+  const productId = String(sanphamid || '').trim();
+  const variantId = bientheid ? String(bientheid).trim() : 'main';
+  const sizeKey = String(kichco || '').trim();
+  return `${productId}|${variantId}|${sizeKey}`;
+}
+
+function isLegacyAllocationLine(line) {
+  const allocs = Array.isArray(line?.allocations) ? line.allocations : [];
+  if (!allocs.length) return true;
+  return allocs.every((a) => !a?.lotId);
+}
+
+async function hydrateLegacyOrderAllocations(receipt) {
+  if (!receipt || !receipt.donhang_id) return receipt;
+
+  const orderId = typeof receipt.donhang_id === 'object' && receipt.donhang_id._id
+    ? String(receipt.donhang_id._id)
+    : String(receipt.donhang_id);
+  if (!mongoose.Types.ObjectId.isValid(orderId)) return receipt;
+
+  const orderItems = await Chitietdonhang.find({ donhang_id: orderId })
+    .select('sanpham_id bienthe_id kichco giagoc giaban fifoAllocations')
+    .lean();
+  if (!Array.isArray(orderItems) || !orderItems.length) return receipt;
+
+  const itemBuckets = new Map();
+  for (const it of orderItems) {
+    const key = buildLineKey({
+      sanphamid: it.sanpham_id,
+      bientheid: it.bienthe_id,
+      kichco: it.kichco
+    });
+    const arr = itemBuckets.get(key) || [];
+    arr.push(it);
+    itemBuckets.set(key, arr);
+  }
+
+  const lines = Array.isArray(receipt.chitiet) ? receipt.chitiet : [];
+  for (const line of lines) {
+    if (!isLegacyAllocationLine(line)) continue;
+
+    const key = buildLineKey({
+      sanphamid: line.sanphamid,
+      bientheid: line.bientheid,
+      kichco: line.kichco
+    });
+    const bucket = itemBuckets.get(key) || [];
+    if (!bucket.length) continue;
+
+    const orderItem = bucket.shift();
+    itemBuckets.set(key, bucket);
+
+    const allocs = Array.isArray(orderItem.fifoAllocations)
+      ? orderItem.fifoAllocations
+        .map((a) => ({
+          lotId: a?.lotId || null,
+          soLuong: Number(a?.soLuong || 0),
+          giaNhap: Number(a?.giaNhap || 0),
+          giaBanDeXuat: Number(a?.giaBanDeXuat || 0)
+        }))
+        .filter((a) => a.soLuong > 0)
+      : [];
+    if (!allocs.length) continue;
+
+    const fallbackGiaBan = Number(orderItem.giagoc || line.giaban || 0);
+    const fallbackGiam = fallbackGiaBan > 0
+      ? Math.max(0, Number((((fallbackGiaBan - Number(orderItem.giaban || fallbackGiaBan)) / fallbackGiaBan) * 100).toFixed(2)))
+      : 0;
+
+    const finance = tinhTaiChinhTheoPhanBo({
+      allocations: allocs,
+      fallbackGiaBan,
+      fallbackPhanTramGiam: fallbackGiam
+    });
+
+    line.allocations = finance.allocations;
+    line.gianhap = finance.gianhap;
+    line.giaban = finance.giaban;
+    line.phantramgiam = finance.phantramgiam;
+    line.giasaugiam = finance.giasaugiam;
+    line.doanhthu = finance.tongDoanhThu;
+    line.giavon = finance.tongGiaVon;
+    line.loinhuan = finance.tongLoiNhuan;
+  }
+
+  return receipt;
+}
 
 function normalizeItems(bodyItems) {
   if (!bodyItems) return [];
@@ -122,7 +214,7 @@ async function taoPhieuXuat({ body = {}, adminUser = null, user = null }) {
   }
 
   const productIds = Array.from(new Set(normalizedItems.map((it) => String(it.sanphamid)).filter((id) => mongoose.Types.ObjectId.isValid(id))));
-  const costMap = await buildCostMapForProductIds(productIds);
+  const costMap = await taoBanDoGiaVonTrungBinhTheoSanPham(productIds);
 
   for (const it of normalizedItems) {
     const productDoc = await Sanpham.findById(it.sanphamid);
@@ -145,15 +237,23 @@ async function taoPhieuXuat({ body = {}, adminUser = null, user = null }) {
       : Number(productDoc.phantramgiamgia || 0);
 
     let fifoCost;
+    let suggestedPrice = 0;
     try {
-      fifoCost = await consumeLotsFIFO({
+      fifoCost = await xuatTonTheoLoFIFO({
         productId: it.sanphamid,
         variantId,
         size: it.kichco,
         qty: it.soluong
       });
+
+      suggestedPrice = await layGiaDeXuatSauKhiXuat({
+        productId: it.sanphamid,
+        variantId,
+        size: it.kichco,
+        allocations: fifoCost.allocations
+      });
     } catch (fifoErr) {
-      const giaNhapFallback = resolveAvgCost(costMap, {
+      const giaNhapFallback = layGiaVonTrungBinh(costMap, {
         productId: it.sanphamid,
         variantId,
         size: it.kichco
@@ -162,13 +262,17 @@ async function taoPhieuXuat({ body = {}, adminUser = null, user = null }) {
         tongGiaVon: Number(it.soluong || 0) * giaNhapFallback,
         giaNhapBinhQuan: giaNhapFallback
       };
+
+      suggestedPrice = variant ? Number(variant.gia || productDoc.gia || 0) : Number(productDoc.gia || 0);
     }
 
-    congTonKhoTheoDong(productDoc, {
+    truTonKhoTheoDong(productDoc, {
       variantId,
       size: it.kichco,
       qty: it.soluong
     });
+
+    apDungGiaDeXuatChoSanPham(productDoc, { variantId, suggestedPrice });
 
     productDoc.soluongton = tinhTongTon(productDoc);
     productDoc.ngaycapnhat = new Date();
@@ -178,29 +282,23 @@ async function taoPhieuXuat({ body = {}, adminUser = null, user = null }) {
       ? fifoCost.allocations
       : [{ soLuong: Number(it.soluong || 0), giaNhap: fifoCost.giaNhapBinhQuan, giaBanDeXuat: giaBan }];
 
-    const allocationFinance = calcFinanceByAllocations({
+    const allocationFinance = tinhTaiChinhTheoPhanBo({
       allocations: fallbackAllocations,
       fallbackGiaBan: giaBan,
       fallbackPhanTramGiam: phanTramGiam
     });
 
-    const avgGiaBan = allocationFinance.giaban;
-    const avgGiaSauGiam = allocationFinance.giasaugiam;
-    const avgPhanTram = avgGiaBan > 0
-      ? Math.max(0, Number((((avgGiaBan - avgGiaSauGiam) / avgGiaBan) * 100).toFixed(2)))
-      : 0;
-
     it.gianhap = allocationFinance.gianhap;
-    it.giaban = avgGiaBan;
-    it.phantramgiam = avgPhanTram;
-    it.giasaugiam = avgGiaSauGiam;
+    it.giaban = allocationFinance.giaban;
+    it.phantramgiam = allocationFinance.phantramgiam;
+    it.giasaugiam = allocationFinance.giasaugiam;
     it.doanhthu = allocationFinance.tongDoanhThu;
     it.giavon = allocationFinance.tongGiaVon;
     it.loinhuan = allocationFinance.tongLoiNhuan;
     it.allocations = allocationFinance.allocations;
   }
 
-  const totals = calcTotals(normalizedItems);
+  const totals = tinhTongSoLieu(normalizedItems);
 
   const receipt = new PhieuXuatKho({
     maphieu,
@@ -237,7 +335,7 @@ async function getChiTietData(idOrCode) {
     await receiptDoc.populate({ path: 'donhang_id', select: 'madonhang' });
   }
 
-  const receipt = receiptDoc.toObject();
+  const receipt = await hydrateLegacyOrderAllocations(receiptDoc.toObject());
   const nhanVienKy = {
     tennhanvien: (receipt.nhanvienky && receipt.nhanvienky.tennhanvien) || (receipt.nguoitao && receipt.nguoitao.hoten) || (receipt.nguoitao && receipt.nguoitao.email) || '',
     idnhanvien: (receipt.nhanvienky && receipt.nhanvienky.idnhanvien) || (receipt.nguoitao && receipt.nguoitao._id ? String(receipt.nguoitao._id) : ''),

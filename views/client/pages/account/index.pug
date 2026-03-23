@@ -41,8 +41,6 @@ block main
                       .mb-2
                         img#accountAvatarPreview(src=((profile && profile.avatar) || '/images/avatar/avatar.png') alt="avatar" style="width:64px;height:64px;border-radius:12px;object-fit:cover")
                       input#accountAvatarFileInput.form-control(type="file" name="avatarFile" accept="image/*")
-                      .form-text Hoặc dán link ảnh (tuỳ chọn)
-                      input#accountAvatarUrlInput.form-control.mt-2(type="text" name="avatarUrl" placeholder="https://..." value=(profile && profile.avatar) || '')
                       
                   .d-flex.gap-2.mt-3
                     button.btn.btn-primary(type="submit") Lưu thay đổi

@@ -164,6 +164,13 @@
 		if (!tuyChonHienTai) return;
 		const p = tuyChonHienTai.product;
 
+		const tinhTonBienThe = (variant) => {
+			if (!variant) return 0;
+			if (!p.hasSize) return Number(variant.soluong || 0);
+			const sizes = Array.isArray(variant.sizes) ? variant.sizes : [];
+			return sizes.reduce((sum, s) => sum + Number(s?.soluong || 0), 0);
+		};
+
 		const variants = Array.isArray(p.variants) ? p.variants : [];
 		let selectedVariant = variants.find(v => String(v.id) === String(idBienTheDaChon));
 		if (!selectedVariant && variants.length) {
@@ -179,10 +186,11 @@
 		variantsWrap.innerHTML = '';
 
 		variants.forEach((v) => {
+			const tonBienThe = tinhTonBienThe(v);
 			const btn = document.createElement('button');
 			btn.type = 'button';
 			btn.className = 'btn btn-sm ' + (String(v.id) === String(idBienTheDaChon) ? 'btn-primary' : 'btn-outline-primary');
-			btn.textContent = v.mausac || 'Màu';
+			btn.textContent = `${v.mausac || 'Màu'}${tonBienThe > 0 ? '' : ' (Hết hàng)'}`;
 			btn.dataset.variantId = String(v.id);
 			btn.addEventListener('click', () => {
 				idBienTheDaChon = String(v.id);
@@ -203,6 +211,7 @@
 			const sizeOrder = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 			const sizes = Array.isArray(selectedVariant?.sizes) ? selectedVariant.sizes : [];
 			const bySize = new Map(sizes.map(s => [String(s.size), s]));
+			const tongTonBienThe = tinhTonBienThe(selectedVariant);
 
 			sizeOrder.forEach((sz) => {
 				if (!bySize.has(sz)) return;
@@ -212,7 +221,7 @@
 				b.type = 'button';
 				const active = sizeDaChon === sz;
 				b.className = 'btn btn-sm ' + (active ? 'btn-dark' : 'btn-outline-dark');
-				b.textContent = `${sz}${stock > 0 ? '' : ' (Hết)'}`;
+				b.textContent = `${sz}${stock > 0 ? '' : ' (Hết hàng)'}`;
 				b.disabled = stock <= 0;
 				b.addEventListener('click', () => {
 					sizeDaChon = sz;
@@ -227,13 +236,21 @@
 			} else {
 				tonToiDa = 0;
 			}
+
+			const stockNote = $('#qamStockNote');
+			if (tonToiDa > 0) {
+				stockNote.textContent = `Còn ${tonToiDa} sản phẩm`;
+			} else if (tongTonBienThe <= 0) {
+				stockNote.textContent = 'Hết hàng';
+			} else {
+				stockNote.textContent = 'Vui lòng chọn size';
+			}
 		} else {
 			sizeWrap.style.display = 'none';
 			tonToiDa = selectedVariant?.soluong || 0;
+			const stockNote = $('#qamStockNote');
+			stockNote.textContent = tonToiDa > 0 ? `Còn ${tonToiDa} sản phẩm` : 'Hết hàng';
 		}
-
-		const stockNote = $('#qamStockNote');
-		stockNote.textContent = tonToiDa > 0 ? `Còn ${tonToiDa} sản phẩm` : (p.hasSize ? 'Vui lòng chọn size' : 'Hết hàng');
 
 		const qtyInput = $('#qamQty');
 		const currentQty = Math.max(1, parseInt(qtyInput.value, 10) || 1);
@@ -243,8 +260,8 @@
 			qtyInput.disabled = false;
 			$('#qamSubmit').disabled = false;
 		} else {
-			qtyInput.value = p.hasSize ? '1' : '0';
-			qtyInput.disabled = !p.hasSize;
+			qtyInput.value = '1';
+			qtyInput.disabled = true;
 			$('#qamSubmit').disabled = true;
 		}
 	}

@@ -3,6 +3,7 @@ extends ../../layouts/default.pug
 block main
   - const __NO_SIZE = ['tui', 'phukien']
   - const __ct = receipt.chitiet || receipt.chi_tiet || []
+  - const __isReturnReceipt = String(receipt.loaiphieu || '') === 'return'
   - const __dt = (receipt.ngaynhap || receipt.ngay_nhap) ? new Date(receipt.ngaynhap || receipt.ngay_nhap) : new Date()
   - const __pad2 = (n) => String(n).padStart(2, '0')
   - const __localVal = `${__dt.getFullYear()}-${__pad2(__dt.getMonth() + 1)}-${__pad2(__dt.getDate())}T${__pad2(__dt.getHours())}:${__pad2(__dt.getMinutes())}`
@@ -21,6 +22,11 @@ block main
     - const editAction = `${admin}/imports/${receipt._id}/edit?_csrf=${encodeURIComponent(csrfToken || '')}`
     form#import-create-form(method='POST', action=editAction enctype='multipart/form-data')
       input(type='hidden' name='_csrf' value=csrfToken)
+
+      if __isReturnReceipt
+        .alert.alert-warning
+          i.bi.bi-exclamation-triangle.me-1
+          | Phiếu nhập hoàn trả được tạo tự động theo FIFO, chỉ xem chi tiết và không chỉnh sửa thủ công.
 
       .card.mb-3
         .card-header Thông tin chung phiếu nhập
@@ -71,7 +77,7 @@ block main
               | Tổng tiền nhập: 
               span#import-total-money 0
               |  đ
-            button.btn.btn-success(type='submit')
+            button.btn.btn-success(type='submit' disabled=__isReturnReceipt)
               i.bi.bi-check2-circle
               |  Lưu phiếu nhập
 

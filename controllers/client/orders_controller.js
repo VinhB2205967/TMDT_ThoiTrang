@@ -52,6 +52,22 @@ module.exports.yeuCauHoanHang = async (req, res) => {
   }
 };
 
+module.exports.huyYeuCauHoanHang = async (req, res) => {
+  try {
+    const result = await ordersService.cancelReturnRequestByUser({
+      userId: req.user._id,
+      orderId: req.params.id
+    });
+
+    applyFlash(req, result.flash);
+    return res.redirect(result.redirect || `/orders/${req.params.id}`);
+  } catch (err) {
+    console.error('client cancel return request error:', err);
+    req.flash?.('error', 'Không thể hủy yêu cầu hoàn hàng lúc này.');
+    return res.redirect(`/orders/${req.params.id}`);
+  }
+};
+
 module.exports.huyDon = async (req, res) => {
   const result = await ordersService.cancelOrderByUser({
     userId: req.user._id,

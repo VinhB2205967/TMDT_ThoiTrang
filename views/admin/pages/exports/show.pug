@@ -2,6 +2,98 @@ extends ../../layouts/default.pug
 
 block main
   .container-fluid.p-3
+    style.
+      .container-fluid.p-3 {
+        max-width: 1480px;
+      }
+      .card {
+        border: 1px solid #e7ebf3;
+        border-radius: 14px;
+        overflow: hidden;
+      }
+      .card-header {
+        background: #f6f8fc;
+        border-bottom: 1px solid #e7ebf3;
+        font-weight: 700;
+      }
+      .export-table {
+        min-width: 1320px;
+        border-color: #e6eaf2;
+      }
+      .export-table th,
+      .export-table td {
+        vertical-align: top;
+        border-color: #e6eaf2;
+      }
+      .export-table thead th {
+        background: #f3f6fb;
+        color: #1f2a44;
+        font-size: 0.86rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .export-table tbody tr:nth-child(even) {
+        background: #fafcff;
+      }
+      .export-table td {
+        padding-top: 10px;
+        padding-bottom: 10px;
+      }
+      .col-product {
+        min-width: 300px;
+      }
+      .col-variant {
+        min-width: 92px;
+      }
+      .col-size,
+      .col-color {
+        min-width: 74px;
+      }
+      .col-number {
+        min-width: 130px;
+      }
+      .num-cell,
+      .fifo-line,
+      .fifo-total {
+        white-space: nowrap;
+      }
+      .product-cell {
+        font-size: 1.03rem;
+        line-height: 1.45;
+        font-weight: 600;
+        color: #1f2a44;
+      }
+      .money-cell {
+        color: #1f2a44;
+      }
+      .money-total {
+        color: #0f6d3d;
+        font-weight: 800;
+      }
+      .fifo-stack {
+        min-width: 96px;
+      }
+      .fifo-line {
+        padding: 2px 0;
+        line-height: 1.3;
+        color: #27324d;
+      }
+      .fifo-total {
+        margin-top: 4px;
+        padding-top: 6px;
+        border-top: 1px dashed #cfd7e6;
+        font-weight: 700;
+      }
+      .export-image-thumb {
+        width: 56px;
+        height: 56px;
+        object-fit: cover;
+        border-radius: 8px;
+        border: 1px solid #d9e1ef;
+      }
+
     .d-flex.justify-content-between.align-items-center.mb-3
       h3.mb-0 Chi tiết phiếu xuất
       .d-flex.gap-2
@@ -44,55 +136,110 @@ block main
           .alert.alert-info.mb-0 Không có dòng xuất.
         else
           .table-responsive
-            table.table.table-bordered.table-sm.align-middle
+            table.export-table.table.table-bordered.table-sm.align-middle
               thead.table-light
                 tr
-                  th Sản phẩm
-                  th Biến thể
-                  th Size
-                  th Màu
-                  th Số lượng
-                  th Giá nhập
-                  th Giá bán
-                  th Giảm
-                  th Giá sau giảm
-                  th Doanh thu
-                  th Giá vốn
-                  th Lợi nhuận
-                  th Phân bổ theo lô
+                  th.col-product Sản phẩm
+                  th.col-variant Biến thể
+                  th.col-size Size
+                  th.col-color Màu
+                  th.col-number Số lượng
+                  th.col-number Giá nhập
+                  th.col-number Giá bán
+                  th.col-number Giảm
+                  th.col-number Giá sau giảm
+                  th.col-number Doanh thu
+                  th.col-number Giá vốn
+                  th.col-number Lợi nhuận
                   th Ảnh
                   th Ghi chú
               tbody
                 each it in _chiTiet
                   - const v = it.bientheid ? String(it.bientheid) : 'main'
+                  - const allocs = Array.isArray(it.allocations) ? it.allocations : []
+                  - const giaBanTheoLo = Array.from(new Set(allocs.map((a) => Number(a.giaban || 0)).filter((n) => Number.isFinite(n) && n > 0)))
+                  - const giaSauGiamTheoLo = Array.from(new Set(allocs.map((a) => Number(a.giasaugiam || 0)).filter((n) => Number.isFinite(n) && n > 0)))
+                  - const giamTheoLo = Array.from(new Set(allocs.map((a) => Number(a.phantramgiam || 0)).filter((n) => Number.isFinite(n) && n >= 0)))
+                  - const nhieuGiaBan = giaBanTheoLo.length > 1
+                  - const nhieuGiaSauGiam = giaSauGiamTheoLo.length > 1
+                  - const nhieuGiam = giamTheoLo.length > 1
                   tr
-                    td #{it.tensanpham || it.sanphamid}
-                    td #{v === 'main' ? 'Mặc định' : 'Biến thể'}
-                    td #{it.kichco || ''}
-                    td #{it.mausac || ''}
-                    td #{Number(it.soluong || 0).toLocaleString('vi-VN')}
-                    td #{Number(it.gianhap || 0).toLocaleString('vi-VN')}đ
-                    td #{Number(it.giaban || 0).toLocaleString('vi-VN')}đ
-                    td #{Number(it.phantramgiam || 0)}%
-                    td #{Number(it.giasaugiam || 0).toLocaleString('vi-VN')}đ
-                    td #{Number(it.doanhthu || 0).toLocaleString('vi-VN')}đ
-                    td #{Number(it.giavon || 0).toLocaleString('vi-VN')}đ
-                    td #{Number(it.loinhuan || 0).toLocaleString('vi-VN')}đ
-                    td
-                      - const allocs = Array.isArray(it.allocations) ? it.allocations : []
-                      if !allocs.length
-                        span.text-muted -
+                    td.col-product.product-cell #{it.tensanpham || it.sanphamid}
+                    td.col-variant #{v === 'main' ? 'Mặc định' : 'Biến thể'}
+                    td.col-size #{it.kichco || ''}
+                    td.col-color #{it.mausac || ''}
+                    td.col-number.num-cell.money-cell
+                      if allocs.length
+                        .fifo-stack
+                          each a in allocs
+                            .fifo-line #{Number(a.soLuong || 0).toLocaleString('vi-VN')} cái
+                          .fifo-total Tổng: #{Number(it.soluong || 0).toLocaleString('vi-VN')} cái
                       else
-                        each a in allocs
-                          - const lotCode = a.lotId ? String(a.lotId).slice(-8) : 'N/A'
-                          .small.mb-1
-                            | Lô #{lotCode}: #{Number(a.soLuong || 0).toLocaleString('vi-VN')} sp,
-                            |  bán #{Number(a.giaban || 0).toLocaleString('vi-VN')}đ,
-                            |  vốn #{Number(a.giaNhap || 0).toLocaleString('vi-VN')}đ,
-                            |  lãi #{Number(a.loinhuan || 0).toLocaleString('vi-VN')}đ
+                        | #{Number(it.soluong || 0).toLocaleString('vi-VN')}
+                    td.col-number.num-cell.money-cell
+                      if allocs.length
+                        .fifo-stack
+                          each a in allocs
+                            .fifo-line #{Number(a.giaNhap || 0).toLocaleString('vi-VN')}đ
+                      else
+                        | #{Number(it.gianhap || 0).toLocaleString('vi-VN')}đ
+                    td.col-number.num-cell.money-cell
+                      if allocs.length
+                        .fifo-stack
+                          each a in allocs
+                            .fifo-line #{Number(a.giaban || 0).toLocaleString('vi-VN')}đ
+                      else if nhieuGiaBan
+                        each p in giaBanTheoLo
+                          .small #{Number(p || 0).toLocaleString('vi-VN')}đ
+                      else
+                        | #{Number(it.giaban || giaBanTheoLo[0] || 0).toLocaleString('vi-VN')}đ
+                    td.col-number.num-cell.money-cell
+                      if allocs.length
+                        .fifo-stack
+                          each a in allocs
+                            .fifo-line #{Number(a.phantramgiam || 0)}%
+                      else if nhieuGiam
+                        each p in giamTheoLo
+                          .small #{Number(p || 0)}%
+                      else
+                        | #{Number(it.phantramgiam || giamTheoLo[0] || 0)}%
+                    td.col-number.num-cell.money-cell
+                      if allocs.length
+                        .fifo-stack
+                          each a in allocs
+                            .fifo-line #{Number(a.giasaugiam || 0).toLocaleString('vi-VN')}đ
+                      else if nhieuGiaSauGiam
+                        each p in giaSauGiamTheoLo
+                          .small #{Number(p || 0).toLocaleString('vi-VN')}đ
+                      else
+                        | #{Number(it.giasaugiam || giaSauGiamTheoLo[0] || 0).toLocaleString('vi-VN')}đ
+                    td.col-number.num-cell.money-cell
+                      if allocs.length
+                        .fifo-stack
+                          each a in allocs
+                            .fifo-line #{Number(a.doanhthu || 0).toLocaleString('vi-VN')}đ
+                          .fifo-total.money-total #{Number(it.doanhthu || 0).toLocaleString('vi-VN')}đ
+                      else
+                        | #{Number(it.doanhthu || 0).toLocaleString('vi-VN')}đ
+                    td.col-number.num-cell.money-cell
+                      if allocs.length
+                        .fifo-stack
+                          each a in allocs
+                            .fifo-line #{Number(a.giavon || 0).toLocaleString('vi-VN')}đ
+                          .fifo-total.money-total #{Number(it.giavon || 0).toLocaleString('vi-VN')}đ
+                      else
+                        | #{Number(it.giavon || 0).toLocaleString('vi-VN')}đ
+                    td.col-number.num-cell.money-cell
+                      if allocs.length
+                        .fifo-stack
+                          each a in allocs
+                            .fifo-line #{Number(a.loinhuan || 0).toLocaleString('vi-VN')}đ
+                          .fifo-total.money-total #{Number(it.loinhuan || 0).toLocaleString('vi-VN')}đ
+                      else
+                        | #{Number(it.loinhuan || 0).toLocaleString('vi-VN')}đ
                     td
                       if it.hinhanh
-                        img(src=it.hinhanh style='width:44px;height:44px;object-fit:cover;border-radius:6px')
+                        img.export-image-thumb(src=it.hinhanh)
                       else
                         span.text-muted -
                     td #{it.ghichudong || ''}

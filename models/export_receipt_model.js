@@ -4,6 +4,7 @@ const exportAllocationSchema = new mongoose.Schema(
   {
     lotId: { type: mongoose.Schema.Types.ObjectId, required: false },
     soLuong: { type: Number, required: true, min: 1 },
+    soluonghoan: { type: Number, default: 0, min: 0 },
     giaNhap: { type: Number, default: 0, min: 0 },
     giaBanDeXuat: { type: Number, default: 0, min: 0 },
     giaban: { type: Number, default: 0, min: 0 },
@@ -31,6 +32,10 @@ const exportItemSchema = new mongoose.Schema(
     doanhthu: { type: Number, default: 0 },
     giavon: { type: Number, default: 0 },
     loinhuan: { type: Number, default: 0 },
+    soluonghoan: { type: Number, default: 0, min: 0 },
+    doanhthuhoan: { type: Number, default: 0 },
+    giavonhoan: { type: Number, default: 0 },
+    loinhuanhoan: { type: Number, default: 0 },
     allocations: { type: [exportAllocationSchema], default: [] },
     hinhanh: { type: String, default: '' },
     ghichudong: { type: String, default: '' }
@@ -49,6 +54,9 @@ const exportReceiptSchema = new mongoose.Schema({
   tongdoanhthu: { type: Number, default: 0 },
   tonggiavon: { type: Number, default: 0 },
   tongloinhuan: { type: Number, default: 0 },
+  tongdoanhthuhoan: { type: Number, default: 0 },
+  tonggiavonhoan: { type: Number, default: 0 },
+  tongloinhuanhoan: { type: Number, default: 0 },
   tysuatloinhuan: { type: Number, default: 0 },
   nguoitaophieu: { type: String, enum: ['manual', 'order'], default: 'manual' },
   chitiet: { type: [exportItemSchema], default: [] },

@@ -8,12 +8,25 @@ function parseObjectId(id) {
     return value;
 }
 
+function parseObjectIdArray(input) {
+    const values = Array.isArray(input) ? input : (input == null ? [] : [input]);
+    const seen = new Set();
+    const output = [];
+    values.forEach((item) => {
+        const parsed = parseObjectId(item);
+        if (!parsed || seen.has(parsed)) return;
+        seen.add(parsed);
+        output.push(parsed);
+    });
+    return output;
+}
+
 const prepareProductData = (body, files) => {
     const isNoSizeProduct = NO_SIZE_TYPES.includes(body.loaisanpham);
     let tongSizeGoc = 0;
     const baseSizes = [];
 
-    // 1. Xá»­ lÃ½ sizes gá»‘c (cho sáº£n pháº©m chÃ­nh)
+    // 1 xác định tổng số lượng gốc (dành cho sản phẩm không có size) hoặc tổng số lượng size gốc (dành cho sản phẩm có size)
     if (isNoSizeProduct) {
         tongSizeGoc = parseInt(body.soluong_chinh) || 0;
     } else {
@@ -26,7 +39,10 @@ const prepareProductData = (body, files) => {
         });
     }
 
-    // 2. Khá»Ÿi táº¡o object data cÆ¡ báº£n
+    // 2. Khởi tạo đối tượng productData với các trường cơ bản, sau đó sẽ bổ sung thêm biến thể và xử lý ảnh
+    const occasionIds = parseObjectIdArray(body.occasions !== undefined ? body.occasions : body.occasion);
+    const primaryOccasionId = occasionIds.length ? occasionIds[0] : null;
+
     const productData = {
         tensanpham: body.tensanpham,
         mota: body.mota,
@@ -38,11 +54,13 @@ const prepareProductData = (body, files) => {
         gioitinh: body.gioitinh,
         loaisanpham: body.loaisanpham,
         trangthai: body.trangthai || 'dangban',
-        occasion: parseObjectId(body.occasion),
+        occasions: occasionIds,
+        occasion: primaryOccasionId,
+        dip_sudung_id: primaryOccasionId,
         ageGroup: parseObjectId(body.ageGroup),
         brand: parseObjectId(body.brand || body.thuonghieu_id),
         thuonghieu_id: parseObjectId(body.brand || body.thuonghieu_id),
-        // daxoa vÃ  ngaytao sáº½ Ä‘Æ°á»£c xá»­ lÃ½ riÃªng á»Ÿ controller tÃ¹y ngá»¯ cáº£nh
+        // daxoa và ngaytao sẽ được xử lý riêng ở controller tùy theo nhu cầu
     };
 
     if (body.category !== undefined) {
@@ -53,7 +71,7 @@ const prepareProductData = (body, files) => {
         productData.sizeguide_id = parseObjectId(body.sizeguide_id);
     }
 
-    // 3. Xá»­ lÃ½ biáº¿n thá»ƒ
+    // 3. Xử lý biến thể (nếu có)
     let tongBienThe = 0;
     if (body.bienthe_mausac) {
         const mausacArr = Array.isArray(body.bienthe_mausac) ? body.bienthe_mausac : [body.bienthe_mausac];
@@ -61,38 +79,38 @@ const prepareProductData = (body, files) => {
         const giamgiaArr = Array.isArray(body.bienthe_giamgia) ? body.bienthe_giamgia : [body.bienthe_giamgia];
         const soluongArr = Array.isArray(body.bienthe_soluong) ? body.bienthe_soluong : [body.bienthe_soluong];
         
-        // Dá»¯ liá»‡u há»— trá»£ Edit (náº¿u cÃ³)
+        // Dữ liệu hỗ trợ Edit (nếu có) - để giữ lại ảnh cũ nếu không upload ảnh mới cho biến thể đó
         const oldImageArr = body.bienthe_hinhanh_cu ? (Array.isArray(body.bienthe_hinhanh_cu) ? body.bienthe_hinhanh_cu : [body.bienthe_hinhanh_cu]) : [];
         const hasNewImageArr = body.bienthe_has_new_image ? (Array.isArray(body.bienthe_has_new_image) ? body.bienthe_has_new_image : [body.bienthe_has_new_image]) : [];
 
-        // File áº£nh biáº¿n thá»ƒ tá»« Multer
+        // File ảnh biến thể từ Multer
         const bientheImages = files && files['bienthe_hinhanh'] ? files['bienthe_hinhanh'] : [];
         let imageIndex = 0;
 
         productData.bienthe = mausacArr.map((mausac, i) => {
-            // --- Xá»­ lÃ½ áº£nh biáº¿n thá»ƒ ---
+            // --- Xử lý ảnh biến thể ---
             let hinhanh = null;
             
-            // Æ¯u tiÃªn giá»¯ áº£nh cÅ© náº¿u cÃ³ (Logic Edit)
+            // Ưu tiên ảnh cũ nếu có (Logic Edit)
             if (oldImageArr[i]) {
                 hinhanh = oldImageArr[i];
             }
 
-            // Kiá»ƒm tra xem cÃ³ áº£nh má»›i upload khÃ´ng
+            // Kiểm tra xem có ảnh mới upload không
             if (oldImageArr.length > 0 || hasNewImageArr.length > 0) {
-                // Edit Mode: Dá»±a vÃ o flag hasNewImageArr Ä‘á»ƒ biáº¿t biáº¿n thá»ƒ nÃ o cÃ³ áº£nh má»›i
+                // Edit Mode: Dựa vào flag hasNewImageArr để biết biến thể nào có ảnh mới
                 if (hasNewImageArr[i] === '1' && bientheImages[imageIndex]) {
                     hinhanh = '/uploads/products/' + bientheImages[imageIndex].filename;
                     imageIndex++;
                 }
             } else {
-                // Create Mode: Láº¥y theo index (giáº£ Ä‘á»‹nh input file Ä‘á»“ng bá»™)
+                // Create Mode: Lấy theo index (giá trị định input file đồng bộ với index biến thể)
                 if (bientheImages[i]) {
                     hinhanh = '/uploads/products/' + bientheImages[i].filename;
                 }
             }
 
-            // --- Xá»­ lÃ½ sá»‘ lÆ°á»£ng/size biáº¿n thá»ƒ ---
+            // --- Xử lý số lượng/size biến thể ---
             let variantQty = 0;
             const variantSizes = [];
 
@@ -122,10 +140,10 @@ const prepareProductData = (body, files) => {
         productData.bienthe = [];
     }
 
-    // Cáº­p nháº­t tá»•ng tá»“n kho
+    // Cập nhật tổng tồn kho
     productData.soluongton = tongSizeGoc + tongBienThe;
 
-    // 4. Xá»­ lÃ½ áº£nh chÃ­nh (náº¿u cÃ³ upload má»›i)
+    // 4. Xử lý ảnh chính (nếu có upload mới)
     if (files && files['hinhanh'] && files['hinhanh'][0]) {
         productData.hinhanh = '/uploads/products/' + files['hinhanh'][0].filename;
     }

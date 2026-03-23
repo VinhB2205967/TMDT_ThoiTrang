@@ -136,7 +136,7 @@ const themBienThe = () => {
                 <!-- Số lượng (cho sản phẩm không có size) -->
                 <div class="col-12 variant-qty-section" style="display: ${laKhongSize ? 'block' : 'none'}">
                     <label class="form-label small">Số lượng *</label>
-                    <input type="number" class="form-control form-control-sm variant-direct-qty" name="bienthe_soluong" min="0" value="0" oninput="capNhatTongTon()">
+                    <input type="number" class="form-control form-control-sm variant-direct-qty" name="bienthe_soluong" min="0" value="0" readonly disabled>
                 </div>
                 <!-- Size (cho sản phẩm có size) -->
                 <div class="col-12 variant-size-section" style="display: ${laKhongSize ? 'none' : 'block'}">
@@ -144,27 +144,27 @@ const themBienThe = () => {
                     <div class="row g-2">
                         <div class="col-4 col-md-2">
                             <label class="form-label small text-muted">XS</label>
-                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${chiSoBienThe}_size_XS" min="0" value="0" oninput="capNhatTongTon()">
+                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${chiSoBienThe}_size_XS" min="0" value="0" readonly disabled>
                         </div>
                         <div class="col-4 col-md-2">
                             <label class="form-label small text-muted">S</label>
-                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${chiSoBienThe}_size_S" min="0" value="0" oninput="capNhatTongTon()">
+                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${chiSoBienThe}_size_S" min="0" value="0" readonly disabled>
                         </div>
                         <div class="col-4 col-md-2">
                             <label class="form-label small text-muted">M</label>
-                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${chiSoBienThe}_size_M" min="0" value="0" oninput="capNhatTongTon()">
+                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${chiSoBienThe}_size_M" min="0" value="0" readonly disabled>
                         </div>
                         <div class="col-4 col-md-2">
                             <label class="form-label small text-muted">L</label>
-                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${chiSoBienThe}_size_L" min="0" value="0" oninput="capNhatTongTon()">
+                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${chiSoBienThe}_size_L" min="0" value="0" readonly disabled>
                         </div>
                         <div class="col-4 col-md-2">
                             <label class="form-label small text-muted">XL</label>
-                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${chiSoBienThe}_size_XL" min="0" value="0" oninput="capNhatTongTon()">
+                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${chiSoBienThe}_size_XL" min="0" value="0" readonly disabled>
                         </div>
                         <div class="col-4 col-md-2">
                             <label class="form-label small text-muted">XXL</label>
-                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${chiSoBienThe}_size_XXL" min="0" value="0" oninput="capNhatTongTon()">
+                            <input type="number" class="form-control form-control-sm variant-size-qty" name="bienthe_${chiSoBienThe}_size_XXL" min="0" value="0" readonly disabled>
                         </div>
                     </div>
                 </div>

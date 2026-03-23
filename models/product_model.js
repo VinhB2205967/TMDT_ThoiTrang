@@ -26,6 +26,7 @@ const productSchema = new mongoose.Schema({
   danhmuc_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null },
   sizeguide_id: { type: mongoose.Schema.Types.ObjectId, ref: 'SizeGuide', default: null },
   bangsize_id: { type: mongoose.Schema.Types.ObjectId, ref: 'SizeGuide', default: null },
+  occasions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc' }],
   occasion: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null },
   dip_sudung_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null },
   ageGroup: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null },
@@ -62,8 +63,32 @@ productSchema.pre('validate', function syncLegacyFields() {
   if (!this.bangsize_id && this.sizeguide_id) this.bangsize_id = this.sizeguide_id;
   if (!this.sizeguide_id && this.bangsize_id) this.sizeguide_id = this.bangsize_id;
 
-  if (!this.dip_sudung_id && this.occasion) this.dip_sudung_id = this.occasion;
-  if (!this.occasion && this.dip_sudung_id) this.occasion = this.dip_sudung_id;
+  const normalizeObjectIdArray = (values) => {
+    const seen = new Set();
+    const normalized = [];
+    (Array.isArray(values) ? values : []).forEach((value) => {
+      const text = String(value || '').trim();
+      if (!text || !mongoose.Types.ObjectId.isValid(text) || seen.has(text)) return;
+      seen.add(text);
+      normalized.push(text);
+    });
+    return normalized;
+  };
+
+  let normalizedOccasions = normalizeObjectIdArray(this.occasions);
+  const primaryOccasion = this.occasion ? String(this.occasion) : '';
+  const legacyOccasion = this.dip_sudung_id ? String(this.dip_sudung_id) : '';
+
+  if (primaryOccasion && mongoose.Types.ObjectId.isValid(primaryOccasion) && !normalizedOccasions.includes(primaryOccasion)) {
+    normalizedOccasions.unshift(primaryOccasion);
+  }
+  if (!normalizedOccasions.length && legacyOccasion && mongoose.Types.ObjectId.isValid(legacyOccasion)) {
+    normalizedOccasions.push(legacyOccasion);
+  }
+
+  this.occasions = normalizedOccasions;
+  this.occasion = normalizedOccasions.length ? normalizedOccasions[0] : null;
+  this.dip_sudung_id = this.occasion || null;
 
   if (!this.nhomtuoi_id && this.ageGroup) this.nhomtuoi_id = this.ageGroup;
   if (!this.ageGroup && this.nhomtuoi_id) this.ageGroup = this.nhomtuoi_id;
@@ -71,6 +96,7 @@ productSchema.pre('validate', function syncLegacyFields() {
 
 productSchema.index({ category: 1, trangthai: 1, daxoa: 1 });
 productSchema.index({ occasion: 1, trangthai: 1, daxoa: 1 });
+productSchema.index({ occasions: 1, trangthai: 1, daxoa: 1 });
 productSchema.index({ ageGroup: 1, trangthai: 1, daxoa: 1 });
 productSchema.index({ brand: 1, trangthai: 1, daxoa: 1 });
 productSchema.index({ gioitinh: 1, gia: 1 });

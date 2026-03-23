@@ -92,21 +92,15 @@ block main
                                 label.form-label.small.fw-bold Loại SP
                                 select.form-select.form-select-sm(name="loaisanpham" onchange="this.form.submit()")
                                     option(value="" selected=(!currentLoai)) Tất cả
-                                    option(value="ao" selected=(currentLoai=='ao')) Áo
-                                    option(value="quan" selected=(currentLoai=='quan')) Quần
-                                    option(value="vay" selected=(currentLoai=='vay')) Váy
-                                    option(value="phukien" selected=(currentLoai=='phukien')) Phụ kiện
-                                    option(value="giay" selected=(currentLoai=='giay')) Giày
-                                    option(value="tui" selected=(currentLoai=='tui')) Túi
-                                    option(value="aokhoac" selected=(currentLoai=='aokhoac')) Áo khoác
+                                    each c in (categoryOptions || [])
+                                        option(value=c.slug selected=(String(currentLoai || '') === String(c.slug || ''))) #{c.name}
                             .col-md-2
                                 label.form-label.small.fw-bold Giới tính
                                 select.form-select.form-select-sm(name="gioitinh" onchange="this.form.submit()")
-                                    option(value="" selected=(!currentGioiTinh)) Tất cả
+                                    option(value="" selected=(!currentGioiTinh)) Giới tính
                                     option(value="nam" selected=(currentGioiTinh=='nam')) Nam
                                     option(value="nu" selected=(currentGioiTinh=='nu')) Nữ
                                     option(value="unisex" selected=(currentGioiTinh=='unisex')) Unisex
-                                    option(value="tre-em" selected=(currentGioiTinh=='tre-em')) Trẻ em
                             .col-md-2
                                 label.form-label.small.fw-bold Thương hiệu
                                 select.form-select.form-select-sm(name="brand" onchange="this.form.submit()")

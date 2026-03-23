@@ -126,6 +126,7 @@ router.post('/chat/upload', requireAuth, uploadSingleMedia, chatApi.uploadMedia)
 
 router.get('/reviews/products/:id', reviewsApi.layDanhSachTheoSanPham);
 
+router.get('/products/suggest', productsApi.goiY);
 router.get('/products/:id/options', productsApi.tuyChon);
 
 router.get('/account/profile', requireAuth, accountApi.thongTin);

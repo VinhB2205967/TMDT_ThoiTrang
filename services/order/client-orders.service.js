@@ -341,6 +341,55 @@ async function createReturnRequest({ userId, orderId, body, files }) {
   return { ok: true, redirect: `/orders/${order._id}`, flash: { type: 'success', message: 'Đã gửi yêu cầu hoàn hàng. Vui lòng chờ admin duyệt.' } };
 }
 
+async function cancelReturnRequestByUser({ userId, orderId }) {
+  const order = await donhang.findOne({
+    _id: orderId,
+    nguoidung_id: userId,
+    daxoa: { $ne: true }
+  });
+
+  if (!order) {
+    return { ok: false, redirect: '/orders', flash: { type: 'error', message: 'Không tìm thấy đơn hàng.' } };
+  }
+
+  if (String(order.trangthai || '') !== 'requested_return') {
+    return {
+      ok: false,
+      redirect: `/orders/${order._id}`,
+      flash: { type: 'error', message: 'Yêu cầu hoàn hàng không còn ở trạng thái chờ xử lý để hủy.' }
+    };
+  }
+
+  const daDuocAdminXuLy = Boolean(order.yeucauhoanhang && (order.yeucauhoanhang.reviewedAt || order.yeucauhoanhang.approvedAt || order.yeucauhoanhang.rejectedAt));
+  if (daDuocAdminXuLy) {
+    return {
+      ok: false,
+      redirect: `/orders/${order._id}`,
+      flash: { type: 'error', message: 'Yêu cầu hoàn hàng đã được admin xử lý nên không thể hủy.' }
+    };
+  }
+
+  order.trangthai = 'dagiao';
+  order.ngaycapnhat = new Date();
+  order.yeucauhoanhang = {
+    ...(order.yeucauhoanhang || {}),
+    requestedAt: null,
+    reviewedAt: null,
+    approvedAt: null,
+    rejectedAt: null,
+    canceledByUserAt: new Date(),
+    canceledByUser: true,
+    adminNote: ''
+  };
+  await order.save();
+
+  return {
+    ok: true,
+    redirect: `/orders/${order._id}`,
+    flash: { type: 'success', message: 'Đã hủy yêu cầu hoàn hàng.' }
+  };
+}
+
 async function cancelOrderByUser({ userId, orderId, reason }) {
   const lydo = String(reason || '').trim() || 'Khách hàng hủy đơn';
 
@@ -674,6 +723,7 @@ module.exports = {
   getOrdersPageData,
   getOrderDetailPageData,
   createReturnRequest,
+  cancelReturnRequestByUser,
   cancelOrderByUser,
   reorderFromOldOrder,
   repayOrder,

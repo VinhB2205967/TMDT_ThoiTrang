@@ -194,6 +194,15 @@ function shouldSuggestProducts(question) {
 
   /mua\s*(do|đồ|san\s*pham|sản\s*phẩm|ao|áo|quan|quần|vay|váy|tui|túi)/i,
 
+    // Intent-only queries still need product cards
+    /di\s*choi|đi\s*chơi/i,
+    /di\s*lam|đi\s*làm/i,
+    /du\s*tiec|dự\s*tiệc/i,
+    /the\s*thao|thể\s*thao/i,
+    /o\s*nha|ở\s*nhà/i,
+    /tuoi|tuổi|be|bé|tre|trẻ/i,
+    /thuong\s*hieu|thương\s*hiệu|brand/i,
+
   // Áo
   /ao|áo|ao\s*thun|áo\s*thun|t\s*shirt|tee/i,
   /hoodie|sweater|ao\s*len|áo\s*len/i,
@@ -260,6 +269,70 @@ function normalizeColor(value) {
 function answerHasNegativeAvailability(answer) {
   const t = normalizeForCompare(answer);
   return /khong co|chua co|het hang|khong tim thay/.test(t);
+}
+
+function isProductFilterQuestion(question) {
+  const q = normalizeForCompare(question);
+  if (!q) return false;
+
+  return /tuoi|be|tre|thuong hieu|brand|dip|di choi|di lam|du tiec|the thao|o nha/.test(q);
+}
+
+function buildAvailableProductsAnswer(context, question) {
+  const products = Array.isArray(context && context.products) && context.products.length
+    ? context.products
+    : (Array.isArray(context && context.topSelling) ? context.topSelling : []);
+  if (!products.length) return '';
+
+  const picked = products.slice(0, 3);
+  const lines = [
+    'Shop hiện có sản phẩm phù hợp với nhu cầu bạn hỏi. Bạn tham khảo nhanh:'
+  ];
+
+  picked.forEach((item, index) => {
+    const name = String(item && item.tensanpham ? item.tensanpham : 'Sản phẩm');
+    const finalPrice = Number(item && (item.giaSauGiam || item.gia) || 0);
+    const priceText = finalPrice > 0 ? ` - ${finalPrice.toLocaleString('vi-VN')}đ` : '';
+    const url = item && item.url ? ` (${item.url})` : '';
+    lines.push(`${index + 1}. ${name}${priceText}${url}`);
+  });
+
+  if (isProductFilterQuestion(question)) {
+    lines.push('Bạn muốn mình lọc hẹp hơn theo thương hiệu, dịp hoặc nhóm tuổi cụ thể không?');
+  }
+
+  return lines.join('\n');
+}
+
+function sanitizeBadLinksInAnswer(answer) {
+  let text = String(answer || '').trim();
+  if (!text) return text;
+
+  // Replace malformed/placeholder domains with internal routes.
+  text = text
+    .replace(/-?\s*(?:https?:\/\/)?(?:www\.)?ban-thoi-trang\.com\/(new|best-selling|san-pham|sanpham|products?)\b/gi, '/products')
+    .replace(/-?\s*(?:https?:\/\/)?(?:www\.)?(?:website|example\.com|localhost(?::\d+)?)\/(new|best-selling|san-pham|sanpham|products?)\b/gi, '/products')
+    .replace(/\((?:https?:\/\/)?(?:www\.)?ban-thoi-trang\.com\/[^\)]*\)/gi, '(/products)')
+    .replace(/\b(?:https?:\/\/)?(?:www\.)?ban-thoi-trang\.com\/[^\s)]*/gi, '/products')
+    .replace(/\b(?:https?:\/\/)?(?:www\.)?(?:website|example\.com|localhost(?::\d+)?)\/[^\s)]*/gi, '/products');
+
+  return text;
+}
+
+function buildAvailableSuggestedAnswer(suggestedProducts) {
+  const items = Array.isArray(suggestedProducts) ? suggestedProducts.slice(0, 3) : [];
+  if (!items.length) return '';
+
+  const lines = ['Shop hiện có sản phẩm phù hợp, bạn xem nhanh:'];
+  items.forEach((item, index) => {
+    const name = String(item && item.name ? item.name : 'Sản phẩm');
+    const price = Number(item && item.price || 0);
+    const priceText = price > 0 ? ` - ${price.toLocaleString('vi-VN')}đ` : '';
+    const url = item && item.url ? ` (${item.url})` : '';
+    lines.push(`${index + 1}. ${name}${priceText}${url}`);
+  });
+  lines.push('Bạn muốn mình lọc chính xác hơn theo tuổi, dịp hoặc thương hiệu không?');
+  return lines.join('\n');
 }
 
 function findProductsByRequestedColor(context, requestedColor) {
@@ -537,10 +610,35 @@ module.exports.sendMessage = async (req, res) => {
 
     let answer = String(ai && ai.content ? ai.content : '').trim();
     const requestedColor = extractRequestedColor(question);
+    answer = sanitizeBadLinksInAnswer(answer);
+
     if (requestedColor && answerHasNegativeAvailability(answer)) {
       const corrected = buildColorAvailabilityAnswer(context, requestedColor);
       if (corrected) answer = corrected;
     }
+
+    if (answerHasNegativeAvailability(answer)) {
+      const corrected = buildAvailableProductsAnswer(context, question);
+      if (corrected) answer = corrected;
+    }
+
+    const fallbackSuggestedProducts = toSuggestedProducts(context, '', question);
+    if (answerHasNegativeAvailability(answer) && fallbackSuggestedProducts.length > 0) {
+      const corrected = buildAvailableSuggestedAnswer(fallbackSuggestedProducts);
+      if (corrected) answer = corrected;
+    }
+
+    const shouldShowCards = provider === 'openclip' || shouldSuggestProducts(question);
+    const suggestedProducts = shouldShowCards
+      ? toSuggestedProducts(context, answer, question)
+      : [];
+
+    if (answerHasNegativeAvailability(answer) && suggestedProducts.length > 0) {
+      const corrected = buildAvailableSuggestedAnswer(suggestedProducts);
+      if (corrected) answer = corrected;
+    }
+
+    answer = sanitizeBadLinksInAnswer(answer);
 
     return res.json({
       success: true,
@@ -548,7 +646,7 @@ module.exports.sendMessage = async (req, res) => {
         answer,
         model: ai.model,
         provider: ai.provider || provider,
-        suggestedProducts: (provider === 'openclip' || shouldSuggestProducts(question)) ? toSuggestedProducts(context, answer, question) : [],
+        suggestedProducts,
         contextMeta: {
           products: Array.isArray(context.products) ? context.products.length : 0,
           hasFlashSale: Boolean(context.flashSale),

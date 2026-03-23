@@ -40,12 +40,15 @@ block main
                             
                             .row.g-3
                                 .col-md-6
-                                    label.form-label.fw-bold Giá gốc (₫) *
-                                    input.form-control(type="number" name="gia" required min="0" value=product.gia placeholder="0")
+                                    label.form-label.fw-bold Giá gốc (₫)
+                                    input.form-control(type="number" name="gia" min="0" value=product.gia placeholder="Để trống, giữ giá hiện tại")
                                 
                                 .col-md-6
                                     label.form-label.fw-bold Giảm giá (%)
                                     input.form-control(type="number" name="phantramgiamgia" min="0" max="100" value=product.phantramgiamgia || 0 placeholder="0")
+
+                            .mt-2
+                                small.text-muted Có thể để trống giá gốc nếu muốn giữ giá hiện tại hoặc cập nhật giá qua phiếu nhập kho.
                             
                             .row.g-3.mt-2
                                 .col-12
@@ -69,18 +72,16 @@ block main
                                         option(value="unisex" selected=(product.gioitinh === 'unisex')) Unisex
                                         option(value="nam" selected=(product.gioitinh === 'nam')) Nam
                                         option(value="nu" selected=(product.gioitinh === 'nu')) Nữ
-                                        option(value="tre-em" selected=(product.gioitinh === 'tre-em')) Trẻ em
                                 
                                 .col-md-4
                                     label.form-label.fw-bold Loại sản phẩm
                                     select#loaisanpham.form-select(name="loaisanpham" onchange="doiHienThiSize()")
-                                        option(value="ao" selected=(product.loaisanpham === 'ao')) Áo
-                                        option(value="quan" selected=(product.loaisanpham === 'quan')) Quần
-                                        option(value="vay" selected=(product.loaisanpham === 'vay')) Váy
-                                        option(value="phukien" selected=(product.loaisanpham === 'phukien')) Phụ kiện
-                                        option(value="giay" selected=(product.loaisanpham === 'giay')) Giày
-                                        option(value="tui" selected=(product.loaisanpham === 'tui')) Túi
-                                        option(value="aokhoac" selected=(product.loaisanpham === 'aokhoac')) Áo khoác
+                                        option(value="") -- Chọn loại sản phẩm --
+                                        each c in (categoryOptions || [])
+                                            option(value=c.slug selected=(String(product.loaisanpham || '') === String(c.slug || ''))) #{c.name}
+                                        - const hasLegacyType = String(product.loaisanpham || '').trim() && !(categoryOptions || []).some(c => String(c.slug || '') === String(product.loaisanpham || ''));
+                                        if hasLegacyType
+                                            option(value=product.loaisanpham selected=true) #{product.loaisanpham} (giá trị cũ)
                                 
                                 .col-md-4
                                     label.form-label.fw-bold Trạng thái
@@ -100,11 +101,22 @@ block main
                             .row.g-3.mt-1
                                 .col-md-6
                                     label.form-label.fw-bold Dịp sử dụng
-                                    select.form-select(name="occasion")
-                                        option(value="") -- Chọn dịp --
-                                        each c in (occasionOptions || [])
-                                            - const selectedOccasion = String(c._id) === String(product.occasion || '')
-                                            option(value=c._id selected=selectedOccasion) #{c.name}
+                                    - const selectedOccasionIds = Array.isArray(product.occasions) && product.occasions.length ? product.occasions.map(id => String(id)) : (product.occasion ? [String(product.occasion)] : []);
+                                    .dropdown.occasion-dropdown
+                                        button.btn.btn-outline-secondary.dropdown-toggle.w-100.text-start.occasion-dropdown-toggle(type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-bs-display="static")
+                                            | Chọn dịp sử dụng
+                                        ul.dropdown-menu.w-100.p-2.occasion-dropdown-menu
+                                            if (occasionOptions || []).length
+                                                each c in (occasionOptions || [])
+                                                    - const selectedOccasion = selectedOccasionIds.includes(String(c._id))
+                                                    li
+                                                        label.dropdown-item.d-flex.align-items-center.gap-2.py-1.occasion-dropdown-item(for=`occasion-${c._id}`)
+                                                            input.form-check-input.mt-0(type="checkbox" id=`occasion-${c._id}` name="occasions" value=c._id checked=selectedOccasion)
+                                                            span #{c.name}
+                                            else
+                                                li
+                                                    span.dropdown-item-text.text-muted Chưa có dữ liệu dịp sử dụng.
+                                    small.text-muted.occasion-dropdown-hint Nhấn để mở danh sách và tick nhiều dịp.
                                 .col-md-6
                                     label.form-label.fw-bold Nhóm tuổi
                                     select.form-select(name="ageGroup")
@@ -134,31 +146,32 @@ block main
                             - const isNoSizeProduct = noSizeTypes.includes(product.loaisanpham)
                             #baseSizeSection.mt-3(style=(isNoSizeProduct ? 'display:none' : ''))
                                 label.form-label.fw-bold Size chung (không theo biến thể)
+                                small.text-muted.d-block.mb-2 Số lượng tồn kho được quản lý qua phiếu nhập/xuất kho (FIFO), không chỉnh trực tiếp tại đây.
                                 .row.g-2
                                     .col-4.col-md-2
                                         label.form-label.small XS
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XS" min="0" value=getSizeQty('XS') oninput="capNhatTongTon()")
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XS" min="0" value=getSizeQty('XS') readonly disabled)
                                     .col-4.col-md-2
                                         label.form-label.small S
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_S" min="0" value=getSizeQty('S') oninput="capNhatTongTon()")
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_S" min="0" value=getSizeQty('S') readonly disabled)
                                     .col-4.col-md-2
                                         label.form-label.small M
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_M" min="0" value=getSizeQty('M') oninput="capNhatTongTon()")
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_M" min="0" value=getSizeQty('M') readonly disabled)
                                     .col-4.col-md-2
                                         label.form-label.small L
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_L" min="0" value=getSizeQty('L') oninput="capNhatTongTon()")
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_L" min="0" value=getSizeQty('L') readonly disabled)
                                     .col-4.col-md-2
                                         label.form-label.small XL
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XL" min="0" value=getSizeQty('XL') oninput="capNhatTongTon()")
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XL" min="0" value=getSizeQty('XL') readonly disabled)
                                     .col-4.col-md-2
                                         label.form-label.small XXL
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XXL" min="0" value=getSizeQty('XXL') oninput="capNhatTongTon()")
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XXL" min="0" value=getSizeQty('XXL') readonly disabled)
                             
                             //- Số lượng chung (cho sản phẩm không có size như Túi, Phụ kiện)
                             #baseQtySection.mt-3(style=(isNoSizeProduct ? '' : 'display:none'))
                                 label.form-label.fw-bold Số lượng sản phẩm
-                                input.form-control.base-direct-qty(type="number" name="soluong_chinh" min="0" value=product.soluong_chinh || 0 oninput="capNhatTongTon()")
-                                small.text-muted Số lượng cho sản phẩm chính (không theo biến thể)
+                                input.form-control.base-direct-qty(type="number" name="soluong_chinh" min="0" value=product.soluong_chinh || 0 readonly disabled)
+                                small.text-muted Số lượng cho sản phẩm chính (không theo biến thể) được quản lý bằng nhập/xuất kho.
                     
                     //- Card biến thể
                     - const bientheList = product.bienthe || [];
@@ -204,29 +217,29 @@ block main
                                             //- Số lượng trực tiếp (cho sản phẩm không có size)
                                             .col-12.variant-qty-section(style=(isNoSizeProduct ? '' : 'display:none'))
                                                 label.form-label.small Số lượng *
-                                                input.form-control.form-control-sm.variant-direct-qty(type="number" name="bienthe_soluong" min="0" value=bt.soluong || 0 oninput="capNhatTongTon()")
+                                                input.form-control.form-control-sm.variant-direct-qty(type="number" name="bienthe_soluong" min="0" value=bt.soluong || 0 readonly disabled)
                                             //- Số lượng theo Size (cho sản phẩm có size)
                                             .col-12.variant-size-section(style=(isNoSizeProduct ? 'display:none' : ''))
                                                 label.form-label.small Số lượng theo Size
                                                 .row.g-2
                                                     .col-4.col-md-2
                                                         label.form-label.small.text-muted XS
-                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_XS` min="0" value=getBtSizeQty('XS') oninput="capNhatTongTon()")
+                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_XS` min="0" value=getBtSizeQty('XS') readonly disabled)
                                                     .col-4.col-md-2
                                                         label.form-label.small.text-muted S
-                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_S` min="0" value=getBtSizeQty('S') oninput="capNhatTongTon()")
+                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_S` min="0" value=getBtSizeQty('S') readonly disabled)
                                                     .col-4.col-md-2
                                                         label.form-label.small.text-muted M
-                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_M` min="0" value=getBtSizeQty('M') oninput="capNhatTongTon()")
+                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_M` min="0" value=getBtSizeQty('M') readonly disabled)
                                                     .col-4.col-md-2
                                                         label.form-label.small.text-muted L
-                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_L` min="0" value=getBtSizeQty('L') oninput="capNhatTongTon()")
+                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_L` min="0" value=getBtSizeQty('L') readonly disabled)
                                                     .col-4.col-md-2
                                                         label.form-label.small.text-muted XL
-                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_XL` min="0" value=getBtSizeQty('XL') oninput="capNhatTongTon()")
+                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_XL` min="0" value=getBtSizeQty('XL') readonly disabled)
                                                     .col-4.col-md-2
                                                         label.form-label.small.text-muted XXL
-                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_XXL` min="0" value=getBtSizeQty('XXL') oninput="capNhatTongTon()")
+                                                        input.form-control.form-control-sm.variant-size-qty(type="number" name=`bienthe_${idx}_size_XXL` min="0" value=getBtSizeQty('XXL') readonly disabled)
                             if !bientheList.length
                                 .text-muted.small.text-center#no-variant-msg
                                     i.bi.bi-info-circle.me-1

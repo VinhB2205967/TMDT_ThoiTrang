@@ -6,6 +6,20 @@ const {
   dongBoGiaGioHang
 } = require('../cart.service');
 const { laLoaiKhongSize, layBienTheVaTon } = require('../catalog/productStock.service.js');
+const { fixMojibakeText } = require('../../helpers/textEncoding');
+
+function chuanHoaChuoiHienThiGio(item = {}) {
+  if (!item || typeof item !== 'object') return item;
+  item.tensanpham = fixMojibakeText(item.tensanpham || '');
+  item.mausac = fixMojibakeText(item.mausac || '');
+  item.kichco = fixMojibakeText(item.kichco || '');
+  return item;
+}
+
+function chuanHoaToanBoDongGio(giohang) {
+  if (!giohang || !Array.isArray(giohang.sanpham)) return;
+  giohang.sanpham.forEach((item) => chuanHoaChuoiHienThiGio(item));
+}
 
 async function getCartPageData({ userId }) {
   const giohang = await getOrCreateCart(userId);
@@ -41,6 +55,8 @@ async function getCartPageData({ userId }) {
     )
     : '';
 
+  chuanHoaToanBoDongGio(giohang);
+
   return { cart: giohang, fifoPriceNotice };
 }
 
@@ -66,14 +82,15 @@ async function addToCart({ userId, body }) {
 
   if (tontai) {
     tontai.soluong = Math.min(ketqua.stock, (tontai.soluong || 0) + soluongthem);
+    chuanHoaChuoiHienThiGio(tontai);
   } else {
     giohang.sanpham.push({
       sanpham_id,
       bienthe_id: ketqua.bienTheObjId,
-      tensanpham: sanphamdoc.tensanpham,
+      tensanpham: fixMojibakeText(sanphamdoc.tensanpham),
       hinhanh: ketqua.hinhanh,
-      mausac: ketqua.mausac,
-      kichco: kichco || null,
+      mausac: fixMojibakeText(ketqua.mausac),
+      kichco: fixMojibakeText(kichco || null),
       gia: ketqua.gia,
       giagiam: ketqua.giagiam,
       soluong: soluongthem
@@ -108,15 +125,16 @@ async function buyNowFromProduct({ userId, body }) {
   let iditemdich;
   if (tontai) {
     tontai.soluong = soluongthem;
+    chuanHoaChuoiHienThiGio(tontai);
     iditemdich = tontai._id;
   } else {
     giohang.sanpham.push({
       sanpham_id,
       bienthe_id: ketqua.bienTheObjId,
-      tensanpham: sanphamdoc.tensanpham,
+      tensanpham: fixMojibakeText(sanphamdoc.tensanpham),
       hinhanh: ketqua.hinhanh,
-      mausac: ketqua.mausac,
-      kichco: kichco || null,
+      mausac: fixMojibakeText(ketqua.mausac),
+      kichco: fixMojibakeText(kichco || null),
       gia: ketqua.gia,
       giagiam: ketqua.giagiam,
       soluong: soluongthem
@@ -210,17 +228,19 @@ async function updateCartItemOptions({ userId, body }) {
 
   if (dongtrung) {
     dongtrung.soluong = Math.min(ketqua.stock, (dongtrung.soluong || 0) + soluonghople);
+    chuanHoaChuoiHienThiGio(dongtrung);
     dongitem.remove();
   } else {
     dongitem.sanpham_id = idsanphamthuc;
     dongitem.bienthe_id = ketqua.bienTheObjId;
-    dongitem.tensanpham = sanphamdoc.tensanpham;
+    dongitem.tensanpham = fixMojibakeText(sanphamdoc.tensanpham);
     dongitem.hinhanh = ketqua.hinhanh;
-    dongitem.mausac = ketqua.mausac;
-    dongitem.kichco = kichco || null;
+    dongitem.mausac = fixMojibakeText(ketqua.mausac);
+    dongitem.kichco = fixMojibakeText(kichco || null);
     dongitem.gia = ketqua.gia;
     dongitem.giagiam = ketqua.giagiam;
     dongitem.soluong = soluonghople;
+    chuanHoaChuoiHienThiGio(dongitem);
   }
 
   await dongBoGiaGioHang(giohang, { capNhatTonKho: false });

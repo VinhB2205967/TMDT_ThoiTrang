@@ -28,56 +28,46 @@ block main
                     if openclipMode && openclipPreview
                         input(type="hidden" name="openclip_preview" value=openclipPreview)
                     .row.g-3
-                        //- Search
-                        .col-md-4
-                            input.form-control(type="text" name="keyword" placeholder="Tìm kiếm sản phẩm..." value=keyword)
-
-                        .col-md-2
+                        .col-md-2.filter-col.filter-col--type
                             select.form-select(name="loaisanpham")
                                 option(value="" selected=!currentLoai) Tất cả loại
-                                option(value="ao" selected=(currentLoai === 'ao')) Áo
-                                option(value="quan" selected=(currentLoai === 'quan')) Quần
-                                option(value="vay" selected=(currentLoai === 'vay')) Váy
-                                option(value="phukien" selected=(currentLoai === 'phukien')) Phụ kiện
-                                option(value="giay" selected=(currentLoai === 'giay')) Giày
-                                option(value="tui" selected=(currentLoai === 'tui')) Túi
-                                option(value="aokhoac" selected=(currentLoai === 'aokhoac')) Áo khoác
+                                each c in (categoryOptions || [])
+                                    option(value=c.slug selected=(String(currentLoai || '') === String(c.slug || ''))) #{c.name}
                         
                         //- Gender filter
-                        .col-md-2
+                        .col-md-2.filter-col.filter-col--gender
                             select.form-select(name="gioitinh")
-                                option(value="" selected=!currentGioiTinh) Tất cả giới tính
+                                option(value="" selected=!currentGioiTinh) Giới tính
                                 option(value="nam" selected=(currentGioiTinh === 'nam')) Nam
                                 option(value="nu" selected=(currentGioiTinh === 'nu')) Nữ
                                 option(value="unisex" selected=(currentGioiTinh === 'unisex')) Unisex
-                                option(value="tre-em" selected=(currentGioiTinh === 'tre-em')) Trẻ em
 
-                        .col-md-2
+                        .col-md-2.filter-col.filter-col--brand
                             select.form-select(name="brand")
                                 option(value="" selected=!currentBrand) Tất cả thương hiệu
                                 each b in (brandOptions || [])
                                     option(value=b._id selected=(String(currentBrand || '') === String(b._id))) #{b.ten}
 
-                        .col-md-2
+                        .col-md-2.filter-col.filter-col--occasion
                             select.form-select(name="occasion")
-                                option(value="" selected=!currentOccasion) Tất cả dịp
+                                option(value="" selected=!currentOccasion) Dịp sử dụng
                                 each c in (occasionOptions || [])
                                     option(value=c._id selected=(String(currentOccasion || '') === String(c._id))) #{c.name}
 
-                        .col-md-2
+                        .col-md-2.filter-col.filter-col--age-group
                             select.form-select(name="ageGroup")
-                                option(value="" selected=!currentAgeGroup) Tất cả nhóm tuổi
+                                option(value="" selected=!currentAgeGroup) Nhóm tuổi
                                 each c in (ageGroupOptions || [])
                                     option(value=c._id selected=(String(currentAgeGroup || '') === String(c._id))) #{c.name}
                         
                         //- Price range
-                        .col-md-2
+                        .col-md-2.filter-col.filter-col--price-min
                             input.form-control(type="number" name="priceMin" placeholder="Giá từ" value=priceMin)
-                        .col-md-2
+                        .col-md-2.filter-col.filter-col--price-max
                             input.form-control(type="number" name="priceMax" placeholder="Giá đến" value=priceMax)
                         
                         //- Sort
-                        .col-md-2
+                        .col-md-2.filter-col.filter-col--sort
                             select.form-select(name="sort")
                                 option(value="" selected=!currentSort) Mặc định
                                 option(value="gia-asc" selected=(currentSort === 'gia-asc')) Giá: Thấp → Cao
@@ -85,7 +75,7 @@ block main
                                 option(value="ngaytao-desc" selected=(currentSort === 'ngaytao-desc')) Mới nhất
                                 option(value="tensanpham-asc" selected=(currentSort === 'tensanpham-asc')) Tên A-Z
                         
-                        .col-md-3
+                        .col-md-3.filter-col.filter-col--actions
                             .d-flex.gap-2
                                 button.btn.btn-primary(type="submit") Lọc
                                 a.btn.btn-secondary(href="/products") Xóa bộ lọc

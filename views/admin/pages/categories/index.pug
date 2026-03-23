@@ -44,13 +44,14 @@ block styles
 
 mixin nodeRow(item, depth)
   - const indent = (depth || 0) * 20;
-  - const typeMap = { category: 'Danh mục', brand: 'Thương hiệu', occasion: 'Dịp dùng', age_group: 'Nhóm tuổi', gender: 'Giới tính' };
+  - const isRootNode = !item.parent_id;
+  - const typeMap = { category: 'Loại sản phẩm', brand: 'Thương hiệu', occasion: 'Dịp dùng', age_group: 'Nhóm tuổi' };
   - const typeText = typeMap[item.type] || item.type;
   li.list-group-item.category-tree-item
     .d-flex.flex-column.flex-lg-row.align-items-lg-center.justify-content-between.category-tree-row
       .d-flex.align-items-center.gap-2.category-tree-label(style=`padding-left:${indent}px`)
         if item.children && item.children.length
-          button.btn.btn-sm.btn-outline-secondary(type='button' data-bs-toggle='collapse' data-bs-target=`#children-${item._id}` aria-expanded='true' aria-controls=`children-${item._id}`)
+          button.btn.btn-sm.btn-outline-secondary(type='button' data-bs-toggle='collapse' data-bs-target=`#children-${item._id}` aria-expanded='false' aria-controls=`children-${item._id}`)
             i.bi.bi-chevron-down
         else
           span.text-muted
@@ -60,41 +61,36 @@ mixin nodeRow(item, depth)
         if !item.isActive
           span.badge.bg-secondary Ẩn
       .category-tree-actions
-        form.category-action-form(method='POST' action=`${admin}/categories/${item._id}/toggle`)
+        if !isRootNode
+          form.category-action-form(method='POST' action=`${admin}/categories/${item._id}/toggle`)
+            input(type='hidden' name='_csrf' value=csrfToken)
+            button.btn.btn-sm(type='submit' class=item.isActive ? 'btn-outline-warning' : 'btn-outline-success') #{item.isActive ? 'Ẩn' : 'Hiện'}
+          button.btn.btn-sm.btn-outline-primary(type='button' data-bs-toggle='collapse' data-bs-target=`#edit-${item._id}`) Sửa
+        if !(item.children && item.children.length)
+          form.category-action-form(method='POST' action=`${admin}/categories/${item._id}/delete` onsubmit='return confirm("Xóa danh mục này?")')
+            input(type='hidden' name='_csrf' value=csrfToken)
+            button.btn.btn-sm.btn-outline-danger(type='submit') Xóa
+    if !isRootNode
+      .collapse.mt-2.category-edit-box(id=`edit-${item._id}`)
+        form.row.g-2(method='POST' action=`${admin}/categories/${item._id}/edit`)
           input(type='hidden' name='_csrf' value=csrfToken)
-          button.btn.btn-sm(type='submit' class=item.isActive ? 'btn-outline-warning' : 'btn-outline-success') #{item.isActive ? 'Ẩn' : 'Hiện'}
-        button.btn.btn-sm.btn-outline-primary(type='button' data-bs-toggle='collapse' data-bs-target=`#edit-${item._id}`) Sửa
-        form.category-action-form(method='POST' action=`${admin}/categories/${item._id}/delete` onsubmit='return confirm("Xóa danh mục này?")')
-          input(type='hidden' name='_csrf' value=csrfToken)
-          button.btn.btn-sm.btn-outline-danger(type='submit') Xóa
-    .collapse.mt-2.category-edit-box(id=`edit-${item._id}`)
-      form.row.g-2(method='POST' action=`${admin}/categories/${item._id}/edit`)
-        input(type='hidden' name='_csrf' value=csrfToken)
-        .col-md-3
-          input.form-control.form-control-sm(type='text' name='name' required value=item.name)
-        .col-md-2
-          select.form-select.form-select-sm(name='type')
-            option(value='category' selected=item.type === 'category') category
-            option(value='gender' selected=item.type === 'gender') gender
-            option(value='occasion' selected=item.type === 'occasion') occasion
-            option(value='age_group' selected=item.type === 'age_group') age_group
-            option(value='brand' selected=item.type === 'brand') brand
-        .col-md-2
-          input.form-control.form-control-sm(type='number' name='order' value=item.order min='0')
-        .col-md-2
-          select.form-select.form-select-sm(name='parent_id')
-            option(value='') Không có cha
-            each p in parentOptions
-              - const selected = String(p._id) === String(item.parent_id || '')
-              if String(p._id) !== String(item._id)
-                option(value=p._id selected=selected) #{p.name}
-        .col-md-1
-          .form-check.form-switch.pt-2
-            input.form-check-input(type='checkbox' name='isActive' value='true' checked=item.isActive)
-        .col-12
-          button.btn.btn-sm.btn-primary(type='submit') Lưu
+          .col-md-3
+            input.form-control.form-control-sm(type='text' name='name' required value=item.name)
+          .col-md-2
+            select.form-select.form-select-sm(name='type')
+              option(value='category' selected=item.type === 'category') Loại sản phẩm
+              option(value='occasion' selected=item.type === 'occasion') Dịp sử dụng
+              option(value='age_group' selected=item.type === 'age_group') Nhóm tuổi
+              option(value='brand' selected=item.type === 'brand') Thương hiệu
+          .col-md-2
+            input.form-control.form-control-sm(type='number' name='order' value=item.order min='0')
+          .col-md-1
+            .form-check.form-switch.pt-2
+              input.form-check-input(type='checkbox' name='isActive' value='true' checked=item.isActive)
+          .col-12
+            button.btn.btn-sm.btn-primary(type='submit') Lưu
     if item.children && item.children.length
-      ul.list-group.list-group-flush.collapse.show(id=`children-${item._id}`)
+      ul.list-group.list-group-flush.collapse(id=`children-${item._id}`)
         each child in item.children
           +nodeRow(child, (depth || 0) + 1)
 
@@ -114,20 +110,10 @@ block main
               .mb-2
                 label.form-label Loại
                 select.form-select(name='type')
-                  option(value='gender') Giới tính
-                  option(value='category' selected) Danh mục
-                  option(value='occasion') Dịp
+                  option(value='category' selected) Loại sản phẩm
+                  option(value='occasion') Dịp sử dụng
                   option(value='age_group') Nhóm tuổi
                   option(value='brand') Thương hiệu
-              .mb-2
-                label.form-label Danh mục cha
-                select.form-select(name='parent_id')
-                  option(value='') Cấp cha
-                  each p in parentOptions
-                    option(value=p._id) #{p.name}
-              .mb-2
-                label.form-label Thứ tự
-                input.form-control(type='number' name='order' value='0' min='0')
               .mb-3
                 .form-check.form-switch
                   input.form-check-input(type='checkbox' name='isActive' value='true' checked)

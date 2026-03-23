@@ -1,0 +1,94 @@
+extends ../../layouts/default.pug
+
+block main
+  .container-fluid.p-3
+    .d-flex.justify-content-between.align-items-center.mb-3
+      h3.mb-0 Chi tiết phiếu điều chỉnh kho
+      .d-flex.gap-2
+        a.btn.btn-outline-secondary(href=`${admin}/adjustments`)
+          i.bi.bi-arrow-left
+          |  Danh sách
+        if !receipt.daxacnhan
+          form(method='POST' action=`${admin}/adjustments/${receipt._id}/confirm` onsubmit='return confirm("Xác nhận phiếu điều chỉnh này? Sau khi xác nhận sẽ cập nhật tồn kho.")')
+            input(type='hidden' name='_csrf' value=_csrf)
+            button.btn.btn-success(type='submit')
+              i.bi.bi-check2-circle
+              |  Xác nhận điều chỉnh
+
+    .card.mb-3
+      .card-header Thông tin phiếu điều chỉnh
+      .card-body
+        .row.g-3
+          .col-md-4
+            .fw-semibold Mã phiếu
+            div #{receipt.maphieu}
+          .col-md-4
+            .fw-semibold Loại phiếu
+            if receipt.loaiphieu === 'increase'
+              div.text-success Điều chỉnh tăng
+            else
+              div.text-warning Điều chỉnh giảm
+          .col-md-4
+            .fw-semibold Trạng thái
+            if receipt.daxacnhan
+              div.text-success Đã xác nhận
+            else
+              div.text-muted Chờ xác nhận
+          .col-md-8
+            .fw-semibold Lý do
+            div #{receipt.lydo || ''}
+          .col-md-4
+            .fw-semibold Thời gian tạo
+            div #{receipt.ngaytao ? new Date(receipt.ngaytao).toLocaleString('vi-VN') : ''}
+          .col-md-4
+            .fw-semibold Người xác nhận
+            div #{(receipt.nguoixacnhan && (receipt.nguoixacnhan.hoten || receipt.nguoixacnhan.email)) || ''}
+          .col-md-4
+            .fw-semibold Thời gian xác nhận
+            div #{receipt.ngayxacnhan ? new Date(receipt.ngayxacnhan).toLocaleString('vi-VN') : ''}
+
+    .card
+      .card-header Lịch sử điều chỉnh tồn kho
+      .card-body
+        - const details = receipt.chitiet || []
+        if !details.length
+          .alert.alert-info.mb-0 Phiếu chưa có chi tiết điều chỉnh.
+        else
+          .table-responsive
+            table.table.table-bordered.table-sm.align-middle
+              thead.table-light
+                tr
+                  th Sản phẩm
+                  th Biến thể
+                  th Size
+                  th Màu
+                  th Tồn trước
+                  th Số điều chỉnh
+                  th Tồn sau
+              tbody
+                each it in details
+                  - const variantLabel = it.bientheten || (it.bientheid ? 'Biến thể' : 'Mặc định')
+                  tr
+                    td #{it.tensanpham || it.sanphamid}
+                    td #{variantLabel}
+                    td #{it.kichco || ''}
+                    td #{it.mausac || ''}
+                    td
+                      if it.tontruoc != null
+                        | #{Number(it.tontruoc).toLocaleString('vi-VN')}
+                      else if it.tonhientai != null
+                        span.text-muted #{Number(it.tonhientai).toLocaleString('vi-VN')}
+                      else
+                        | -
+                    td
+                      if Number(it.soluongdieuchinh || 0) > 0
+                        span.text-success +#{Number(it.soluongdieuchinh || 0).toLocaleString('vi-VN')}
+                      else
+                        span.text-danger #{Number(it.soluongdieuchinh || 0).toLocaleString('vi-VN')}
+                    td
+                      if it.tonsau != null
+                        | #{Number(it.tonsau).toLocaleString('vi-VN')}
+                      else if it.tonsau_dukien != null
+                        span.text-muted #{Number(it.tonsau_dukien).toLocaleString('vi-VN')}
+                      else
+                        | -

@@ -1,7 +1,6 @@
 (() => {
   const previewImage = document.getElementById('accountAvatarPreview');
   const fileInput = document.getElementById('accountAvatarFileInput');
-  const urlInput = document.getElementById('accountAvatarUrlInput');
   if (!previewImage || !fileInput) return;
 
   const defaultAvatar = '/images/avatar/avatar.png';
@@ -21,14 +20,14 @@
     const file = fileInput.files && fileInput.files[0];
     if (!file) {
       revokeObjectUrl();
-      setPreview((urlInput && urlInput.value.trim()) || defaultAvatar);
+      setPreview(defaultAvatar);
       return;
     }
 
     if (!String(file.type || '').startsWith('image/')) {
       fileInput.value = '';
       revokeObjectUrl();
-      setPreview((urlInput && urlInput.value.trim()) || defaultAvatar);
+      setPreview(defaultAvatar);
       window.alert('Vui lòng chọn file ảnh hợp lệ.');
       return;
     }
@@ -37,17 +36,6 @@
     objectUrl = URL.createObjectURL(file);
     setPreview(objectUrl);
   });
-
-  if (urlInput) {
-    const applyUrlPreview = () => {
-      if (fileInput.files && fileInput.files[0]) return;
-      const value = urlInput.value.trim();
-      setPreview(value || defaultAvatar);
-    };
-
-    urlInput.addEventListener('input', applyUrlPreview);
-    urlInput.addEventListener('blur', applyUrlPreview);
-  }
 
   window.addEventListener('beforeunload', revokeObjectUrl);
 })();

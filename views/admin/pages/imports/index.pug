@@ -55,24 +55,28 @@ block main
                   td #{((r.ngaytao || r.ngay_tao || r.created_at) ? new Date(r.ngaytao || r.ngay_tao || r.created_at).toLocaleString('vi-VN') : '')}
                   td.text-nowrap
                     if r.daxuatkho
-                      span.badge.bg-success.me-1 Đã xuất kho
+                      span.badge.bg-success.me-1 Đã nhập kho
+                    else
+                      span.badge.bg-secondary.me-1 Chưa nhập kho
+                    if !r.daxuatkho && r.loaiphieu !== 'return'
+                      form.d-inline.me-1(method='POST' action=`${admin}/imports/${r._id}/export` onsubmit='return confirm("Xác nhận nhập kho phiếu này? Sau khi xác nhận sẽ không thể chỉnh sửa.")')
+                        input(type='hidden' name='_csrf' value=_csrf)
+                        button.btn.btn-sm.btn-success(type='submit')
+                          i.bi.bi-check2-circle
+                          |  Xác nhận nhập kho
                     a.btn.btn-sm.btn-outline-primary.me-1(href=`${admin}/imports/${r._id}`)
                       i.bi.bi-eye
                       |  Xem
-                    a.btn.btn-sm.btn-outline-secondary.me-1(href=`${admin}/imports/${r._id}/edit`)
-                      i.bi.bi-pencil
-                      |  Sửa
+                    if !r.daxuatkho && r.loaiphieu !== 'return'
+                      a.btn.btn-sm.btn-outline-secondary.me-1(href=`${admin}/imports/${r._id}/edit`)
+                        i.bi.bi-pencil
+                        |  Sửa
                     if !r.daxuatkho
-                      form.d-inline(method='POST' action=`${admin}/imports/${r._id}/export` onsubmit='return confirm("Xuất kho phiếu nhập này? Hệ thống sẽ cập nhật số lượng và giá sản phẩm theo phiếu.")')
+                      form.d-inline(method='POST' action=`${admin}/imports/${r._id}/delete` onsubmit='return confirm("Xóa phiếu nhập này? Chỉ có thể xóa khi chưa xác nhận nhập kho.")')
                         input(type='hidden' name='_csrf' value=_csrf)
-                        button.btn.btn-sm.btn-outline-success.me-1(type='submit')
-                          i.bi.bi-box-arrow-up-right
-                          |  Xuất kho
-                    form.d-inline(method='POST' action=`${admin}/imports/${r._id}/delete` onsubmit='return confirm("Xóa phiếu nhập này? Chỉ có thể xóa khi chưa phát sinh xuất FIFO.")')
-                      input(type='hidden' name='_csrf' value=_csrf)
-                      button.btn.btn-sm.btn-outline-danger(type='submit')
-                        i.bi.bi-trash
-                        |  Xóa
+                        button.btn.btn-sm.btn-outline-danger(type='submit')
+                          i.bi.bi-trash
+                          |  Xóa
 
       if pagination && pagination.totalPages > 1
         nav.mt-3(aria-label='Phân trang phiếu nhập')

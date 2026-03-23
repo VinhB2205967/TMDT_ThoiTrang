@@ -34,6 +34,7 @@ router.post('/', upload.any(), controller.taoMoi);
 router.get('/:id', controller.chiTiet);
 router.get('/:id/edit-data', controller.duLieuChinhSua);
 router.put('/:id', upload.any(), controller.chinhSua);
+router.post('/:id/confirm', controller.xuatKhoPhieu);
 router.post('/:id/export', controller.xuatKhoPhieu);
 router.delete('/:id', controller.xoaPhieu);
 

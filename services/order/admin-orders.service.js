@@ -3,6 +3,9 @@ const ExcelJS = require('exceljs');
 const Donhang = require('../../models/order_model');
 const Chitietdonhang = require('../../models/order_item_model');
 const Sanpham = require('../../models/product_model');
+const PhieuXuatKho = require('../../models/export_receipt_model');
+const PhieuNhapKho = require('../../models/import_receipt_model');
+const TonKhoLo = require('../../models/inventory_lot_model');
 const paginationHelper = require('../../helpers/pagination');
 const { thoatBieuThuc } = require('../../helpers/validators');
 const { layTrangThaiChoPhep } = require('../../helpers/orderStatus');
@@ -16,7 +19,8 @@ const {
   sendOrderConfirmedEmail,
   sendOrderDeliveredEmail
 } = require('../communication/orderEmail.service.js');
-const { createExportReceiptFromOrder } = require('../inventory/exportReceipt.service.js');
+const { taoPhieuXuatTuDonHang } = require('../inventory/exportReceipt.service.js');
+const { dongBoNhapKhoHoanTra } = require('./order-return.service.js');
 
 const TRANG_THAI_CHO_PHEP = layTrangThaiChoPhep().filter((s) => s !== 'all');
 const TAP_TRANG_THAI = new Set(TRANG_THAI_CHO_PHEP);
@@ -26,12 +30,14 @@ const CHUYEN_TRANG_THAI = {
   daxacnhan: ['dangchuanbi', 'dahuy'],
   dangchuanbi: ['danggiao'],
   danggiao: ['dagiao'],
-  dagiao: ['requested_return'],
+  dagiao: [],
   requested_return: ['approved_return', 'rejected_return'],
-  approved_return: ['return_shipping', 'returned'],
+  approved_return: ['return_shipping', 'returned', 'returned_full', 'returned_partial'],
   rejected_return: [],
-  return_shipping: ['returned'],
+  return_shipping: ['returned', 'returned_full', 'returned_partial'],
   returned: ['refunded'],
+  returned_full: ['refunded'],
+  returned_partial: ['refunded'],
   refunded: [],
   dahuy: [],
   hoanhang: []
@@ -49,6 +55,8 @@ const ADMIN_STATUS_LABELS = {
   rejected_return: 'Từ chối hoàn hàng',
   return_shipping: 'Đang gửi hàng hoàn',
   returned: 'Đã nhận hàng hoàn',
+  returned_full: 'Đã trả hàng',
+  returned_partial: 'Trả hàng một phần',
   refunded: 'Đã hoàn tiền',
   dahuy: 'Đã hủy',
   hoanhang: 'Hoàn trả'
@@ -173,6 +181,10 @@ function buildBadgeClass(status) {
       return 'bg-primary';
     case 'returned':
       return 'bg-secondary';
+    case 'returned_full':
+      return 'bg-success';
+    case 'returned_partial':
+      return 'bg-warning text-dark';
     case 'refunded':
       return 'bg-dark';
     case 'dahuy':
@@ -239,6 +251,61 @@ function taoBoLocTuQuery(query = {}) {
   };
 }
 
+function taoMaPhieuNhapHoanTra() {
+  return `NK-RETURN-${Date.now()}`;
+}
+
+function toNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function toPositiveInt(value, fallback = 0) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.floor(n);
+}
+
+function normalizeReturnItemsPayload(raw) {
+  if (!raw) return [];
+
+  let rows = [];
+  if (Array.isArray(raw)) {
+    rows = raw;
+  } else if (typeof raw === 'object') {
+    rows = Object.keys(raw)
+      .sort((a, b) => Number(a) - Number(b))
+      .map((key) => raw[key]);
+  } else {
+    return [];
+  }
+
+  return rows
+    .map((it) => ({
+      orderItemId: String(it?.orderItemId || it?._id || '').trim(),
+      qty: toPositiveInt(it?.qty, 0)
+    }))
+    .filter((it) => mongoose.Types.ObjectId.isValid(it.orderItemId) && it.qty >= 0);
+}
+
+function buildExportLineKey({ sanphamid, bientheid, kichco }) {
+  const productId = String(sanphamid || '').trim();
+  const variantId = bientheid ? String(bientheid).trim() : 'main';
+  const sizeKey = String(kichco || '').trim();
+  return `${productId}|${variantId}|${sizeKey}`;
+}
+
+function roundMoney(value) {
+  return Math.round(toNumber(value, 0));
+}
+
+function tinhTySuatLoiNhuan({ doanhThu, loiNhuan }) {
+  const dt = toNumber(doanhThu, 0);
+  const ln = toNumber(loiNhuan, 0);
+  if (dt <= 0) return 0;
+  return Number(((ln / dt) * 100).toFixed(2));
+}
+
 async function congTonChoChiTietDon(orderitemdoc) {
   const productid = orderitemdoc.sanpham_id;
   const variantid = orderitemdoc.bienthe_id;
@@ -286,6 +353,54 @@ async function congTonChoChiTietDon(orderitemdoc) {
 
   product.soluongton = basetotal + qty;
   await product.save();
+}
+
+function congTonChoDongTraHang(productDoc, { variantId, size, qty, mausac }) {
+  const soLuong = Math.max(1, toPositiveInt(qty, 1));
+  const hasSize = !laLoaiKhongSize(productDoc.loaisanpham);
+
+  if (!variantId) {
+    if (hasSize) {
+      const sizeKey = String(size || '').trim();
+      if (!sizeKey) throw new Error('Thiếu size cho sản phẩm có size');
+      productDoc.sizes = Array.isArray(productDoc.sizes) ? productDoc.sizes : [];
+      const row = productDoc.sizes.find((s) => String(s.size || '') === sizeKey);
+      if (row) row.soluong = Number(row.soluong || 0) + soLuong;
+      else productDoc.sizes.push({ size: sizeKey, soluong: soLuong });
+    } else {
+      productDoc.soluong_chinh = Number(productDoc.soluong_chinh || 0) + soLuong;
+    }
+    return;
+  }
+
+  productDoc.bienthe = Array.isArray(productDoc.bienthe) ? productDoc.bienthe : [];
+  let variant = productDoc.bienthe.find((v) => String(v._id) === String(variantId));
+  if (!variant) {
+    const seed = {
+      mausac: String(mausac || 'Mặc định').trim() || 'Mặc định',
+      hinhanh: String(productDoc.hinhanh || ''),
+      gia: Number(productDoc.gia || 0),
+      phantramgiamgia: Number(productDoc.phantramgiamgia || 0),
+      soluong: 0,
+      sizes: []
+    };
+    if (variantId && mongoose.Types.ObjectId.isValid(String(variantId))) {
+      seed._id = new mongoose.Types.ObjectId(String(variantId));
+    }
+    productDoc.bienthe.push(seed);
+    variant = productDoc.bienthe[productDoc.bienthe.length - 1];
+  }
+
+  if (hasSize) {
+    const sizeKey = String(size || '').trim();
+    if (!sizeKey) throw new Error('Thiếu size cho sản phẩm biến thể có size');
+    variant.sizes = Array.isArray(variant.sizes) ? variant.sizes : [];
+    const row = variant.sizes.find((s) => String(s.size || '') === sizeKey);
+    if (row) row.soluong = Number(row.soluong || 0) + soLuong;
+    else variant.sizes.push({ size: sizeKey, soluong: soLuong });
+  } else {
+    variant.soluong = Number(variant.soluong || 0) + soLuong;
+  }
 }
 
 async function getDanhSachData(query = {}) {
@@ -369,6 +484,11 @@ async function getChiTietData(id) {
     return { ok: false, code: 'NOT_FOUND', message: 'Không tìm thấy đơn hàng' };
   }
 
+  const hasReturnImport = Boolean(await PhieuNhapKho.exists({
+    donhang_id: order._id,
+    loaiphieu: 'return'
+  }));
+
   const itemsRaw = await Chitietdonhang.find({ donhang_id: order._id }).lean();
   const items = (itemsRaw || []).map((it) => {
     const goc = Number(it?.giagoc || 0);
@@ -418,6 +538,7 @@ async function getChiTietData(id) {
       titlePage: `Chi tiết ${order.madonhang || 'đơn hàng'}`,
       order,
       items,
+      hasReturnImport,
       statusLabels: ADMIN_STATUS_LABELS,
       flow: ADMIN_FLOW,
       allowedNext,
@@ -561,7 +682,7 @@ async function capNhatTrangThaiDon({ id, nextStatus, actor }) {
 
   try {
     if (status === 'daxacnhan') {
-      await createExportReceiptFromOrder({
+      await taoPhieuXuatTuDonHang({
         orderId,
         adminUser: actor,
         note: 'Tự động tạo khi đơn hàng được xác nhận',
@@ -648,32 +769,46 @@ async function tuChoiHoanHang({ id, note }) {
   return { ok: true, message: 'Đã từ chối yêu cầu hoàn hàng.' };
 }
 
-async function xacNhanDaNhanHangHoan(id) {
-  const orderId = String(id || '');
-  const order = await Donhang.findOne({ _id: orderId, daxoa: { $ne: true } });
-  if (!order) return { ok: false, message: 'Không tìm thấy đơn hàng' };
-
-  if (!['approved_return', 'return_shipping'].includes(String(order.trangthai))) {
-    return { ok: false, message: 'Đơn chưa ở trạng thái nhận hàng hoàn.' };
-  }
-
-  order.trangthai = 'returned';
-  order.ngaycapnhat = new Date();
-  order.yeucauhoanhang = {
-    ...(order.yeucauhoanhang || {}),
-    returnedAt: new Date()
-  };
-  await order.save();
-
-  return { ok: true, message: 'Đã xác nhận nhận hàng hoàn.' };
+async function xacNhanDaNhanHangHoan({ id, payload = {}, actor = null }) {
+  return dongBoNhapKhoHoanTra({
+    id,
+    payload,
+    actor
+  });
 }
 
 async function hoanTienDon(id) {
   const orderId = String(id || '');
-  const order = await Donhang.findOne({ _id: orderId, daxoa: { $ne: true } });
+  let order = await Donhang.findOne({ _id: orderId, daxoa: { $ne: true } });
   if (!order) return { ok: false, message: 'Không tìm thấy đơn hàng' };
-  if (String(order.trangthai) !== 'returned') {
+  if (!['returned', 'returned_full', 'returned_partial'].includes(String(order.trangthai))) {
     return { ok: false, message: 'Đơn hàng chưa ở trạng thái đã nhận hàng hoàn.' };
+  }
+
+  // Guard rail: if legacy flow moved order to returned but stock was not re-imported,
+  // automatically create the return import receipt before issuing refund.
+  const existedReturnImport = await PhieuNhapKho.findOne({
+    donhang_id: order._id,
+    loaiphieu: 'return'
+  })
+    .select('_id maphieu')
+    .lean();
+
+  if (!existedReturnImport) {
+    const receiveResult = await xacNhanDaNhanHangHoan({
+      id: String(order._id),
+      payload: {},
+      actor: null
+    });
+    if (!receiveResult || !receiveResult.ok) {
+      return {
+        ok: false,
+        message: `Không thể hoàn tiền vì chưa nhập kho hoàn trả: ${receiveResult && receiveResult.message ? receiveResult.message : 'UNKNOWN'}`
+      };
+    }
+
+    order = await Donhang.findOne({ _id: orderId, daxoa: { $ne: true } });
+    if (!order) return { ok: false, message: 'Không tìm thấy đơn hàng sau khi xử lý nhập hoàn trả' };
   }
 
   const refundMethod = String((order.yeucauhoanhang && order.yeucauhoanhang.refundMethod) || order.phuongthucthanhtoan || 'bank');
@@ -767,7 +902,7 @@ async function capNhatTrangThaiHangLoat({ orderIds, nextStatus, actor }) {
 
     try {
       if (status === 'daxacnhan') {
-        await createExportReceiptFromOrder({
+        await taoPhieuXuatTuDonHang({
           orderId: order._id,
           adminUser: actor,
           note: 'Tự động tạo khi đơn hàng được xác nhận (bulk)',

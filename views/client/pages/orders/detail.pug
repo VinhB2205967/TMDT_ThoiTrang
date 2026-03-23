@@ -49,6 +49,12 @@ block main
             i.bi.bi-arrow-counterclockwise.me-1
             | Yêu cầu hoàn hàng
 
+        if order.trangthai === 'requested_return'
+          form(method='POST', action=`/orders/${order._id}/return-request/cancel`)
+            button.btn.btn-sm.btn-outline-danger(type='submit' onclick="return confirm('Bạn muốn hủy yêu cầu hoàn hàng này?')")
+              i.bi.bi-x-circle.me-1
+              | Hủy yêu cầu hoàn
+
       if ['requested_return','approved_return','rejected_return','return_shipping','returned','refunded'].includes(order.trangthai)
         .alert.alert-warning.py-2.small
           strong Trạng thái hoàn hàng:

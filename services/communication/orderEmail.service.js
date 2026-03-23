@@ -24,8 +24,8 @@ function escapeHtml(value) {
 
 function buildRows(items) {
   return (items || []).map((item, index) => {
-    const name = escapeHtml(item.tensanpham || 'Sáº£n pháº©m');
-    const variant = [item.mausac ? `MÃ u: ${escapeHtml(item.mausac)}` : '', item.kichco ? `Size: ${escapeHtml(item.kichco)}` : '']
+    const name = escapeHtml(item.tensanpham || 'Sản phẩm');
+    const variant = [item.mausac ? `Màu: ${escapeHtml(item.mausac)}` : '', item.kichco ? `Size: ${escapeHtml(item.kichco)}` : '']
       .filter(Boolean)
       .join(' | ');
     const qty = Number(item.soluong || 0);
@@ -48,7 +48,7 @@ function buildRows(items) {
 }
 
 function buildOrderConfirmedTemplate({ order, items, estimatedDeliveryAt }) {
-  const customerName = escapeHtml(order.tennguoinhan || 'KhÃ¡ch hÃ ng');
+  const customerName = escapeHtml(order.tennguoinhan || 'Khách hàng');
   const orderCode = escapeHtml(order.madonhang || String(order._id || ''));
   const address = escapeHtml(order.diachigiao || '');
   const rows = buildRows(items);
@@ -57,80 +57,80 @@ function buildOrderConfirmedTemplate({ order, items, estimatedDeliveryAt }) {
   <div style="font-family:Arial,sans-serif;background:#f6f8ff;padding:24px;">
     <div style="max-width:720px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
       <div style="background:linear-gradient(135deg,#2563eb,#4f46e5);padding:20px;color:#fff;">
-        <h2 style="margin:0;">ÄÆ¡n hÃ ng #${orderCode} Ä‘Ã£ Ä‘Æ°á»£c xÃ¡c nháº­n</h2>
+        <h2 style="margin:0;">Đơn hàng #${orderCode} đã được xác nhận</h2>
       </div>
       <div style="padding:20px;color:#111827;">
-        <p>Xin chÃ o <strong>${customerName}</strong>,</p>
-        <p>ÄÆ¡n hÃ ng cá»§a báº¡n Ä‘Ã£ Ä‘Æ°á»£c xÃ¡c nháº­n vÃ  Ä‘ang Ä‘Æ°á»£c xá»­ lÃ½.</p>
+        <p>Xin chào <strong>${customerName}</strong>,</p>
+        <p>Đơn hàng của bạn đã được xác nhận và đang được xử lý.</p>
 
         <table style="width:100%;border-collapse:collapse;margin-top:12px;">
           <thead>
             <tr style="background:#f3f4f6;">
               <th style="padding:10px;border:1px solid #e5e7eb;">#</th>
-              <th style="padding:10px;border:1px solid #e5e7eb;text-align:left;">Sáº£n pháº©m</th>
+              <th style="padding:10px;border:1px solid #e5e7eb;text-align:left;">Sản phẩm</th>
               <th style="padding:10px;border:1px solid #e5e7eb;">SL</th>
-              <th style="padding:10px;border:1px solid #e5e7eb;text-align:right;">ÄÆ¡n giÃ¡</th>
-              <th style="padding:10px;border:1px solid #e5e7eb;text-align:right;">ThÃ nh tiá»n</th>
+              <th style="padding:10px;border:1px solid #e5e7eb;text-align:right;">Đơn giá</th>
+              <th style="padding:10px;border:1px solid #e5e7eb;text-align:right;">Thành tiền</th>
             </tr>
           </thead>
           <tbody>${rows || ''}</tbody>
         </table>
 
         <div style="margin-top:16px;line-height:1.8;">
-          <div><strong>Tá»•ng thanh toÃ¡n:</strong> ${formatCurrency(order.tongtien || order.tamtinh || 0)}</div>
-          <div><strong>Äá»‹a chá»‰ giao hÃ ng:</strong> ${address}</div>
-          <div><strong>Dá»± kiáº¿n giao:</strong> ${formatDate(estimatedDeliveryAt)}</div>
+          <div><strong>Tổng thanh toán:</strong> ${formatCurrency(order.tongtien || order.tamtinh || 0)}</div>
+          <div><strong>Địa chỉ giao hàng:</strong> ${address}</div>
+          <div><strong>Dự kiến giao:</strong> ${formatDate(estimatedDeliveryAt)}</div>
         </div>
       </div>
     </div>
   </div>`;
 
   const text = [
-    `Xin chÃ o ${customerName},`,
-    `ÄÆ¡n hÃ ng #${orderCode} Ä‘Ã£ Ä‘Æ°á»£c xÃ¡c nháº­n.`,
-    `Tá»•ng thanh toÃ¡n: ${formatCurrency(order.tongtien || order.tamtinh || 0)}`,
-    `Äá»‹a chá»‰ giao hÃ ng: ${address}`,
-    `Dá»± kiáº¿n giao: ${formatDate(estimatedDeliveryAt)}`
+    `Xin chào ${customerName},`,
+    `Đơn hàng #${orderCode} đã được xác nhận.`,
+    `Tổng thanh toán: ${formatCurrency(order.tongtien || order.tamtinh || 0)}`,
+    `Địa chỉ giao hàng: ${address}`,
+    `Dự kiến giao: ${formatDate(estimatedDeliveryAt)}`
   ].join('\n');
 
   return {
-    subject: `ÄÆ¡n hÃ ng #${orderCode} Ä‘Ã£ Ä‘Æ°á»£c xÃ¡c nháº­n`,
+    subject: `Đơn hàng #${orderCode} đã được xác nhận`,
     html,
     text
   };
 }
 
 function buildOrderDeliveredTemplate({ order, reviewUrl }) {
-  const customerName = escapeHtml(order.tennguoinhan || 'KhÃ¡ch hÃ ng');
+  const customerName = escapeHtml(order.tennguoinhan || 'Khách hàng');
   const orderCode = escapeHtml(order.madonhang || String(order._id || ''));
 
   const html = `
   <div style="font-family:Arial,sans-serif;background:#f6f8ff;padding:24px;">
     <div style="max-width:640px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
       <div style="background:linear-gradient(135deg,#059669,#10b981);padding:20px;color:#fff;">
-        <h2 style="margin:0;">ÄÆ¡n hÃ ng #${orderCode} Ä‘Ã£ Ä‘Æ°á»£c giao thÃ nh cÃ´ng</h2>
+        <h2 style="margin:0;">Đơn hàng #${orderCode} đã được giao thành công</h2>
       </div>
       <div style="padding:20px;color:#111827;line-height:1.7;">
-        <p>Xin chÃ o <strong>${customerName}</strong>,</p>
-        <p>ÄÆ¡n hÃ ng cá»§a báº¡n Ä‘Ã£ Ä‘Æ°á»£c giao thÃ nh cÃ´ng. Cáº£m Æ¡n báº¡n Ä‘Ã£ mua sáº¯m táº¡i Fashion Store ðŸ’š</p>
+        <p>Xin chào <strong>${customerName}</strong>,</p>
+        <p>Đơn hàng của bạn đã được giao thành công. Cảm ơn bạn đã mua sắm tại Fashion Store.</p>
         <p style="text-align:center;margin:24px 0;">
-          <a href="${reviewUrl}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:700;">ÄÃ¡nh giÃ¡ sáº£n pháº©m</a>
+          <a href="${reviewUrl}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:700;">Đánh giá sản phẩm</a>
         </p>
-        <p>Náº¿u cÃ³ báº¥t ká»³ váº¥n Ä‘á» nÃ o vá»›i Ä‘Æ¡n hÃ ng, vui lÃ²ng pháº£n há»“i email nÃ y hoáº·c liÃªn há»‡ hotline há»— trá»£.</p>
+        <p>Nếu có bất kỳ vấn đề nào với đơn hàng, vui lòng phản hồi email này hoặc liên hệ hotline hỗ trợ.</p>
       </div>
     </div>
   </div>`;
 
   const text = [
-    `Xin chÃ o ${customerName},`,
-    `ÄÆ¡n hÃ ng #${orderCode} Ä‘Ã£ Ä‘Æ°á»£c giao thÃ nh cÃ´ng.`,
-    'Cáº£m Æ¡n báº¡n Ä‘Ã£ mua sáº¯m táº¡i Fashion Store.',
-    `ÄÃ¡nh giÃ¡ sáº£n pháº©m táº¡i: ${reviewUrl}`,
-    'Náº¿u cÃ³ váº¥n Ä‘á», vui lÃ²ng liÃªn há»‡ bá»™ pháº­n há»— trá»£.'
+    `Xin chào ${customerName},`,
+    `Đơn hàng #${orderCode} đã được giao thành công.`,
+    'Cảm ơn bạn đã mua sắm tại Fashion Store.',
+    `Đánh giá sản phẩm tại: ${reviewUrl}`,
+    'Nếu có vấn đề, vui lòng liên hệ bộ phận hỗ trợ.'
   ].join('\n');
 
   return {
-    subject: `ÄÆ¡n hÃ ng #${orderCode} Ä‘Ã£ Ä‘Æ°á»£c giao thÃ nh cÃ´ng`,
+    subject: `Đơn hàng #${orderCode} đã được giao thành công`,
     html,
     text
   };

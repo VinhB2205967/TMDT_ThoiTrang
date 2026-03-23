@@ -4,6 +4,7 @@ const dashboardApiRoutes = require('./api/dashboard_route');
 const productsdRoutes = require('./products_route');
 const productsApiRoutes = require('./api/products_route');
 const importsRoutes = require('./imports_route');
+const adjustmentsRoutes = require('./adjustments_route');
 const importsApiRoutes = require('./api/imports_route');
 const exportsRoutes = require('./exports_route');
 const exportsApiRoutes = require('./api/exports_route');
@@ -54,6 +55,7 @@ module.exports =(app)=>{
     app.use(PATH_ADMIN + '/products', productsdRoutes); 
     app.use(PATH_ADMIN + '/api/products', productsApiRoutes);
     app.use(PATH_ADMIN + '/imports', importsRoutes);
+    app.use(PATH_ADMIN + '/adjustments', adjustmentsRoutes);
     app.use(PATH_ADMIN + '/api/imports', importsApiRoutes);
     app.use(PATH_ADMIN + '/exports', exportsRoutes);
     app.use(PATH_ADMIN + '/api/exports', exportsApiRoutes);

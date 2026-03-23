@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const SizeGuide = require('../../models/size_guide_model');
+const Danhmuc = require('../../models/category_model');
 const {
   slugify,
   parseColumns,
@@ -8,11 +9,36 @@ const {
   ensureDefaultSizeGuides
 } = require('./sizeGuide.service.js');
 
-function loaiSanPhamOptions() {
+async function loaiSanPhamOptions() {
+  const danhMucLoaiSp = await Danhmuc.find({
+    daxoa: { $ne: true },
+    type: 'category',
+    isActive: true,
+    parent_id: { $ne: null }
+  })
+    .sort({ order: 1, thutu: 1, name: 1, tendanhmuc: 1 })
+    .select('name tendanhmuc slug')
+    .lean();
+
+  const mapTheoSlug = new Map();
+  for (const item of danhMucLoaiSp || []) {
+    const slug = String(item?.slug || '').trim();
+    if (!slug || mapTheoSlug.has(slug)) continue;
+    const label = String(item?.name || item?.tendanhmuc || slug).trim();
+    mapTheoSlug.set(slug, { value: slug, label });
+  }
+
+  const options = Array.from(mapTheoSlug.values());
+  if (options.length) return options;
+
   return [
-    { value: 'ao', label: 'Áo / Váy / Áo khoác' },
+    { value: 'ao', label: 'Áo' },
     { value: 'quan', label: 'Quần' },
-    { value: 'giay', label: 'Giày dép' }
+    { value: 'vay', label: 'Váy' },
+    { value: 'aokhoac', label: 'Áo khoác' },
+    { value: 'phukien', label: 'Phụ kiện' },
+    { value: 'giay', label: 'Giày' },
+    { value: 'tui', label: 'Túi' }
   ];
 }
 
@@ -32,13 +58,14 @@ async function getDanhSachData() {
   };
 }
 
-function getTaoMoiData() {
+async function getTaoMoiData() {
+  const options = await loaiSanPhamOptions();
   return {
     ok: true,
     status: 200,
     data: {
       titlePage: 'Thêm bảng hướng dẫn size',
-      loaiOptions: loaiSanPhamOptions()
+      loaiOptions: options
     }
   };
 }
@@ -88,6 +115,12 @@ async function getChinhSuaData(id) {
   const guide = await SizeGuide.findOne({ _id: gid, daxoa: { $ne: true } }).lean();
   if (!guide) return { ok: false, status: 404, message: 'Không tìm thấy bảng size' };
 
+  const options = await loaiSanPhamOptions();
+  const coGiaTriHienTai = options.some((opt) => String(opt.value) === String(guide.loaisanpham || ''));
+  if (!coGiaTriHienTai && guide.loaisanpham) {
+    options.push({ value: String(guide.loaisanpham), label: String(guide.loaisanpham) });
+  }
+
   const guideForm = {
     ...guide,
     cotText: (guide.cot || []).join(', '),
@@ -100,7 +133,7 @@ async function getChinhSuaData(id) {
     data: {
       titlePage: 'Chỉnh sửa bảng hướng dẫn size',
       guide: guideForm,
-      loaiOptions: loaiSanPhamOptions()
+      loaiOptions: options
     }
   };
 }

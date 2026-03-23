@@ -7,16 +7,16 @@ const PhieuXuatKho = require('../../models/export_receipt_model');
 const TonKhoLo = require('../../models/inventory_lot_model');
 const { NO_SIZE_TYPES } = require('../../config/constants');
 const { tinhTongTon } = require('../catalog/productStock.service.js');
-
+// Dịch vụ này cung cấp các hàm liên quan đến việc tạo phiếu xuất kho từ đơn hàng, bao gồm việc tính toán giá vốn theo phương pháp FIFO, điều chỉnh tồn kho, và tính toán tài chính cho từng dòng sản phẩm trong phiếu xuất. Nó cũng xử lý các trường hợp đặc biệt như sản phẩm không có size và áp dụng giá đề xuất sau khi trừ tồn kho.
 function laLoaiKhongSize(loaisanpham) {
   return NO_SIZE_TYPES.includes(String(loaisanpham || '').toLowerCase());
 }
-
+// Hàm tiện ích để chuyển giá trị sang số, nếu không phải là số hợp lệ thì trả về giá trị fallback (mặc định là 0)
 function toNumber(v, fallback = 0) {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
 }
-
+// Hàm tạo mã phiếu xuất kho duy nhất dựa trên thời gian hiện tại và một số ngẫu nhiên, định dạng mã sẽ là "XKYYYYMMDD-HHMMSS-RAND"
 function taoMaPhieuXuat() {
   const d = new Date();
   const y = d.getFullYear();
@@ -28,7 +28,7 @@ function taoMaPhieuXuat() {
   const rand = Math.floor(Math.random() * 9000 + 1000);
   return `XK${y}${m}${day}-${h}${min}${s}-${rand}`;
 }
-
+// Hàm tạo thông tin nhân viên ký phiếu xuất kho, nếu có thông tin người dùng quản trị thì sử dụng thông tin đó, nếu không thì sử dụng thông tin fallback nếu có, nếu vẫn không có thì trả về các trường rỗng hoặc mặc định
 function taoThongTinNhanVienKy(adminUser, fallback = {}) {
   const u = adminUser || null;
   return {
@@ -38,8 +38,8 @@ function taoThongTinNhanVienKy(adminUser, fallback = {}) {
     thoigianky: fallback.thoigianky || new Date()
   };
 }
-
-async function buildCostMapForProductIds(productIds) {
+// Hàm xây dựng bản đồ chi phí trung bình cho một danh sách các ID sản phẩm, sử dụng dữ liệu từ phiếu nhập kho để tính toán chi phí trung bình theo từng biến thể và kích cỡ, kết quả trả về là một Map với khóa là "productId|variantId|size" và giá trị là chi phí trung bình
+async function taoBanDoGiaVonTrungBinhTheoSanPham(productIds) {
   if (!productIds.length) return new Map();
   const objectIds = productIds
     .filter((id) => mongoose.Types.ObjectId.isValid(String(id)))
@@ -71,7 +71,7 @@ async function buildCostMapForProductIds(productIds) {
   return map;
 }
 
-function resolveAvgCost(costMap, { productId, variantId, size }) {
+function layGiaVonTrungBinh(costMap, { productId, variantId, size }) {
   const pid = String(productId || '');
   const vid = variantId ? String(variantId) : 'main';
   const sizeKey = String(size || '').trim() || 'nosize';
@@ -84,7 +84,7 @@ function resolveAvgCost(costMap, { productId, variantId, size }) {
   );
 }
 
-function buildLotQuery({ productId, variantId, size }) {
+function taoTruyVanLoTon({ productId, variantId, size }) {
   const query = {
     sanphamid: new mongoose.Types.ObjectId(String(productId)),
     soluongconlai: { $gt: 0 }
@@ -106,11 +106,11 @@ function buildLotQuery({ productId, variantId, size }) {
   return query;
 }
 
-async function consumeLotsFIFO({ productId, variantId, size, qty }) {
+async function xuatTonTheoLoFIFO({ productId, variantId, size, qty }) {
   const soLuongCanXuat = toNumber(qty, 0);
   if (soLuongCanXuat <= 0) throw new Error('Sá»‘ lÆ°á»£ng xuáº¥t khÃ´ng há»£p lá»‡');
 
-  const lots = await TonKhoLo.find(buildLotQuery({ productId, variantId, size }))
+  const lots = await TonKhoLo.find(taoTruyVanLoTon({ productId, variantId, size }))
     .sort({ ngaynhap: 1, ngaytao: 1, _id: 1 });
 
   let conLaiCanXuat = soLuongCanXuat;
@@ -151,8 +151,8 @@ async function consumeLotsFIFO({ productId, variantId, size, qty }) {
   };
 }
 
-async function resolveSuggestedPriceAfterConsume({ productId, variantId, size, allocations }) {
-  const currentLot = await TonKhoLo.findOne(buildLotQuery({ productId, variantId, size }))
+async function layGiaDeXuatSauKhiXuat({ productId, variantId, size, allocations }) {
+  const currentLot = await TonKhoLo.findOne(taoTruyVanLoTon({ productId, variantId, size }))
     .sort({ ngaynhap: 1, ngaytao: 1, _id: 1 })
     .select('giabandexuat')
     .lean();
@@ -169,7 +169,7 @@ async function resolveSuggestedPriceAfterConsume({ productId, variantId, size, a
   return 0;
 }
 
-function applySuggestedPriceToProductDoc(productDoc, { variantId, suggestedPrice }) {
+function apDungGiaDeXuatChoSanPham(productDoc, { variantId, suggestedPrice }) {
   const price = toNumber(suggestedPrice, 0);
   if (price <= 0) return false;
 
@@ -280,8 +280,8 @@ function congTonKhoTheoDong(productDoc, { variantId, size, qty }) {
   const current = toNumber(variant.soluong, 0);
   variant.soluong = current + soLuong;
 }
-
-function calcFinanceForLine({ qty, giaNhap, giaBan, phanTramGiam, giaVon: giaVonOverride }) {
+// Hàm tính toán tài chính cho một dòng sản phẩm dựa trên số lượng, giá nhập, giá bán, phần trăm giảm và giá vốn (nếu có), kết quả trả về bao gồm giá sau giảm, doanh thu, giá vốn và lợi nhuận
+function tinhTaiChinhTheoDong({ qty, giaNhap, giaBan, phanTramGiam, giaVon: giaVonOverride }) {
   const soLuong = toNumber(qty, 0);
   const priceNhap = toNumber(giaNhap, 0);
   const priceBan = toNumber(giaBan, 0);
@@ -297,8 +297,8 @@ function calcFinanceForLine({ qty, giaNhap, giaBan, phanTramGiam, giaVon: giaVon
     loiNhuan
   };
 }
-
-function calcFinanceByAllocations({ allocations, fallbackGiaBan = 0, fallbackPhanTramGiam = 0 }) {
+// Hàm tính toán tài chính cho một dòng sản phẩm dựa trên các phân bổ theo lô, nếu không có phân bổ thì sử dụng giá bán và phần trăm giảm fallback, kết quả trả về bao gồm tổng số lượng, tổng doanh thu, tổng giá vốn, tổng lợi nhuận, giá bán đồng nhất (nếu có), giá sau giảm đồng nhất (nếu có), phần trăm giảm đồng nhất (nếu có) và cờ cho biết có nhiều mức giá hay không
+function tinhTaiChinhTheoPhanBo({ allocations, fallbackGiaBan = 0, fallbackPhanTramGiam = 0 }) {
   const src = Array.isArray(allocations) ? allocations : [];
   const fallbackBan = Math.max(0, toNumber(fallbackGiaBan, 0));
   const fallbackGiam = Math.max(0, toNumber(fallbackPhanTramGiam, 0));
@@ -309,6 +309,9 @@ function calcFinanceByAllocations({ allocations, fallbackGiaBan = 0, fallbackPha
   let tongGiaSauGiam = 0;
   let tongDoanhThu = 0;
   let tongGiaVon = 0;
+  const tapGiaBan = new Set();
+  const tapGiaSauGiam = new Set();
+  const tapPhanTramGiam = new Set();
 
   for (const a of src) {
     const soLuong = Math.max(0, toNumber(a?.soLuong, 0));
@@ -339,6 +342,10 @@ function calcFinanceByAllocations({ allocations, fallbackGiaBan = 0, fallbackPha
       loinhuan: loiNhuan
     });
 
+    tapGiaBan.add(giaBan);
+    tapGiaSauGiam.add(giaSauGiam);
+    tapPhanTramGiam.add(phanTramGiam);
+
     tongSoLuong += soLuong;
     tongGiaBan += soLuong * giaBan;
     tongGiaSauGiam += soLuong * giaSauGiam;
@@ -347,6 +354,17 @@ function calcFinanceByAllocations({ allocations, fallbackGiaBan = 0, fallbackPha
   }
 
   const tongLoiNhuan = tongDoanhThu - tongGiaVon;
+  const coNhieuMucGia = tapGiaBan.size > 1;
+
+  const giaBanDongNhat = tapGiaBan.size === 1
+    ? Number(Array.from(tapGiaBan)[0] || 0)
+    : 0;
+  const giaSauGiamDongNhat = tapGiaSauGiam.size === 1
+    ? Number(Array.from(tapGiaSauGiam)[0] || 0)
+    : 0;
+  const phanTramGiamDongNhat = tapPhanTramGiam.size === 1
+    ? Number(Array.from(tapPhanTramGiam)[0] || 0)
+    : 0;
 
   return {
     allocations: out,
@@ -355,13 +373,16 @@ function calcFinanceByAllocations({ allocations, fallbackGiaBan = 0, fallbackPha
     tongGiaVon,
     tongLoiNhuan,
     gianhap: tongSoLuong > 0 ? (tongGiaVon / tongSoLuong) : 0,
-    giaban: tongSoLuong > 0 ? (tongGiaBan / tongSoLuong) : 0,
-    giasaugiam: tongSoLuong > 0 ? (tongGiaSauGiam / tongSoLuong) : 0,
-    phantramgiam: 0
+    giaban: giaBanDongNhat,
+    giasaugiam: giaSauGiamDongNhat,
+    phantramgiam: phanTramGiamDongNhat,
+    nhieumucgia: coNhieuMucGia,
+    giabantrungbinh: tongSoLuong > 0 ? (tongGiaBan / tongSoLuong) : 0,
+    giasaugiamtrungbinh: tongSoLuong > 0 ? (tongGiaSauGiam / tongSoLuong) : 0
   };
 }
 
-function calcTotals(lines) {
+function tinhTongSoLieu(lines) {
   const arr = Array.isArray(lines) ? lines : [];
   const tongSoLuong = arr.reduce((sum, it) => sum + toNumber(it.soluong, 0), 0);
   const tongDoanhThu = arr.reduce((sum, it) => sum + toNumber(it.doanhthu, 0), 0);
@@ -377,8 +398,8 @@ function calcTotals(lines) {
     tysuatloinhuan: Number(tySuat.toFixed(2))
   };
 }
-
-async function createExportReceiptFromOrder({ orderId, adminUser, note = '', skipInventoryAdjustments = false }) {
+// Hàm chính để tạo phiếu xuất kho từ đơn hàng, nó kiểm tra tính hợp lệ của orderId, kiểm tra xem đã tồn tại phiếu xuất kho cho đơn hàng này chưa, lấy thông tin đơn hàng và chi tiết đơn hàng, tính toán chi phí và điều chỉnh tồn kho theo từng dòng sản phẩm, sau đó tạo và lưu phiếu xuất kho mới vào cơ sở dữ liệu
+async function taoPhieuXuatTuDonHang({ orderId, adminUser, note = '', skipInventoryAdjustments = false }) {
   const oid = String(orderId || '').trim();
   if (!mongoose.Types.ObjectId.isValid(oid)) {
     throw new Error('orderId khÃ´ng há»£p lá»‡');
@@ -399,7 +420,7 @@ async function createExportReceiptFromOrder({ orderId, adminUser, note = '', ski
   const productDocs = await Sanpham.find({ _id: { $in: productIds } });
   const productMap = new Map(productDocs.map((p) => [String(p._id), p]));
 
-  const costMap = await buildCostMapForProductIds(productIds);
+  const costMap = await taoBanDoGiaVonTrungBinhTheoSanPham(productIds);
 
   const lines = [];
 
@@ -428,13 +449,32 @@ async function createExportReceiptFromOrder({ orderId, adminUser, note = '', ski
       ? Math.max(0, Number((((giaBanGoc - giaSauGiamFromOrder) / giaBanGoc) * 100).toFixed(2)))
       : 0;
 
+    const orderFifoAllocations = Array.isArray(item.fifoAllocations)
+      ? item.fifoAllocations
+        .map((a) => ({
+          lotId: a?.lotId || null,
+          soLuong: toNumber(a?.soLuong, 0),
+          giaNhap: toNumber(a?.giaNhap, 0),
+          giaBanDeXuat: toNumber(a?.giaBanDeXuat, 0)
+        }))
+        .filter((a) => a.soLuong > 0)
+      : [];
+    const hasOrderFifoAllocations = orderFifoAllocations.length > 0;
+
     let fifoCost;
-    if (!skipInventoryAdjustments) {
+    if (skipInventoryAdjustments && hasOrderFifoAllocations) {
+      const tongGiaVonFifo = orderFifoAllocations.reduce((sum, a) => sum + (a.soLuong * a.giaNhap), 0);
+      fifoCost = {
+        tongGiaVon: tongGiaVonFifo,
+        giaNhapBinhQuan: qty > 0 ? (tongGiaVonFifo / qty) : 0,
+        allocations: orderFifoAllocations
+      };
+    } else if (!skipInventoryAdjustments) {
       try {
-        fifoCost = await consumeLotsFIFO({ productId, variantId, size, qty });
+        fifoCost = await xuatTonTheoLoFIFO({ productId, variantId, size, qty });
       } catch (fifoErr) {
-        // Fallback Ä‘á»ƒ tÆ°Æ¡ng thÃ­ch dá»¯ liá»‡u cÅ© chÆ°a cÃ³ báº£ng lÃ´.
-        const giaNhapFallback = resolveAvgCost(costMap, { productId, variantId, size });
+        // Fallback nếu không đủ tồn theo lô FIFO, sẽ sử dụng giá vốn trung bình để tính toán
+        const giaNhapFallback = layGiaVonTrungBinh(costMap, { productId, variantId, size });
         fifoCost = {
           tongGiaVon: qty * giaNhapFallback,
           giaNhapBinhQuan: giaNhapFallback,
@@ -442,15 +482,15 @@ async function createExportReceiptFromOrder({ orderId, adminUser, note = '', ski
         };
       }
 
-      const suggestedPrice = await resolveSuggestedPriceAfterConsume({
+      const suggestedPrice = await layGiaDeXuatSauKhiXuat({
         productId,
         variantId,
         size,
         allocations: fifoCost.allocations
       });
-      applySuggestedPriceToProductDoc(productDoc, { variantId, suggestedPrice });
+      apDungGiaDeXuatChoSanPham(productDoc, { variantId, suggestedPrice });
     } else {
-      const giaNhapFallback = resolveAvgCost(costMap, { productId, variantId, size });
+      const giaNhapFallback = layGiaVonTrungBinh(costMap, { productId, variantId, size });
       fifoCost = {
         tongGiaVon: qty * giaNhapFallback,
         giaNhapBinhQuan: giaNhapFallback,
@@ -462,17 +502,11 @@ async function createExportReceiptFromOrder({ orderId, adminUser, note = '', ski
       ? fifoCost.allocations
       : [{ soLuong: qty, giaNhap: fifoCost.giaNhapBinhQuan, giaBanDeXuat: giaBanGoc }];
 
-    const allocationFinance = calcFinanceByAllocations({
+    const allocationFinance = tinhTaiChinhTheoPhanBo({
       allocations: fallbackAllocations,
       fallbackGiaBan: giaBanGoc,
       fallbackPhanTramGiam: percent
     });
-
-    const avgGiaBan = allocationFinance.giaban;
-    const avgGiaSauGiam = allocationFinance.giasaugiam;
-    const avgPhanTram = avgGiaBan > 0
-      ? Math.max(0, Number((((avgGiaBan - avgGiaSauGiam) / avgGiaBan) * 100).toFixed(2)))
-      : 0;
 
     lines.push({
       sanphamid: productDoc._id,
@@ -482,9 +516,9 @@ async function createExportReceiptFromOrder({ orderId, adminUser, note = '', ski
       mausac: item.mausac || variant?.mausac || productDoc.mausac_chinh || '',
       soluong: qty,
       gianhap: allocationFinance.gianhap,
-      giaban: avgGiaBan,
-      phantramgiam: avgPhanTram,
-      giasaugiam: avgGiaSauGiam,
+      giaban: allocationFinance.giaban,
+      phantramgiam: allocationFinance.phantramgiam,
+      giasaugiam: allocationFinance.giasaugiam,
       doanhthu: allocationFinance.tongDoanhThu,
       giavon: allocationFinance.tongGiaVon,
       loinhuan: allocationFinance.tongLoiNhuan,
@@ -502,7 +536,7 @@ async function createExportReceiptFromOrder({ orderId, adminUser, note = '', ski
     }
   }
 
-  const totals = calcTotals(lines);
+  const totals = tinhTongSoLieu(lines);
 
   const receipt = new PhieuXuatKho({
     maphieu: taoMaPhieuXuat(),
@@ -510,7 +544,7 @@ async function createExportReceiptFromOrder({ orderId, adminUser, note = '', ski
     madonhang: order.madonhang || '',
     ngayxuat: new Date(),
     noinhan: order.diachigiao || '',
-    lydo: note || 'Xuáº¥t kho theo Ä‘Æ¡n hÃ ng Ä‘Ã£ xÃ¡c nháº­n',
+    lydo: note || 'Xuất kho theo đơn hàng đã xác nhận',
     ...totals,
     nguoitaophieu: 'order',
     chitiet: lines,
@@ -536,18 +570,18 @@ async function createExportReceiptFromOrder({ orderId, adminUser, note = '', ski
 }
 
 module.exports = {
-  createExportReceiptFromOrder,
-  calcFinanceForLine,
-  calcTotals,
-  buildCostMapForProductIds,
-  resolveAvgCost,
-  consumeLotsFIFO,
-  resolveSuggestedPriceAfterConsume,
-  applySuggestedPriceToProductDoc,
+  taoPhieuXuatTuDonHang,
+  tinhTaiChinhTheoDong,
+  tinhTongSoLieu,
+  taoBanDoGiaVonTrungBinhTheoSanPham,
+  layGiaVonTrungBinh,
+  xuatTonTheoLoFIFO,
+  layGiaDeXuatSauKhiXuat,
+  apDungGiaDeXuatChoSanPham,
   taoThongTinNhanVienKy,
   taoMaPhieuXuat,
   truTonKhoTheoDong,
   congTonKhoTheoDong,
-  calcFinanceByAllocations
+  tinhTaiChinhTheoPhanBo
 };
 

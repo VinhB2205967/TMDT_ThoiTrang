@@ -24,7 +24,7 @@ async function danhDauGiaoDichPendingCu({ donhangId, phuongthuc, ghichu }) {
   try {
     await Thanhtoan.updateMany(
       { donhang_id: donhangId, phuongthuc: phuongthuc, trangthai: { $in: PENDING_VALUES } },
-      { $set: { trangthai: PAY_STATUS.failed, ghichu: ghichu || 'Táº¡o giao dá»‹ch má»›i', ngaycapnhat: new Date() } }
+      { $set: { trangthai: PAY_STATUS.failed, ghichu: ghichu || 'Tạo giao dịch mới', ngaycapnhat: new Date() } }
     );
   } catch {
     // best-effort
@@ -42,16 +42,16 @@ async function taoGiaoDichThanhToan({
   response,
   ghichu
 }) {
-  if (!donhangId) throw new Error('Thiáº¿u donhangId');
-  if (!nguoidungId) throw new Error('Thiáº¿u nguoidungId');
-  if (!phuongthuc) throw new Error('Thiáº¿u phuongthuc');
+  if (!donhangId) throw new Error('Thiếu donhangId');
+  if (!nguoidungId) throw new Error('Thiếu nguoidungId');
+  if (!phuongthuc) throw new Error('Thiếu phuongthuc');
 
   const amount = Number(sotien || 0);
 
   await danhDauGiaoDichPendingCu({
     donhangId,
     phuongthuc,
-    ghichu: 'ÄÃ³ng giao dá»‹ch pending cÅ© (táº¡o má»›i)'
+    ghichu: 'Đóng giao dịch pending cũ (tạo mới)'
   });
 
   return Thanhtoan.create({
@@ -140,14 +140,14 @@ async function danhDauThatBaiTheoDonHang({
   response,
   ghichu
 }) {
-  if (!donhangId) throw new Error('Thiáº¿u donhangId');
-  if (!phuongthuc) throw new Error('Thiáº¿u phuongthuc');
+  if (!donhangId) throw new Error('Thiếu donhangId');
+  if (!phuongthuc) throw new Error('Thiếu phuongthuc');
 
   const amount = Number(sotien || 0);
 
   const result = await Thanhtoan.updateMany(
     { donhang_id: donhangId, phuongthuc: phuongthuc, trangthai: { $in: PENDING_VALUES } },
-    { $set: { trangthai: PAY_STATUS.failed, response: response, ghichu: ghichu || 'Há»§y Ä‘Æ¡n', ngaycapnhat: new Date() } }
+    { $set: { trangthai: PAY_STATUS.failed, response: response, ghichu: ghichu || 'Hủy đơn', ngaycapnhat: new Date() } }
   );
 
   const modified = Number(result?.modifiedCount || result?.nModified || 0);
@@ -161,7 +161,7 @@ async function danhDauThatBaiTheoDonHang({
     sotien: amount,
     trangthai: PAY_STATUS.failed,
     response,
-    ghichu: ghichu || 'Há»§y Ä‘Æ¡n'
+    ghichu: ghichu || 'Hủy đơn'
   });
 }
 
@@ -174,7 +174,7 @@ async function danhDauThatBaiTatCaPendingTheoDonHang({
 
   return Thanhtoan.updateMany(
     { donhang_id: donhangId, trangthai: { $in: PENDING_VALUES } },
-    { $set: { trangthai: PAY_STATUS.failed, response: response, ghichu: ghichu || 'Há»§y Ä‘Æ¡n', ngaycapnhat: new Date() } }
+    { $set: { trangthai: PAY_STATUS.failed, response: response, ghichu: ghichu || 'Hủy đơn', ngaycapnhat: new Date() } }
   );
 }
 
@@ -186,14 +186,14 @@ async function danhDauHoanTienMoMoTheoDonHang({
   refundResponse,
   ghichu
 }) {
-  if (!donhangId) throw new Error('Thiáº¿u donhangId');
+  if (!donhangId) throw new Error('Thiếu donhangId');
 
   const result = await Thanhtoan.updateMany(
     { donhang_id: donhangId, phuongthuc: 'momo', trangthai: { $in: PENDING_VALUES } },
     {
       $set: {
         trangthai: PAY_STATUS.refunded,
-        ghichu: ghichu || 'HoÃ n tiá»n MoMo',
+        ghichu: ghichu || 'Hoàn tiền MoMo',
         ngaycapnhat: new Date(),
         ...(typeof magiaodich !== 'undefined' && magiaodich ? { magiaodich } : {}),
         ...(typeof refundResponse !== 'undefined' ? { 'response.refund': refundResponse } : {})
@@ -204,7 +204,7 @@ async function danhDauHoanTienMoMoTheoDonHang({
   const modified = Number(result?.modifiedCount || result?.nModified || 0);
   if (modified > 0) return { modifiedCount: modified };
 
-  // KhÃ´ng tÃ¬m tháº¥y pending Ä‘á»ƒ cáº­p nháº­t -> upsert báº£n ghi refunded Ä‘á»ƒ cÃ³ dáº¥u váº¿t.
+  // Không tìm thấy pending để cập nhật -> upsert bản ghi refunded để có dấu vết.
   return capNhatGiaoDichThanhToan({
     donhangId,
     nguoidungId,
@@ -213,7 +213,7 @@ async function danhDauHoanTienMoMoTheoDonHang({
     magiaodich: magiaodich || undefined,
     trangthai: PAY_STATUS.refunded,
     response: typeof refundResponse !== 'undefined' ? { refund: refundResponse } : undefined,
-    ghichu: ghichu || 'HoÃ n tiá»n MoMo'
+    ghichu: ghichu || 'Hoàn tiền MoMo'
   });
 }
 
@@ -226,8 +226,8 @@ async function danhDauThanhCongTheoDonHang({
   successResponse,
   ghichu
 }) {
-  if (!donhangId) throw new Error('Thiáº¿u donhangId');
-  if (!phuongthuc) throw new Error('Thiáº¿u phuongthuc');
+  if (!donhangId) throw new Error('Thiếu donhangId');
+  if (!phuongthuc) throw new Error('Thiếu phuongthuc');
 
   const amount = Number(sotien || 0);
 
@@ -236,7 +236,7 @@ async function danhDauThanhCongTheoDonHang({
     {
       $set: {
         trangthai: PAY_STATUS.success,
-        ghichu: ghichu || 'Thanh toÃ¡n thÃ nh cÃ´ng',
+        ghichu: ghichu || 'Thanh toán thành công',
         ngaycapnhat: new Date(),
         ...(typeof magiaodich !== 'undefined' && magiaodich ? { magiaodich } : {}),
         ...(typeof successResponse !== 'undefined' ? { 'response.success': successResponse } : {})
@@ -247,7 +247,7 @@ async function danhDauThanhCongTheoDonHang({
   const modified = Number(result?.modifiedCount || result?.nModified || 0);
   if (modified > 0) return { modifiedCount: modified };
 
-  // KhÃ´ng cÃ³ pending Ä‘á»ƒ update -> upsert 1 record thÃ nh cÃ´ng (Ä‘á»ƒ khÃ´ng bá»‹ káº¹t tráº¡ng thÃ¡i).
+  // Không tìm thấy pending để cập nhật -> upsert bản ghi success để có dấu vết.
   return capNhatGiaoDichThanhToan({
     donhangId,
     nguoidungId,
@@ -256,7 +256,7 @@ async function danhDauThanhCongTheoDonHang({
     magiaodich: magiaodich || undefined,
     trangthai: PAY_STATUS.success,
     response: typeof successResponse !== 'undefined' ? { success: successResponse } : undefined,
-    ghichu: ghichu || 'Thanh toÃ¡n thÃ nh cÃ´ng'
+    ghichu: ghichu || 'Thanh toán thành công'
   });
 }
 

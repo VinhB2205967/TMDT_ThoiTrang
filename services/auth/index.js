@@ -19,7 +19,7 @@ function normalizeEmail(email) {
 
 function validatePassword(password) {
   const p = String(password || '');
-  if (p.length < 6) return 'Máº­t kháº©u pháº£i tá»‘i thiá»ƒu 6 kÃ½ tá»±';
+  if (p.length < 6) return 'Mật khẩu phải có ít nhất 6 ký tự';
   return null;
 }
 
@@ -42,8 +42,8 @@ function getResetBaseUrl(req) {
 function getGoogleAuthHint(err, req) {
   const queryError = String(req?.query?.error || '').trim();
   if (queryError) {
-    if (queryError === 'access_denied') return 'Báº¡n Ä‘Ã£ há»§y/khÃ´ng cáº¥p quyá»n cho Google.';
-    return `Google tráº£ vá» lá»—i: ${queryError}`;
+    if (queryError === 'access_denied') return 'Bạn đã từ chối đăng nhập Google.';
+    return `Google trả lời: ${queryError}`;
   }
 
   const message = String(err?.message || err || '').toLowerCase();
@@ -51,13 +51,13 @@ function getGoogleAuthHint(err, req) {
   const composed = `${message} ${oauthData}`;
 
   if (composed.includes('redirect_uri_mismatch')) {
-    return 'Sai Redirect URI. HÃ£y thÃªm Ä‘Ãºng URL callback vÃ o Google Console (Authorized redirect URIs).';
+    return 'Sai Redirect URI. Hãy thêm đúng URL callback vào Google Console (Authorized redirect URIs).';
   }
   if (composed.includes('invalid_client') || composed.includes('unauthorized_client')) {
-    return 'Sai GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET hoáº·c OAuth Client chÆ°a Ä‘Ãºng loáº¡i (Web application).';
+    return 'Sai GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET hoặc OAuth Client chưa đúng loại (Web application).';
   }
   if (composed.includes('invalid_grant')) {
-    return 'PhiÃªn Ä‘Äƒng nháº­p Google háº¿t háº¡n, thá»­ láº¡i.';
+    return 'Phiên đăng nhập Google hết hạn, thử lại.';
   }
 
   return '';
@@ -75,14 +75,14 @@ async function registerLocalUser({ hoten, email, password }) {
   const normalizedPassword = String(password || '');
 
   if (!normalizedEmail || !laEmailHopLe(normalizedEmail)) {
-    throw createHandledError('Email khÃ´ng Ä‘Ãºng Ä‘á»‹nh dáº¡ng', 'EMAIL_INVALID');
+    throw createHandledError('Email không đúng định dạng', 'EMAIL_INVALID');
   }
 
   const passwordError = validatePassword(normalizedPassword);
   if (passwordError) throw createHandledError(passwordError, 'PASSWORD_INVALID');
 
   const existingUser = await nguoidung.findOne({ email: normalizedEmail, daxoa: { $ne: true } });
-  if (existingUser) throw createHandledError('Email Ä‘Ã£ tá»“n táº¡i', 'EMAIL_EXISTS');
+  if (existingUser) throw createHandledError('Email đã tồn tại', 'EMAIL_EXISTS');
 
   const user = await nguoidung.create({
     hoten: normalizedName || normalizedEmail.split('@')[0],
@@ -107,19 +107,19 @@ async function authenticateLocalUser({ req, email, password }) {
   const user = await nguoidung.findOne({ email: normalizedEmail, daxoa: { $ne: true } });
   if (!user) {
     await writeLoginLog({ req, email: normalizedEmail, provider: 'local', status: 'failed', message: 'user_not_found' });
-    throw createHandledError('Sai email hoáº·c máº­t kháº©u', 'INVALID_CREDENTIALS');
+    throw createHandledError('Sai email hoặc mật khẩu', 'INVALID_CREDENTIALS');
   }
 
   const isValidPassword = await verifyPasswordWithLegacy({ userDoc: user, passwordPlain: normalizedPassword });
   if (!isValidPassword) {
     await writeLoginLog({ req, user, provider: 'local', status: 'failed', message: 'wrong_password' });
-    throw createHandledError('Sai email hoáº·c máº­t kháº©u', 'INVALID_CREDENTIALS');
+    throw createHandledError('Sai email hoặc mật khẩu', 'INVALID_CREDENTIALS');
   }
 
   const account = await getAccountByUserId({ userId: user._id }).catch(() => null);
   if (!account || account.trangthai !== 'active') {
     await writeLoginLog({ req, user, provider: 'local', status: 'failed', message: 'noactive' });
-    throw createHandledError('TÃ i khoáº£n Ä‘ang bá»‹ khÃ³a', 'ACCOUNT_LOCKED');
+    throw createHandledError('Tài khoản đang bị khóa', 'ACCOUNT_LOCKED');
   }
 
   await nguoidung.updateOne(
@@ -153,13 +153,13 @@ async function markUserOffline({ userId }) {
 async function prepareGoogleUserLogin({ req, user }) {
   if (!user) {
     await writeLoginLog({ req, provider: 'google', status: 'failed', message: 'no_user' });
-    throw createHandledError('KhÃ´ng thá»ƒ láº¥y thÃ´ng tin Google', 'GOOGLE_NO_USER');
+    throw createHandledError('Không thể lấy thông tin Google', 'GOOGLE_NO_USER');
   }
 
   const account = await getAccountByUserId({ userId: user._id }).catch(() => null);
   if (!account || account.trangthai !== 'active') {
     await writeLoginLog({ req, user, provider: 'google', status: 'failed', message: 'noactive' });
-    throw createHandledError('TÃ i khoáº£n Ä‘ang bá»‹ khÃ³a', 'ACCOUNT_LOCKED');
+    throw createHandledError('Tài khoản đang bị khóa', 'ACCOUNT_LOCKED');
   }
 
   await nguoidung.updateOne(
@@ -181,11 +181,11 @@ async function prepareGoogleUserLogin({ req, user }) {
 async function requestPasswordReset({ req, email }) {
   const normalizedEmail = normalizeEmail(email);
   if (!normalizedEmail || !laEmailHopLe(normalizedEmail)) {
-    throw createHandledError('Email khÃ´ng Ä‘Ãºng Ä‘á»‹nh dáº¡ng', 'EMAIL_INVALID');
+    throw createHandledError('Email không đúng định dạng', 'EMAIL_INVALID');
   }
 
   const user = await nguoidung.findOne({ email: normalizedEmail, daxoa: { $ne: true } }).lean();
-  if (!user) throw createHandledError('Email khÃ´ng tá»“n táº¡i trong há»‡ thá»‘ng', 'EMAIL_NOT_FOUND');
+  if (!user) throw createHandledError('Email không tồn tại trong hệ thống', 'EMAIL_NOT_FOUND');
 
   await ensureAccountFromUser(user, { provider: 'local' });
   const tokenInfo = await createPasswordResetToken({ userId: user._id, expiresMinutes: 15 });
@@ -204,12 +204,12 @@ async function requestPasswordReset({ req, email }) {
 async function validateResetToken({ token }) {
   const normalizedToken = String(token || '').trim();
   if (!normalizedToken) {
-    throw createHandledError('LiÃªn káº¿t Ä‘áº·t láº¡i máº­t kháº©u khÃ´ng há»£p lá»‡', 'RESET_TOKEN_INVALID');
+    throw createHandledError('Liên kết đặt lại mật khẩu không hợp lệ', 'RESET_TOKEN_INVALID');
   }
 
   const account = await findAccountByResetToken({ tokenPlain: normalizedToken });
   if (!account) {
-    throw createHandledError('LiÃªn káº¿t Ä‘Ã£ háº¿t háº¡n hoáº·c khÃ´ng há»£p lá»‡', 'RESET_TOKEN_EXPIRED');
+    throw createHandledError('Liên kết đã hết hạn hoặc không hợp lệ', 'RESET_TOKEN_EXPIRED');
   }
 
   return account;
@@ -221,7 +221,7 @@ async function resetPasswordByToken({ token, newPassword, confirmPassword }) {
   const confirm = String(confirmPassword || '');
 
   if (!normalizedToken) {
-    throw createHandledError('Thiáº¿u token Ä‘áº·t láº¡i máº­t kháº©u', 'RESET_TOKEN_MISSING');
+    throw createHandledError('Thiếu token đặt lại mật khẩu', 'RESET_TOKEN_MISSING');
   }
 
   const account = await validateResetToken({ token: normalizedToken });
@@ -230,7 +230,7 @@ async function resetPasswordByToken({ token, newPassword, confirmPassword }) {
   if (passwordError) throw createHandledError(passwordError, 'PASSWORD_INVALID');
 
   if (password !== confirm) {
-    throw createHandledError('XÃ¡c nháº­n máº­t kháº©u khÃ´ng khá»›p', 'PASSWORD_CONFIRM_MISMATCH');
+    throw createHandledError('Xác nhận mật khẩu không khớp', 'PASSWORD_CONFIRM_MISMATCH');
   }
 
   await setPasswordByUserId({ userId: account.nguoidung_id, newPasswordPlain: password });

@@ -4,10 +4,17 @@ const Sanpham = require('../../models/product_model');
 const Brand = require('../../models/brand_model');
 const { getCategoryTree, flattenTreeOptions } = require('./category.service.js');
 
+const TYPE_ROOT_META = {
+  category: { name: 'Loại sản phẩm', order: 10 },
+  occasion: { name: 'Dịp sử dụng', order: 20 },
+  age_group: { name: 'Nhóm tuổi', order: 30 },
+  brand: { name: 'Thương hiệu', order: 40 }
+};
+
 function normalizePayload(body) {
   const name = String(body.name || body.tendanhmuc || '').trim();
   const slug = String(body.slug || '').trim();
-  const allowedTypes = new Set(['category', 'brand', 'occasion', 'age_group', 'gender']);
+  const allowedTypes = new Set(['category', 'brand', 'occasion', 'age_group']);
   const rawType = String(body.type || 'category').trim();
   const type = allowedTypes.has(rawType) ? rawType : 'category';
   const order = Number(body.order ?? body.thutu ?? 0);
@@ -36,6 +43,23 @@ function normalizePayload(body) {
 
 function toObjectIdOrNull(value) {
   return value && mongoose.Types.ObjectId.isValid(String(value)) ? new mongoose.Types.ObjectId(String(value)) : null;
+}
+
+async function layThuTuCuoiCung({ parent_id, type, excludeId = null }) {
+  const query = {
+    daxoa: { $ne: true },
+    type,
+    parent_id: parent_id ? toObjectIdOrNull(parent_id) : null,
+    ...(excludeId ? { _id: { $ne: excludeId } } : {})
+  };
+
+  const lastItem = await Danhmuc.findOne(query)
+    .sort({ order: -1, thutu: -1, _id: -1 })
+    .select('order thutu')
+    .lean();
+
+  const currentMax = Number(lastItem?.order ?? lastItem?.thutu ?? -1);
+  return currentMax + 1;
 }
 
 async function kiemTraTrungTenCungCap({ name, parent_id, type, excludeId = null }) {
@@ -97,6 +121,36 @@ async function damBaoNhomThuongHieu() {
     isActive: true,
     trangthai: 'active'
   });
+}
+
+async function layHoacTaoNhomGocTheoLoai(type) {
+  const selectedType = TYPE_ROOT_META[type] ? type : 'category';
+  const existed = await Danhmuc.findOne({
+    daxoa: { $ne: true },
+    type: selectedType,
+    parent_id: null
+  }).sort({ order: 1, thutu: 1, _id: 1 });
+
+  if (existed) return existed;
+
+  const meta = TYPE_ROOT_META[selectedType] || TYPE_ROOT_META.category;
+  return Danhmuc.create({
+    name: meta.name,
+    tendanhmuc: meta.name,
+    type: selectedType,
+    parent_id: null,
+    danhmuccha: null,
+    order: Number(meta.order || 0),
+    thutu: Number(meta.order || 0),
+    isActive: true,
+    trangthai: 'active'
+  });
+}
+
+async function damBaoNhomGocTheoLoai() {
+  for (const type of Object.keys(TYPE_ROOT_META)) {
+    await layHoacTaoNhomGocTheoLoai(type);
+  }
 }
 
 function slugThuongHieuTheoId(id) {
@@ -221,9 +275,20 @@ async function dongBoThuongHieuVaoDanhMuc() {
 }
 
 async function getDanhSachData(query = {}) {
+  await damBaoNhomGocTheoLoai();
   await damBaoNhomThuongHieu();
   await dongBoThuongHieuVaoDanhMuc();
-  const tree = await getCategoryTree({ includeDeleted: false });
+  const rawTree = await getCategoryTree({ includeDeleted: false });
+  const tree = (rawTree || [])
+    .filter((node) => node.type !== 'gender')
+    .map((node) => {
+      const cloneNode = { ...node };
+      const cleanChildren = (children = []) => children
+        .filter((child) => child.type !== 'gender')
+        .map((child) => ({ ...child, children: cleanChildren(child.children || []) }));
+      cloneNode.children = cleanChildren(node.children || []);
+      return cloneNode;
+    });
   const parentOptions = flattenTreeOptions(tree);
 
   return {
@@ -241,6 +306,20 @@ async function taoDanhMuc(body = {}) {
   const payload = normalizePayload(body);
   if (!payload.name) {
     return { ok: false, status: 400, message: 'Tên danh mục là bắt buộc' };
+  }
+
+  const rootByType = await layHoacTaoNhomGocTheoLoai(payload.type);
+  payload.parent_id = rootByType ? rootByType._id : null;
+  payload.danhmuccha = payload.parent_id;
+
+  const coNhapThuTu = body.order !== undefined || body.thutu !== undefined;
+  if (!coNhapThuTu) {
+    const nextOrder = await layThuTuCuoiCung({
+      parent_id: payload.parent_id,
+      type: payload.type
+    });
+    payload.order = nextOrder;
+    payload.thutu = nextOrder;
   }
 
   const isDuplicated = await kiemTraTrungTenCungCap({
@@ -268,9 +347,23 @@ async function capNhatDanhMuc(id, body = {}) {
     return { ok: false, status: 404, message: 'Danh mục không tồn tại' };
   }
 
+  if (!doc.parent_id) {
+    return { ok: false, status: 400, message: 'Danh mục cha cố định, không thể sửa' };
+  }
+
   const payload = normalizePayload(body);
   if (!payload.name) {
     return { ok: false, status: 400, message: 'Tên danh mục là bắt buộc' };
+  }
+
+  const isRootNode = !doc.parent_id;
+  if (isRootNode) {
+    payload.parent_id = null;
+    payload.danhmuccha = null;
+  } else {
+    const rootByType = await layHoacTaoNhomGocTheoLoai(payload.type);
+    payload.parent_id = rootByType ? rootByType._id : null;
+    payload.danhmuccha = payload.parent_id;
   }
 
   if (payload.parent_id && String(payload.parent_id) === categoryId) {
@@ -331,7 +424,7 @@ async function xoaDanhMuc(id) {
 
   const usedByProducts = await Sanpham.countDocuments({
     daxoa: { $ne: true },
-    $or: [{ category: categoryId }, { occasion: categoryId }, { ageGroup: categoryId }, { loaisanpham: categoryId }]
+    $or: [{ category: categoryId }, { occasion: categoryId }, { occasions: categoryId }, { ageGroup: categoryId }, { loaisanpham: categoryId }]
   });
 
   if (usedByProducts > 0) {
@@ -352,6 +445,14 @@ async function doiTrangThaiDanhMuc(id) {
   const doc = await Danhmuc.findById(categoryId);
   if (!doc) {
     return { ok: false, status: 404, message: 'Danh mục không tồn tại' };
+  }
+
+  if (!doc.parent_id) {
+    return {
+      ok: false,
+      status: 400,
+      message: 'Danh mục cha cố định, không thể ẩn/hiện'
+    };
   }
 
   const nextActive = !Boolean(doc.isActive);

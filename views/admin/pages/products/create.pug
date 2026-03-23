@@ -37,12 +37,15 @@ block main
                             
                             .row.g-3
                                 .col-md-6
-                                    label.form-label.fw-bold Giá gốc (₫) *
-                                    input.form-control(type="number" name="gia" required min="0" placeholder="0")
+                                    label.form-label.fw-bold Giá gốc (₫)
+                                    input.form-control(type="number" name="gia" min="0" placeholder="Để trống, sẽ cập nhật từ phiếu nhập")
                                 
                                 .col-md-6
                                     label.form-label.fw-bold Giảm giá (%)
                                     input.form-control(type="number" name="phantramgiamgia" min="0" max="100" value="0" placeholder="0")
+
+                            .mt-2
+                                small.text-muted Giá sản phẩm chính và biến thể có thể cập nhật tự động từ phiếu nhập kho, không bắt buộc nhập tại form này.
                             
                             .row.g-3.mt-2
                                 .col-12
@@ -66,18 +69,13 @@ block main
                                         option(value="unisex") Unisex
                                         option(value="nam") Nam
                                         option(value="nu") Nữ
-                                        option(value="tre-em") Trẻ em
                                 
                                 .col-md-4
                                     label.form-label.fw-bold Loại sản phẩm
                                     select#loaisanpham.form-select(name="loaisanpham" onchange="doiHienThiSize()")
-                                        option(value="ao") Áo
-                                        option(value="quan") Quần
-                                        option(value="vay") Váy
-                                        option(value="phukien") Phụ kiện
-                                        option(value="giay") Giày
-                                        option(value="tui") Túi
-                                        option(value="aokhoac") Áo khoác
+                                        option(value="") -- Chọn loại sản phẩm --
+                                        each c in (categoryOptions || [])
+                                            option(value=c.slug) #{c.name}
                                 
                                 .col-md-4
                                     label.form-label.fw-bold Trạng thái
@@ -96,10 +94,20 @@ block main
                             .row.g-3.mt-1
                                 .col-md-6
                                     label.form-label.fw-bold Dịp sử dụng
-                                    select.form-select(name="occasion")
-                                        option(value="") -- Chọn dịp --
-                                        each c in (occasionOptions || [])
-                                            option(value=c._id) #{c.name}
+                                    .dropdown.occasion-dropdown
+                                        button.btn.btn-outline-secondary.dropdown-toggle.w-100.text-start.occasion-dropdown-toggle(type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-bs-display="static")
+                                            | Chọn dịp sử dụng
+                                        ul.dropdown-menu.w-100.p-2.occasion-dropdown-menu
+                                            if (occasionOptions || []).length
+                                                each c in (occasionOptions || [])
+                                                    li
+                                                        label.dropdown-item.d-flex.align-items-center.gap-2.py-1.occasion-dropdown-item(for=`occasion-${c._id}`)
+                                                            input.form-check-input.mt-0(type="checkbox" id=`occasion-${c._id}` name="occasions" value=c._id)
+                                                            span #{c.name}
+                                            else
+                                                li
+                                                    span.dropdown-item-text.text-muted Chưa có dữ liệu dịp sử dụng.
+                                    small.text-muted.occasion-dropdown-hint Nhấn để mở danh sách và tick nhiều dịp.
                                 .col-md-6
                                     label.form-label.fw-bold Nhóm tuổi
                                     select.form-select(name="ageGroup")
@@ -123,31 +131,32 @@ block main
                             
                             #baseSizeSection.mt-3
                                 label.form-label.fw-bold Size chung (không theo biến thể)
+                                small.text-muted.d-block.mb-2 Số lượng tồn kho được quản lý qua phiếu nhập/xuất kho (FIFO), không nhập trực tiếp tại đây.
                                 .row.g-2
                                     .col-4.col-md-2
                                         label.form-label.small XS
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XS" min="0" value="0" oninput="capNhatTongTon()")
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XS" min="0" value="0" readonly disabled)
                                     .col-4.col-md-2
                                         label.form-label.small S
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_S" min="0" value="0" oninput="capNhatTongTon()")
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_S" min="0" value="0" readonly disabled)
                                     .col-4.col-md-2
                                         label.form-label.small M
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_M" min="0" value="0" oninput="capNhatTongTon()")
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_M" min="0" value="0" readonly disabled)
                                     .col-4.col-md-2
                                         label.form-label.small L
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_L" min="0" value="0" oninput="capNhatTongTon()")
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_L" min="0" value="0" readonly disabled)
                                     .col-4.col-md-2
                                         label.form-label.small XL
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XL" min="0" value="0" oninput="capNhatTongTon()")
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XL" min="0" value="0" readonly disabled)
                                     .col-4.col-md-2
                                         label.form-label.small XXL
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XXL" min="0" value="0" oninput="capNhatTongTon()")
+                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XXL" min="0" value="0" readonly disabled)
                             
                             //- Số lượng chung (cho sản phẩm không có size như Túi, Phụ kiện)
                             #baseQtySection.mt-3(style="display:none")
                                 label.form-label.fw-bold Số lượng sản phẩm
-                                input.form-control.base-direct-qty(type="number" name="soluong_chinh" min="0" value="0" oninput="capNhatTongTon()")
-                                small.text-muted Số lượng cho sản phẩm
+                                input.form-control.base-direct-qty(type="number" name="soluong_chinh" min="0" value="0" readonly disabled)
+                                small.text-muted Số lượng cho sản phẩm được quản lý bằng nhập/xuất kho.
                     
                     //- Card biến thể
                     .card.mt-4

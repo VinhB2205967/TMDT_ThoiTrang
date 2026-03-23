@@ -102,3 +102,45 @@
         height: 180px;
     }
 }
+
+@media (min-width: 768px) {
+    #filterForm .filter-col {
+        order: 10;
+    }
+
+    #filterForm .filter-col--type {
+        order: 1;
+    }
+
+    #filterForm .filter-col--gender {
+        order: 2;
+    }
+
+    #filterForm .filter-col--brand {
+        order: 3;
+    }
+
+    #filterForm .filter-col--occasion {
+        order: 4;
+    }
+
+    #filterForm .filter-col--price-min {
+        order: 5;
+    }
+
+    #filterForm .filter-col--price-max {
+        order: 6;
+    }
+
+    #filterForm .filter-col--age-group {
+        order: 7;
+    }
+
+    #filterForm .filter-col--sort {
+        order: 8;
+    }
+
+    #filterForm .filter-col--actions {
+        order: 9;
+    }
+}

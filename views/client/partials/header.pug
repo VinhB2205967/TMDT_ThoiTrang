@@ -10,13 +10,15 @@ header.header
 
             //- CENTER: Search bar
             .header-search
-                form.search-form(method="GET" action="/products")
+                form#headerSearchForm.search-form(method="GET" action="/products" autocomplete="off")
                     .input-group
-                        input.form-control(type="text" name="keyword" placeholder="Tìm kiếm sản phẩm..." value=keyword || '')
+                        input#headerKeywordInput.form-control(type="text" name="keyword" placeholder="Tìm kiếm sản phẩm..." value=keyword || '' autocomplete="off" spellcheck="false" aria-label="Tìm kiếm sản phẩm" aria-autocomplete="list" aria-expanded="false" aria-controls="headerSuggestDropdown")
                         button.btn-image-search#headerImageSearchBtn(type="button" title="Tìm bằng ảnh" aria-label="Tìm bằng ảnh")
                             i.bi.bi-camera
                         button.btn-search(type="submit")
                             i.bi.bi-search
+                #headerSuggestDropdown.header-suggest-dropdown(hidden)
+                    ul#headerSuggestList.header-suggest-list(role="listbox" aria-label="Gợi ý sản phẩm")
                 form#headerImageSearchForm.search-image-form(method="POST" action=`/products/image-search?_csrf=${encodeURIComponent(csrfToken || '')}` enctype="multipart/form-data")
                     input(type="hidden" name="_csrf" value=csrfToken)
                     input#headerImageSearchInput(type="file" name="image" accept="image/*" hidden)
@@ -181,11 +183,205 @@ script.
         const imageBtn = document.getElementById('headerImageSearchBtn');
         const imageInput = document.getElementById('headerImageSearchInput');
         const imageForm = document.getElementById('headerImageSearchForm');
+        const keywordInput = document.getElementById('headerKeywordInput');
+        const keywordForm = document.getElementById('headerSearchForm');
+        const suggestDropdown = document.getElementById('headerSuggestDropdown');
+        const suggestList = document.getElementById('headerSuggestList');
         const loadingOverlay = document.getElementById('openclipLoadingOverlay');
         const loadingPreview = document.getElementById('openclipLoadingPreview');
         const loadingBackdrop = loadingOverlay ? loadingOverlay.querySelector('.openclip-loading-overlay__backdrop') : null;
         const loadingCloseBtn = document.getElementById('openclipLoadingClose');
         let loadingPreviewObjectUrl = null;
+        let suggestDebounceTimer = null;
+        let suggestAbortController = null;
+        let suggestItems = [];
+        let suggestActiveIndex = -1;
+
+        const formatVND = function(value) {
+            const amount = Number(value || 0);
+            if (!Number.isFinite(amount)) return '0₫';
+            return amount.toLocaleString('vi-VN') + '₫';
+        };
+
+        const escapeHtml = function(text) {
+            return String(text || '').replace(/[&<>'"]/g, function(char) {
+                switch (char) {
+                    case '&': return '&amp;';
+                    case '<': return '&lt;';
+                    case '>': return '&gt;';
+                    case '"': return '&quot;';
+                    case "'": return '&#39;';
+                    default: return char;
+                }
+            });
+        };
+
+        const closeSuggest = function() {
+            if (!suggestDropdown || !keywordInput) return;
+            suggestDropdown.hidden = true;
+            keywordInput.setAttribute('aria-expanded', 'false');
+            suggestActiveIndex = -1;
+            if (suggestList) {
+                suggestList.querySelectorAll('.header-suggest-link.active').forEach(function(link) {
+                    link.classList.remove('active');
+                });
+            }
+        };
+
+        const openSuggest = function() {
+            if (!suggestDropdown || !keywordInput) return;
+            suggestDropdown.hidden = false;
+            keywordInput.setAttribute('aria-expanded', 'true');
+        };
+
+        const setSuggestActive = function(index) {
+            if (!suggestList) return;
+            const links = suggestList.querySelectorAll('.header-suggest-link');
+            if (!links.length) {
+                suggestActiveIndex = -1;
+                return;
+            }
+
+            if (index < 0) {
+                suggestActiveIndex = -1;
+            } else {
+                suggestActiveIndex = index % links.length;
+                if (suggestActiveIndex < 0) suggestActiveIndex = links.length - 1;
+            }
+
+            links.forEach(function(link, idx) {
+                const active = idx === suggestActiveIndex;
+                link.classList.toggle('active', active);
+                link.setAttribute('aria-selected', active ? 'true' : 'false');
+                if (active) link.scrollIntoView({ block: 'nearest' });
+            });
+        };
+
+        const renderSuggestItems = function(items, keywordValue) {
+            if (!suggestList) return;
+            suggestItems = Array.isArray(items) ? items : [];
+            suggestActiveIndex = -1;
+
+            if (!suggestItems.length) {
+                suggestList.innerHTML = '<li class="header-suggest-empty">Không tìm thấy sản phẩm phù hợp</li>';
+                openSuggest();
+                return;
+            }
+
+            const html = suggestItems.map(function(item, idx) {
+                const ten = escapeHtml(item.ten || 'Sản phẩm');
+                const anh = escapeHtml(item.anh || '/images/shopping.png');
+                const url = escapeHtml(item.url || '/products');
+                const gia = Number(item.gia || 0);
+                const giaSauGiam = Number(item.giaSauGiam || gia);
+                const hasDiscount = giaSauGiam < gia;
+
+                return '' +
+                    '<li role="option">' +
+                        '<a class="header-suggest-link" data-index="' + idx + '" href="' + url + '" aria-selected="false">' +
+                            '<img class="header-suggest-thumb" src="' + anh + '" alt="' + ten + '" loading="lazy">' +
+                            '<span class="header-suggest-meta">' +
+                                '<strong class="header-suggest-name">' + ten + '</strong>' +
+                                '<span class="header-suggest-price-row">' +
+                                    '<span class="header-suggest-price">' + formatVND(giaSauGiam) + '</span>' +
+                                    (hasDiscount ? ('<span class="header-suggest-old-price">' + formatVND(gia) + '</span>') : '') +
+                                '</span>' +
+                            '</span>' +
+                        '</a>' +
+                    '</li>';
+            }).join('') +
+            '<li class="header-suggest-footer"><a href="/products?keyword=' + encodeURIComponent(keywordValue) + '">Xem tất cả kết quả</a></li>';
+
+            suggestList.innerHTML = html;
+            openSuggest();
+        };
+
+        const fetchSuggestItems = function() {
+            if (!keywordInput) return;
+            const keywordValue = String(keywordInput.value || '').trim();
+            if (keywordValue.length < 2) {
+                suggestItems = [];
+                closeSuggest();
+                return;
+            }
+
+            if (suggestAbortController) {
+                suggestAbortController.abort();
+            }
+            suggestAbortController = new AbortController();
+
+            fetch('/api/products/suggest?keyword=' + encodeURIComponent(keywordValue) + '&limit=6', {
+                method: 'GET',
+                credentials: 'same-origin',
+                signal: suggestAbortController.signal,
+                headers: {
+                    Accept: 'application/json'
+                }
+            }).then(function(res) {
+                if (!res.ok) throw new Error('SUGGEST_REQUEST_FAILED');
+                return res.json();
+            }).then(function(data) {
+                if (!data || !data.success) {
+                    renderSuggestItems([], keywordValue);
+                    return;
+                }
+                renderSuggestItems(data.items || [], keywordValue);
+            }).catch(function(err) {
+                if (err && err.name === 'AbortError') return;
+                closeSuggest();
+            });
+        };
+
+        if (keywordInput && keywordForm && suggestDropdown && suggestList) {
+            keywordInput.setAttribute('autocomplete', 'off');
+            keywordInput.addEventListener('input', function() {
+                clearTimeout(suggestDebounceTimer);
+                suggestDebounceTimer = setTimeout(fetchSuggestItems, 220);
+            });
+
+            keywordInput.addEventListener('focus', function() {
+                if (suggestItems.length) openSuggest();
+            });
+
+            keywordInput.addEventListener('keydown', function(event) {
+                if (suggestDropdown.hidden) return;
+
+                if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    setSuggestActive(suggestActiveIndex + 1);
+                    return;
+                }
+
+                if (event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    setSuggestActive(suggestActiveIndex - 1);
+                    return;
+                }
+
+                if (event.key === 'Escape') {
+                    closeSuggest();
+                    return;
+                }
+
+                if (event.key === 'Enter' && suggestActiveIndex >= 0) {
+                    const target = suggestList.querySelector('.header-suggest-link[data-index="' + suggestActiveIndex + '"]');
+                    if (target) {
+                        event.preventDefault();
+                        window.location.href = target.getAttribute('href');
+                    }
+                }
+            });
+
+            keywordForm.addEventListener('submit', function() {
+                closeSuggest();
+            });
+
+            document.addEventListener('click', function(event) {
+                if (!suggestDropdown.contains(event.target) && !keywordForm.contains(event.target)) {
+                    closeSuggest();
+                }
+            });
+        }
 
         const hideLoadingOverlay = function() {
             if (!loadingOverlay) return;

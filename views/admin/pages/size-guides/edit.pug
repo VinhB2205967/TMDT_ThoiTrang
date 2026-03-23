@@ -13,25 +13,33 @@ block main
         form(method='POST' action=`${admin}/size-guides/${guide._id}/edit`)
           input(type='hidden' name='_csrf' value=_csrf)
           .row.g-3
-            .col-md-6
+            .col-md-8
               label.form-label Tên bảng *
               input.form-control(type='text' name='tenbang' required value=guide.tenbang)
-            .col-md-3
+            .col-md-4
               label.form-label Loại sản phẩm áp dụng *
               select.form-select(name='loaisanpham' required)
                 each opt in (loaiOptions || [])
                   option(value=opt.value selected=(String(guide.loaisanpham) === String(opt.value))) #{opt.label}
-            .col-md-3
-              label.form-label Slug
-              input.form-control(type='text' name='slug' value=guide.slug)
 
             .col-12
               label.form-label Cột hiển thị (phân tách bằng dấu phẩy) *
-              input.form-control(type='text' name='cot' required value=guide.cotText)
+              input#sizeColumnsInput.form-control(type='text' name='cot' required value=guide.cotText)
+
+            .col-12.d-none
+              textarea#sizeRowsTextarea.form-control(name='dong' rows='8')= guide.dongText
 
             .col-12
-              label.form-label Dữ liệu dòng (mỗi dòng 1 size, dùng dấu |) *
-              textarea.form-control(name='dong' rows='8' required)= guide.dongText
+              label.form-label Nhập nhanh theo bảng
+              .table-responsive
+                table.table.table-bordered.align-middle.mb-2#sizeGuideTable
+                  thead
+                    tr#sizeGuideTableHead
+                  tbody#sizeGuideTableBody
+              .d-flex.gap-2
+                button#addSizeRowBtn.btn.btn-outline-secondary(type='button') Thêm dòng
+                button#clearSizeRowsBtn.btn.btn-outline-danger(type='button') Xóa hết
+              .form-text Điền trực tiếp theo từng ô, hệ thống sẽ tự chuyển về định dạng dữ liệu dòng khi lưu.
 
             .col-12
               label.form-label Gợi ý chọn size
@@ -41,3 +49,6 @@ block main
             button.btn.btn-primary(type='submit')
               i.bi.bi-check-lg
               |  Cập nhật bảng size
+
+block scripts
+  script(src='/admin/js/size-guides-form.js')

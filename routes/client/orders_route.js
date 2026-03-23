@@ -35,6 +35,7 @@ router.get('/', requireAuth, controller.danhSach);
 router.get('/:id', requireAuth, controller.chiTiet);
 router.post('/:id/cancel', requireAuth, controller.huyDon);
 router.post('/:id/return-request', requireAuth, uploadReturnProofSingle, controller.yeuCauHoanHang);
+router.post('/:id/return-request/cancel', requireAuth, controller.huyYeuCauHoanHang);
 router.post('/:id/reorder', requireAuth, controller.muaLai);
 router.post('/:id/pay', requireAuth, controller.thanhToanLai);
 router.post('/:id/change-payment', requireAuth, controller.doiPhuongThucThanhToan);

@@ -21,7 +21,7 @@ const danhSach = async (req, res) => {
 };
 
 const taoMoi = async (req, res) => {
-  const result = sizeGuidesService.getTaoMoiData();
+  const result = await sizeGuidesService.getTaoMoiData();
   return res.render('admin/pages/size-guides/create.pug', result.data);
 };
 

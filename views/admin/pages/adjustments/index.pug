@@ -1,0 +1,52 @@
+extends ../../layouts/default.pug
+
+block main
+  .container-fluid.p-3
+    .d-flex.justify-content-between.align-items-center.mb-3
+      h3.mb-0 Phiếu điều chỉnh kho
+      a.btn.btn-primary(href=`${admin}/adjustments/create`)
+        i.bi.bi-plus-lg
+        |  Tạo phiếu điều chỉnh
+
+    if !receipts || !receipts.length
+      .alert.alert-info.mb-0 Chưa có phiếu điều chỉnh kho.
+    else
+      .table-responsive
+        table.table.table-bordered.table-hover.align-middle
+          thead.table-light
+            tr
+              th Mã phiếu
+              th Loại phiếu
+              th Trạng thái
+              th Lý do
+              th Người tạo
+              th Tạo lúc
+              th
+          tbody
+            each r in receipts
+              tr
+                td
+                  a(href=`${admin}/adjustments/${r._id}`) #{r.maphieu}
+                td
+                  if r.loaiphieu === 'increase'
+                    span.badge.bg-success Điều chỉnh tăng
+                  else
+                    span.badge.bg-warning.text-dark Điều chỉnh giảm
+                td
+                  if r.daxacnhan
+                    span.badge.bg-success Đã xác nhận
+                  else
+                    span.badge.bg-secondary Chờ xác nhận
+                td #{r.lydo || ''}
+                td #{(r.nhanvienky && r.nhanvienky.tennhanvien) || ''}
+                td #{r.ngaytao ? new Date(r.ngaytao).toLocaleString('vi-VN') : ''}
+                td.text-nowrap
+                  if !r.daxacnhan
+                    form.d-inline.me-1(method='POST' action=`${admin}/adjustments/${r._id}/confirm` onsubmit='return confirm("Xác nhận phiếu điều chỉnh này? Sau khi xác nhận sẽ cập nhật tồn kho và không thể sửa lại.")')
+                      input(type='hidden' name='_csrf' value=_csrf)
+                      button.btn.btn-sm.btn-success(type='submit')
+                        i.bi.bi-check2-circle
+                        |  Xác nhận
+                  a.btn.btn-sm.btn-outline-primary(href=`${admin}/adjustments/${r._id}`)
+                    i.bi.bi-eye
+                    |  Chi tiết

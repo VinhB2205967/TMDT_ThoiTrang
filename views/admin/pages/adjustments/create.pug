@@ -1,0 +1,56 @@
+extends ../../layouts/default.pug
+
+block main
+  .container-fluid.p-3
+    .d-flex.justify-content-between.align-items-center.mb-3
+      h3.mb-0 Tạo phiếu điều chỉnh kho
+      a.btn.btn-outline-secondary(href=`${admin}/adjustments`)
+        i.bi.bi-arrow-left
+        |  Danh sách
+
+    form#adjustment-create-form(method='POST' action=`${admin}/adjustments/create`)
+      input(type='hidden' name='_csrf' value=csrfToken)
+
+      .card.mb-3
+        .card-header Thông tin phiếu
+        .card-body
+          .row.g-3
+            .col-md-4
+              label.form-label Mã phiếu
+              input.form-control(type='text' name='maphieu' value=maPhieu readonly)
+            .col-md-8
+              label.form-label Lý do điều chỉnh
+              input.form-control(type='text' name='lydo' placeholder='Nhập lý do điều chỉnh kho...' required)
+
+      .card
+        .card-header.d-flex.justify-content-between.align-items-center
+          span Chi tiết điều chỉnh
+          button#btn-add-row.btn.btn-sm.btn-primary(type='button')
+            i.bi.bi-plus-lg
+            |  Thêm dòng
+        .card-body
+          .table-responsive
+            table.table.table-bordered.table-sm.align-middle
+              thead.table-light
+                tr
+                  th(style='min-width:240px') Sản phẩm
+                  th(style='min-width:190px') Biến thể
+                  th(style='min-width:100px') Size
+                  th(style='min-width:130px') Số lượng (+/-)
+                  th(style='min-width:120px') Màu
+                  th(style='width:60px')
+              tbody#adjustment-items-body
+          .alert.alert-secondary.mb-0
+            | Quy tắc: số dương là tăng tồn, số âm là giảm tồn. Mỗi phiếu chỉ hỗ trợ 1 loại điều chỉnh (tăng hoặc giảm).
+
+      .d-flex.justify-content-end.mt-3
+        button.btn.btn-success(type='submit')
+          i.bi.bi-check2-circle
+          |  Tạo phiếu điều chỉnh
+
+block scripts
+  script(type='application/json' id='products-json')
+    != JSON.stringify(products || [])
+  script(type='application/json' id='sizes-json')
+    != JSON.stringify(sizeList || [])
+  script(src='/admin/js/adjustments.js')

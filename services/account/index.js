@@ -5,7 +5,7 @@ const mongoose = require('mongoose');
 const path = require('path');
 const Taikhoan = require('../../models/accounts_model');
 const Nguoidung = require('../../models/user_model');
-const { chuanHoaSoDienThoai, laSoDienThoaiVN, laUrlAnhAnToan } = require('../../helpers/validators');
+const { chuanHoaSoDienThoai, laSoDienThoaiVN } = require('../../helpers/validators');
 
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
@@ -211,11 +211,6 @@ async function updateUserProfile({ userId, payload, fileUpload, currentAvatar } 
   const sodienthoai = sdtraw ? chuanHoaSoDienThoai(sdtraw) : '';
   const diachi = normalizeText(payload?.diachi);
   const gioitinh = normalizeText(payload?.gioitinh);
-  const avatarurl = normalizeText(payload?.avatarUrl || payload?.avatar);
-
-  if (avatarurl && !laUrlAnhAnToan(avatarurl)) {
-    throw createHandledError('Avatar URL khÃ´ng há»£p lá»‡', 'INVALID_AVATAR_URL');
-  }
 
   let ngaysinh = null;
   if (payload?.ngaysinh) {
@@ -234,8 +229,6 @@ async function updateUserProfile({ userId, payload, fileUpload, currentAvatar } 
       fs.promises.unlink(duongdancu).catch(() => {});
     }
   }
-
-  if (!avatar && avatarurl) avatar = avatarurl;
 
   const $set = {
     hoten,

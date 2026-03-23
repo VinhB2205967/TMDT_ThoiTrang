@@ -102,7 +102,8 @@ async function damBaoDanhMucMacDinh() {
 async function layDuLieuPhanLoaiSanPham() {
   await ensureDefaultSizeGuides(SizeGuide);
 
-  let [occasionTree, ageGroupTree, brands] = await Promise.all([
+  let [categoryTree, occasionTree, ageGroupTree, brands] = await Promise.all([
+    getCategoryTree({ type: 'category', isActive: true }),
     getCategoryTree({ type: 'occasion', isActive: true }),
     getCategoryTree({ type: 'age_group', isActive: true }),
     Brand.find({
@@ -116,8 +117,28 @@ async function layDuLieuPhanLoaiSanPham() {
     .select('_id tenbang loaisanpham')
     .lean();
 
-  const occasionOptions = flattenTreeOptions(occasionTree);
-  const ageGroupOptions = flattenTreeOptions(ageGroupTree);
+  const categoryOptions = [];
+  const flattenCategoryChildren = (nodes = []) => {
+    for (const node of nodes) {
+      if (node && node.parent_id) {
+        categoryOptions.push({
+          _id: node._id,
+          name: node.name,
+          slug: node.slug,
+          level: Number(node.level || 1)
+        });
+      }
+      if (Array.isArray(node?.children) && node.children.length) {
+        flattenCategoryChildren(node.children);
+      }
+    }
+  };
+  flattenCategoryChildren(categoryTree);
+
+  const occasionOptions = flattenTreeOptions(occasionTree)
+    .filter((item) => Number(item && item.level ? item.level : 0) > 0);
+  const ageGroupOptions = flattenTreeOptions(ageGroupTree)
+    .filter((item) => Number(item && item.level ? item.level : 0) > 0);
 
   if (!occasionOptions.length || !ageGroupOptions.length) {
     await damBaoDanhMucMacDinh();
@@ -128,8 +149,11 @@ async function layDuLieuPhanLoaiSanPham() {
   }
 
   return {
-    occasionOptions: flattenTreeOptions(occasionTree),
-    ageGroupOptions: flattenTreeOptions(ageGroupTree),
+    categoryOptions,
+    occasionOptions: flattenTreeOptions(occasionTree)
+      .filter((item) => Number(item && item.level ? item.level : 0) > 0),
+    ageGroupOptions: flattenTreeOptions(ageGroupTree)
+      .filter((item) => Number(item && item.level ? item.level : 0) > 0),
     brandOptions: brands || [],
     sizeGuideOptions: sizeGuideOptions || []
   };
@@ -137,6 +161,7 @@ async function layDuLieuPhanLoaiSanPham() {
 
 function taoDieuKienLoc(query = {}, keywordRegex) {
   const daxoa = String(query.deleted || '').trim();
+  const andConditions = [];
   const dieukien =
     daxoa === '1' ? { daxoa: true }
       : daxoa === 'all' ? {}
@@ -172,9 +197,9 @@ function taoDieuKienLoc(query = {}, keywordRegex) {
     };
   }
 
-  const taploaichophep = new Set(['ao', 'quan', 'vay', 'phukien', 'giay', 'tui', 'aokhoac']);
-  if (query.loaisanpham && taploaichophep.has(query.loaisanpham)) {
-    dieukien.loaisanpham = query.loaisanpham;
+  const loaiSanPham = String(query.loaisanpham || '').trim();
+  if (loaiSanPham) {
+    dieukien.loaisanpham = loaiSanPham;
   }
 
   const tapgioitinhchophep = new Set(['nam', 'nu', 'unisex']);
@@ -184,15 +209,23 @@ function taoDieuKienLoc(query = {}, keywordRegex) {
 
   const brandId = String(query.brand || '').trim();
   if (brandId && mongoose.Types.ObjectId.isValid(brandId)) {
-    dieukien.$or = [
+    andConditions.push({
+      $or: [
       { thuonghieu_id: brandId },
       { brand: brandId }
-    ];
+      ]
+    });
   }
 
   const occasionId = String(query.occasion || '').trim();
   if (occasionId && mongoose.Types.ObjectId.isValid(occasionId)) {
-    dieukien.occasion = occasionId;
+    andConditions.push({
+      $or: [
+        { occasion: occasionId },
+        { dip_sudung_id: occasionId },
+        { occasions: occasionId }
+      ]
+    });
   }
 
   const ageGroupId = String(query.ageGroup || '').trim();
@@ -208,6 +241,10 @@ function taoDieuKienLoc(query = {}, keywordRegex) {
       ngayketthuc.setHours(23, 59, 59, 999);
       dieukien.ngaycapnhat.$lte = ngayketthuc;
     }
+  }
+
+  if (andConditions.length) {
+    dieukien.$and = andConditions;
   }
 
   return { dieukien, daxoa };
@@ -402,6 +439,47 @@ async function getChinhSuaData(id) {
 async function capNhatSanPham(id, body, files) {
   const dulieusanpham = prepareProductData(body, files);
   dulieusanpham.ngaycapnhat = new Date();
+
+  const sanphamHienTai = await Sanpham.findById(id).lean();
+  if (!sanphamHienTai) {
+    return { ok: false, message: 'Không tìm thấy sản phẩm' };
+  }
+
+  const rawGia = String(body?.gia ?? '').trim();
+  if (!rawGia) {
+    dulieusanpham.gia = Number(sanphamHienTai.gia || 0);
+  }
+
+  const rawPhanTramGiamGia = String(body?.phantramgiamgia ?? '').trim();
+  if (!rawPhanTramGiamGia) {
+    dulieusanpham.phantramgiamgia = Number(sanphamHienTai.phantramgiamgia || 0);
+  }
+
+  // Tồn kho được quản lý bởi nhập/xuất kho FIFO, không cho sửa trực tiếp từ form sản phẩm.
+  dulieusanpham.sizes = Array.isArray(sanphamHienTai.sizes) ? sanphamHienTai.sizes : [];
+  dulieusanpham.soluong_chinh = Number(sanphamHienTai.soluong_chinh || 0);
+  dulieusanpham.soluongton = Number(sanphamHienTai.soluongton || 0);
+
+  const bientheCu = Array.isArray(sanphamHienTai.bienthe) ? sanphamHienTai.bienthe : [];
+  const mapBienTheTheoMau = new Map(
+    bientheCu
+      .map((bt) => [String(bt?.mausac || '').trim().toLowerCase(), bt])
+      .filter(([key]) => Boolean(key))
+  );
+
+  dulieusanpham.bienthe = (Array.isArray(dulieusanpham.bienthe) ? dulieusanpham.bienthe : []).map((bt, idx) => {
+    const key = String(bt?.mausac || '').trim().toLowerCase();
+    const oldByColor = key ? mapBienTheTheoMau.get(key) : null;
+    const oldByIndex = bientheCu[idx] || null;
+    const old = oldByColor || oldByIndex;
+
+    return {
+      ...bt,
+      _id: old && old._id ? old._id : bt._id,
+      soluong: Number(old?.soluong || 0),
+      sizes: Array.isArray(old?.sizes) ? old.sizes : []
+    };
+  });
 
   await Sanpham.findByIdAndUpdate(id, dulieusanpham);
   return { ok: true, message: 'Cập nhật sản phẩm thành công!' };
