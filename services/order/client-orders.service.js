@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const donhang = require('../../models/order_model');
 const chitietdonhang = require('../../models/order_item_model');
 const danhgia = require('../../models/review_model');
@@ -39,6 +40,39 @@ function coTheYeuCauHoan(order) {
   if (!moc) return false;
   const delta = Date.now() - new Date(moc).getTime();
   return Number.isFinite(delta) && delta >= 0 && delta <= CUA_SO_HOAN_HANG_MS;
+}
+
+function normalizeReturnItemsPayload(raw) {
+  if (!raw) return [];
+
+  let rows = [];
+  if (Array.isArray(raw)) {
+    rows = raw;
+  } else if (typeof raw === 'object') {
+    rows = Object.keys(raw)
+      .sort((a, b) => Number(a) - Number(b))
+      .map((key) => raw[key]);
+  } else {
+    return [];
+  }
+
+  return rows
+    .map((it) => ({
+      orderItemId: String(it && (it.orderItemId || it._id) ? (it.orderItemId || it._id) : '').trim(),
+      qty: Math.max(0, parseInt(it && it.qty ? it.qty : 0, 10) || 0)
+    }))
+    .filter((it) => mongoose.Types.ObjectId.isValid(it.orderItemId) && it.qty >= 0);
+}
+
+function normalizeTextField(raw, maxLength = 120) {
+  return String(raw || '').trim().slice(0, maxLength);
+}
+
+function normalizeAccountNumber(raw) {
+  return String(raw || '')
+    .replace(/\s+/g, '')
+    .replace(/[^\d]/g, '')
+    .slice(0, 30);
 }
 
 function laDonChoThanhToanOnline(don) {
@@ -295,21 +329,105 @@ async function createReturnRequest({ userId, orderId, body, files }) {
     daxoa: { $ne: true }
   });
 
-  if (!order) return { ok: false, redirect: '/orders', flash: { type: 'error', message: 'Không tìm thấy đơn hàng.' } };
+  if (!order) {
+    return { ok: false, redirect: '/orders', flash: { type: 'error', message: 'Không tìm thấy đơn hàng.' } };
+  }
+
   if (!coTheYeuCauHoan(order)) {
-    return { ok: false, redirect: `/orders/${order._id}`, flash: { type: 'error', message: 'Đơn hàng này không đủ điều kiện gửi yêu cầu hoàn hàng.' } };
+    return {
+      ok: false,
+      redirect: `/orders/${order._id}`,
+      flash: { type: 'error', message: 'Đơn hàng này không đủ điều kiện gửi yêu cầu hoàn hàng.' }
+    };
   }
 
   const reason = String(body.reason || '').trim();
   const detail = String(body.detail || '').trim();
-  const refundMethod = String(body.refundMethod || '').trim();
+  const paymentMethod = String(order.phuongthucthanhtoan || 'cod').trim().toLowerCase();
+  const requestedRefundMethod = String(body.refundMethod || '').trim().toLowerCase();
+  const isOnlineWalletPayment = paymentMethod === 'momo' || paymentMethod === 'vnpay';
+
+  let refundMethod = requestedRefundMethod;
+  let refundWallet = '';
 
   if (!LY_DO_HOAN_LABELS[reason]) {
     return { ok: false, redirect: `/orders/${order._id}`, flash: { type: 'error', message: 'Lý do hoàn hàng không hợp lệ.' } };
   }
 
-  if (!['momo', 'bank', 'wallet'].includes(refundMethod)) {
-    return { ok: false, redirect: `/orders/${order._id}`, flash: { type: 'error', message: 'Phương thức hoàn tiền không hợp lệ.' } };
+  if (isOnlineWalletPayment) {
+    if (!['wallet', 'bank', 'momo', 'vnpay'].includes(refundMethod)) {
+      return { ok: false, redirect: `/orders/${order._id}`, flash: { type: 'error', message: 'Phương thức hoàn tiền không hợp lệ.' } };
+    }
+
+    if (refundMethod === 'wallet' || refundMethod === 'momo' || refundMethod === 'vnpay') {
+      refundMethod = 'wallet';
+      refundWallet = paymentMethod;
+    }
+  } else {
+    if (refundMethod && refundMethod !== 'bank') {
+      return {
+        ok: false,
+        redirect: `/orders/${order._id}`,
+        flash: { type: 'error', message: 'Đơn COD chỉ hỗ trợ hoàn tiền qua chuyển khoản ngân hàng.' }
+      };
+    }
+    refundMethod = 'bank';
+  }
+
+  const refundBankName = normalizeTextField(body.bankName, 120);
+  const refundBankAccountName = normalizeTextField(body.bankAccountName, 120);
+  const refundBankAccountNumber = normalizeAccountNumber(body.bankAccountNumber);
+
+  if (refundMethod === 'bank') {
+    if (!refundBankName || !refundBankAccountName || !refundBankAccountNumber) {
+      return {
+        ok: false,
+        redirect: `/orders/${order._id}`,
+        flash: { type: 'error', message: 'Vui lòng nhập đầy đủ tên ngân hàng, tên người nhận và số tài khoản để hoàn tiền.' }
+      };
+    }
+
+    if (refundBankAccountNumber.length < 6) {
+      return {
+        ok: false,
+        redirect: `/orders/${order._id}`,
+        flash: { type: 'error', message: 'Số tài khoản không hợp lệ.' }
+      };
+    }
+  }
+
+  const orderItems = await chitietdonhang.find({ donhang_id: order._id })
+    .select('_id tensanpham soluong kichco mausac hinhanh')
+    .lean();
+  const orderItemMap = new Map((orderItems || []).map((it) => [String(it._id), it]));
+
+  const requestedRows = normalizeReturnItemsPayload(body && body.returnItems);
+  const requestedItems = [];
+
+  for (const row of requestedRows) {
+    const orderItem = orderItemMap.get(String(row.orderItemId));
+    if (!orderItem) continue;
+    const boughtQty = Math.max(0, parseInt(orderItem.soluong || 0, 10) || 0);
+    const qty = Math.max(0, Math.min(boughtQty, parseInt(row.qty || 0, 10) || 0));
+    if (qty <= 0) continue;
+
+    requestedItems.push({
+      orderItemId: String(orderItem._id),
+      qty,
+      boughtQty,
+      tensanpham: String(orderItem.tensanpham || ''),
+      hinhanh: normalizeImage(String(orderItem.hinhanh || '')),
+      kichco: String(orderItem.kichco || ''),
+      mausac: String(orderItem.mausac || '')
+    });
+  }
+
+  if (!requestedItems.length) {
+    return {
+      ok: false,
+      redirect: `/orders/${order._id}`,
+      flash: { type: 'error', message: 'Vui lòng chọn ít nhất 1 sản phẩm và số lượng muốn hoàn.' }
+    };
   }
 
   const proofMedias = Array.isArray(files)
@@ -324,10 +442,15 @@ async function createReturnRequest({ userId, orderId, body, files }) {
     reason,
     reasonLabel: LY_DO_HOAN_LABELS[reason],
     detail: detail || '',
+    requestedItems,
     proofMedias,
     proofMedia,
     proofImage: proofMedia,
     refundMethod,
+    refundWallet: refundWallet || undefined,
+    refundBankName: refundMethod === 'bank' ? refundBankName : '',
+    refundBankAccountName: refundMethod === 'bank' ? refundBankAccountName : '',
+    refundBankAccountNumber: refundMethod === 'bank' ? refundBankAccountNumber : '',
     adminNote: '',
     reviewedAt: null,
     approvedAt: null,

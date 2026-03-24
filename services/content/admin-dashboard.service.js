@@ -1,5 +1,6 @@
 const sanpham = require('../../models/product_model');
 const PhieuXuatKho = require('../../models/export_receipt_model');
+const reportsAdminService = require('./admin-reports.service.js');
 const {
   Donhang,
   Chitietdonhang,
@@ -113,6 +114,24 @@ function cleanAdminAnswer(text) {
     .trim();
 
   return output;
+}
+
+function normalizeExportStats(raw) {
+  const totalRevenue = Number(raw && raw.totalRevenue ? raw.totalRevenue : 0);
+  const totalCOGS = Number(raw && raw.totalCOGS ? raw.totalCOGS : 0);
+  const totalProfitRaw = Number(raw && raw.totalProfit ? raw.totalProfit : 0);
+  const totalSoldItemsRaw = Number(raw && raw.totalSoldItems ? raw.totalSoldItems : 0);
+  const totalReturnedItems = Number(raw && raw.totalReturnedItems ? raw.totalReturnedItems : 0);
+  const totalExportOrders = Number(raw && raw.totalExportOrders ? raw.totalExportOrders : 0);
+
+  return {
+    totalRevenue,
+    totalCOGS,
+    totalProfit: totalProfitRaw || (totalRevenue - totalCOGS),
+    totalSoldItems: Math.max(0, totalSoldItemsRaw - totalReturnedItems),
+    totalReturnedItems,
+    totalExportOrders
+  };
 }
 
 function buildAdminSystemPrompt() {
@@ -343,12 +362,30 @@ async function buildAdminDataContext(question) {
     ]),
     PhieuXuatKho.aggregate([
       {
+        $project: {
+          tongdoanhthu: { $ifNull: ['$tongdoanhthu', 0] },
+          tonggiavon: { $ifNull: ['$tonggiavon', 0] },
+          tongloinhuan: { $ifNull: ['$tongloinhuan', 0] },
+          tongsoluong: { $ifNull: ['$tongsoluong', 0] },
+          returnedQty: {
+            $sum: {
+              $map: {
+                input: { $ifNull: ['$chitiet', []] },
+                as: 'line',
+                in: { $ifNull: ['$$line.soluonghoan', 0] }
+              }
+            }
+          }
+        }
+      },
+      {
         $group: {
           _id: null,
-          totalRevenue: { $sum: { $ifNull: ['$tongdoanhthu', 0] } },
-          totalCOGS: { $sum: { $ifNull: ['$tonggiavon', 0] } },
-          totalProfit: { $sum: { $ifNull: ['$tongloinhuan', 0] } },
-          totalSoldItems: { $sum: { $ifNull: ['$tongsoluong', 0] } },
+          totalRevenue: { $sum: '$tongdoanhthu' },
+          totalCOGS: { $sum: '$tonggiavon' },
+          totalProfit: { $sum: '$tongloinhuan' },
+          totalSoldItems: { $sum: '$tongsoluong' },
+          totalReturnedItems: { $sum: '$returnedQty' },
           totalExportOrders: { $sum: 1 }
         }
       }
@@ -402,13 +439,15 @@ async function buildAdminDataContext(question) {
     .slice(0, 12);
 
   const revenueToday = revenueTodayRows && revenueTodayRows[0] ? revenueTodayRows[0] : { revenue: 0, orders: 0 };
-  const exportStats = exportRows && exportRows[0] ? exportRows[0] : {
+  const exportStatsRaw = exportRows && exportRows[0] ? exportRows[0] : {
     totalRevenue: 0,
     totalCOGS: 0,
     totalProfit: 0,
     totalSoldItems: 0,
+    totalReturnedItems: 0,
     totalExportOrders: 0
   };
+  const exportStats = normalizeExportStats(exportStatsRaw);
 
   const [
     periodRevenueRows,
@@ -578,6 +617,7 @@ async function buildAdminDataContext(question) {
         totalCOGS: Number(exportStats.totalCOGS || 0),
         totalProfit: Number(exportStats.totalProfit || 0),
         totalSoldItems: Number(exportStats.totalSoldItems || 0),
+        totalReturnedItems: Number(exportStats.totalReturnedItems || 0),
         totalExportOrders: Number(exportStats.totalExportOrders || 0)
       }
     },
@@ -708,28 +748,84 @@ async function getDashboardPageData() {
 
   const exportAgg = await PhieuXuatKho.aggregate([
     {
+      $project: {
+        tongdoanhthu: { $ifNull: ['$tongdoanhthu', 0] },
+        tonggiavon: { $ifNull: ['$tonggiavon', 0] },
+        tongloinhuan: { $ifNull: ['$tongloinhuan', 0] },
+        tongsoluong: { $ifNull: ['$tongsoluong', 0] },
+        returnedQty: {
+          $sum: {
+            $map: {
+              input: { $ifNull: ['$chitiet', []] },
+              as: 'line',
+              in: { $ifNull: ['$$line.soluonghoan', 0] }
+            }
+          }
+        }
+      }
+    },
+    {
       $group: {
         _id: null,
         tongDoanhThu: { $sum: '$tongdoanhthu' },
         tongGiaVon: { $sum: '$tonggiavon' },
         tongLoiNhuan: { $sum: '$tongloinhuan' },
         tongSanPhamDaBan: { $sum: '$tongsoluong' },
+        tongSanPhamDaHoan: { $sum: '$returnedQty' },
         tongPhieuXuat: { $sum: 1 }
       }
     }
   ]);
 
-  const exportStats = exportAgg && exportAgg.length ? exportAgg[0] : {
+  const exportStatsRaw = exportAgg && exportAgg.length ? exportAgg[0] : {
     tongDoanhThu: 0,
     tongGiaVon: 0,
     tongLoiNhuan: 0,
     tongSanPhamDaBan: 0,
+    tongSanPhamDaHoan: 0,
     tongPhieuXuat: 0
   };
+  const exportStats = {
+    tongDoanhThu: Number(exportStatsRaw.tongDoanhThu || 0),
+    tongGiaVon: Number(exportStatsRaw.tongGiaVon || 0),
+    tongLoiNhuan: Number(exportStatsRaw.tongLoiNhuan || 0) || (Number(exportStatsRaw.tongDoanhThu || 0) - Number(exportStatsRaw.tongGiaVon || 0)),
+    tongSanPhamDaBan: Math.max(0, Number(exportStatsRaw.tongSanPhamDaBan || 0) - Number(exportStatsRaw.tongSanPhamDaHoan || 0)),
+    tongPhieuXuat: Number(exportStatsRaw.tongPhieuXuat || 0)
+  };
+
+  let syncedFinancialStats = null;
+  try {
+    const currentYear = new Date().getFullYear();
+    const reportData = await reportsAdminService.getDuLieuBaoCao({
+      status: 'all',
+      year: currentYear
+    });
+
+    if (reportData && reportData.success && reportData.overview) {
+      syncedFinancialStats = {
+        totalRevenue: Number(reportData.overview.totalRevenue || 0),
+        totalCOGS: Number(reportData.overview.totalCost || 0),
+        totalProfit: Number(reportData.overview.profit || 0),
+        totalSoldItems: Number(reportData.overview.totalSold || 0),
+        totalExportOrders: Number(reportData.overview.totalOrders || 0),
+        profitMarginPct: Number(reportData.overview.profitMargin || 0)
+      };
+    }
+  } catch (error) {
+    console.error('Dashboard sync with reports failed:', error);
+  }
 
   const tySuatLoiNhuan = Number(exportStats.tongDoanhThu || 0) > 0
     ? (Number(exportStats.tongLoiNhuan || 0) / Number(exportStats.tongDoanhThu || 0)) * 100
     : 0;
+  const financialStats = syncedFinancialStats || {
+    totalRevenue: Number(exportStats.tongDoanhThu || 0),
+    totalCOGS: Number(exportStats.tongGiaVon || 0),
+    totalProfit: Number(exportStats.tongLoiNhuan || 0),
+    totalSoldItems: Number(exportStats.tongSanPhamDaBan || 0),
+    totalExportOrders: Number(exportStats.tongPhieuXuat || 0),
+    profitMarginPct: Number(tySuatLoiNhuan.toFixed(2))
+  };
 
   return {
     titlePage: 'Dashboard - Admin',
@@ -738,12 +834,12 @@ async function getDashboardPageData() {
       activeProducts: sanphamdangban,
       inactiveProducts: sanphamngungban,
       outOfStockCount: sosanphamhethang,
-      totalRevenue: Number(exportStats.tongDoanhThu || 0),
-      totalCOGS: Number(exportStats.tongGiaVon || 0),
-      totalProfit: Number(exportStats.tongLoiNhuan || 0),
-      totalSoldItems: Number(exportStats.tongSanPhamDaBan || 0),
-      totalExportOrders: Number(exportStats.tongPhieuXuat || 0),
-      profitMarginPct: Number(tySuatLoiNhuan.toFixed(2))
+      totalRevenue: Number(financialStats.totalRevenue || 0),
+      totalCOGS: Number(financialStats.totalCOGS || 0),
+      totalProfit: Number(financialStats.totalProfit || 0),
+      totalSoldItems: Number(financialStats.totalSoldItems || 0),
+      totalExportOrders: Number(financialStats.totalExportOrders || 0),
+      profitMarginPct: Number(financialStats.profitMarginPct || 0)
     },
     recentProducts: sanphammoihat,
     productsByType: thongketheoloai,

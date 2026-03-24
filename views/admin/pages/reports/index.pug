@@ -22,9 +22,6 @@ block main
                 button.btn.btn-light.btn-sm(type="button" id="btn-print")
                     i.bi.bi-printer.me-1
                     | In báo cáo
-                button.btn.btn-outline-light.btn-sm(type="button" id="btn-toggle-theme")
-                    i.bi.bi-moon-stars.me-1
-                    | Chế độ tối
 
         form#report-filters.filter-card
             .row.g-3
@@ -162,6 +159,6 @@ block main
 block scripts
     script(src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js")
     script(src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js")
-    script(src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js")
-    script(src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.29/dist/jspdf.plugin.autotable.min.js")
+    script(src="https://cdn.jsdelivr.net/npm/pdfmake@0.2.10/build/pdfmake.min.js")
+    script(src="https://cdn.jsdelivr.net/npm/pdfmake@0.2.10/build/vfs_fonts.js")
     script(src="/admin/js/reports.js")

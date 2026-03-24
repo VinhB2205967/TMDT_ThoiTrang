@@ -148,6 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const returnModal = document.getElementById('returnRequestModal');
   const proofInput = document.getElementById('proofMedia');
   const proofPreview = document.getElementById('proofMediaPreview');
+  const returnForm = returnModal ? returnModal.querySelector('form.return-request-form') : null;
 
   function clearProofPreview() {
     if (!proofPreview) return;
@@ -203,14 +204,116 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (returnModal) {
+    const returnChecks = Array.from(returnModal.querySelectorAll('.js-return-item-check'));
+    const returnQtyInputs = Array.from(returnModal.querySelectorAll('.js-return-item-qty'));
+    const refundMethodInputs = Array.from(returnModal.querySelectorAll('input[name="refundMethod"]'));
+    const refundBankFields = returnModal.querySelector('[data-refund-bank-fields]');
+    const bankNameInput = returnModal.querySelector('input[name="bankName"]');
+    const bankAccountNameInput = returnModal.querySelector('input[name="bankAccountName"]');
+    const bankAccountNumberInput = returnModal.querySelector('input[name="bankAccountNumber"]');
+    const bankInputs = [bankNameInput, bankAccountNameInput, bankAccountNumberInput].filter(Boolean);
+    const forceBankRefund = returnForm && returnForm.dataset.refundForceBank === '1';
+
+    function shouldRequireBankInfo() {
+      if (forceBankRefund) return true;
+      const selected = refundMethodInputs.find((it) => it.checked);
+      return selected && selected.value === 'bank';
+    }
+
+    function updateRefundFields() {
+      if (!refundBankFields) return;
+      const showBank = shouldRequireBankInfo();
+      refundBankFields.classList.toggle('d-none', !showBank);
+      bankInputs.forEach((input) => {
+        input.required = !!showBank;
+        if (!showBank) input.value = '';
+      });
+    }
+
+    refundMethodInputs.forEach((input) => {
+      input.addEventListener('change', updateRefundFields);
+    });
+
+    if (bankAccountNumberInput) {
+      bankAccountNumberInput.addEventListener('input', () => {
+        bankAccountNumberInput.value = String(bankAccountNumberInput.value || '').replace(/[^\d]/g, '');
+      });
+    }
+
+    updateRefundFields();
+
+    function clampReturnQty(input) {
+      if (!input) return;
+      const max = Number(input.getAttribute('max') || 0);
+      let qty = Number(input.value || 0);
+      if (!Number.isFinite(qty) || qty < 0) qty = 0;
+      if (Number.isFinite(max) && max >= 0 && qty > max) qty = max;
+      input.value = String(Math.floor(qty));
+    }
+
+    returnChecks.forEach((check) => {
+      const targetId = String(check.getAttribute('data-qty-target') || '').trim();
+      const qtyInput = targetId ? document.getElementById(targetId) : null;
+      if (!qtyInput) return;
+
+      check.addEventListener('change', () => {
+        qtyInput.disabled = !check.checked;
+        if (check.checked) {
+          if (Number(qtyInput.value || 0) <= 0) {
+            qtyInput.value = '1';
+          }
+          clampReturnQty(qtyInput);
+        } else {
+          qtyInput.value = '0';
+        }
+      });
+
+      qtyInput.addEventListener('input', () => clampReturnQty(qtyInput));
+    });
+
+    if (returnForm) {
+      returnForm.addEventListener('submit', (event) => {
+        let selectedCount = 0;
+
+        returnQtyInputs.forEach((input) => {
+          clampReturnQty(input);
+          const qty = Number(input.value || 0);
+          if (!input.disabled && qty > 0) selectedCount += 1;
+        });
+
+        if (shouldRequireBankInfo()) {
+          const missing = bankInputs.some((input) => !String(input.value || '').trim());
+          if (missing) {
+            event.preventDefault();
+            window.alert('Vui long nhap day du thong tin ngan hang de hoan tien.');
+            return;
+          }
+        }
+
+        if (selectedCount <= 0) {
+          event.preventDefault();
+          window.alert('Vui lòng chọn ít nhất 1 sản phẩm và số lượng muốn hoàn.');
+        }
+      });
+    }
+
     returnModal.addEventListener('shown.bs.modal', () => {
       document.body.classList.add('return-modal-open');
+      updateRefundFields();
     });
 
     returnModal.addEventListener('hidden.bs.modal', () => {
       document.body.classList.remove('return-modal-open');
       if (proofInput) proofInput.value = '';
       clearProofPreview();
+
+      returnChecks.forEach((check) => { check.checked = false; });
+      returnQtyInputs.forEach((input) => {
+        input.value = '0';
+        input.disabled = true;
+      });
+      if (returnForm) returnForm.reset();
+      updateRefundFields();
     });
   }
 });

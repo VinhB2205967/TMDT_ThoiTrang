@@ -1,6 +1,7 @@
 ﻿const mongoose = require('mongoose');
 const ChatMessage = require('../../models/chat_message_model');
 const Nguoidung = require('../../models/user_model');
+const Taikhoan = require('../../models/accounts_model');
 
 const ADMIN_ROOM = 'admin_room';
 
@@ -49,7 +50,7 @@ async function createMessage({
   const mediaType = media && media.type ? String(media.type).trim() : '';
 
   if (!clientObjectId || !senderObjectId || (!text && !mediaUrl)) {
-    throw new Error('Dá»¯ liá»‡u tin nháº¯n khÃ´ng há»£p lá»‡');
+    throw new Error('Du lieu tin nhan khong hop le');
   }
 
   const created = await ChatMessage.create({
@@ -204,47 +205,41 @@ async function getAdminConversationSummaries({ query = '' } = {}) {
     { $sort: { lastAt: -1 } }
   ]);
 
-  const summaryByClientId = new Map(rows.map((item) => [String(item.clientId || item._id || ''), item]));
-  const allUsers = await Nguoidung.find({ daxoa: { $ne: true } })
-    .select('_id hoten email sodienthoai avatar')
-    .lean();
+  const clientObjectIds = (rows || [])
+    .map((item) => toObjectId(item && (item.clientId || item._id)))
+    .filter(Boolean);
 
-  const merged = [];
+  const adminAccounts = clientObjectIds.length
+    ? await Taikhoan.find({
+      nguoidung_id: { $in: clientObjectIds },
+      vaitro: 'admin'
+    }).select('nguoidung_id').lean()
+    : [];
 
-  for (const user of (allUsers || [])) {
-    const clientId = String(user._id);
-    const item = summaryByClientId.get(clientId) || {};
-    const summaryMessage = item.lastMessage || '';
-    const mediaFallback = item.lastMediaType === 'video' ? '[Video]' : item.lastMediaType === 'image' ? '[HÃ¬nh áº£nh]' : '';
-    merged.push({
-      clientId,
-      userName: user.hoten || 'KhÃ¡ch hÃ ng',
-      userEmail: user.email || '',
-      userPhone: user.sodienthoai || '',
-      avatar: user.avatar || '/images/avatar/avatar.png',
-      lastMessage: summaryMessage || mediaFallback,
-      lastAt: item.lastAt || null,
-      unreadCount: Number(item.unreadCount || 0)
-    });
-  }
+  const adminClientIdSet = new Set(
+    (adminAccounts || []).map((item) => String(item.nguoidung_id || ''))
+  );
 
-  // Keep orphan conversations (if user document was deleted) so admin can still review history.
-  for (const item of (rows || [])) {
+  const merged = (rows || []).map((item) => {
     const clientId = String(item.clientId || item._id || '');
-    if (!clientId || merged.some((x) => x.clientId === clientId)) continue;
     const summaryMessage = item.lastMessage || '';
-    const mediaFallback = item.lastMediaType === 'video' ? '[Video]' : item.lastMediaType === 'image' ? '[HÃ¬nh áº£nh]' : '';
-    merged.push({
+    const mediaFallback = item.lastMediaType === 'video'
+      ? '[Video]'
+      : item.lastMediaType === 'image'
+        ? '[Hinh anh]'
+        : '';
+
+    return {
       clientId,
-      userName: item.user && item.user.hoten ? item.user.hoten : 'KhÃ¡ch hÃ ng',
+      userName: item.user && item.user.hoten ? item.user.hoten : 'Khach hang',
       userEmail: item.user && item.user.email ? item.user.email : '',
       userPhone: item.user && item.user.sodienthoai ? item.user.sodienthoai : '',
       avatar: item.user && item.user.avatar ? item.user.avatar : '/images/avatar/avatar.png',
       lastMessage: summaryMessage || mediaFallback,
       lastAt: item.lastAt || null,
       unreadCount: Number(item.unreadCount || 0)
-    });
-  }
+    };
+  }).filter((item) => item.clientId && !adminClientIdSet.has(item.clientId));
 
   const q = normalizeSearchText(query);
   const filtered = !q
@@ -265,13 +260,15 @@ async function getAdminConversationSummaries({ query = '' } = {}) {
 async function getUserBasicInfo(userId) {
   const objectId = toObjectId(userId);
   if (!objectId) return null;
+
   const user = await Nguoidung.findOne({ _id: objectId, daxoa: { $ne: true } })
     .select('_id hoten email avatar')
     .lean();
+
   if (!user) return null;
   return {
     userId: String(user._id),
-    userName: user.hoten || 'KhÃ¡ch hÃ ng',
+    userName: user.hoten || 'Khach hang',
     userEmail: user.email || '',
     avatar: user.avatar || '/images/avatar/avatar.png'
   };
@@ -288,4 +285,3 @@ module.exports = {
   getAdminConversationSummaries,
   getUserBasicInfo
 };
-

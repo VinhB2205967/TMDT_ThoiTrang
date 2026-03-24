@@ -2,11 +2,31 @@ const Chitietdonhang = require('../../models/order_item_model');
 const Donhang = require('../../models/order_model');
 const Sanpham = require('../../models/product_model');
 const PhieuNhapKho = require('../../models/import_receipt_model');
+const PhieuXuatKho = require('../../models/export_receipt_model');
 const { nhantrangthai, layTrangThaiChoPhep } = require('../../helpers/orderStatus');
 
 const STATUS_CHOICES = layTrangThaiChoPhep();
 const STATUS_SET = new Set(STATUS_CHOICES);
-const DEFAULT_STATUS = 'dagiao';
+const DEFAULT_STATUS = 'all';
+
+const POST_DELIVERY_FLOW_STATUSES = [
+  'dagiao',
+  'requested_return',
+  'approved_return',
+  'rejected_return',
+  'return_shipping',
+  'returned',
+  'returned_full',
+  'returned_partial',
+  'refunded'
+];
+
+const FINALIZED_RETURN_STATUSES = new Set([
+  'returned',
+  'returned_full',
+  'returned_partial',
+  'refunded'
+]);
 
 function parseNumber(value, min, max) {
   const n = parseInt(value, 10);
@@ -166,6 +186,21 @@ function buildStatusClass(status) {
       return 'bg-warning';
     case 'dagiao':
       return 'bg-success';
+    case 'requested_return':
+      return 'bg-warning text-dark';
+    case 'approved_return':
+      return 'bg-info text-dark';
+    case 'rejected_return':
+      return 'bg-danger';
+    case 'return_shipping':
+      return 'bg-primary';
+    case 'returned':
+    case 'returned_partial':
+      return 'bg-secondary';
+    case 'returned_full':
+      return 'bg-success';
+    case 'refunded':
+      return 'bg-dark';
     case 'dahuy':
       return 'bg-danger';
     case 'hoanhang':
@@ -180,12 +215,20 @@ function buildOrderMatch(filters, range, options = {}) {
   const path = (field) => `${prefix}${field}`;
 
   const match = {
-    [path('daxoa')]: { $ne: true },
-    $or: [{ [path('trangthai')]: 'dagiao' }, { [path('dathanhtoan')]: true }]
+    [path('daxoa')]: { $ne: true }
   };
 
   if (filters.status && filters.status !== 'all') {
-    match[path('trangthai')] = filters.status;
+    // "Đã giao" trên báo cáo nên bao gồm cả các trạng thái sau giao hàng
+    // để không làm mất doanh thu ròng của đơn đã hoàn một phần/hoàn tiền.
+    if (filters.status === 'dagiao') {
+      match[path('trangthai')] = { $in: POST_DELIVERY_FLOW_STATUSES };
+    } else {
+      match[path('trangthai')] = filters.status;
+    }
+  } else {
+    // Mặc định báo cáo doanh thu ròng theo các đơn đã hoàn tất luồng giao hàng.
+    match[path('trangthai')] = { $in: POST_DELIVERY_FLOW_STATUSES };
   }
 
   if (range && range.from && range.to) {
@@ -323,6 +366,7 @@ function buildItemPipeline(filters, range) {
 
   pipeline.push({
     $project: {
+      itemId: '$_id',
       orderId: '$donhang_id',
       itemQty: '$soluong',
       itemRevenue: 1,
@@ -337,8 +381,166 @@ function buildItemPipeline(filters, range) {
   return pipeline;
 }
 
+function resolveReturnedCost({ cost, revenue, profit }) {
+  const directCost = toPositiveNumber(cost);
+  if (directCost > 0) return directCost;
+
+  const safeRevenue = toPositiveNumber(revenue);
+  const safeProfit = Number.isFinite(Number(profit)) ? Number(profit) : 0;
+  return Math.max(0, safeRevenue - safeProfit);
+}
+
+function resolveBaseOrderRevenue(order, grossItemRevenue = 0) {
+  const safeGrossItemRevenue = Math.max(0, Number(grossItemRevenue || 0));
+  if (safeGrossItemRevenue > 0) {
+    const discount = Math.min(toPositiveNumber(order?.giamgia), safeGrossItemRevenue);
+    return Math.max(0, safeGrossItemRevenue - discount);
+  }
+
+  // Fallback when item snapshots are missing: use order total excluding shipping.
+  const currentRevenue = Math.max(0, Number(order?.tongtien || 0));
+  const shipping = toPositiveNumber(order?.phivanchuyen);
+  return Math.max(0, currentRevenue - shipping);
+}
+
+function getOrderNetRevenue(order, returnsByOrder, metricsByOrder = {}) {
+  const orderId = String(order?._id || '');
+  const returned = returnsByOrder.get(orderId) || {};
+  const returnedRevenue = toPositiveNumber(returned?.revenue);
+
+  const grossRevenueMap = metricsByOrder.grossRevenueMap instanceof Map
+    ? metricsByOrder.grossRevenueMap
+    : null;
+
+  const grossItemRevenue = grossRevenueMap
+    ? Math.max(0, Number(grossRevenueMap.get(orderId) || 0))
+    : 0;
+  const baseRevenue = resolveBaseOrderRevenue(order, grossItemRevenue);
+  if (returnedRevenue <= 0) return baseRevenue;
+
+  // Preferred path: compute net product revenue from product totals.
+  if (grossItemRevenue > 0) {
+    return Math.max(0, baseRevenue - returnedRevenue);
+  }
+
+  // No item baseline available: tongtien in this flow is already net after return.
+  return baseRevenue;
+}
+
+async function buildReturnAdjustments(orderIds = [], options = {}) {
+  const ids = Array.isArray(orderIds) ? orderIds.filter(Boolean) : [];
+  const category = String(options.category || '').trim();
+  const includeOrderFallback = Boolean(options.includeOrderFallback);
+  const fallbackOrders = Array.isArray(options.orders) ? options.orders : [];
+
+  const byOrder = new Map();
+  const returnedQtyByProduct = new Map();
+
+  if (ids.length) {
+    const pipeline = [
+      { $match: { donhang_id: { $in: ids } } },
+      { $unwind: '$chitiet' },
+      {
+        $project: {
+          orderId: '$donhang_id',
+          productId: '$chitiet.sanphamid',
+          returnedQty: { $ifNull: ['$chitiet.soluonghoan', 0] },
+          returnedRevenue: { $ifNull: ['$chitiet.doanhthuhoan', 0] },
+          returnedCostRaw: { $ifNull: ['$chitiet.giavonhoan', 0] },
+          returnedProfit: { $ifNull: ['$chitiet.loinhuanhoan', 0] }
+        }
+      }
+    ];
+
+    if (category) {
+      pipeline.push(
+        {
+          $lookup: {
+            from: 'products',
+            localField: 'productId',
+            foreignField: '_id',
+            as: 'product'
+          }
+        },
+        { $unwind: { path: '$product', preserveNullAndEmptyArrays: false } },
+        { $match: { 'product.loaisanpham': category } }
+      );
+    }
+
+    pipeline.push({
+      $group: {
+        _id: { orderId: '$orderId', productId: '$productId' },
+        returnedQty: { $sum: '$returnedQty' },
+        returnedRevenue: { $sum: '$returnedRevenue' },
+        returnedCostRaw: { $sum: '$returnedCostRaw' },
+        returnedProfit: { $sum: '$returnedProfit' }
+      }
+    });
+
+    const rows = await PhieuXuatKho.aggregate(pipeline);
+
+    rows.forEach((row) => {
+      const orderId = String(row?._id?.orderId || '');
+      if (!orderId) return;
+
+      const revenue = toPositiveNumber(row?.returnedRevenue);
+      const qty = toPositiveNumber(row?.returnedQty);
+      const cost = resolveReturnedCost({
+        cost: row?.returnedCostRaw,
+        revenue: row?.returnedRevenue,
+        profit: row?.returnedProfit
+      });
+
+      if (revenue <= 0 && qty <= 0 && cost <= 0) return;
+
+      const entry = byOrder.get(orderId) || { revenue: 0, cost: 0, qty: 0 };
+      entry.revenue += revenue;
+      entry.cost += cost;
+      entry.qty += qty;
+      byOrder.set(orderId, entry);
+
+      const productId = String(row?._id?.productId || '');
+      if (productId && qty > 0) {
+        returnedQtyByProduct.set(productId, (returnedQtyByProduct.get(productId) || 0) + qty);
+      }
+    });
+  }
+
+  // Backward-compatible fallback: some old orders only persist totals on the order document.
+  if (includeOrderFallback && !category) {
+    fallbackOrders.forEach((order) => {
+      const orderId = String(order?._id || '');
+      if (!orderId || byOrder.has(orderId)) return;
+
+      const revenue = toPositiveNumber(order?.tonggiamdoanhthu_hoantra);
+      const qty = toPositiveNumber(order?.tongsoluong_hoantra);
+      const cost = resolveReturnedCost({
+        cost: 0,
+        revenue: order?.tonggiamdoanhthu_hoantra,
+        profit: order?.tonggiamloinhuan_hoantra
+      });
+
+      if (revenue <= 0 && qty <= 0 && cost <= 0) return;
+      byOrder.set(orderId, { revenue, cost, qty });
+    });
+  }
+
+  return {
+    byOrder,
+    returnedQtyByProduct
+  };
+}
+
 async function sumRevenueForRangeItems(filters, range) {
+  const orderMatch = buildOrderMatch(filters, range);
+  const orders = await Donhang.find(orderMatch)
+    .select('_id')
+    .lean();
+  if (!orders || !orders.length) return 0;
+
+  const orderIds = orders.map((order) => order._id);
   const rows = await Chitietdonhang.aggregate([
+    { $match: { donhang_id: { $in: orderIds } } },
     ...buildItemPipeline(filters, range),
     {
       $group: {
@@ -347,18 +549,56 @@ async function sumRevenueForRangeItems(filters, range) {
       }
     }
   ]);
-  if (!rows || !rows.length) return 0;
-  return Number(rows[0].total || 0);
+
+  const grossRevenue = rows && rows.length ? Number(rows[0].total || 0) : 0;
+  const { byOrder } = await buildReturnAdjustments(orderIds, {
+    category: filters.category,
+    includeOrderFallback: false
+  });
+  const returnedRevenue = Array.from(byOrder.values())
+    .reduce((sum, entry) => sum + toPositiveNumber(entry?.revenue), 0);
+
+  return Math.max(0, grossRevenue - returnedRevenue);
 }
 
 async function sumRevenueForRangeOrders(filters, range) {
   const orderMatch = buildOrderMatch(filters, range);
-  const rows = await Donhang.aggregate([
-    { $match: orderMatch },
-    { $group: { _id: null, total: { $sum: '$tongtien' } } }
+  const orders = await Donhang.find(orderMatch)
+    .select('_id tongtien giamgia phivanchuyen tonggiamdoanhthu_hoantra tonggiamloinhuan_hoantra tongsoluong_hoantra')
+    .lean();
+  if (!orders || !orders.length) return 0;
+
+  const orderIds = orders.map((order) => order._id);
+  const { byOrder } = await buildReturnAdjustments(orderIds, {
+    category: '',
+    includeOrderFallback: true,
+    orders
+  });
+
+  const orderItemRows = await Chitietdonhang.aggregate([
+    { $match: { donhang_id: { $in: orderIds } } },
+    {
+      $group: {
+        _id: '$donhang_id',
+        grossItemRevenue: {
+          $sum: {
+            $ifNull: ['$thanhtien', { $multiply: ['$giaban', '$soluong'] }]
+          }
+        }
+      }
+    }
   ]);
-  if (!rows || !rows.length) return 0;
-  return Number(rows[0].total || 0);
+
+  const grossRevenueMap = new Map();
+  orderItemRows.forEach((row) => {
+    const orderId = String(row?._id || '');
+    if (!orderId) return;
+    grossRevenueMap.set(orderId, Math.max(0, Number(row?.grossItemRevenue || 0)));
+  });
+
+  return orders.reduce((sum, order) => {
+    return sum + getOrderNetRevenue(order, byOrder, { grossRevenueMap });
+  }, 0);
 }
 
 async function getTrangBaoCaoData() {
@@ -404,7 +644,7 @@ async function getDuLieuBaoCao(query = {}) {
 
   const orderMatch = buildOrderMatch(filters, range);
   const orders = await Donhang.find(orderMatch)
-    .select('_id madonhang ngaytao trangthai tennguoinhan tongtien')
+    .select('_id madonhang ngaytao trangthai tennguoinhan tongtien giamgia phivanchuyen tonggiamdoanhthu_hoantra tonggiamloinhuan_hoantra tongsoluong_hoantra yeucauhoanhang.requestedItems')
     .lean();
 
   const orderMap = new Map();
@@ -413,9 +653,19 @@ async function getDuLieuBaoCao(query = {}) {
   });
 
   const orderIds = orders.map((order) => order._id);
-  const costTimeline = await buildCostTimeline();
+  const [costTimeline, returnAdjustments] = await Promise.all([
+    buildCostTimeline(),
+    buildReturnAdjustments(orderIds, {
+      category: filters.category,
+      includeOrderFallback: true,
+      orders
+    })
+  ]);
+  const returnsByOrder = returnAdjustments.byOrder;
+  const returnedQtyByProduct = returnAdjustments.returnedQtyByProduct;
 
   const productMap = new Map();
+  const orderItemMetrics = new Map();
   const orderCostMap = new Map();
   const orderRevenueMap = new Map();
   const orderQtyMap = new Map();
@@ -455,6 +705,16 @@ async function getDuLieuBaoCao(query = {}) {
     totalQty += qty;
 
     const orderId = String(item.orderId);
+    const itemId = String(item.itemId || '').trim();
+    if (itemId) {
+      orderItemMetrics.set(itemId, {
+        orderId,
+        productId: String(item.productId || '').trim(),
+        qty,
+        revenue,
+        cost
+      });
+    }
     orderCostMap.set(orderId, (orderCostMap.get(orderId) || 0) + cost);
     orderQtyMap.set(orderId, (orderQtyMap.get(orderId) || 0) + qty);
     orderRevenueMap.set(orderId, (orderRevenueMap.get(orderId) || 0) + revenue);
@@ -479,6 +739,102 @@ async function getDuLieuBaoCao(query = {}) {
     productMap.get(productKey).qty += qty;
   });
 
+  // Legacy fallback: older refunded/returned orders may miss export-return totals.
+  // In that case, infer returned amounts from requestedItems and item snapshots.
+  orders.forEach((order) => {
+    const orderId = String(order?._id || '');
+    if (!orderId || returnsByOrder.has(orderId)) return;
+    if (!FINALIZED_RETURN_STATUSES.has(String(order?.trangthai || ''))) return;
+
+    const requestedItems = Array.isArray(order?.yeucauhoanhang?.requestedItems)
+      ? order.yeucauhoanhang.requestedItems
+      : [];
+    if (!requestedItems.length) return;
+
+    let fallbackRevenue = 0;
+    let fallbackCost = 0;
+    let fallbackQty = 0;
+
+    requestedItems.forEach((row) => {
+      const orderItemId = String(row?.orderItemId || '').trim();
+      if (!orderItemId) return;
+
+      const metric = orderItemMetrics.get(orderItemId);
+      if (!metric) return;
+
+      const requestedQty = toPositiveNumber(row?.qty);
+      if (requestedQty <= 0 || metric.qty <= 0) return;
+
+      const qtyToSubtract = Math.min(metric.qty, requestedQty);
+      const unitRevenue = metric.revenue / metric.qty;
+      const unitCost = metric.cost / metric.qty;
+
+      fallbackRevenue += (unitRevenue * qtyToSubtract);
+      fallbackCost += (unitCost * qtyToSubtract);
+      fallbackQty += qtyToSubtract;
+
+      const productId = String(metric.productId || '').trim();
+      if (productId) {
+        returnedQtyByProduct.set(productId, (returnedQtyByProduct.get(productId) || 0) + qtyToSubtract);
+      }
+    });
+
+    if (fallbackRevenue > 0 || fallbackCost > 0 || fallbackQty > 0) {
+      returnsByOrder.set(orderId, {
+        revenue: fallbackRevenue,
+        cost: fallbackCost,
+        qty: fallbackQty
+      });
+    }
+  });
+
+  const grossOrderRevenueMap = new Map(orderRevenueMap);
+
+  returnedQtyByProduct.forEach((returnedQty, productId) => {
+    const key = String(productId || '').trim();
+    if (!key || !productMap.has(key)) return;
+
+    const product = productMap.get(key);
+    product.qty = Math.max(0, Number(product.qty || 0) - toPositiveNumber(returnedQty));
+  });
+
+  returnsByOrder.forEach((entry, orderId) => {
+    const order = orderMap.get(orderId);
+    if (!order) return;
+
+    const returnedQty = toPositiveNumber(entry?.qty);
+    const returnedCost = toPositiveNumber(entry?.cost);
+    const returnedRevenue = toPositiveNumber(entry?.revenue);
+
+    if (returnedQty > 0) {
+      totalQty = Math.max(0, totalQty - returnedQty);
+      orderQtyMap.set(orderId, Math.max(0, Number(orderQtyMap.get(orderId) || 0) - returnedQty));
+    }
+
+    if (returnedCost > 0) {
+      totalCost = Math.max(0, totalCost - returnedCost);
+      orderCostMap.set(orderId, Math.max(0, Number(orderCostMap.get(orderId) || 0) - returnedCost));
+    }
+
+    const date = order.ngaytao ? new Date(order.ngaytao) : null;
+    if (date) {
+      const label = formatDateLabel(date, groupBy);
+
+      if (returnedCost > 0) {
+        costByBucket.set(label, Math.max(0, Number(costByBucket.get(label) || 0) - returnedCost));
+      }
+
+      if (filters.category && returnedRevenue > 0) {
+        revenueByBucket.set(label, Math.max(0, Number(revenueByBucket.get(label) || 0) - returnedRevenue));
+      }
+    }
+
+    if (filters.category && returnedRevenue > 0) {
+      const currentRevenue = Number(orderRevenueMap.get(orderId) || 0);
+      orderRevenueMap.set(orderId, Math.max(0, currentRevenue - returnedRevenue));
+    }
+  });
+
   let totalRevenue = 0;
   if (filters.category) {
     orderRevenueMap.forEach((value) => {
@@ -486,11 +842,14 @@ async function getDuLieuBaoCao(query = {}) {
     });
   } else {
     orders.forEach((order) => {
-      totalRevenue += Number(order.tongtien || 0);
+      const netRevenue = getOrderNetRevenue(order, returnsByOrder, {
+        grossRevenueMap: grossOrderRevenueMap
+      });
+      totalRevenue += netRevenue;
       const date = order.ngaytao ? new Date(order.ngaytao) : null;
       if (date) {
         const label = formatDateLabel(date, groupBy);
-        revenueByBucket.set(label, (revenueByBucket.get(label) || 0) + Number(order.tongtien || 0));
+        revenueByBucket.set(label, (revenueByBucket.get(label) || 0) + netRevenue);
       }
     });
   }
@@ -508,21 +867,23 @@ async function getDuLieuBaoCao(query = {}) {
   const profitMargin = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
 
   const topProducts = Array.from(productMap.values())
+    .filter((product) => Number(product.qty || 0) > 0)
     .sort((a, b) => b.qty - a.qty)
     .slice(0, 5);
 
-  const orderRows = orders
+  const allOrderRows = orders
     .filter((order) => {
       if (!filters.category) return true;
       return orderRevenueMap.has(String(order._id));
     })
     .sort((a, b) => new Date(b.ngaytao) - new Date(a.ngaytao))
-    .slice(0, 12)
     .map((order) => {
       const orderId = String(order._id);
       const revenue = filters.category
         ? Number(orderRevenueMap.get(orderId) || 0)
-        : Number(order.tongtien || 0);
+        : getOrderNetRevenue(order, returnsByOrder, {
+          grossRevenueMap: grossOrderRevenueMap
+        });
       const cost = Number(orderCostMap.get(orderId) || 0);
       const rowProfit = revenue - cost;
       return {
@@ -539,6 +900,7 @@ async function getDuLieuBaoCao(query = {}) {
         detailUrl: `/admin/orders/${orderId}`
       };
     });
+  const orderRows = allOrderRows.slice(0, 12);
 
   const topCustomersMap = new Map();
   orders.forEach((order) => {
@@ -552,7 +914,9 @@ async function getDuLieuBaoCao(query = {}) {
     const entry = topCustomersMap.get(key);
     const revenue = filters.category
       ? Number(orderRevenueMap.get(orderId) || 0)
-      : Number(order.tongtien || 0);
+      : getOrderNetRevenue(order, returnsByOrder, {
+        grossRevenueMap: grossOrderRevenueMap
+      });
     entry.revenue += revenue;
     entry.orders += 1;
   });
@@ -606,7 +970,8 @@ async function getDuLieuBaoCao(query = {}) {
       }
     },
     table: {
-      rows: orderRows
+      rows: orderRows,
+      exportRows: allOrderRows
     },
     advanced: {
       topProducts,

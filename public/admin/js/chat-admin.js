@@ -38,6 +38,13 @@
   let imageViewerModal = null;
   let searchKeyword = '';
   let searchTimer = null;
+  let initialTargetUserId = '';
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    initialTargetUserId = String(params.get('userId') || '').trim();
+  } catch {
+    initialTargetUserId = '';
+  }
 
   function isMobileView() {
     return window.matchMedia('(max-width: 767.98px)').matches;
@@ -303,7 +310,26 @@
     conversations.sort((a, b) => new Date(b.lastAt || 0) - new Date(a.lastAt || 0));
     renderConversationList();
   }
+  function ensureConversationExists(userId, payload = {}) {
+    const id = String(userId || '').trim();
+    if (!id) return;
 
+    const exists = conversations.some((item) => String(item.clientId) === id);
+    if (exists) return;
+
+    const user = payload && payload.user ? payload.user : null;
+    conversations.unshift({
+      clientId: id,
+      userName: user && user.userName ? user.userName : 'Khach hang',
+      userEmail: user && user.userEmail ? user.userEmail : '',
+      userPhone: user && user.userPhone ? user.userPhone : '',
+      avatar: user && user.avatar ? user.avatar : '/images/avatar/avatar.png',
+      lastMessage: '',
+      lastAt: null,
+      unreadCount: 0,
+      online: Boolean(payload && payload.online)
+    });
+  }
   async function markRead(userId) {
     if (!userId) return;
     await fetchJson(`${runtime.adminPath}/api/chats/read/${userId}`, { method: 'POST' });
@@ -320,6 +346,7 @@
     const { ok, data } = await fetchJson(`${runtime.adminPath}/api/chats/messages/${userId}`);
     if (!ok || !data.success) return;
     const payload = data.data || {};
+    ensureConversationExists(userId, payload);
     if (titleEl) titleEl.textContent = payload.user && payload.user.userName ? payload.user.userName : 'Khách hàng';
     if (statusEl) {
       statusEl.textContent = payload.online ? 'Online' : 'Offline';
@@ -342,6 +369,12 @@
     conversations = (data.data && data.data.conversations) || [];
     renderConversationList();
     setUnreadTotal(conversations.reduce((acc, item) => acc + Number(item.unreadCount || 0), 0));
+    if (initialTargetUserId && !activeUserId) {
+      const target = initialTargetUserId;
+      initialTargetUserId = '';
+      await openConversation(target);
+      return;
+    }
     if (conversations.length && !activeUserId && !isMobileView()) {
       openConversation(conversations[0].clientId);
     }

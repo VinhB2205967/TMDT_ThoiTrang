@@ -75,6 +75,9 @@ block main
 
       //- Templates for client-side cloning (avoid HTML in JS)
       - const __NO_SIZE = ['tui', 'phukien']
+      - const __ALL_IMPORT_CATEGORIES = Array.isArray(categoryOptions) ? categoryOptions : []
+      - const __FASHION_IMPORT_CATEGORIES = __ALL_IMPORT_CATEGORIES.filter((c) => __NO_SIZE.indexOf(String(c.slug || '').toLowerCase()) === -1)
+      - const __ACCESSORY_IMPORT_CATEGORIES = __ALL_IMPORT_CATEGORIES.filter((c) => __NO_SIZE.indexOf(String(c.slug || '').toLowerCase()) !== -1)
       template#tpl-fashion-matrix
         .table-responsive
           table.table.table-bordered.table-sm.align-middle.mb-0
@@ -122,13 +125,15 @@ block main
               div(style='min-width:160px')
                 label.form-label.mb-1 Danh mục
                 select.form-select.js-fashion-category
-                  option(value='ao') Áo
-                  option(value='quan') Quần
-                  option(value='vay') Váy
-                  option(value='phukien') Phụ kiện
-                  option(value='giay') Giày
-                  option(value='tui') Túi
-                  option(value='aokhoac') Áo khoác
+                  if __FASHION_IMPORT_CATEGORIES.length
+                    each c in __FASHION_IMPORT_CATEGORIES
+                      option(value=c.slug) #{c.name}
+                  else
+                    option(value='ao') Áo
+                    option(value='quan') Quần
+                    option(value='vay') Váy
+                    option(value='giay') Giày
+                    option(value='aokhoac') Áo khoác
               div(style='min-width:160px')
                 label.form-label.mb-1 Chất liệu
                 input.form-control.js-fashion-material(placeholder='Cotton/Jean...')
@@ -236,8 +241,12 @@ block main
               div(style='min-width:160px')
                 label.form-label.mb-1 Loại
                 select.form-select.js-accessory-category
-                  option(value='tui') Túi
-                  option(value='phukien') Phụ kiện
+                  if __ACCESSORY_IMPORT_CATEGORIES.length
+                    each c in __ACCESSORY_IMPORT_CATEGORIES
+                      option(value=c.slug) #{c.name}
+                  else
+                    option(value='tui') Túi
+                    option(value='phukien') Phụ kiện
               div(style='min-width:160px')
                 label.form-label.mb-1 Chất liệu
                 input.form-control.js-accessory-material(placeholder='Cotton/Da/Vải...')

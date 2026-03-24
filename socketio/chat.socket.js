@@ -136,6 +136,13 @@ function setupChatSocket(io) {
         receiverRole = 'admin';
       } else {
         clientId = payload && payload.userId ? String(payload.userId) : '';
+        if (clientId) {
+          const targetAccount = await getAccountByUserId({ userId: clientId }).catch(() => null);
+          if (targetAccount && targetAccount.vaitro === 'admin') {
+            socket.emit('chat_error', { message: 'Khong the chat voi tai khoan admin' });
+            return;
+          }
+        }
         receiverId = clientId || null;
         receiverRole = 'client';
       }

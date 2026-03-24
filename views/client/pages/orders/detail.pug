@@ -7,7 +7,7 @@ block main
       p.text-muted Đơn hàng không tồn tại hoặc bạn không có quyền xem.
       a.btn.btn-primary(href='/orders') Quay lại danh sách đơn hàng
     else
-      - const statusLabels = locals.statusLabels || { all: 'Tất cả', choxacnhan: 'Chờ xác nhận', daxacnhan: 'Đã xác nhận', dangchuanbi: 'Đang chuẩn bị', danggiao: 'Đang giao', dagiao: 'Đã giao', requested_return: 'Yêu cầu hoàn hàng', approved_return: 'Đã duyệt hoàn hàng', rejected_return: 'Từ chối hoàn hàng', return_shipping: 'Đang gửi hàng hoàn', returned: 'Đã nhận hàng hoàn', refunded: 'Đã hoàn tiền', dahuy: 'Đã hủy', hoanhang: 'Hoàn hàng' }
+      - const statusLabels = locals.statusLabels || { all: 'Tất cả', choxacnhan: 'Chờ xác nhận', daxacnhan: 'Đã xác nhận', dangchuanbi: 'Đang chuẩn bị', danggiao: 'Đang giao', dagiao: 'Đã giao', requested_return: 'Yêu cầu hoàn hàng', approved_return: 'Đã duyệt hoàn hàng', rejected_return: 'Từ chối hoàn hàng', return_shipping: 'Đang gửi hàng hoàn', returned: 'Đã nhận hàng hoàn', returned_full: 'Đã trả hàng', returned_partial: 'Trả hàng một phần', refunded: 'Đã hoàn tiền', dahuy: 'Đã hủy', hoanhang: 'Hoàn hàng' }
       - const isChoThanhToan = order.trangthai === 'choxacnhan' && (order.phuongthucthanhtoan === 'momo' || order.phuongthucthanhtoan === 'vnpay') && !order.dathanhtoan
       - const label = isChoThanhToan ? 'Chờ thanh toán' : (statusLabels[order.trangthai] || order.trangthai || '—')
 
@@ -142,7 +142,7 @@ block main
         .modal.fade#returnRequestModal(tabindex='-1' aria-hidden='true')
           .modal-dialog.modal-dialog-scrollable.modal-fullscreen-sm-down
             .modal-content
-              form.return-request-form(method='POST' action=`/orders/${order._id}/return-request?_csrf=${encodeURIComponent(returnCsrf || '')}` enctype='multipart/form-data')
+              form.return-request-form(method='POST' action=`/orders/${order._id}/return-request?_csrf=${encodeURIComponent(returnCsrf || '')}` enctype='multipart/form-data' data-refund-force-bank=(order.phuongthucthanhtoan === 'cod' ? '1' : '0') data-paid-method=(order.phuongthucthanhtoan || 'cod'))
                 input(type='hidden' name='_csrf' value=returnCsrf)
                 .modal-header
                   h5.modal-title Yêu cầu hoàn hàng
@@ -151,6 +151,21 @@ block main
                   if firstItem
                     .small.text-muted.mb-2 Sản phẩm: #{firstItem.tensanpham || 'Sản phẩm'}
                   .small.text-muted.mb-3 Mã đơn: #{order.madonhang || order._id}
+
+                  .mb-3
+                    label.form-label Chọn sản phẩm muốn hoàn
+                    .border.rounded.p-2(style='max-height:220px;overflow:auto;')
+                      each it, idx in (items || [])
+                        .d-flex.justify-content-between.align-items-center.gap-2.py-2.border-bottom
+                          .d-flex.align-items-center.gap-2.flex-grow-1
+                            img.rounded.border(src=(it.hinhanh || '/images/shopping.png') alt=(it.tensanpham || 'Sản phẩm') width='44' height='44' style='object-fit:cover;')
+                            div
+                              .fw-semibold #{it.tensanpham || 'Sản phẩm'}
+                              .small.text-muted #{[it.mausac, it.kichco].filter(Boolean).join(' - ') || 'Mặc định'} • Đã mua: #{it.soluong || 0}
+                          input(type='hidden' name=`returnItems[${idx}][orderItemId]` value=String(it._id || ''))
+                          .form-check.mb-0
+                            input.form-check-input.js-return-item-check(type='checkbox' id=`return-item-${idx}` data-qty-target=`return-qty-${idx}`)
+                          input.form-control.form-control-sm.js-return-item-qty(type='number' id=`return-qty-${idx}` name=`returnItems[${idx}][qty]` value='0' min='0' max=String(it.soluong || 0) step='1' style='width:92px' disabled)
 
                   .mb-3
                     label.form-label Lý do hoàn hàng
@@ -178,16 +193,31 @@ block main
                     #proofMediaPreview.row.g-2.mt-2
 
                   .mb-2
+                    - const _paidMethod = String(order.phuongthucthanhtoan || 'cod').toLowerCase()
+                    - const _onlineWalletPaid = ['momo', 'vnpay'].includes(_paidMethod)
                     label.form-label Phương thức hoàn tiền
-                    .form-check
-                      input#refundMomo.form-check-input(type='radio' name='refundMethod' value='momo' checked)
-                      label.form-check-label(for='refundMomo') Ví MOMO
-                    .form-check
-                      input#refundBank.form-check-input(type='radio' name='refundMethod' value='bank')
-                      label.form-check-label(for='refundBank') Chuyển khoản ngân hàng
-                    .form-check
-                      input#refundWallet.form-check-input(type='radio' name='refundMethod' value='wallet')
-                      label.form-check-label(for='refundWallet') Hoàn vào ví hệ thống
+                    if _onlineWalletPaid
+                      .form-check
+                        input#refundWallet.form-check-input(type='radio' name='refundMethod' value='wallet' checked)
+                        label.form-check-label(for='refundWallet') Hoàn tiền về ví đã thanh toán (#{_paidMethod.toUpperCase()})
+                      .form-check
+                        input#refundBank.form-check-input(type='radio' name='refundMethod' value='bank')
+                        label.form-check-label(for='refundBank') Chuyển khoản ngân hàng
+                    else
+                      input(type='hidden' name='refundMethod' value='bank')
+                      .small.text-muted.mb-2 Dơn COD: vui lòng nhập thông tin ngân hàng để hoàn tiền.
+
+                    .mt-2(class=_onlineWalletPaid ? 'd-none' : '' data-refund-bank-fields)
+                      .row.g-2
+                        .col-12
+                          label.form-label.small(for='refundBankName') Tên ngân hàng
+                          input#refundBankName.form-control.form-control-sm(type='text' name='bankName' maxlength='120' placeholder='VD: Vietcombank')
+                        .col-12
+                          label.form-label.small(for='refundBankAccountName') Tên người nhận
+                          input#refundBankAccountName.form-control.form-control-sm(type='text' name='bankAccountName' maxlength='120' placeholder='Họ tên chủ tài khoản')
+                        .col-12
+                          label.form-label.small(for='refundBankAccountNumber') Số tài khoản
+                          input#refundBankAccountNumber.form-control.form-control-sm(type='text' name='bankAccountNumber' maxlength='30' inputmode='numeric' placeholder='Nhập số tài khoản')
 
                 .modal-footer
                   button.btn.btn-outline-secondary(type='button' data-bs-dismiss='modal') Đóng

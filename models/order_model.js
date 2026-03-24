@@ -112,13 +112,40 @@ const orderSchema = new mongoose.Schema({
     },
     reasonLabel: String,
     detail: String,
+    requestedItems: [
+      {
+        orderItemId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'Chitietdonhang'
+        },
+        qty: {
+          type: Number,
+          default: 0
+        },
+        boughtQty: {
+          type: Number,
+          default: 0
+        },
+        tensanpham: String,
+        hinhanh: String,
+        kichco: String,
+        mausac: String
+      }
+    ],
     proofMedias: [String],
     proofMedia: String,
     proofImage: String,
     refundMethod: {
       type: String,
-      enum: ['momo', 'bank', 'wallet']
+      enum: ['momo', 'vnpay', 'bank', 'wallet']
     },
+    refundWallet: {
+      type: String,
+      enum: ['momo', 'vnpay']
+    },
+    refundBankName: String,
+    refundBankAccountName: String,
+    refundBankAccountNumber: String,
     adminNote: String,
     reviewedAt: Date,
     approvedAt: Date,

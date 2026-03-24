@@ -72,7 +72,11 @@ function yeuCauAdmin(req, res, next) {
   }
 
   // Fallback: if user is logged in via client passport session and is admin
-  if (req.user && req.user.vaitro === 'admin' && req.user.trangthai === 'active') return next();
+  if (req.user && req.user.vaitro === 'admin' && req.user.trangthai === 'active') {
+    req.adminUser = req.user;
+    res.locals.adminUser = req.user;
+    return next();
+  }
 
   return res.redirect(`${duongDanAdmin}/login`);
 }

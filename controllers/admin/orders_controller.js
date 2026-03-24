@@ -159,6 +159,10 @@ module.exports.capNhatTrangThaiHangLoat = async (req, res) => {
 };
 
 module.exports.huyDon = async (req, res) => {
+  const returnTo = ordersAdminService.layDuongDanQuayLaiDanhSach({
+    fromBody: req.body.returnTo,
+    fromQuery: req.query.returnTo
+  });
   try {
     const result = await ordersAdminService.huyDon({
       id: req.params.id,
@@ -169,10 +173,10 @@ module.exports.huyDon = async (req, res) => {
       ordersAdminService.xacDinhLoaiFlashKetQua(result, { warningWhenPartial: true }),
       result.message
     );
-    return res.redirect(ordersAdminService.layDuongDanDanhSachMacDinh());
+    return res.redirect(returnTo);
   } catch (err) {
     console.error('orders.huyDon error:', err);
     req.flash('error', 'Lỗi hệ thống khi hủy đơn');
-    return res.redirect(ordersAdminService.layDuongDanDanhSachMacDinh());
+    return res.redirect(returnTo);
   }
 };

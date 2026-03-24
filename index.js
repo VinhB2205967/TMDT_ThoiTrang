@@ -141,6 +141,26 @@ app.use((req, res, next) => {
 
 // Flash uses whichever session was attached above
 app.use(flash())
+app.use((req, res, next) => {
+  const rawFlash = typeof req.flash === 'function' ? req.flash.bind(req) : null;
+
+  req.flash = function safeFlash(type, message) {
+    if (!rawFlash) return [];
+    try {
+      if (typeof type === 'undefined') return rawFlash();
+      if (typeof message === 'undefined') return rawFlash(type);
+      return rawFlash(type, message);
+    } catch (error) {
+      // Keep request alive when flash is called without an attached session.
+      if (error && /requires sessions/i.test(String(error.message || ''))) {
+        return [];
+      }
+      throw error;
+    }
+  };
+
+  next();
+})
 
 app.use(passport.initialize())
 app.use(passport.session())

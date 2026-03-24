@@ -62,7 +62,7 @@
     }
 
     if (statusEl) {
-      statusEl.textContent = isLoss ? 'Lỗ' : 'Lãi';
+      statusEl.textContent = isLoss ? 'LÃƒÂ¡Ã‚Â»Ã¢â‚¬â€' : 'LÃƒÆ’Ã‚Â£i';
       statusEl.classList.toggle('text-danger', isLoss);
       statusEl.classList.toggle('text-success', !isLoss);
     }
@@ -108,6 +108,7 @@
 
   function updateCharts(charts) {
     if (!charts) return;
+
     const revenueLabels = Array.isArray(charts.revenueByMonth?.labels)
       ? charts.revenueByMonth.labels
       : [];
@@ -136,7 +137,7 @@
       'chart-profit',
       chartConfig('line', profitLabels, [
         {
-          label: 'Lợi nhuận',
+          label: 'LÃƒÂ¡Ã‚Â»Ã‚Â£i nhuÃƒÂ¡Ã‚ÂºÃ‚Â­n',
           data: normalizeSeries(charts.profitTrend?.data),
           borderColor: '#22c55e',
           backgroundColor: 'rgba(34, 197, 94, 0.2)',
@@ -150,7 +151,7 @@
       'chart-top-products',
       chartConfig('pie', topLabels, [
         {
-          label: 'Top sản phẩm',
+          label: 'Top sÃƒÂ¡Ã‚ÂºÃ‚Â£n phÃƒÂ¡Ã‚ÂºÃ‚Â©m',
           data: normalizeSeries(charts.topProducts?.data),
           backgroundColor: ['#6366f1', '#22c55e', '#f97316', '#0ea5e9', '#f43f5e']
         }
@@ -169,7 +170,7 @@
           fill: true
         },
         {
-          label: 'Chi phí',
+          label: 'Chi phÃƒÆ’Ã‚Â­',
           data: normalizeSeries(charts.revenueVsCost?.cost),
           borderColor: '#f97316',
           backgroundColor: 'rgba(249, 115, 22, 0.18)',
@@ -183,25 +184,26 @@
   function updateTable(rows) {
     if (!tableBody) return;
     if (!rows || rows.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Không có dữ liệu</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">KhÃƒÆ’Ã‚Â´ng cÃƒÆ’Ã‚Â³ dÃƒÂ¡Ã‚Â»Ã‚Â¯ liÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡u</td></tr>';
       return;
     }
 
     tableBody.innerHTML = rows
       .map((row) => {
-        const date = row.orderDate ? new Date(row.orderDate).toLocaleDateString('vi-VN') : '—';
+        const date = row.orderDate ? new Date(row.orderDate).toLocaleDateString('vi-VN') : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â';
         const profitValue = toSafeNumber(row.profit);
         const profitClass = profitValue >= 0 ? 'text-success' : 'text-danger';
+
         return `
           <tr>
             <td class="fw-semibold">${row.orderCode}</td>
             <td>${date}</td>
-            <td>${row.customerName || 'Khách lẻ'}</td>
+            <td>${row.customerName || 'KhÃƒÆ’Ã‚Â¡ch lÃƒÂ¡Ã‚ÂºÃ‚Â»'}</td>
             <td>${formatCurrency(row.revenue)}</td>
             <td>${formatCurrency(row.cost)}</td>
             <td class="${profitClass}">${formatCurrency(profitValue)}</td>
             <td><span class="badge ${row.statusClass}">${row.statusLabel}</span></td>
-            <td><a class="btn btn-sm btn-outline-primary" href="${row.detailUrl}">Chi tiết</a></td>
+            <td><a class="btn btn-sm btn-outline-primary" href="${row.detailUrl}">Chi tiÃƒÂ¡Ã‚ÂºÃ‚Â¿t</a></td>
           </tr>
         `;
       })
@@ -211,7 +213,7 @@
   function updateLists(topProducts, topCustomers) {
     if (topProductsList) {
       if (!topProducts || !topProducts.length) {
-        topProductsList.innerHTML = '<li class="list-group-item text-muted">Không có dữ liệu</li>';
+        topProductsList.innerHTML = '<li class="list-group-item text-muted">KhÃƒÆ’Ã‚Â´ng cÃƒÆ’Ã‚Â³ dÃƒÂ¡Ã‚Â»Ã‚Â¯ liÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡u</li>';
       } else {
         topProductsList.innerHTML = topProducts
           .map((item) => `
@@ -226,7 +228,7 @@
 
     if (topCustomersList) {
       if (!topCustomers || !topCustomers.length) {
-        topCustomersList.innerHTML = '<li class="list-group-item text-muted">Không có dữ liệu</li>';
+        topCustomersList.innerHTML = '<li class="list-group-item text-muted">KhÃƒÆ’Ã‚Â´ng cÃƒÆ’Ã‚Â³ dÃƒÂ¡Ã‚Â»Ã‚Â¯ liÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡u</li>';
       } else {
         topCustomersList.innerHTML = topCustomers
           .map((item) => `
@@ -240,29 +242,6 @@
     }
   }
 
-  function applyTheme(theme) {
-    document.body.setAttribute('data-theme', theme);
-    const btn = document.querySelector('#btn-toggle-theme');
-    if (btn) {
-      btn.innerHTML = theme === 'dark'
-        ? '<i class="bi bi-sun me-1"></i> Chế độ sáng'
-        : '<i class="bi bi-moon-stars me-1"></i> Chế độ tối';
-    }
-  }
-
-  function initTheme() {
-    const stored = localStorage.getItem('admin-theme') || 'light';
-    applyTheme(stored);
-    const btn = document.querySelector('#btn-toggle-theme');
-    if (btn) {
-      btn.addEventListener('click', () => {
-        const next = document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-        localStorage.setItem('admin-theme', next);
-        applyTheme(next);
-      });
-    }
-  }
-
   function getFilters() {
     const data = new FormData(form);
     const params = new URLSearchParams();
@@ -272,14 +251,87 @@
     return params.toString();
   }
 
+  function getExportRows() {
+    if (!latestData || !latestData.table) return [];
+    if (Array.isArray(latestData.table.exportRows) && latestData.table.exportRows.length) {
+      return latestData.table.exportRows;
+    }
+    return Array.isArray(latestData.table.rows) ? latestData.table.rows : [];
+  }
+
+  function getFilterSummaryText() {
+    if (!form) return 'Theo bÃƒÂ¡Ã‚Â»Ã¢â€žÂ¢ lÃƒÂ¡Ã‚Â»Ã‚Âc hiÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡n tÃƒÂ¡Ã‚ÂºÃ‚Â¡i';
+
+    const fields = [
+      { key: 'fromDate', label: 'TÃƒÂ¡Ã‚Â»Ã‚Â« ngÃƒÆ’Ã‚Â y', type: 'date' },
+      { key: 'toDate', label: 'Ãƒâ€žÃ‚ÂÃƒÂ¡Ã‚ÂºÃ‚Â¿n ngÃƒÆ’Ã‚Â y', type: 'date' },
+      { key: 'month', label: 'ThÃƒÆ’Ã‚Â¡ng', type: 'raw' },
+      { key: 'year', label: 'NÃƒâ€žÃ†â€™m', type: 'raw' },
+      { key: 'category', label: 'Danh mÃƒÂ¡Ã‚Â»Ã‚Â¥c', type: 'raw' },
+      { key: 'status', label: 'TrÃƒÂ¡Ã‚ÂºÃ‚Â¡ng thÃƒÆ’Ã‚Â¡i', type: 'selectLabel' }
+    ];
+
+    const segments = [];
+
+    fields.forEach((field) => {
+      const input = form.querySelector(`[name="${field.key}"]`);
+      if (!input) return;
+
+      if (field.type === 'selectLabel') {
+        const label = input.options && input.selectedIndex >= 0
+          ? String(input.options[input.selectedIndex].text || '').trim()
+          : '';
+        if (label && label.toLowerCase() !== 'tÃƒÂ¡Ã‚ÂºÃ‚Â¥t cÃƒÂ¡Ã‚ÂºÃ‚Â£' && label.toLowerCase() !== 'tat ca') {
+          segments.push(`${field.label}: ${label}`);
+        }
+        return;
+      }
+
+      const rawValue = String(input.value || '').trim();
+      if (!rawValue) return;
+
+      if (field.type === 'date') {
+        const date = new Date(rawValue);
+        const safeDate = Number.isNaN(date.getTime()) ? rawValue : date.toLocaleDateString('vi-VN');
+        segments.push(`${field.label}: ${safeDate}`);
+      } else {
+        segments.push(`${field.label}: ${rawValue}`);
+      }
+    });
+
+    return segments.length ? segments.join(' | ') : 'Theo bÃƒÂ¡Ã‚Â»Ã¢â€žÂ¢ lÃƒÂ¡Ã‚Â»Ã‚Âc hiÃƒÂ¡Ã‚Â»Ã¢â‚¬Â¡n tÃƒÂ¡Ã‚ÂºÃ‚Â¡i';
+  }
+
+  function buildExcelColumnWidths(sheetData) {
+    if (!Array.isArray(sheetData) || !sheetData.length) return [];
+
+    const maxLens = [];
+
+    sheetData.forEach((row) => {
+      if (!Array.isArray(row)) return;
+      row.forEach((cell, idx) => {
+        const text = String(cell == null ? '' : cell);
+        const lineLens = text.split(/\r?\n/).map((line) => line.length);
+        const textLen = lineLens.length ? Math.max(...lineLens) : 0;
+        maxLens[idx] = Math.max(maxLens[idx] || 10, textLen);
+      });
+    });
+
+    return maxLens.map((len) => ({
+      wch: Math.min(60, Math.max(12, len + 2))
+    }));
+  }
+
   async function fetchData() {
     if (!form) return;
     setLoading(true);
+
     try {
       const query = getFilters();
       const res = await fetch(`/admin/api/reports/data?${query}`);
       const payload = await res.json();
       const data = payload && payload.data ? payload.data : payload;
+
       if (!data || !data.success) throw new Error((data && data.message) || 'Error');
       latestData = data;
 
@@ -293,7 +345,7 @@
 
       const growthValue = data.advanced.growth;
       updateMetric('growth', growthValue, (value) => (value == null ? '0%' : `${value.toFixed(1)}%`));
-      updateMetric('growthSub', data.advanced.previousRevenue, (value) => `Kỳ trước: ${formatCurrency(value)}`);
+      updateMetric('growthSub', data.advanced.previousRevenue, (value) => `KÃƒÂ¡Ã‚Â»Ã‚Â³ trÃƒâ€ Ã‚Â°ÃƒÂ¡Ã‚Â»Ã¢â‚¬Âºc: ${formatCurrency(value)}`);
 
       if (lossAlert) {
         lossAlert.classList.toggle('d-none', !data.advanced.negativeProfit);
@@ -311,10 +363,19 @@
 
   function exportExcel() {
     if (!latestData || !window.XLSX) return;
-    const rows = latestData.table.rows || [];
+
+    const rows = getExportRows();
+    const totals = rows.reduce((acc, row) => {
+      acc.revenue += toSafeNumber(row && row.revenue);
+      acc.cost += toSafeNumber(row && row.cost);
+      acc.profit += toSafeNumber(row && row.profit);
+      return acc;
+    }, { revenue: 0, cost: 0, profit: 0 });
+
     const sheetData = [
-      ['Mã đơn', 'Ngày tạo', 'Khách hàng', 'Tổng tiền', 'Chi phí', 'Lãi/Lỗ', 'Trạng thái']
+      ['MÃƒÂ£ Ã„â€˜Ã†Â¡n', 'NgÃƒÂ y tÃ¡ÂºÂ¡o', 'KhÃƒÂ¡ch hÃƒÂ ng', 'TÃ¡Â»â€¢ng tiÃ¡Â»Ân', 'Chi phÃƒÂ­', 'LÃƒÂ£i/LÃ¡Â»â€”', 'TrÃ¡ÂºÂ¡ng thÃƒÂ¡i']
     ];
+
     rows.forEach((row) => {
       sheetData.push([
         row.orderCode,
@@ -326,37 +387,80 @@
         row.statusLabel
       ]);
     });
+
+    if (rows.length > 0) {
+      sheetData.push([]);
+      sheetData.push([
+        'TÃ¡Â»â€¢ng',
+        '',
+        `${rows.length} Ã„â€˜Ã†Â¡n`,
+        totals.revenue,
+        totals.cost,
+        totals.profit,
+        ''
+      ]);
+    }
+
     const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+    worksheet['!cols'] = buildExcelColumnWidths(sheetData);
+
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'BaoCao');
     XLSX.writeFile(workbook, 'bao-cao-ban-hang.xlsx');
   }
 
   function exportPdf() {
-    if (!latestData || !window.jspdf) return;
-    const rows = latestData.table.rows || [];
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: 'landscape' });
-    doc.setFontSize(16);
-    doc.text('Bao cao thong ke ban hang', 14, 16);
+    if (!latestData || !window.pdfMake) return;
 
-    const tableRows = rows.map((row) => [
-      row.orderCode,
+    const rows = getExportRows();
+    const tableRows = rows.map((row) => ([
+      { text: String(row.orderCode || ''), noWrap: true },
       row.orderDate ? new Date(row.orderDate).toLocaleDateString('vi-VN') : '',
-      row.customerName,
+      row.customerName || '',
       formatCurrency(row.revenue),
       formatCurrency(row.cost),
       formatCurrency(row.profit),
-      row.statusLabel
-    ]);
+      row.statusLabel || ''
+    ]));
 
-    doc.autoTable({
-      startY: 24,
-      head: [['Ma don', 'Ngay tao', 'Khach hang', 'Tong tien', 'Chi phi', 'Lai/Lo', 'Trang thai']],
-      body: tableRows
-    });
+    const docDefinition = {
+      pageSize: 'A4',
+      pageOrientation: 'landscape',
+      defaultStyle: {
+        font: 'Roboto',
+        fontSize: 10
+      },
+      content: [
+        { text: 'BÃƒÂ¡o cÃƒÂ¡o thÃ¡Â»â€˜ng kÃƒÂª bÃƒÂ¡n hÃƒÂ ng', style: 'title' },
+        { text: getFilterSummaryText(), style: 'filter' },
+        {
+          table: {
+            headerRows: 1,
+            dontBreakRows: true,
+            widths: [95, 65, '*', 75, 70, 70, 80],
+            body: [
+              ['MÃƒÂ£ Ã„â€˜Ã†Â¡n', 'NgÃƒÂ y tÃ¡ÂºÂ¡o', 'KhÃƒÂ¡ch hÃƒÂ ng', 'TÃ¡Â»â€¢ng tiÃ¡Â»Ân', 'Chi phÃƒÂ­', 'LÃƒÂ£i/LÃ¡Â»â€”', 'TrÃ¡ÂºÂ¡ng thÃƒÂ¡i'],
+              ...tableRows
+            ]
+          },
+          layout: 'lightHorizontalLines'
+        }
+      ],
+      styles: {
+        title: {
+          fontSize: 16,
+          bold: true,
+          margin: [0, 0, 0, 6]
+        },
+        filter: {
+          fontSize: 9,
+          color: '#475569',
+          margin: [0, 0, 0, 10]
+        }
+      }
+    };
 
-    doc.save('bao-cao-ban-hang.pdf');
+    window.pdfMake.createPdf(docDefinition).download('bao-cao-ban-hang.pdf');
   }
 
   function attachActions() {
@@ -386,7 +490,6 @@
   }
 
   initDefaultStatus();
-  initTheme();
   attachActions();
   fetchData();
 })();

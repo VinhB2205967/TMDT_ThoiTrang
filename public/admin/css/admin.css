@@ -1616,6 +1616,22 @@ body {
   color: #c7d2fe;
 }
 
+.sider .inner-menu a.sider-menu-alert {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(248, 113, 113, 0.45);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.22);
+}
+
+.sider .inner-menu a.sider-menu-alert i {
+  color: #fecaca;
+}
+
+.sider .inner-menu #adminOrderMenuHint {
+  font-size: 11px;
+  font-weight: 700;
+}
+
 /* Scrollbar subtle (desktop) */
 @media (min-width: 992px) {
   * {

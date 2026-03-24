@@ -68,6 +68,27 @@
   const isNoSizeType = shared.isNoSizeType || ((t) => ['tui', 'phukien'].includes(String(t || '').toLowerCase()));
   const formatMoneyVND = shared.formatMoneyVND || ((n) => Number(n || 0).toLocaleString('vi-VN'));
 
+  function setSelectValueSafe(selectEl, preferredValue, fallbackValue) {
+    if (!selectEl) return;
+    const hasValue = (value) => Array.from(selectEl.options || []).some((opt) => String(opt.value) === String(value));
+
+    const preferred = String(preferredValue || '').trim();
+    if (preferred && hasValue(preferred)) {
+      selectEl.value = preferred;
+      return;
+    }
+
+    const fallback = String(fallbackValue || '').trim();
+    if (fallback && hasValue(fallback)) {
+      selectEl.value = fallback;
+      return;
+    }
+
+    if (selectEl.options && selectEl.options.length) {
+      selectEl.selectedIndex = 0;
+    }
+  }
+
   function buildVariantOptions(product) {
     const opts = ['<option value="main">Mặc định</option>'];
     (product?.bienthe || []).forEach((v) => {
@@ -402,7 +423,7 @@
       }
 
       const catEl = wrap.querySelector('.js-accessory-category');
-      if (catEl) catEl.value = product?.loaisanpham || 'phukien';
+      setSelectValueSafe(catEl, product?.loaisanpham, 'phukien');
     });
 
     wrap.querySelector('.js-remove-accessory-block')?.addEventListener('click', () => {
@@ -443,7 +464,7 @@
       }
 
       const catEl = wrap.querySelector('.js-fashion-category');
-      if (catEl) catEl.value = product?.loaisanpham || 'ao';
+      setSelectValueSafe(catEl, product?.loaisanpham, 'ao');
     });
 
     wrap.querySelector('.js-remove-block')?.addEventListener('click', () => {
@@ -508,7 +529,7 @@
       productSelect.value = String(productId);
       productSelect.dispatchEvent(new Event('change'));
     }
-    if (categoryEl && first.danhmuc) categoryEl.value = first.danhmuc;
+    setSelectValueSafe(categoryEl, first.danhmuc, product?.loaisanpham || 'ao');
     if (materialEl && first.chatlieu) materialEl.value = first.chatlieu;
 
     const rows = Array.from(block.querySelectorAll('.js-variant-row'));
@@ -544,7 +565,7 @@
       productSelect.value = String(productId);
       productSelect.dispatchEvent(new Event('change'));
     }
-    if (categoryEl && first.danhmuc) categoryEl.value = first.danhmuc;
+    setSelectValueSafe(categoryEl, first.danhmuc, product?.loaisanpham || 'phukien');
     if (materialEl && first.chatlieu) materialEl.value = first.chatlieu;
 
     const rows = Array.from(block.querySelectorAll('.js-accessory-variant-row'));

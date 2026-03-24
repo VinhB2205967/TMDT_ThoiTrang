@@ -3,15 +3,24 @@
   if (!runtime.adminPath) return;
 
   const badgeEl = document.getElementById('adminOrderMenuUnread');
+  const hintEl = document.getElementById('adminOrderMenuHint');
+  const menuLinkEl = document.getElementById('adminOrderMenuLink');
   const summaryUrl = `${runtime.adminPath}/api/orders/new-summary`;
   const storageKey = 'adminOrderLatestOrderId';
   let initialized = false;
 
   function setBadge(count) {
-    if (!badgeEl) return;
     const value = Math.max(0, Number(count || 0));
-    badgeEl.textContent = String(value);
-    badgeEl.classList.toggle('d-none', value <= 0);
+    if (badgeEl) {
+      badgeEl.textContent = String(value);
+      badgeEl.classList.toggle('d-none', value <= 0);
+    }
+    if (hintEl) {
+      hintEl.classList.toggle('d-none', value <= 0);
+    }
+    if (menuLinkEl) {
+      menuLinkEl.classList.toggle('sider-menu-alert', value > 0);
+    }
   }
 
   function showToast(text) {

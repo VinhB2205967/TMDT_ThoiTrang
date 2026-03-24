@@ -4,11 +4,13 @@ block main
   .container.py-4
     h1.mb-3 Đơn hàng của tôi
 
-    - const statusLabels = locals.statusLabels || { all: 'Tất cả', choxacnhan: 'Chờ xác nhận', daxacnhan: 'Đã xác nhận', dangchuanbi: 'Đang chuẩn bị', danggiao: 'Đang giao', dagiao: 'Đã giao', dahuy: 'Đã hủy', hoanhang: 'Hoàn hàng' }
+    - const statusLabels = locals.statusLabels || { all: 'Tất cả', choxacnhan: 'Chờ xác nhận', daxacnhan: 'Đã xác nhận', dangchuanbi: 'Đang chuẩn bị', danggiao: 'Đang giao', dagiao: 'Đã giao', requested_return: 'Yêu cầu hoàn hàng', approved_return: 'Đã duyệt hoàn hàng', rejected_return: 'Từ chối hoàn hàng', return_shipping: 'Đang gửi hàng hoàn', returned: 'Đã nhận hàng hoàn', returned_full: 'Đã trả hàng', returned_partial: 'Trả hàng một phần', refunded: 'Đã hoàn tiền', dahuy: 'Đã hủy', hoanhang: 'Hoàn hàng' }
     - const current = currentStatus || 'all'
+    - const hiddenFilterStatuses = ['return_shipping', 'returned_full', 'returned_partial']
+    - const filterStatuses = (statusOptions || ['all','choxacnhan','daxacnhan','dangchuanbi','danggiao','dagiao','requested_return','approved_return','rejected_return','return_shipping','returned','returned_full','returned_partial','refunded','dahuy','hoanhang']).filter((s) => !hiddenFilterStatuses.includes(String(s)))
 
     .d-flex.flex-wrap.gap-2.mb-3.order-filters
-      each s in (statusOptions || ['all','choxacnhan','daxacnhan','dangchuanbi','danggiao','dagiao','dahuy','hoanhang'])
+      each s in filterStatuses
         - const active = String(current) === String(s)
         a.btn.btn-sm(class=active ? 'btn-primary' : 'btn-outline-primary', href=`/orders?status=${s}`) #{statusLabels[s] || s}
 

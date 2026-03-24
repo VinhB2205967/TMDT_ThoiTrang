@@ -28,15 +28,29 @@ block main
         font-size: 1.05rem;
         line-height: 1.35;
       }
+      .item-return-badge {
+        font-size: 0.72rem;
+        vertical-align: middle;
+      }
 
     if !order
       h1.mb-3 Không tìm thấy đơn hàng
       a.btn.btn-outline-secondary(href=`${admin}/orders`) Quay lại danh sách
     else
-      - const label = (statusLabels && statusLabels[order.trangthai]) || order.trangthai || '—'
+      - const label = (statusLabels && statusLabels[order.trangthai]) || order.trangthai || '-'
       - const badge = (badgeClass && typeof badgeClass === 'function') ? badgeClass(order.trangthai) : 'bg-secondary'
-      - const flowList = (locals.flow && locals.flow.length) ? locals.flow : ['choxacnhan','daxacnhan','dangchuanbi','danggiao','dagiao']
+      - const flowList = (locals.flow && locals.flow.length) ? locals.flow : ['choxacnhan','daxacnhan','dangchuanbi','danggiao','dagiao','requested_return','approved_return','returned','refunded']
       - const currentIndex = flowList.indexOf(order.trangthai)
+      - const returnedDoneStatuses = new Set(['returned', 'returned_full', 'returned_partial', 'refunded'])
+      - const canMarkReturnedItems = returnedDoneStatuses.has(String(order.trangthai || '')) || Boolean(hasReturnImport)
+      - const requestedItemsForBadge = Array.isArray(returnRequestItems) ? returnRequestItems : []
+      - const returnedQtyByItemId = requestedItemsForBadge.reduce((acc, row) => {
+      -   const key = String(row && row.orderItemId ? row.orderItemId : '').trim()
+      -   if (!key) return acc
+      -   acc[key] = Number(acc[key] || 0) + Number(row && row.qty ? row.qty : 0)
+      -   return acc
+      - }, {})
+      - const chatUserId = order && order.nguoidung_id ? String(order.nguoidung_id) : ''
 
       .d-flex.flex-wrap.justify-content-between.align-items-center.gap-2.mb-3
         div
@@ -50,20 +64,25 @@ block main
         .col-lg-7
           .card.border-0.shadow-sm
             .card-body
-              .fw-semibold.mb-2 Thông tin khách hàng
+              .d-flex.justify-content-between.align-items-center.gap-2.mb-2
+                .fw-semibold.mb-0 Thông tin khách hàng
+                if chatUserId
+                  a.btn.btn-sm.btn-outline-primary(href=`${admin}/chats?userId=${chatUserId}`)
+                    i.bi.bi-chat-dots.me-1
+                    | Chat khách hàng
               .row.g-2
                 .col-md-6
                   .text-muted.small Người nhận
-                  .fw-semibold #{order.tennguoinhan || '—'}
+                  .fw-semibold #{order.tennguoinhan || '-'}
                 .col-md-6
                   .text-muted.small Số điện thoại
-                  .fw-semibold #{order.sodienthoai || '—'}
+                  .fw-semibold #{order.sodienthoai || '-'}
                 .col-md-6
                   .text-muted.small Email
-                  .fw-semibold #{order.email || '—'}
+                  .fw-semibold #{order.email || '-'}
                 .col-12
                   .text-muted.small Địa chỉ giao hàng
-                  .fw-semibold #{order.diachigiao || '—'}
+                  .fw-semibold #{order.diachigiao || '-'}
               if order.ghichu
                 .mt-2
                   .text-muted.small Ghi chú
@@ -73,7 +92,7 @@ block main
               .fw-semibold.mb-2 Thanh toán
               .d-flex.justify-content-between
                 span.text-muted Phương thức
-                span.fw-semibold #{order.phuongthucthanhtoan || '—'}
+                span.fw-semibold #{order.phuongthucthanhtoan || '-'}
               if order.ngaytao
                 .d-flex.justify-content-between
                   span.text-muted Ngày tạo
@@ -87,6 +106,11 @@ block main
             .card-body
               .fw-semibold.mb-2 Sản phẩm
               if items && items.length
+                - const grandQty = (items || []).reduce((sum, row) => sum + Number(row.tongSoLuong || row.soluong || 0), 0)
+                - const grandAmount = (items || []).reduce((sum, row) => {
+                -   const line = Number(row.tongThanhTien || row.thanhtien || ((row.giaban || row.giagoc || 0) * (row.soluong || 1)) || 0)
+                -   return sum + line
+                - }, 0)
                 .table-responsive
                   table.table.table-sm.order-items-table
                     thead
@@ -103,11 +127,18 @@ block main
                         - const skuValue = it.masku || it.ma_sku || ''
                         - const sizeColorParts = [it.kichco, it.mausac].filter(Boolean)
                         - const fifoRows = Array.isArray(it.fifoRows) ? it.fifoRows : []
+                        - const itemId = String(it._id || '').trim()
+                        - const rowQty = Number(it.tongSoLuong || it.soluong || 0)
+                        - const rawReturnedQty = Number(returnedQtyByItemId[itemId] || 0)
+                        - const returnedQty = Math.min(Math.max(0, rawReturnedQty), Math.max(0, rowQty))
                         tr
                           td
                             img.rounded.border(src=(it.hinhanh || '/images/shopping.png') alt=(it.tensanpham || 'Sản phẩm') width='56' height='56' style='object-fit:cover;')
                           td
-                            .fw-semibold.order-item-name #{it.tensanpham || ''}
+                            .fw-semibold.order-item-name
+                              | #{it.tensanpham || ''}
+                              if canMarkReturnedItems && returnedQty > 0
+                                span.badge.text-bg-danger.ms-2.item-return-badge Đã hoàn #{returnedQty}/#{rowQty || 0}
                             if skuValue
                               .small.text-muted SKU: #{skuValue}
                             if sizeColorParts.length
@@ -142,6 +173,13 @@ block main
                               .fifo-total #{_line.toLocaleString('vi-VN')}₫
                             else
                               | #{_line.toLocaleString('vi-VN')}₫
+                    tfoot
+                      tr
+                        th(colspan='2') Tổng cộng
+                        th #{Number(grandQty || 0).toLocaleString('vi-VN')} cái
+                        th
+                        th
+                        th #{Number(grandAmount || 0).toLocaleString('vi-VN')}₫
               else
                 .text-muted Không có sản phẩm.
 
@@ -175,11 +213,37 @@ block main
                 hr
                 .return-card.p-3.rounded-4.mb-2
                   .fw-semibold.mb-2 Yêu cầu hoàn hàng
-                  .small.text-muted.mb-1 Lý do: #{order.yeucauhoanhang.reasonLabel || order.yeucauhoanhang.reason || '—'}
+                  .small.text-muted.mb-1 Lý do: #{order.yeucauhoanhang.reasonLabel || order.yeucauhoanhang.reason || '-'}
                   if order.yeucauhoanhang.detail
                     .small.mb-1 Mô tả: #{order.yeucauhoanhang.detail}
                   if order.yeucauhoanhang.refundMethod
-                    .small.mb-2 Hoàn tiền: #{order.yeucauhoanhang.refundMethod}
+                    - const _refundMethod = String(order.yeucauhoanhang.refundMethod || '').toLowerCase()
+                    - const _refundWallet = String(order.yeucauhoanhang.refundWallet || order.phuongthucthanhtoan || '').toLowerCase()
+                    - const _refundLabel = _refundMethod === 'wallet' ? `Ví đã thanh toán (${_refundWallet.toUpperCase() || 'ONLINE'})` : (_refundMethod === 'bank' ? 'Chuyển khoản ngân hàng' : _refundMethod.toUpperCase())
+                    .small.mb-1 Hoàn tiền: #{_refundLabel}
+                    if _refundMethod === 'bank'
+                      if order.yeucauhoanhang.refundBankName
+                        .small.text-muted Tên ngân hàng: #{order.yeucauhoanhang.refundBankName}
+                      if order.yeucauhoanhang.refundBankAccountName
+                        .small.text-muted Tên người nhận: #{order.yeucauhoanhang.refundBankAccountName}
+                      if order.yeucauhoanhang.refundBankAccountNumber
+                        .small.text-muted Số tài khoản: #{order.yeucauhoanhang.refundBankAccountNumber}
+                - const requestedItems = Array.isArray(returnRequestItems) ? returnRequestItems : []
+                .border.rounded.p-2.mb-2.bg-white
+                  .small.fw-semibold.mb-1 Chi tiết khách muốn hoàn
+                  if returnRequestItemsMissing
+                    .small.text-warning.mb-1
+                      | Yêu cầu này chưa có dữ liệu chi tiết sản phẩm hoàn (bản ghi cũ hoặc lưu thiếu dữ liệu).
+                  if requestedItems.length
+                    .small.text-muted
+                      each row in requestedItems
+                        - const lineDesc = [row.mausac, row.kichco].filter(Boolean).join(' / ')
+                        .d-flex.align-items-center.gap-2.py-1
+                          img.rounded.border(src=(row.hinhanh || '/images/shopping.png') alt=(row.tensanpham || 'Sản phẩm') width='34' height='34' style='object-fit:cover;')
+                          div - #{row.tensanpham || 'Sản phẩm'}#{lineDesc ? ` (${lineDesc})` : ''}: #{row.qty || 0}/#{row.boughtQty || 0}
+                  else
+                    .small.text-muted Chưa có dữ liệu chi tiết sản phẩm hoàn từ yêu cầu này.
+
                 - const returnProofMedias = (order.yeucauhoanhang.proofMedias && order.yeucauhoanhang.proofMedias.length ? order.yeucauhoanhang.proofMedias : [order.yeucauhoanhang.proofMedia || order.yeucauhoanhang.proofImage]).filter(Boolean)
                 if returnProofMedias.length
                   .return-media-grid.mb-2
@@ -204,16 +268,25 @@ block main
                 if ['approved_return', 'return_shipping'].includes(order.trangthai)
                   form.mb-2(method='POST', action=`${admin}/orders/${order._id}/return/received`)
                     .small.text-muted.mb-2 Nhập số lượng thực nhận cho từng dòng (để trống hoặc 0 sẽ bỏ qua dòng đó).
-                    if items && items.length
+                    - const requestedItemsForReceive = Array.isArray(returnRequestItems) ? returnRequestItems : []
+                    - const receiveItems = (requestedItemsForReceive.length ? (items || []).filter((it) => requestedItemsForReceive.some((row) => String(row.orderItemId) === String(it._id))) : [])
+                    if returnRequestItemsMissing
+                      .alert.alert-warning.py-2.mb-2.small Thiếu dữ liệu chi tiết sản phẩm hoàn. Không thể xác nhận nhập kho cho đơn khi chưa có danh sách sản phẩm yêu cầu hoàn.
+                    else if receiveItems && receiveItems.length
                       .border.rounded.p-2.mb-2(style='max-height: 280px; overflow:auto;')
-                        each it, idx in items
+                        each it, idx in receiveItems
+                          - const reqRow = requestedItemsForReceive.find((row) => String(row.orderItemId) === String(it._id))
+                          - const defaultQty = reqRow ? Number(reqRow.qty || 0) : Number(it.soluong || 0)
                           .d-flex.justify-content-between.align-items-center.gap-2.py-1
                             .flex-grow-1
                               .fw-semibold #{it.tensanpham || 'Sản phẩm'}
-                              .small.text-muted #{[it.kichco, it.mausac].filter(Boolean).join(' / ') || 'Mặc định'} • Đã mua: #{it.soluong || 0}
+                              .small.text-muted #{[it.kichco, it.mausac].filter(Boolean).join(' / ') || 'Mặc định'} | Đã mua: #{it.soluong || 0}
                             input(type='hidden' name=`returnItems[${idx}][orderItemId]` value=String(it._id || ''))
-                            input.form-control.form-control-sm(type='number' name=`returnItems[${idx}][qty]` value=(it.soluong || 0) min='0' max=String(it.soluong || 0) step='1' style='width:96px')
-                    button.btn.btn-sm.btn-primary(type='submit' onclick="return confirm('Xác nhận đã nhận hàng hoàn và tạo phiếu nhập hoàn trả?')") Xác nhận nhận hàng hoàn
+                            input.form-control.form-control-sm(type='number' name=`returnItems[${idx}][qty]` value=defaultQty min='0' max=String(it.soluong || 0) step='1' style='width:96px')
+                    if returnRequestItemsMissing
+                      button.btn.btn-sm.btn-secondary(type='button' disabled) Thiếu chi tiết sản phẩm hoàn
+                    else
+                      button.btn.btn-sm.btn-primary(type='submit' onclick="return confirm('Xác nhận đã nhận hàng hoàn và tạo phiếu nhập hoàn trả?')") Xác nhận nhận hàng hoàn
 
                 if ['returned', 'returned_full', 'returned_partial'].includes(order.trangthai)
                   form(method='POST', action=`${admin}/orders/${order._id}/return/refund`)
@@ -223,6 +296,8 @@ block main
                   form.mt-2(method='POST', action=`${admin}/orders/${order._id}/return/received`)
                     if hasReturnImport
                       button.btn.btn-sm.btn-success(type='button' disabled) Đã đồng bộ nhập kho hoàn trả
+                    else if returnRequestItemsMissing
+                      button.btn.btn-sm.btn-outline-secondary(type='button' disabled) Thiếu chi tiết sản phẩm hoàn
                     else
                       button.btn.btn-sm.btn-outline-primary(type='submit' onclick="return confirm('Đồng bộ nhập kho hoàn trả cho đơn đã hoàn tiền?')") Đồng bộ nhập kho hoàn trả
 

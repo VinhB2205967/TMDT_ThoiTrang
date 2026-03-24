@@ -5,8 +5,34 @@ const PhieuNhapKho = require('../../models/import_receipt_model');
 const TonKhoLo = require('../../models/inventory_lot_model');
 const { NO_SIZE_TYPES, SIZE_LIST } = require('../../config/constants');
 const { tinhTongTon } = require('../catalog/productStock.service.js');
+const { getCategoryTree } = require('../catalog/category.service.js');
 const { normalizeItems, normalizeBienTheId, tinhTongTienNhap } = require('../../helpers/importReceipt');
 const paginationHelper = require('../../helpers/pagination');
+
+async function layDanhSachDanhMucNhapKho() {
+  const tree = await getCategoryTree({ type: 'category', isActive: true });
+  const options = [];
+
+  const flattenChildren = (nodes = []) => {
+    for (const node of nodes) {
+      if (!node) continue;
+      if (node.parent_id) {
+        options.push({
+          _id: node._id,
+          slug: String(node.slug || '').trim(),
+          name: String(node.name || node.tendanhmuc || node.slug || '').trim(),
+          level: Number(node.level || 1)
+        });
+      }
+      if (Array.isArray(node.children) && node.children.length) {
+        flattenChildren(node.children);
+      }
+    }
+  };
+
+  flattenChildren(tree);
+  return options.filter((item) => item.slug && item.name);
+}
 
 function laLoaiKhongSize(loaisanpham) {
   return NO_SIZE_TYPES.includes(String(loaisanpham || '').toLowerCase());
@@ -444,15 +470,19 @@ async function getDanhSachData(query = {}) {
 }
 
 async function getTaoMoiData() {
-  const products = await Sanpham.find({ daxoa: { $ne: true } })
-    .sort({ ngaytao: -1 })
-    .select('_id tensanpham loaisanpham gia mausac_chinh hinhanh bienthe sizes soluong_chinh')
-    .lean();
+  const [products, categoryOptions] = await Promise.all([
+    Sanpham.find({ daxoa: { $ne: true } })
+      .sort({ ngaytao: -1 })
+      .select('_id tensanpham loaisanpham gia mausac_chinh hinhanh bienthe sizes soluong_chinh')
+      .lean(),
+    layDanhSachDanhMucNhapKho()
+  ]);
 
   return {
     titlePage: 'Tạo phiếu nhập kho',
     maPhieu: taoMaPhieuNhap(),
     products,
+    categoryOptions,
     sizeList: SIZE_LIST
   };
 }
@@ -551,10 +581,13 @@ async function getChinhSuaData(id) {
 
   receipt = await tachDongPhieuNhapHoanTheoFifo(receipt);
 
-  const products = await Sanpham.find({ daxoa: { $ne: true } })
-    .sort({ ngaytao: -1 })
-    .select('_id tensanpham loaisanpham gia mausac_chinh hinhanh bienthe sizes soluong_chinh')
-    .lean();
+  const [products, categoryOptions] = await Promise.all([
+    Sanpham.find({ daxoa: { $ne: true } })
+      .sort({ ngaytao: -1 })
+      .select('_id tensanpham loaisanpham gia mausac_chinh hinhanh bienthe sizes soluong_chinh')
+      .lean(),
+    layDanhSachDanhMucNhapKho()
+  ]);
 
   return {
     ok: true,
@@ -562,6 +595,7 @@ async function getChinhSuaData(id) {
       titlePage: 'Chỉnh sửa phiếu nhập',
       receipt,
       products,
+      categoryOptions,
       sizeList: SIZE_LIST
     }
   };

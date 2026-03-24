@@ -115,6 +115,12 @@ block main
                           button.btn.btn-sm.btn-success.me-1(type='submit' onclick="return confirm('Xác nhận đơn hàng này?')")
                             i.bi.bi-check2-circle
                             |  Xác nhận
+                        form.d-inline(id=`reject-order-form-${o._id}` method='POST' action=`${admin}/orders/${o._id}/cancel`)
+                          input(type='hidden' name='returnTo' value=(currentListUrl || `${admin}/orders`))
+                          input(type='hidden' name='reason' value='')
+                          button.btn.btn-sm.btn-outline-danger.me-1(type='button' onclick=`return promptRejectOrder('${o._id}', '${(o.madonhang || o._id).replace(/'/g, "\\'")}')`)
+                            i.bi.bi-x-circle
+                            |  Không xác nhận
                       if actionNext && actionNext.length
                         if actionNext.length === 1
                           - const st = actionNext[0]
@@ -173,6 +179,28 @@ block main
 block scripts
   script.
     (function () {
+      window.promptRejectOrder = function (orderId, orderCode) {
+        const form = document.getElementById('reject-order-form-' + String(orderId || ''));
+        if (!form) return false;
+
+        const reason = window.prompt(
+          'Nhập lý do không xác nhận đơn ' + (orderCode || orderId) + ':',
+          'Không đủ điều kiện xác nhận đơn'
+        );
+
+        if (reason === null) return false;
+        const trimmedReason = String(reason || '').trim();
+        if (!trimmedReason) {
+          window.alert('Vui lòng nhập lý do không xác nhận.');
+          return false;
+        }
+
+        const reasonInput = form.querySelector('input[name="reason"]');
+        if (reasonInput) reasonInput.value = trimmedReason;
+        form.submit();
+        return false;
+      };
+
       if (window.FilterAutoSubmit && typeof window.FilterAutoSubmit.attachOnReady === 'function') {
         window.FilterAutoSubmit.attachOnReady('#orderFilterForm', {
           keywordSelector: 'input[name="search"]',

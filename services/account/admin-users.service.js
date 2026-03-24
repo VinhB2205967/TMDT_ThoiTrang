@@ -5,8 +5,7 @@ const paginationHelper = require('../../helpers/pagination');
 const {
   thoatBieuThuc,
   chuanHoaSoDienThoai,
-  laSoDienThoaiVN,
-  laUrlAnhAnToan
+  laSoDienThoaiVN
 } = require('../../helpers/validators');
 const { setPasswordByUserId, syncRoleStatusFromUser } = require('./index.js');
 
@@ -54,6 +53,17 @@ function phanTichNgayTuyChon(value) {
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) return null;
   return d;
+}
+
+function batDauNgay(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function laNgayTrongTuongLai(date) {
+  if (!date || Number.isNaN(new Date(date).getTime())) return false;
+  return batDauNgay(date).getTime() > batDauNgay(new Date()).getTime();
 }
 
 function taoBoLocNguoiDung({ keyword: tukhoa, online, deleted }) {
@@ -148,7 +158,7 @@ function xacDinhLoaiFlashKetQua(result) {
 
 function getDanhSachFallbackData() {
   return {
-    titlePage: 'Quản lý người dùng',
+    titlePage: 'Quáº£n lÃ½ ngÆ°á»i dÃ¹ng',
     users: [],
     filters: { keyword: '', vaitro: '', trangthai: '', online: '', deleted: '', limit: 10 },
     pagination: { currentPage: 1, limit: 10, skip: 0, totalPages: 0, totalProducts: 0 },
@@ -195,7 +205,7 @@ async function getDanhSachData(query = {}) {
   const chuoiboloc = taoChuoiBoLoc({ vaitro, trangthai, online, deleted: daxoa, limit });
 
   return {
-    titlePage: 'Quản lý người dùng',
+    titlePage: 'Quáº£n lÃ½ ngÆ°á»i dÃ¹ng',
     users: nguoidungdaxuly,
     filters: { keyword: tukhoa, vaitro, trangthai, online, deleted: daxoa, limit },
     pagination: phantrang,
@@ -206,12 +216,12 @@ async function getDanhSachData(query = {}) {
 async function getChiTietData(id) {
   const userid = String(id || '');
   if (!mongoose.Types.ObjectId.isValid(userid)) {
-    return { ok: false, message: 'ID không hợp lệ', redirect: DEFAULT_USERS_URL };
+    return { ok: false, message: 'ID khÃ´ng há»£p lá»‡', redirect: DEFAULT_USERS_URL };
   }
 
   const taikhoan = await Nguoidung.findById(userid).lean();
   if (!taikhoan) {
-    return { ok: false, message: 'Không tìm thấy người dùng', redirect: DEFAULT_USERS_URL };
+    return { ok: false, message: 'KhÃ´ng tÃ¬m tháº¥y ngÆ°á»i dÃ¹ng', redirect: DEFAULT_USERS_URL };
   }
 
   const [taikhoandagan] = await ganThongTinAccount([taikhoan]);
@@ -224,7 +234,7 @@ async function getChiTietData(id) {
   return {
     ok: true,
     data: {
-      titlePage: 'Chi tiết tài khoản',
+      titlePage: 'Chi tiáº¿t tÃ i khoáº£n',
       u: taikhoandaxuly
     }
   };
@@ -277,39 +287,39 @@ async function getAnhChupOnlineData(query = {}) {
 async function capNhatVaiTro(userId, vaitro) {
   const id = String(userId || '');
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return { ok: false, message: 'ID không hợp lệ', redirect: DEFAULT_USERS_URL };
+    return { ok: false, message: 'ID khÃ´ng há»£p lá»‡', redirect: DEFAULT_USERS_URL };
   }
 
   const role = String(vaitro || '').trim();
   if (role !== 'admin' && role !== 'user') {
-    return { ok: false, message: 'Vai trò không hợp lệ', redirect: DEFAULT_USERS_URL };
+    return { ok: false, message: 'Vai trÃ² khÃ´ng há»£p lá»‡', redirect: DEFAULT_USERS_URL };
   }
 
   await syncRoleStatusFromUser({ userId: id, vaitro: role });
   await Nguoidung.updateOne({ _id: id, daxoa: { $ne: true } }, { $set: { ngaycapnhat: new Date() } }).catch(() => {});
-  return { ok: true, message: 'Cập nhật vai trò thành công', redirect: DEFAULT_USERS_URL };
+  return { ok: true, message: 'Cáº­p nháº­t vai trÃ² thÃ nh cÃ´ng', redirect: DEFAULT_USERS_URL };
 }
 
 async function capNhatTrangThai(userId, trangthai) {
   const id = String(userId || '');
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return { ok: false, message: 'ID không hợp lệ', redirect: DEFAULT_USERS_URL };
+    return { ok: false, message: 'ID khÃ´ng há»£p lá»‡', redirect: DEFAULT_USERS_URL };
   }
 
   const status = String(trangthai || '').trim();
   if (status !== 'active' && status !== 'noactive') {
-    return { ok: false, message: 'Trạng thái không hợp lệ', redirect: DEFAULT_USERS_URL };
+    return { ok: false, message: 'Tráº¡ng thÃ¡i khÃ´ng há»£p lá»‡', redirect: DEFAULT_USERS_URL };
   }
 
   await syncRoleStatusFromUser({ userId: id, trangthai: status });
   await Nguoidung.updateOne({ _id: id, daxoa: { $ne: true } }, { $set: { ngaycapnhat: new Date() } }).catch(() => {});
-  return { ok: true, message: 'Cập nhật trạng thái thành công', redirect: DEFAULT_USERS_URL };
+  return { ok: true, message: 'Cáº­p nháº­t tráº¡ng thÃ¡i thÃ nh cÃ´ng', redirect: DEFAULT_USERS_URL };
 }
 
 async function xoaMem(userId) {
   const id = String(userId || '');
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return { ok: false, message: 'ID không hợp lệ', redirect: DEFAULT_USERS_URL };
+    return { ok: false, message: 'ID khÃ´ng há»£p lá»‡', redirect: DEFAULT_USERS_URL };
   }
 
   await Nguoidung.updateOne(
@@ -317,13 +327,13 @@ async function xoaMem(userId) {
     { $set: { daxoa: true, ngaycapnhat: new Date() } }
   );
 
-  return { ok: true, message: 'Đã xóa (mềm) tài khoản', redirect: DEFAULT_USERS_URL };
+  return { ok: true, message: 'ÄÃ£ xÃ³a (má»m) tÃ i khoáº£n', redirect: DEFAULT_USERS_URL };
 }
 
 async function capNhatTuChiTiet({ userId, body, referer }) {
   const id = String(userId || '');
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return { ok: false, message: 'ID không hợp lệ', redirect: DEFAULT_USERS_URL };
+    return { ok: false, message: 'ID khÃ´ng há»£p lá»‡', redirect: DEFAULT_USERS_URL };
   }
 
   const hoten = chuanHoaChuoi(body.hoten);
@@ -331,25 +341,28 @@ async function capNhatTuChiTiet({ userId, body, referer }) {
   const sodienthoai = rawphone ? chuanHoaSoDienThoai(rawphone) : '';
   const diachi = chuanHoaChuoi(body.diachi);
   const gioitinh = chuanHoaChuoi(body.gioitinh);
-  const avatar = chuanHoaChuoi(body.avatar);
-  const ngaysinh = phanTichNgayTuyChon(body.ngaysinh);
+  const ngaysinhRaw = chuanHoaChuoi(body.ngaysinh);
+  const ngaysinh = phanTichNgayTuyChon(ngaysinhRaw);
 
   const vaitro = chuanHoaChuoi(body.vaitro);
   const trangthai = chuanHoaChuoi(body.trangthai);
 
   if (rawphone && !laSoDienThoaiVN(rawphone)) {
-    return { ok: false, message: 'Số điện thoại không đúng định dạng', redirect: quayLaiChiTietHoacDanhSach(referer, id) };
+    return { ok: false, message: 'Sá»‘ Ä‘iá»‡n thoáº¡i khÃ´ng Ä‘Ãºng Ä‘á»‹nh dáº¡ng', redirect: quayLaiChiTietHoacDanhSach(referer, id) };
+  }
+  if (ngaysinhRaw && !ngaysinh) {
+    return { ok: false, message: 'NgÃ y sinh khÃ´ng há»£p lá»‡', redirect: quayLaiChiTietHoacDanhSach(referer, id) };
   }
 
-  if (avatar && !laUrlAnhAnToan(avatar)) {
-    return { ok: false, message: 'Avatar URL không hợp lệ', redirect: quayLaiChiTietHoacDanhSach(referer, id) };
+  if (ngaysinh && laNgayTrongTuongLai(ngaysinh)) {
+    return { ok: false, message: 'NgÃ y sinh khÃ´ng Ä‘Æ°á»£c vÆ°á»£t quÃ¡ ngÃ y hiá»‡n táº¡i', redirect: quayLaiChiTietHoacDanhSach(referer, id) };
   }
 
   if (vaitro && vaitro !== 'admin' && vaitro !== 'user') {
-    return { ok: false, message: 'Vai trò không hợp lệ', redirect: quayLaiChiTietHoacDanhSach(referer, id) };
+    return { ok: false, message: 'Vai trÃ² khÃ´ng há»£p lá»‡', redirect: quayLaiChiTietHoacDanhSach(referer, id) };
   }
   if (trangthai && trangthai !== 'active' && trangthai !== 'noactive') {
-    return { ok: false, message: 'Trạng thái không hợp lệ', redirect: quayLaiChiTietHoacDanhSach(referer, id) };
+    return { ok: false, message: 'Tráº¡ng thÃ¡i khÃ´ng há»£p lá»‡', redirect: quayLaiChiTietHoacDanhSach(referer, id) };
   }
 
   const $set = {
@@ -357,7 +370,6 @@ async function capNhatTuChiTiet({ userId, body, referer }) {
     sodienthoai,
     diachi,
     gioitinh,
-    avatar,
     ngaysinh,
     ngaycapnhat: new Date()
   };
@@ -367,36 +379,46 @@ async function capNhatTuChiTiet({ userId, body, referer }) {
     await syncRoleStatusFromUser({ userId: id, vaitro: vaitro || undefined, trangthai: trangthai || undefined });
   }
 
-  return { ok: true, message: 'Cập nhật tài khoản thành công', redirect: quayLaiChiTietHoacDanhSach(referer, id) };
+  return { ok: true, message: 'Cáº­p nháº­t tÃ i khoáº£n thÃ nh cÃ´ng', redirect: quayLaiChiTietHoacDanhSach(referer, id) };
 }
 
 async function datMatKhauTuChiTiet({ userId, newPassword, confirmPassword, referer }) {
   const id = String(userId || '');
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return { ok: false, message: 'ID không hợp lệ', redirect: DEFAULT_USERS_URL };
+    return { ok: false, message: 'ID khÃ´ng há»£p lá»‡', redirect: DEFAULT_USERS_URL };
+  }
+
+  const account = await Taikhoan.findOne({ nguoidung_id: id }).select('provider').lean();
+  const provider = String(account && account.provider ? account.provider : '').toLowerCase();
+  if (provider === 'google') {
+    return {
+      ok: false,
+      message: 'TÃ i khoáº£n Ä‘Äƒng nháº­p báº±ng Google khÃ´ng há»— trá»£ Ä‘áº·t láº¡i máº­t kháº©u táº¡i Ä‘Ã¢y',
+      redirect: quayLaiChiTietHoacDanhSach(referer, id)
+    };
   }
 
   const newpassword = String(newPassword || '');
   const confirmpassword = String(confirmPassword || '');
 
   if (String(newpassword).length < 6) {
-    return { ok: false, message: 'Mật khẩu phải tối thiểu 6 ký tự', redirect: quayLaiChiTietHoacDanhSach(referer, id) };
+    return { ok: false, message: 'Máº­t kháº©u pháº£i tá»‘i thiá»ƒu 6 kÃ½ tá»±', redirect: quayLaiChiTietHoacDanhSach(referer, id) };
   }
   if (newpassword !== confirmpassword) {
-    return { ok: false, message: 'Xác nhận mật khẩu không khớp', redirect: quayLaiChiTietHoacDanhSach(referer, id) };
+    return { ok: false, message: 'XÃ¡c nháº­n máº­t kháº©u khÃ´ng khá»›p', redirect: quayLaiChiTietHoacDanhSach(referer, id) };
   }
 
   await setPasswordByUserId({ userId: id, newPasswordPlain: newpassword });
   await Nguoidung.updateOne({ _id: id }, { $set: { ngaycapnhat: new Date() } }).catch(() => {});
   await syncRoleStatusFromUser({ userId: id });
 
-  return { ok: true, message: 'Đã đặt lại mật khẩu', redirect: quayLaiChiTietHoacDanhSach(referer, id) };
+  return { ok: true, message: 'ÄÃ£ Ä‘áº·t láº¡i máº­t kháº©u', redirect: quayLaiChiTietHoacDanhSach(referer, id) };
 }
 
 async function khoiPhucTuChiTiet(userId, referer) {
   const id = String(userId || '');
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return { ok: false, message: 'ID không hợp lệ', redirect: '/admin/users' };
+    return { ok: false, message: 'ID khÃ´ng há»£p lá»‡', redirect: '/admin/users' };
   }
 
   await Nguoidung.updateOne(
@@ -404,25 +426,25 @@ async function khoiPhucTuChiTiet(userId, referer) {
     { $set: { daxoa: false, ngaycapnhat: new Date() } }
   );
 
-  return { ok: true, message: 'Đã khôi phục tài khoản', redirect: quayLaiChiTietHoacDanhSach(referer, id) };
+  return { ok: true, message: 'ÄÃ£ khÃ´i phá»¥c tÃ i khoáº£n', redirect: quayLaiChiTietHoacDanhSach(referer, id) };
 }
 
 async function xoaVinhVien(userId, referer) {
   const id = String(userId || '');
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return { ok: false, message: 'ID không hợp lệ', redirect: '/admin/users' };
+    return { ok: false, message: 'ID khÃ´ng há»£p lá»‡', redirect: '/admin/users' };
   }
 
   const result = await Nguoidung.deleteOne({ _id: id, daxoa: true });
   if (!result || result.deletedCount !== 1) {
     return {
       ok: false,
-      message: 'Chỉ được xóa vĩnh viễn tài khoản đã xóa mềm',
+      message: 'Chá»‰ Ä‘Æ°á»£c xÃ³a vÄ©nh viá»…n tÃ i khoáº£n Ä‘Ã£ xÃ³a má»m',
       redirect: quayLaiChiTietHoacDanhSach(referer, id)
     };
   }
 
-  return { ok: true, message: 'Đã xóa vĩnh viễn tài khoản', redirect: DEFAULT_USERS_URL };
+  return { ok: true, message: 'ÄÃ£ xÃ³a vÄ©nh viá»…n tÃ i khoáº£n', redirect: DEFAULT_USERS_URL };
 }
 
 module.exports = {
@@ -440,3 +462,4 @@ module.exports = {
   khoiPhucTuChiTiet,
   xoaVinhVien
 };
+

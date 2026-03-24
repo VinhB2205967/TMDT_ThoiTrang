@@ -1,4 +1,4 @@
-const ordersAdminService = require('../../../services/order/admin-orders.service.js');
+﻿const ordersAdminService = require('../../../services/order/admin-orders.service.js');
 const { traJsonThanhCong, traJsonThatBai } = require('../../../services/communication/hybrid-response.service');
 
 function traKetQua(res, result, codeFallback) {
@@ -6,7 +6,7 @@ function traKetQua(res, result, codeFallback) {
     return traJsonThatBai(res, {
       status: result?.status || 400,
       code: result?.code || codeFallback,
-      message: result?.message || 'Yeu cau that bai'
+      message: result?.message || 'Yêu cầu thất bại'
     });
   }
 
@@ -33,7 +33,7 @@ module.exports.chiTiet = async (req, res) => {
     return traKetQua(res, result, 'ORDER_DETAIL_FAILED');
   } catch (error) {
     console.error('orders.api.chiTiet error:', error);
-    return traJsonThatBai(res, { status: 500, code: 'ORDER_DETAIL_FAILED', message: 'Khong the lay chi tiet don hang' });
+    return traJsonThatBai(res, { status: 500, code: 'ORDER_DETAIL_FAILED', message: 'không thể lấy chi tiết đơn hàng' });
   }
 };
 
@@ -49,7 +49,7 @@ module.exports.tongQuanDonMoi = async (req, res) => {
     });
   } catch (error) {
     console.error('orders.api.tongQuanDonMoi error:', error);
-    return traJsonThatBai(res, { status: 500, code: 'ORDERS_NEW_SUMMARY_FAILED', message: 'Khong the lay so luong don moi' });
+    return traJsonThatBai(res, { status: 500, code: 'ORDERS_NEW_SUMMARY_FAILED', message: 'không thể lấy số lượng đơn mới' });
   }
 };
 
@@ -63,7 +63,7 @@ module.exports.capNhatTrangThai = async (req, res) => {
     return traKetQua(res, result, 'ORDER_STATUS_UPDATE_FAILED');
   } catch (error) {
     console.error('orders.api.capNhatTrangThai error:', error);
-    return traJsonThatBai(res, { status: 500, code: 'ORDER_STATUS_UPDATE_FAILED', message: 'Khong the cap nhat trang thai don hang' });
+    return traJsonThatBai(res, { status: 500, code: 'ORDER_STATUS_UPDATE_FAILED', message: 'không thể cập nhật trạng thái đơn hàng' });
   }
 };
 
@@ -76,7 +76,7 @@ module.exports.duyetHoanHang = async (req, res) => {
     return traKetQua(res, result, 'ORDER_APPROVE_RETURN_FAILED');
   } catch (error) {
     console.error('orders.api.duyetHoanHang error:', error);
-    return traJsonThatBai(res, { status: 500, code: 'ORDER_APPROVE_RETURN_FAILED', message: 'Khong the duyet yeu cau hoan hang' });
+    return traJsonThatBai(res, { status: 500, code: 'ORDER_APPROVE_RETURN_FAILED', message: 'không thể duyệt yêu cầu hoàn hàng' });
   }
 };
 
@@ -89,7 +89,7 @@ module.exports.tuChoiHoanHang = async (req, res) => {
     return traKetQua(res, result, 'ORDER_REJECT_RETURN_FAILED');
   } catch (error) {
     console.error('orders.api.tuChoiHoanHang error:', error);
-    return traJsonThatBai(res, { status: 500, code: 'ORDER_REJECT_RETURN_FAILED', message: 'Khong the tu choi yeu cau hoan hang' });
+    return traJsonThatBai(res, { status: 500, code: 'ORDER_REJECT_RETURN_FAILED', message: 'không thể từ chối yêu cầu hoàn hàng' });
   }
 };
 
@@ -103,7 +103,7 @@ module.exports.xacNhanDaNhanHangHoan = async (req, res) => {
     return traKetQua(res, result, 'ORDER_CONFIRM_RETURN_RECEIVED_FAILED');
   } catch (error) {
     console.error('orders.api.xacNhanDaNhanHangHoan error:', error);
-    return traJsonThatBai(res, { status: 500, code: 'ORDER_CONFIRM_RETURN_RECEIVED_FAILED', message: 'Khong the xac nhan nhan hang hoan' });
+    return traJsonThatBai(res, { status: 500, code: 'ORDER_CONFIRM_RETURN_RECEIVED_FAILED', message: 'không thể xác nhận nhận hàng hoàn' });
   }
 };
 
@@ -113,7 +113,7 @@ module.exports.hoanTienDon = async (req, res) => {
     return traKetQua(res, result, 'ORDER_REFUND_FAILED');
   } catch (error) {
     console.error('orders.api.hoanTienDon error:', error);
-    return traJsonThatBai(res, { status: 500, code: 'ORDER_REFUND_FAILED', message: 'Khong the hoan tien don hang' });
+    return traJsonThatBai(res, { status: 500, code: 'ORDER_REFUND_FAILED', message: 'không thể hoàn tiền đơn hàng' });
   }
 };
 
@@ -127,7 +127,7 @@ module.exports.capNhatTrangThaiHangLoat = async (req, res) => {
     return traKetQua(res, result, 'ORDER_BULK_STATUS_UPDATE_FAILED');
   } catch (error) {
     console.error('orders.api.capNhatTrangThaiHangLoat error:', error);
-    return traJsonThatBai(res, { status: 500, code: 'ORDER_BULK_STATUS_UPDATE_FAILED', message: 'Khong the cap nhat trang thai hang loat' });
+    return traJsonThatBai(res, { status: 500, code: 'ORDER_BULK_STATUS_UPDATE_FAILED', message: 'không thể cập nhật trạng thái hàng loạt' });
   }
 };
 
@@ -140,7 +140,7 @@ module.exports.huyDon = async (req, res) => {
     return traKetQua(res, result, 'ORDER_CANCEL_FAILED');
   } catch (error) {
     console.error('orders.api.huyDon error:', error);
-    return traJsonThatBai(res, { status: 500, code: 'ORDER_CANCEL_FAILED', message: 'Khong the huy don hang' });
+    return traJsonThatBai(res, { status: 500, code: 'ORDER_CANCEL_FAILED', message: 'không thể hủy đơn hàng' });
   }
 };
 
@@ -156,6 +156,6 @@ module.exports.exportExcel = async (req, res) => {
     return res.end();
   } catch (error) {
     console.error('orders.api.exportExcel error:', error);
-    return traJsonThatBai(res, { status: 500, code: 'ORDER_EXPORT_EXCEL_FAILED', message: 'Khong the xuat file Excel don hang' });
+    return traJsonThatBai(res, { status: 500, code: 'ORDER_EXPORT_EXCEL_FAILED', message: 'không thể xuất file Excel đơn hàng' });
   }
 };

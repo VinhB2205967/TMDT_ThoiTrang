@@ -11,9 +11,11 @@ aside.sider
           i.bi.bi-speedometer2
           span Tổng quan
       li
-        a(href=`${admin}/ai-assistant`)
-          i.bi.bi-robot
-          span AI Assistant
+        a#adminOrderMenuLink(href=`${admin}/orders`)
+          i.bi.bi-receipt-cutoff
+          span Đơn hàng
+          span#adminOrderMenuHint.badge.rounded-pill.text-bg-warning.text-dark.ms-auto.me-1.d-none Có đơn mới
+          span#adminOrderMenuUnread.badge.rounded-pill.text-bg-danger.ms-auto.d-none 0
       li
         a(href=`${admin}/chats`)
           i.bi.bi-chat-dots
@@ -24,10 +26,6 @@ aside.sider
           i.bi.bi-box-seam
           span Sản phẩm
       li
-        a(href=`${admin}/size-guides`)
-          i.bi.bi-rulers
-          span Bảng size
-      li
         a(href=`${admin}/categories`)
           i.bi.bi-diagram-3
           span Danh mục
@@ -36,30 +34,37 @@ aside.sider
           i.bi.bi-bookmark-star
           span Thương hiệu
       li
-        a(href=`${admin}/orders`)
-          i.bi.bi-receipt-cutoff
-          span Đơn hàng
-          span#adminOrderMenuUnread.badge.rounded-pill.text-bg-danger.ms-auto.d-none 0
+        a(href=`${admin}/size-guides`)
+          i.bi.bi-rulers
+          span Bảng size
       li
-        a(href=`${admin}/users`)
-          i.bi.bi-people
-          span Người dùng
+        a(href=`${admin}/imports`)
+          i.bi.bi-box-arrow-in-down
+          span Nhập kho
+      li
+        a(href=`${admin}/exports`)
+          i.bi.bi-box-arrow-up-right
+          span Xuất kho
+      li
+        a(href=`${admin}/adjustments`)
+          i.bi.bi-sliders
+          span Điều chỉnh kho
       li
         a(href=`${admin}/reviews`)
           i.bi.bi-star
           span Đánh giá
       li
+        a(href=`${admin}/users`)
+          i.bi.bi-people
+          span Người dùng
+      li
         a(href=`${admin}/vouchers`)
           i.bi.bi-ticket-perforated
           span Mã giảm giá
       li
-        a(href=`${admin}/blog`)
-          i.bi.bi-journal-richtext
-          span Quản lý Blog
-      li
-        a(href=`${admin}/reports`)
-          i.bi.bi-bar-chart
-          span Báo cáo
+        a(href=`${admin}/flash-sales`)
+          i.bi.bi-lightning-charge
+          span Flash Sale
       li
         a(href=`${admin}/banners`)
           i.bi.bi-image
@@ -69,25 +74,21 @@ aside.sider
           i.bi.bi-grid-3x3-gap
           span Trang chủ
       li
-        a(href=`${admin}/flash-sales`)
-          i.bi.bi-lightning-charge
-          span Flash Sale
+        a(href=`${admin}/blog`)
+          i.bi.bi-journal-richtext
+          span Quản lý Blog
       li
         a(href=`${admin}/lookbooks`)
           i.bi.bi-camera
           span Lookbook
       li
-        a(href=`${admin}/imports`)
-          i.bi.bi-box-arrow-in-down
-          span Nhập kho
+        a(href=`${admin}/reports`)
+          i.bi.bi-bar-chart
+          span Báo cáo
       li
-        a(href=`${admin}/adjustments`)
-          i.bi.bi-sliders
-          span Điều chỉnh kho
-      li
-        a(href=`${admin}/exports`)
-          i.bi.bi-box-arrow-up-right
-          span Xuất kho
+        a(href=`${admin}/ai-assistant`)
+          i.bi.bi-robot
+          span AI Assistant
 
   .sider-footer
     .sider-profile

@@ -44,6 +44,12 @@ function normalizeReturnItemsPayload(raw) {
     .filter((it) => mongoose.Types.ObjectId.isValid(it.orderItemId) && it.qty >= 0);
 }
 
+function hasRequestedReturn(order) {
+  if (!order || !order.yeucauhoanhang) return false;
+  const req = order.yeucauhoanhang;
+  return Boolean(req.requestedAt || req.reason || req.refundMethod || req.proofMedia || req.proofImage);
+}
+
 function buildExportLineKey({ sanphamid, bientheid, kichco }) {
   const productId = String(sanphamid || '').trim();
   const variantId = bientheid ? String(bientheid).trim() : 'main';
@@ -64,9 +70,10 @@ function buildAllocationSlotsFromExportLine(line) {
     const unitCost = exportedQty > 0
       ? (toNumber(line?.giavon, 0) / exportedQty)
       : toNumber(line?.gianhap, 0);
-    const unitRevenue = exportedQty > 0
-      ? (toNumber(line?.doanhthu, 0) / exportedQty)
-      : toNumber(line?.giasaugiam, 0);
+    const storedRevenue = exportedQty > 0 ? (toNumber(line?.doanhthu, 0) / exportedQty) : 0;
+    const unitRevenue = storedRevenue > 0
+      ? storedRevenue
+      : (toNumber(line?.giasaugiam, 0) > 0 ? toNumber(line?.giasaugiam, 0) : toNumber(line?.giaban, 0));
     const unitSell = toNumber(line?.giaban, 0);
     const unitProfit = unitRevenue - unitCost;
 
@@ -226,10 +233,43 @@ async function dongBoNhapKhoHoanTra({ id, payload = {}, actor = null }) {
     return { ok: false, message: 'Đơn hàng không có sản phẩm để hoàn trả' };
   }
 
-  const requestedRows = normalizeReturnItemsPayload(payload && payload.returnItems);
+  const payloadRequestedRows = normalizeReturnItemsPayload(payload && payload.returnItems);
+  const storedRequestedRows = normalizeReturnItemsPayload(
+    order && order.yeucauhoanhang && (order.yeucauhoanhang.requestedItems || order.yeucauhoanhang.returnItems)
+  );
   const requestedMap = new Map();
-  for (const row of requestedRows) {
-    requestedMap.set(String(row.orderItemId), toPositiveInt(row.qty, 0));
+  const approvedRequestedMap = new Map();
+  for (const row of storedRequestedRows) {
+    approvedRequestedMap.set(String(row.orderItemId), toPositiveInt(row.qty, 0));
+  }
+
+  // Always constrain actual return quantities by the customer's approved requested items.
+  if (payloadRequestedRows.length) {
+    for (const row of payloadRequestedRows) {
+      const itemId = String(row.orderItemId);
+      const payloadQty = toPositiveInt(row.qty, 0);
+
+      if (approvedRequestedMap.size > 0) {
+        const approvedQty = toPositiveInt(approvedRequestedMap.get(itemId), 0);
+        if (approvedQty <= 0) continue;
+        requestedMap.set(itemId, Math.min(payloadQty, approvedQty));
+      } else {
+        requestedMap.set(itemId, payloadQty);
+      }
+    }
+  } else {
+    for (const [itemId, approvedQty] of approvedRequestedMap.entries()) {
+      requestedMap.set(itemId, toPositiveInt(approvedQty, 0));
+    }
+  }
+
+  const hasReturnRequest = hasRequestedReturn(order);
+  const hasPositiveRequestedQty = Array.from(requestedMap.values()).some((qty) => toPositiveInt(qty, 0) > 0);
+  if (hasReturnRequest && (!requestedMap.size || !hasPositiveRequestedQty)) {
+    return {
+      ok: false,
+      message: 'Yêu cầu hoàn hàng không có chi tiết sản phẩm. Vui lòng chọn đúng sản phẩm và số lượng cần hoàn trước khi đồng bộ.'
+    };
   }
 
   const slotsByKey = new Map();
@@ -318,8 +358,14 @@ async function dongBoNhapKhoHoanTra({ id, payload = {}, actor = null }) {
         const unitCost = toNumber(slot.line.giavon, 0) > 0
           ? (toNumber(slot.line.giavon, 0) / exportedQtyLine)
           : toNumber(slot.line.gianhap, 0);
-        const unitRevenue = toNumber(slot.line.doanhthu, 0) / exportedQtyLine;
-        const unitProfit = toNumber(slot.line.loinhuan, 0) / exportedQtyLine;
+        const storedRevenue = toNumber(slot.line.doanhthu, 0) / exportedQtyLine;
+        const unitRevenue = storedRevenue > 0
+          ? storedRevenue
+          : (toNumber(slot.line.giasaugiam, 0) > 0 ? toNumber(slot.line.giasaugiam, 0) : toNumber(slot.line.giaban, 0));
+        const storedProfit = toNumber(slot.line.loinhuan, 0) / exportedQtyLine;
+        const unitProfit = Number.isFinite(storedProfit) && storedProfit !== 0
+          ? storedProfit
+          : (unitRevenue - unitCost);
 
         allocations.push({
           orderItem: item,
@@ -493,9 +539,10 @@ async function dongBoNhapKhoHoanTra({ id, payload = {}, actor = null }) {
     return returnedQty >= exportedQty;
   });
 
+  const tongGiamDoanhThuLuyKe = toNumber(order.tonggiamdoanhthu_hoantra, 0) + tongGiamDoanhThu;
   order.tamtinh = Math.max(0, toNumber(order.tamtinh, 0) - tongGiamDoanhThu);
   order.tongtien = Math.max(0, toNumber(order.tongtien, 0) - tongGiamDoanhThu);
-  order.tonggiamdoanhthu_hoantra = toNumber(order.tonggiamdoanhthu_hoantra, 0) + tongGiamDoanhThu;
+  order.tonggiamdoanhthu_hoantra = tongGiamDoanhThuLuyKe;
   order.tonggiamloinhuan_hoantra = toNumber(order.tonggiamloinhuan_hoantra, 0) + tongGiamLoiNhuan;
   order.tongsoluong_hoantra = toPositiveInt(order.tongsoluong_hoantra, 0) + tongSoLuongTra;
   order.trangthai = keepRefundedStatus
@@ -504,7 +551,8 @@ async function dongBoNhapKhoHoanTra({ id, payload = {}, actor = null }) {
   order.ngaycapnhat = now;
   order.yeucauhoanhang = {
     ...(order.yeucauhoanhang || {}),
-    returnedAt: now
+    returnedAt: now,
+    refundAmount: tongGiamDoanhThuLuyKe
   };
   await order.save();
 

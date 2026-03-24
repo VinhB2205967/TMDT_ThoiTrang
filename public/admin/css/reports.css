@@ -12,20 +12,6 @@
   --report-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
 }
 
-body[data-theme="dark"] {
-  --report-bg: #0b1220;
-  --report-surface: #111827;
-  --report-soft: rgba(30, 41, 59, 0.7);
-  --report-text: #e2e8f0;
-  --report-muted: #94a3b8;
-  --report-border: rgba(148, 163, 184, 0.2);
-  --report-accent: #60a5fa;
-  --report-accent-2: #34d399;
-  --report-warning: #fbbf24;
-  --report-danger: #f87171;
-  --report-shadow: 0 20px 60px rgba(2, 6, 23, 0.45);
-}
-
 body {
   background: var(--report-bg);
 }

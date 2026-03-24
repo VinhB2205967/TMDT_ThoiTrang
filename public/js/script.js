@@ -189,7 +189,7 @@
 			const tonBienThe = tinhTonBienThe(v);
 			const btn = document.createElement('button');
 			btn.type = 'button';
-			btn.className = 'btn btn-sm ' + (String(v.id) === String(idBienTheDaChon) ? 'btn-primary' : 'btn-outline-primary');
+			btn.className = 'btn btn-sm qam-chip qam-chip--variant ' + (String(v.id) === String(idBienTheDaChon) ? 'btn-primary' : 'btn-outline-primary');
 			btn.textContent = `${v.mausac || 'Màu'}${tonBienThe > 0 ? '' : ' (Hết hàng)'}`;
 			btn.dataset.variantId = String(v.id);
 			btn.addEventListener('click', () => {
@@ -220,7 +220,7 @@
 				const b = document.createElement('button');
 				b.type = 'button';
 				const active = sizeDaChon === sz;
-				b.className = 'btn btn-sm ' + (active ? 'btn-dark' : 'btn-outline-dark');
+				b.className = 'btn btn-sm qam-chip qam-chip--size ' + (active ? 'btn-dark' : 'btn-outline-dark');
 				b.textContent = `${sz}${stock > 0 ? '' : ' (Hết hàng)'}`;
 				b.disabled = stock <= 0;
 				b.addEventListener('click', () => {
