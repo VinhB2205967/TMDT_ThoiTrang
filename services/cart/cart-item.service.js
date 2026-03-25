@@ -21,6 +21,26 @@ function chuanHoaToanBoDongGio(giohang) {
   giohang.sanpham.forEach((item) => chuanHoaChuoiHienThiGio(item));
 }
 
+function dinhDangTienVND(value) {
+  const n = Math.max(0, Math.round(Number(value || 0)));
+  return `${n.toLocaleString('vi-VN')}đ`;
+}
+
+function taoCanhBaoGiaFifoKhiTangSoLuong({
+  soLuongCu,
+  soLuongMoi,
+  donGiaCu,
+  donGiaMoi
+}) {
+  if (!(Number(soLuongMoi) > Number(soLuongCu))) return '';
+
+  const cu = Math.round(Number(donGiaCu || 0));
+  const moi = Math.round(Number(donGiaMoi || 0));
+  if (!(cu > 0) || !(moi > 0) || cu === moi) return '';
+
+  return `Giá sản phẩm có thể thay đổi khi thay đổi số lượng`;
+}
+
 async function getCartPageData({ userId }) {
   const giohang = await getOrCreateCart(userId);
   const giaTruocKhiDongBo = new Map(
@@ -155,6 +175,9 @@ async function updateCartItemQuantity({ userId, body }) {
   const dongitem = giohang.sanpham.id(iditem);
   if (!dongitem) return { ok: false, status: 404, message: 'Không tìm thấy sản phẩm trong giỏ', redirect: '/cart' };
 
+  const soLuongCu = Math.max(1, Number(dongitem.soluong || 1));
+  const donGiaCu = Number(dongitem.giagiam || dongitem.gia || 0);
+
   let soluongcapnhat = soluong;
   let tonkho = null;
 
@@ -181,10 +204,18 @@ async function updateCartItemQuantity({ userId, body }) {
   const dongSauCapNhat = giohang.sanpham.id(iditem);
   const lineTotal = Number(dongSauCapNhat?.thanhtien || 0);
   const unitPrice = Number(dongSauCapNhat?.giagiam || dongSauCapNhat?.gia || 0);
+  const fifoPriceNotice = taoCanhBaoGiaFifoKhiTangSoLuong({
+    soLuongCu,
+    soLuongMoi: soluongcapnhat,
+    donGiaCu,
+    donGiaMoi: unitPrice
+  });
+  const flash = fifoPriceNotice ? { type: 'info', message: fifoPriceNotice } : null;
 
   return {
     ok: true,
     redirect: '/cart',
+    flash,
     payload: {
       success: true,
       cartCount: tinhSoLuongHienThiGio(giohang),
@@ -192,7 +223,8 @@ async function updateCartItemQuantity({ userId, body }) {
       maxStock: tonkho,
       lineTotal,
       unitPrice,
-      cartTotal: Number(giohang.tongtien || 0)
+      cartTotal: Number(giohang.tongtien || 0),
+      fifoPriceNotice
     }
   };
 }

@@ -16,16 +16,20 @@ block main
         border-bottom: 1px solid #e7ebf3;
         font-weight: 700;
       }
-      .export-table {
+      .export-table,
+      .return-table {
         min-width: 1320px;
         border-color: #e6eaf2;
       }
       .export-table th,
-      .export-table td {
+      .export-table td,
+      .return-table th,
+      .return-table td {
         vertical-align: top;
         border-color: #e6eaf2;
       }
-      .export-table thead th {
+      .export-table thead th,
+      .return-table thead th {
         background: #f3f6fb;
         color: #1f2a44;
         font-size: 0.86rem;
@@ -34,10 +38,12 @@ block main
         text-transform: uppercase;
         white-space: nowrap;
       }
-      .export-table tbody tr:nth-child(even) {
+      .export-table tbody tr:nth-child(even),
+      .return-table tbody tr:nth-child(even) {
         background: #fafcff;
       }
-      .export-table td {
+      .export-table td,
+      .return-table td {
         padding-top: 10px;
         padding-bottom: 10px;
       }
@@ -244,6 +250,80 @@ block main
                         span.text-muted -
                     td #{it.ghichudong || ''}
 
+    - const _chiTietHoan = (_chiTiet || []).filter((it) => {
+    -   const qtyHoan = Number((it && it.soluonghoan) || 0);
+    -   const allocHoan = Array.isArray(it && it.allocations) && it.allocations.some((a) => Number((a && a.soluonghoan) || 0) > 0);
+    -   return qtyHoan > 0 || allocHoan;
+    - })
+    .card.mt-3
+      .card-header Chi tiết hoàn trả
+      .card-body
+        if !_chiTietHoan.length
+          .alert.alert-info.mb-0 Chưa có sản phẩm hoàn trả cho phiếu xuất này.
+        else
+          .table-responsive
+            table.return-table.table.table-bordered.table-sm.align-middle
+              thead
+                tr
+                  th.col-product Sản phẩm
+                  th.col-variant Biến thể
+                  th.col-size Size
+                  th.col-color Màu
+                  th.col-number Số lượng hoàn
+                  th.col-number Đơn giá hoàn
+                  th.col-number Thành tiền hoàn
+              tbody
+                each it in _chiTietHoan
+                  - const v = it.bientheid ? String(it.bientheid) : 'main'
+                  - const allocs = Array.isArray(it.allocations) ? it.allocations : []
+                  - const allocHoan = allocs.filter((a) => Number(a.soluonghoan || 0) > 0)
+                  - const tongHoanTheoLo = allocHoan.reduce((sum, a) => sum + Number(a.soluonghoan || 0), 0)
+                  - const soLuongBan = Math.max(1, Number(it.soluong || 1))
+                  - const soLuongHoan = Math.max(0, Number(it.soluonghoan || 0), Number(tongHoanTheoLo || 0))
+                  - const donGiaHoanDong = Number(it.doanhthu || 0) > 0 ? (Number(it.doanhthu || 0) / soLuongBan) : Number(it.giasaugiam || it.giaban || 0)
+                  - const thanhTienHoanDong = Number(it.doanhthuhoan || 0) > 0 ? Number(it.doanhthuhoan || 0) : Math.round(soLuongHoan * donGiaHoanDong)
+                  tr
+                    td.col-product.product-cell #{it.tensanpham || it.sanphamid}
+                    td.col-variant #{v === 'main' ? 'Mặc định' : 'Biến thể'}
+                    td.col-size #{it.kichco || ''}
+                    td.col-color #{it.mausac || ''}
+                    td.col-number
+                      if allocHoan.length
+                        .fifo-stack
+                          each a in allocHoan
+                            .fifo-line #{Number(a.soluonghoan || 0).toLocaleString('vi-VN')} cái
+                          .fifo-total Tổng: #{soLuongHoan.toLocaleString('vi-VN')} cái
+                      else
+                        | #{soLuongHoan.toLocaleString('vi-VN')} cái
+                    td.col-number
+                      if allocHoan.length
+                        .fifo-stack
+                          each a in allocHoan
+                            - const soLuongLo = Math.max(1, Number(a.soLuong || 1))
+                            - const donGiaLo = Number(a.doanhthu || 0) > 0 ? (Number(a.doanhthu || 0) / soLuongLo) : Number(a.giasaugiam || a.giaban || a.giaBanDeXuat || it.giasaugiam || it.giaban || 0)
+                            .fifo-line #{Math.round(donGiaLo).toLocaleString('vi-VN')}đ
+                      else
+                        | #{Math.round(donGiaHoanDong).toLocaleString('vi-VN')}đ
+                    td.col-number
+                      if allocHoan.length
+                        .fifo-stack
+                          each a in allocHoan
+                            - const soLuongLo = Number(a.soluonghoan || 0)
+                            - const soLuongGocLo = Math.max(1, Number(a.soLuong || 1))
+                            - const donGiaLo = Number(a.doanhthu || 0) > 0 ? (Number(a.doanhthu || 0) / soLuongGocLo) : Number(a.giasaugiam || a.giaban || a.giaBanDeXuat || it.giasaugiam || it.giaban || 0)
+                            - const thanhTienLo = Math.round(soLuongLo * donGiaLo)
+                            .fifo-line #{thanhTienLo.toLocaleString('vi-VN')}đ
+                          .fifo-total.money-total #{Math.round(thanhTienHoanDong).toLocaleString('vi-VN')}đ
+                      else
+                        span.money-total #{Math.round(thanhTienHoanDong).toLocaleString('vi-VN')}đ
+
+          .mt-3.small.text-muted
+            | Tổng giảm doanh thu (hoàn trả): #{Number(receipt.tongdoanhthuhoan || 0).toLocaleString('vi-VN')}đ
+            br
+            | Tổng giảm giá vốn (hoàn trả): #{Number(receipt.tonggiavonhoan || 0).toLocaleString('vi-VN')}đ
+            br
+            | Tổng giảm lợi nhuận (hoàn trả): #{Number(receipt.tongloinhuanhoan || 0).toLocaleString('vi-VN')}đ
+
     .card.mt-3
       .card-header Tổng hợp tài chính
       .card-body
@@ -265,9 +345,10 @@ block main
       .card-header Nhân viên thực hiện
       .card-body
         - const _nv = nhanVienKy || receipt.nhanvienky || {}
+        - const _staffLabel = String(receipt.nguoitaophieu || '') === 'order' ? 'Nhân viên xác nhận đơn' : 'Nhân viên xuất kho'
         .row.g-3.align-items-center
           .col-md-8
-            .fw-semibold Nhân viên xuất kho
+            .fw-semibold #{_staffLabel}
             div.fs-5 #{_nv.tennhanvien || '---'}
             .text-muted ID nhân viên: #{_nv.idnhanvien || '---'}
             if _nv.thoigianky

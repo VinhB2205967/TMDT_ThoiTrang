@@ -47,6 +47,7 @@ module.exports.capNhatSoLuong = async (req, res) => {
       userId: req.user._id,
       body: req.body
     });
+    cartService.applyFlashMessage(req.flash, result.flash);
     return res.redirect(cartService.resolveRedirectResult(result, '/cart'));
   } catch {
     return res.redirect('/cart');

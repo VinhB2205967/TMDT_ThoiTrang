@@ -64,7 +64,7 @@ module.exports.capNhatTrangThai = async (req, res) => {
     const result = await ordersAdminService.capNhatTrangThaiDon({
       id,
       nextStatus,
-      actor: req.user
+      actor: req.adminUser || req.user || null
     });
 
     const flashType = ordersAdminService.xacDinhLoaiFlashKetQua(result, {
@@ -117,7 +117,7 @@ module.exports.xacNhanDaNhanHangHoan = async (req, res) => {
     const result = await ordersAdminService.xacNhanDaNhanHangHoan({
       id: req.params.id,
       payload: req.body || {},
-      actor: req.user || null
+      actor: req.adminUser || req.user || null
     });
     adminControllerService.flashKetQua(req, result, ordersAdminService.xacDinhLoaiFlashKetQua);
   } catch (err) {
@@ -146,7 +146,7 @@ module.exports.capNhatTrangThaiHangLoat = async (req, res) => {
     const result = await ordersAdminService.capNhatTrangThaiHangLoat({
       orderIds: req.body.orderIds,
       nextStatus: req.body.trangthai,
-      actor: req.user
+      actor: req.adminUser || req.user || null
     });
 
     req.flash(ordersAdminService.xacDinhLoaiFlashKetQua(result), result.message);

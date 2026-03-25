@@ -1,5 +1,5 @@
 # TMDT_THOITRANG
-
+explorer decorations badges
 ## Chạy dự án
 
 1) Cài dependency:
@@ -12,6 +12,8 @@
 PORT=3000
 MONGODB_URL=mongodb://127.0.0.1:27017/tmdt_thoitrang
 SESSION_SECRET=fashion-secret-key
+ADMIN_SESSION_SECRET=fashion-admin-secret-key
+CORS_ORIGINS=http://localhost:3000
 
 # Seed admin (tự tạo nếu chưa tồn tại)
 ADMIN_EMAIL=admin@fashion.local
@@ -98,6 +100,22 @@ Roi pull model (neu chua co):
 `ollama pull gemma3:4b`
 
 Co the doi model bang bien `OLLAMA_MODEL` trong `.env`.
+
+## Bảo mật
+
+Các lớp bảo mật hiện có trong ứng dụng:
+
+- `helmet` đã bật với `contentSecurityPolicy` (CSP) trong `app/create-app.js`.
+- `csurf` bật toàn cục, token được gắn vào `res.locals.csrfToken`.
+- Chặn NoSQL injection/prototype pollution qua middleware `mongoSanitize` (strict mode).
+- Làm sạch dữ liệu đầu vào chống XSS qua middleware `xssSanitize` cho `body/query/params`.
+- `express-rate-limit` cho toàn bộ app + route auth/login.
+- `cors` có whitelist theo biến `CORS_ORIGINS`.
+
+Lưu ý CSP hiện tại:
+
+- Đang cho phép `unsafe-inline` cho `script`/`style` để tương thích code Pug hiện có (nhiều inline handler).
+- Khi refactor hết inline script/event/style sang file tĩnh, có thể siết CSP mạnh hơn bằng cách bỏ `unsafe-inline`.
 
 ## AI Assistant (Client + Admin)
 
@@ -258,246 +276,58 @@ Token reset được tạo ngẫu nhiên bằng `crypto`, lưu dạng hash SHA-2
 ```
 .
 ├─ index.js
-├─ nodemon.json
-├─ package.json
-├─ package-lock.json
-├─ README.md
+├─ app/                       # Tách bootstrap Express từ index.js
+│  ├─ create-app.js           # Khởi tạo app + middleware
+│  ├─ session.js              # Session client/admin theo path
+│  ├─ rate-limit.js           # Global limiter + auth limiter
+│  ├─ routes.js               # Đăng ký route client/admin
+│  └─ errors.js               # Handler CSRF error + 404 + 500
 ├─ AI/
 │  ├─ huggingface_cache/
 │  └─ open_clip/
 ├─ config/
-│  ├─ constants.js
 │  ├─ database.js
 │  ├─ passport.js
 │  ├─ shipping.js
 │  └─ system.js
-├─ controllers/
-│  ├─ admin/
-│  │  ├─ auth_controller.js
-│  │  ├─ banners_controller.js
-│  │  ├─ blog_controller.js
-│  │  ├─ brands_controller.js
-│  │  ├─ categories_controller.js
-│  │  ├─ chat_controller.js
-│  │  ├─ dashboard_controller.js
-│  │  ├─ exports_controller.js
-│  │  ├─ flash_sales_controller.js
-│  │  ├─ home_sections_controller.js
-│  │  ├─ imports_controller.js
-│  │  ├─ lookbooks_controller.js
-│  │  ├─ orders_controller.js
-│  │  ├─ products_controller.js
-│  │  ├─ reports_controller.js
-│  │  ├─ reviews_controller.js
-│  │  ├─ settings_controller.js
-│  │  ├─ size_guides_controller.js
-│  │  ├─ users_controller.js
-│  │  └─ vouchers_controller.js
-│  └─ client/
-│     ├─ account_controller.js
-│     ├─ api/
-│     │  ├─ ai_chat_api_controller.js
-│     │  ├─ content_api_controller.js
-│     │  └─ home_api_controller.js
-│     ├─ auth_controller.js
-│     ├─ cart_controller.js
-│     ├─ chat_controller.js
-│     ├─ content/
-│     ├─ favorites_controller.js
-│     ├─ home_controller.js
-│     ├─ openclip_controller.js
-│     ├─ orders_controller.js
-│     ├─ product_controller.js
-│     ├─ reviews_controller.js
-│     └─ voucher_controller.js
+├─ controllers/               # Điều phối request (admin/client/api)
 ├─ helpers/
-│  ├─ filterStatus.js
 │  ├─ http.js
-│  ├─ importReceipt.js
-│  ├─ orderStatus.js
-│  ├─ pagination.js
-│  ├─ product.helper.js
-│  ├─ product.js
-│  ├─ productStats.js
-│  ├─ productView.js
-│  ├─ search.js
-│  └─ validators.js
-├─ middlewares/
-│  ├─ auth.js
-│  ├─ cart.js
-│  ├─ categories.js
-│  ├─ chatUpload.js
-│  ├─ favorites.js
-│  ├─ mongoSanitize.js
-│  ├─ openclipUpload.js
-│  ├─ validate.js
-│  └─ xssSanitize.js
-├─ models/
-│  ├─ accounts_model.js
-│  ├─ banner_model.js
-│  ├─ blog_model.js
-│  ├─ brand_model.js
-│  ├─ cart_model.js
-│  ├─ category_model.js
-│  ├─ chat_message_model.js
-│  ├─ coupon_model.js
-│  ├─ export_receipt_model.js
-│  ├─ favorite_model.js
-│  ├─ flash_sale_model.js
-│  ├─ home_section_model.js
-│  ├─ import_receipt_model.js
-│  ├─ index.js
-│  ├─ inventory_lot_model.js
-│  ├─ login_log_model.js
-│  ├─ lookbook_model.js
-│  ├─ order_item_model.js
-│  ├─ order_model.js
-│  ├─ pay_model.js
-│  ├─ product_model.js
-│  ├─ review_model.js
-│  ├─ setting_model.js
-│  ├─ size_guide_model.js
-│  ├─ user_model.js
-│  └─ user_voucher_model.js
-├─ patches/
-│  └─ connect-flash+0.1.1.patch
+│  └─ ...
+├─ middlewares/               # Auth, validate, sanitize, upload...
+├─ models/                    # Mongoose models
 ├─ public/
 │  ├─ admin/
-│  │  ├─ css/
 │  │  └─ js/
 │  ├─ css/
 │  ├─ images/
 │  ├─ js/
-│  │  ├─ auth.js
-│  │  ├─ chat-ai.js
-│  │  ├─ chat-client.js
-│  │  ├─ checkout-voucher.js
-│  │  ├─ favorites.js
-│  │  ├─ home.js
-│  │  ├─ openclip-search.js
-│  │  ├─ orders.js
-│  │  ├─ product-detail.js
-│  │  ├─ products.js
-│  │  ├─ script.js
-│  │  ├─ up.js
-│  │  ├─ vouchers.js
-│  │  └─ shared/
-│  └─ uploads/
-│     ├─ avatars/
-│     ├─ chat/
-│     ├─ openclip-query/
-│     └─ products/
-├─ routes/
-│  ├─ admin/
-│  │  ├─ auth_route.js
-│  │  ├─ banners_route.js
-│  │  ├─ blog_route.js
-│  │  ├─ brands_route.js
-│  │  ├─ categories_route.js
-│  │  ├─ chat_route.js
-│  │  ├─ dashboard_route.js
-│  │  ├─ exports_route.js
-│  │  ├─ flash_sales_route.js
-│  │  ├─ home_sections_route.js
-│  │  ├─ imports_route.js
-│  │  ├─ index_route.js
-│  │  ├─ lookbooks_route.js
-│  │  ├─ orders_route.js
-│  │  ├─ products_route.js
-│  │  ├─ reports_route.js
-│  │  ├─ reviews_route.js
-│  │  ├─ settings_route.js
-│  │  ├─ size_guides_route.js
-│  │  ├─ users_route.js
-│  │  ├─ vouchers_route.js
-│  │  └─ _upload.js
-│  └─ client/
-│     ├─ account_route.js
-│     ├─ api_route.js
-│     ├─ auth_route.js
-│     ├─ blog_route.js
-│     ├─ brands_route.js
-│     ├─ cart_route.js
-│     ├─ chat_route.js
-│     ├─ favorites_route.js
-│     ├─ home_route.js
-│     ├─ index_route.js
-│     ├─ lookbook_route.js
-│     ├─ openclip_route.js
-│     ├─ orders_route.js
-│     ├─ products_route.js
-│     ├─ reviews_route.js
-│     └─ voucher_route.js
-├─ scripts/
-│  ├─ backfill-inventory-lots.js
-│  ├─ backfill-product-vietnamese-fields.js
-│  ├─ check-pug-compile.js
-│  ├─ import-products-from-images.js
-│  ├─ migrate-import-receipts-vn.js
-│  ├─ migrate-order-item-status.js
-│  ├─ migrate-pay-status.js
-│  ├─ openclip_rank_products.py
-│  ├─ openclip_warmup.py
-│  ├─ seed-home.js
-│  ├─ seed-users-30.js
-│  ├─ sync-product-stock.js
-│  └─ _lib/
+│  ├─ uploads/
+│  └─ vendor/
+├─ routes/                    # Khai báo endpoint
+├─ scripts/                   # Seed/migrate/backfill/check
 ├─ services/
-│  ├─ account.service.js
-│  ├─ aiChat.service.js
-│  ├─ cart.service.js
-│  ├─ category.service.js
-│  ├─ chat.service.js
-│  ├─ chat.socket.js
-│  ├─ exportReceipt.service.js
-│  ├─ flashSale.service.js
-│  ├─ home.service.js
-│  ├─ loginLog.js
-│  ├─ mailer.service.js
-│  ├─ momo.service.js
-│  ├─ openClip.service.js
-│  ├─ orderEmail.service.js
-│  ├─ payment.service.js
-│  ├─ product.service.js
-│  ├─ productStock.service.js
+│  ├─ account/
+│  ├─ auth/
+│  ├─ cart/
+│  ├─ catalog/
+│  ├─ communication/
+│  ├─ content/
+│  ├─ inventory/
+│  ├─ order/
+│  ├─ payment/
+│  ├─ review/
 │  ├─ seedAdmin.js
-│  ├─ sizeGuide.service.js
-│  ├─ vnpay.service.js
-│  └─ voucher.service.js
-├─ socketio/
 │  └─ chat.socket.js
+├─ socketio/
+│  └─ chat.socket.js          # Setup socket layer
 └─ views/
    ├─ admin/
-   │  ├─ layouts/
-   │  ├─ mixins/
-   │  ├─ pages/
-   │  └─ partials/
    ├─ client/
-   │  ├─ layouts/
-   │  ├─ mixins/
-   │  ├─ pages/
-   │  │  ├─ account/
-   │  │  ├─ auth/
-   │  │  ├─ blog/
-   │  │  ├─ brands/
-   │  │  ├─ cart/
-   │  │  ├─ chat/
-   │  │  ├─ errors/
-   │  │  ├─ favorites/
-   │  │  ├─ home/
-   │  │  ├─ lookbook/
-   │  │  ├─ openclip/
-   │  │  ├─ orders/
-   │  │  ├─ products/
-   │  │  ├─ reviews/
-   │  │  └─ vouchers/
-   │  └─ partials/
    └─ partials/
-      └─ flash.pug
 ```
 
-> Ghi chú: Cấu trúc trên đã rút gọn một số thư mục lớn bằng `...` để README dễ đọc.
+Gợi ý đọc luồng backend nhanh:
 
-Danh sách đầy đủ file/thư mục hiện tại của dự án được xuất tại:
-
-- `STRUCTURE_FULL.md` (đã loại trừ thư mục phụ thuộc/cache: `.git`, `.venv`, `node_modules`, `AI/huggingface_cache`, `AI/open_clip`)
+- `index.js` chỉ còn bootstrap HTTP/Socket + warm OpenCLIP.
+- `app/create-app.js` là nơi tập trung middleware bảo mật, session, route và error handler.

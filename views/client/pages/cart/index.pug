@@ -29,6 +29,7 @@ block main
                 .small.text-muted
                   | #{__stock > 0 ? `Còn ${__stock} sản phẩm` : 'Hết hàng'}
                 .fw-semibold.mt-1.cart-line-total(data-item-id=item._id) #{__lineTotal.toLocaleString('vi-VN')}₫
+                .small.text-warning.mt-1.cart-fifo-warning.d-none(data-item-id=item._id)
                 button.btn.btn-sm.btn-outline-secondary.mt-2(type='button' data-action='edit-options' data-item-id=item._id data-product-id=item.sanpham_id data-variant-id=(item.bienthe_id || 'main') data-size=(item.kichco || '') data-qty=(item.soluong || 1)) Sửa lựa chọn
 
               form.d-flex.align-items-center.gap-2(method='POST' action='/cart/update')

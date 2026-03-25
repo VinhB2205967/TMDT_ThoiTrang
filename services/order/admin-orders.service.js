@@ -300,6 +300,188 @@ function roundMoney(value) {
   return Math.round(toNumber(value, 0));
 }
 
+function buildOrderItemExportKey(item = {}) {
+  const productId = String(item?.sanpham_id || item?.sanphamid || '').trim();
+  if (!productId) return '';
+  return buildExportLineKey({
+    sanphamid: productId,
+    bientheid: item?.bienthe_id || item?.bientheid || null,
+    kichco: item?.kichco || ''
+  });
+}
+
+function buildReturnedItemSummary({ exportReceipt, orderItems = [] } = {}) {
+  const out = {
+    items: [],
+    returnedQtyByItemId: {},
+    totalReturnedQty: 0,
+    totalRefundAmount: 0
+  };
+
+  const lines = Array.isArray(exportReceipt?.chitiet) ? exportReceipt.chitiet : [];
+  if (!lines.length) return out;
+
+  const orderItemsByKey = new Map();
+  for (const it of (Array.isArray(orderItems) ? orderItems : [])) {
+    const key = buildOrderItemExportKey(it);
+    if (!key) continue;
+    const arr = orderItemsByKey.get(key) || [];
+    arr.push(it);
+    orderItemsByKey.set(key, arr);
+  }
+
+  const returnedByKey = new Map();
+  for (const line of lines) {
+    const productId = String(line?.sanphamid || '').trim();
+    if (!productId) continue;
+    const key = buildExportLineKey({
+      sanphamid: productId,
+      bientheid: line?.bientheid,
+      kichco: line?.kichco
+    });
+    if (!key) continue;
+
+    const allocs = Array.isArray(line?.allocations) ? line.allocations : [];
+    const allocReturned = allocs.filter((a) => toPositiveInt(a?.soluonghoan, 0) > 0);
+    const qtyFromAlloc = allocReturned.reduce((sum, a) => sum + toPositiveInt(a?.soluonghoan, 0), 0);
+    const qtyFromLine = toPositiveInt(line?.soluonghoan, 0);
+    const returnedQty = Math.max(qtyFromAlloc, qtyFromLine);
+    if (returnedQty <= 0) continue;
+
+    let row = returnedByKey.get(key);
+    if (!row) {
+      row = {
+        key,
+        tensanpham: String(line?.tensanpham || '').trim(),
+        hinhanh: String(line?.hinhanh || '').trim(),
+        kichco: String(line?.kichco || '').trim(),
+        mausac: String(line?.mausac || '').trim(),
+        returnedQty: 0,
+        refundAmount: 0,
+        priceBreakdown: []
+      };
+      returnedByKey.set(key, row);
+    }
+
+    const soldQty = Math.max(1, toPositiveInt(line?.soluong, 0) || 1);
+    const unitByRevenue = toNumber(line?.doanhthu, 0) > 0
+      ? (toNumber(line?.doanhthu, 0) / soldQty)
+      : 0;
+    const unitFallback = unitByRevenue > 0
+      ? unitByRevenue
+      : Math.max(0, toNumber(line?.giasaugiam, 0) || toNumber(line?.giaban, 0) || 0);
+
+    if (allocReturned.length) {
+      for (const alloc of allocReturned) {
+        const qtyAllocReturned = toPositiveInt(alloc?.soluonghoan, 0);
+        if (qtyAllocReturned <= 0) continue;
+
+        const allocSoldQty = Math.max(1, toPositiveInt(alloc?.soLuong, 0) || 1);
+        const allocUnitByRevenue = toNumber(alloc?.doanhthu, 0) > 0
+          ? (toNumber(alloc?.doanhthu, 0) / allocSoldQty)
+          : 0;
+        const allocFallback = toNumber(alloc?.giasaugiam, 0)
+          || toNumber(alloc?.giaban, 0)
+          || toNumber(alloc?.giaBanDeXuat, 0)
+          || unitFallback;
+        const unitPrice = allocUnitByRevenue > 0 ? allocUnitByRevenue : Math.max(0, allocFallback);
+        const amount = roundMoney(unitPrice * qtyAllocReturned);
+
+        row.returnedQty += qtyAllocReturned;
+        row.refundAmount += amount;
+        row.priceBreakdown.push({
+          qty: qtyAllocReturned,
+          unitPrice,
+          amount
+        });
+      }
+      continue;
+    }
+
+    const amountFromLine = toNumber(line?.doanhthuhoan, 0);
+    const amount = amountFromLine > 0 ? roundMoney(amountFromLine) : roundMoney(unitFallback * returnedQty);
+    row.returnedQty += returnedQty;
+    row.refundAmount += amount;
+    row.priceBreakdown.push({
+      qty: returnedQty,
+      unitPrice: unitFallback,
+      amount
+    });
+  }
+
+  const rows = Array.from(returnedByKey.values());
+  for (const row of rows) {
+    const orderRefs = orderItemsByKey.get(row.key) || [];
+    if (orderRefs.length) {
+      const firstRef = orderRefs[0];
+      if (!row.tensanpham) row.tensanpham = String(firstRef?.tensanpham || '').trim();
+      if (!row.hinhanh) row.hinhanh = String(firstRef?.hinhanh || '').trim();
+      if (!row.kichco) row.kichco = String(firstRef?.kichco || '').trim();
+      if (!row.mausac) row.mausac = String(firstRef?.mausac || '').trim();
+    }
+
+    const grouped = new Map();
+    for (const part of (Array.isArray(row.priceBreakdown) ? row.priceBreakdown : [])) {
+      const unitPrice = roundMoney(part?.unitPrice || 0);
+      const qty = toPositiveInt(part?.qty, 0);
+      const amount = roundMoney(part?.amount || 0);
+      if (qty <= 0) continue;
+      if (!grouped.has(unitPrice)) {
+        grouped.set(unitPrice, { qty: 0, unitPrice, amount: 0 });
+      }
+      const current = grouped.get(unitPrice);
+      current.qty += qty;
+      current.amount += amount;
+    }
+
+    row.priceBreakdown = Array.from(grouped.values())
+      .sort((a, b) => Number(a.unitPrice || 0) - Number(b.unitPrice || 0));
+    row.returnedQty = Math.max(
+      toPositiveInt(row.returnedQty, 0),
+      row.priceBreakdown.reduce((sum, p) => sum + toPositiveInt(p?.qty, 0), 0)
+    );
+    row.refundAmount = Math.max(
+      roundMoney(row.refundAmount || 0),
+      row.priceBreakdown.reduce((sum, p) => sum + roundMoney(p?.amount || 0), 0)
+    );
+  }
+
+  const returnedQtyByItemId = {};
+  for (const row of rows) {
+    let remaining = toPositiveInt(row?.returnedQty, 0);
+    if (remaining <= 0) continue;
+
+    const refs = orderItemsByKey.get(row.key) || [];
+    for (const ref of refs) {
+      if (remaining <= 0) break;
+      const itemId = String(ref?._id || '').trim();
+      if (!itemId) continue;
+
+      const boughtQty = Math.max(0, toPositiveInt(ref?.soluong, 0));
+      const assignedQty = Math.max(0, toPositiveInt(returnedQtyByItemId[itemId], 0));
+      const availableQty = Math.max(0, boughtQty - assignedQty);
+      if (availableQty <= 0) continue;
+
+      const take = Math.min(availableQty, remaining);
+      if (take <= 0) continue;
+
+      returnedQtyByItemId[itemId] = assignedQty + take;
+      remaining -= take;
+    }
+  }
+
+  let totalRefundAmount = rows.reduce((sum, row) => sum + roundMoney(row?.refundAmount || 0), 0);
+  if (totalRefundAmount <= 0) {
+    totalRefundAmount = Math.max(0, roundMoney(exportReceipt?.tongdoanhthuhoan || 0));
+  }
+
+  out.items = rows;
+  out.returnedQtyByItemId = returnedQtyByItemId;
+  out.totalReturnedQty = rows.reduce((sum, row) => sum + toPositiveInt(row?.returnedQty, 0), 0);
+  out.totalRefundAmount = totalRefundAmount;
+  return out;
+}
+
 async function tinhSoTienHoanTheoYeuCau(order) {
   if (!order || !order._id) return 0;
 
@@ -526,7 +708,12 @@ async function getChiTietData(id) {
     loaiphieu: 'return'
   }));
 
-  const itemsRaw = await Chitietdonhang.find({ donhang_id: order._id }).lean();
+  const [itemsRaw, exportReceipt] = await Promise.all([
+    Chitietdonhang.find({ donhang_id: order._id }).lean(),
+    PhieuXuatKho.findOne({ donhang_id: order._id })
+      .select('chitiet tongdoanhthuhoan')
+      .lean()
+  ]);
   const items = (itemsRaw || []).map((it) => {
     const goc = Number(it?.giagoc || 0);
     const giam = Number(it?.giaban || it?.giagoc || 0);
@@ -598,6 +785,19 @@ async function getChiTietData(id) {
 
   const hasReturnRequest = Boolean(order && order.yeucauhoanhang && order.yeucauhoanhang.requestedAt);
   const returnRequestItemsMissing = hasReturnRequest && returnRequestItems.length === 0;
+  const returnActualSummary = buildReturnedItemSummary({ exportReceipt, orderItems: itemsRaw || [] });
+  const returnActualTotalQty = Math.max(
+    0,
+    toPositiveInt(returnActualSummary.totalReturnedQty, 0) || toPositiveInt(order?.tongsoluong_hoantra, 0)
+  );
+  const returnActualTotalAmount = Math.max(
+    0,
+    roundMoney(returnActualSummary.totalRefundAmount || 0)
+    || roundMoney(order?.tonggiamdoanhthu_hoantra || 0)
+    || roundMoney(order?.yeucauhoanhang?.refundAmount || 0)
+  );
+  const returnActualDetailsMissing = (returnActualTotalQty > 0 || returnActualTotalAmount > 0)
+    && (!Array.isArray(returnActualSummary.items) || returnActualSummary.items.length === 0);
 
   const allowedNext = (CHUYEN_TRANG_THAI[order.trangthai] || [])
     .filter((s) => s !== 'dahuy')
@@ -611,6 +811,11 @@ async function getChiTietData(id) {
       items,
       returnRequestItems,
       returnRequestItemsMissing,
+      returnActualItems: returnActualSummary.items,
+      returnedQtyByItemId: returnActualSummary.returnedQtyByItemId,
+      returnActualTotalQty,
+      returnActualTotalAmount,
+      returnActualDetailsMissing,
       hasReturnImport,
       statusLabels: ADMIN_STATUS_LABELS,
       flow: ADMIN_FLOW,

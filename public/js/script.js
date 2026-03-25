@@ -476,6 +476,17 @@
 				if (lineEl && typeof data.lineTotal === 'number' && Number.isFinite(data.lineTotal)) {
 					lineEl.textContent = dinhDangVND(Math.max(0, data.lineTotal));
 				}
+				const fifoWarnEl = row ? row.querySelector('.cart-fifo-warning') : null;
+				if (fifoWarnEl) {
+					const fifoNotice = (typeof data.fifoPriceNotice === 'string') ? data.fifoPriceNotice.trim() : '';
+					if (fifoNotice) {
+						fifoWarnEl.textContent = fifoNotice;
+						fifoWarnEl.classList.remove('d-none');
+					} else {
+						fifoWarnEl.textContent = '';
+						fifoWarnEl.classList.add('d-none');
+					}
+				}
 
 				if (typeof window.__cartComputeSubtotal === 'function') {
 					window.__cartComputeSubtotal();

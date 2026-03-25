@@ -7,6 +7,7 @@
   const menuLinkEl = document.getElementById('adminOrderMenuLink');
   const summaryUrl = `${runtime.adminPath}/api/orders/new-summary`;
   const storageKey = 'adminOrderLatestOrderId';
+  const countKey = 'adminOrderLatestCount';
   let initialized = false;
 
   function setBadge(count) {
@@ -61,33 +62,45 @@
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data || !data.success) return null;
-    return data;
+
+    const payload = data && data.data && typeof data.data === 'object'
+      ? data.data
+      : data;
+
+    return {
+      count: Math.max(0, Number(payload && payload.count ? payload.count : 0)),
+      latestOrder: payload && payload.latestOrder ? payload.latestOrder : null
+    };
   }
 
   async function poll() {
-    const data = await fetchSummary();
-    if (!data) return;
+    const summary = await fetchSummary();
+    if (!summary) return;
 
-    setBadge(data.count || 0);
+    const latestCount = Math.max(0, Number(summary.count || 0));
+    setBadge(latestCount);
 
-    const latest = data.latestOrder || null;
+    const latest = summary.latestOrder || null;
     const latestId = latest && latest.id ? String(latest.id) : '';
     if (!latestId) return;
 
     const prevId = sessionStorage.getItem(storageKey) || '';
+    const prevCount = Math.max(0, Number(sessionStorage.getItem(countKey) || 0));
 
     if (!initialized) {
       sessionStorage.setItem(storageKey, latestId);
+      sessionStorage.setItem(countKey, String(latestCount));
       initialized = true;
       return;
     }
 
-    if (prevId && prevId !== latestId) {
+    if ((prevId && prevId !== latestId) || latestCount > prevCount) {
       const code = latest.madonhang ? `#${latest.madonhang}` : '';
       showToast(`Có đơn hàng mới ${code}`.trim());
     }
 
     sessionStorage.setItem(storageKey, latestId);
+    sessionStorage.setItem(countKey, String(latestCount));
     initialized = true;
   }
 

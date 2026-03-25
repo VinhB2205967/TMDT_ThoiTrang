@@ -6,11 +6,11 @@ const path = require('path');
 const Taikhoan = require('../../models/accounts_model');
 const Nguoidung = require('../../models/user_model');
 const { chuanHoaSoDienThoai, laSoDienThoaiVN } = require('../../helpers/validators');
-
+// Các hàm tiện ích
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
-
+// Các hàm tiện ích khác có thể thêm ở đây
 function normalizeId(id) {
   return id ? String(id) : null;
 }
@@ -45,7 +45,7 @@ function formatDateInput(d) {
 
 function validateNewPassword(password) {
   const p = String(password || '');
-  if (p.length < 6) return 'Máº­t kháº©u pháº£i tá»‘i thiá»ƒu 6 kÃ½ tá»±';
+  if (p.length < 6) return 'Mật khẩu phải tối thiểu 6 ký tự';
   return null;
 }
 
@@ -110,12 +110,12 @@ async function ensureAccountFromUser(userDoc, { provider, overrides } = {}) {
 }
 
 async function createLocalAccountForUser({ userDoc, passwordPlain, overrides } = {}) {
-  if (!userDoc || !userDoc._id) throw new Error('Thiáº¿u user');
+  if (!userDoc || !userDoc._id) throw new Error('Thiếu user');
   const uid = normalizeId(userDoc._id);
   const email = normalizeEmail(userDoc.email);
 
   const password = String(passwordPlain || '');
-  if (password.length < 6) throw new Error('Máº­t kháº©u pháº£i tá»‘i thiá»ƒu 6 kÃ½ tá»±');
+  if (password.length < 6) throw new Error('Mật khẩu phải tối thiểu 6 ký tự');
 
   const hash = await bcrypt.hash(password, 10);
   const now = new Date();
@@ -200,12 +200,12 @@ async function getProfilePageData({ userId, fallbackUser } = {}) {
 
 async function updateUserProfile({ userId, payload, fileUpload, currentAvatar } = {}) {
   const uid = normalizeId(userId);
-  if (!uid) throw createHandledError('Vui lÃ²ng Ä‘Äƒng nháº­p láº¡i', 'AUTH_REQUIRED');
+  if (!uid) throw createHandledError('Vui lòng đăng nhập lại', 'AUTH_REQUIRED');
 
   const hoten = normalizeText(payload?.hoten);
   const sdtraw = normalizeText(payload?.sodienthoai);
   if (sdtraw && !laSoDienThoaiVN(sdtraw)) {
-    throw createHandledError('Sá»‘ Ä‘iá»‡n thoáº¡i khÃ´ng Ä‘Ãºng Ä‘á»‹nh dáº¡ng', 'INVALID_PHONE');
+    throw createHandledError('Số điện thoại không đúng định dạng', 'INVALID_PHONE');
   }
 
   const sodienthoai = sdtraw ? chuanHoaSoDienThoai(sdtraw) : '';
@@ -251,11 +251,11 @@ async function updateUserProfile({ userId, payload, fileUpload, currentAvatar } 
 
 async function changeUserPassword({ userId, oldPassword, newPassword, confirmPassword } = {}) {
   const uid = normalizeId(userId);
-  if (!uid) throw createHandledError('Vui lÃ²ng Ä‘Äƒng nháº­p láº¡i', 'AUTH_REQUIRED');
+  if (!uid) throw createHandledError('Vui lòng đăng nhập lại', 'AUTH_REQUIRED');
 
   const account = await getAccountByUserId({ userId: uid });
   if (account && String(account.provider || '') === 'google') {
-    throw createHandledError('TÃ i khoáº£n Google khÃ´ng há»— trá»£ Ä‘á»•i máº­t kháº©u táº¡i Ä‘Ã¢y', 'GOOGLE_ACCOUNT');
+    throw createHandledError('Tài khoản Google không hỗ trợ đổi mật khẩu tại đây', 'GOOGLE_ACCOUNT');
   }
 
   const matkhaucu = String(oldPassword || '');
@@ -266,16 +266,16 @@ async function changeUserPassword({ userId, oldPassword, newPassword, confirmPas
   if (loimatkhau) throw createHandledError(loimatkhau, 'INVALID_PASSWORD');
 
   if (matkhaumoi !== xacnhanmatkhau) {
-    throw createHandledError('XÃ¡c nháº­n máº­t kháº©u khÃ´ng khá»›p', 'PASSWORD_CONFIRM_MISMATCH');
+    throw createHandledError('Xác nhận mật khẩu không khớp', 'PASSWORD_CONFIRM_MISMATCH');
   }
 
   const taikhoan = await Nguoidung.findOne({ _id: uid, daxoa: { $ne: true } });
-  if (!taikhoan) throw createHandledError('KhÃ´ng tÃ¬m tháº¥y tÃ i khoáº£n', 'ACCOUNT_NOT_FOUND');
+  if (!taikhoan) throw createHandledError('Không tìm thấy tài khoản', 'ACCOUNT_NOT_FOUND');
 
   const daCoMatKhau = (await hasLocalPassword({ userId: uid })) || Boolean(taikhoan.matkhau);
   if (daCoMatKhau) {
     const hople = await verifyPasswordWithLegacy({ userDoc: taikhoan, passwordPlain: matkhaucu });
-    if (!hople) throw createHandledError('Máº­t kháº©u hiá»‡n táº¡i khÃ´ng Ä‘Ãºng', 'OLD_PASSWORD_INVALID');
+    if (!hople) throw createHandledError('Mật khẩu hiện tại không đúng', 'OLD_PASSWORD_INVALID');
   }
 
   await setPasswordByUserId({ userId: uid, newPasswordPlain: matkhaumoi });
@@ -289,7 +289,7 @@ async function changeUserPassword({ userId, oldPassword, newPassword, confirmPas
 
 async function softDeleteUserAccount({ userId } = {}) {
   const uid = normalizeId(userId);
-  if (!uid) throw createHandledError('Vui lÃ²ng Ä‘Äƒng nháº­p láº¡i', 'AUTH_REQUIRED');
+  if (!uid) throw createHandledError('Vui lòng đăng nhập lại', 'AUTH_REQUIRED');
 
   await Nguoidung.updateOne(
     { _id: uid, daxoa: { $ne: true } },
@@ -318,7 +318,7 @@ async function verifyPasswordByEmail({ email, passwordPlain }) {
   return { ok, userId: String(acc.nguoidung_id), account: acc };
 }
 
-// KhÃ´ng cáº§n script: user cÅ© Ä‘Äƒng nháº­p báº±ng users.matkhau sáº½ tá»± táº¡o record accounts.
+// Kh cần script: user cũ đăng nhập bằng users.matkhau sẽ tự tạo record accounts.
 async function verifyPasswordWithLegacy({ userDoc, passwordPlain }) {
   if (!userDoc || !userDoc._id) return false;
 

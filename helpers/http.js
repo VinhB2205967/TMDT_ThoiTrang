@@ -1,5 +1,5 @@
 function muonJSON(req) {
-  const chapNhan = String(req.headers.accept || '');
+  const chapNhan = String(req.headers.accept || '').toLowerCase();
   return (
     req.xhr ||
     chapNhan.includes('application/json') ||
