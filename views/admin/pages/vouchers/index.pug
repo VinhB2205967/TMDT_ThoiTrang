@@ -42,7 +42,9 @@ block main
               - const total = v.soluong_toida || 0
               - const used = v.soluong_dasudung || 0
               - const percent = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0
-              - const expired = v.ngay_ketthuc && now > new Date(v.ngay_ketthuc)
+              - const endOfDay = v.ngay_ketthuc ? new Date(v.ngay_ketthuc) : null
+              - if (endOfDay) endOfDay.setHours(23, 59, 59, 999)
+              - const expired = endOfDay ? now > endOfDay : false
               - const soldOut = total > 0 && used >= total
               tr
                 td
@@ -74,6 +76,7 @@ block main
                   .d-flex.flex-wrap.gap-2
                     a.btn.btn-sm.btn-outline-primary(href=`${admin}/vouchers/${v._id}/edit`) Sửa
                     form(method='POST' action=`${admin}/vouchers/${v._id}/toggle`)
+                      input(type='hidden' name='_csrf' value=csrfToken)
                       if v.trangthai === 'active'
                         button.btn.btn-sm.btn-outline-danger(type='submit') Tạm khóa
                       else

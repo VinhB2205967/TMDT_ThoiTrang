@@ -8,7 +8,9 @@ block main
         i.bi.bi-arrow-left
         |  Danh sách
 
-    form(method='POST' action=`${admin}/vouchers/create` enctype='multipart/form-data')
+    - const createAction = `${admin}/vouchers/create?_csrf=${encodeURIComponent(csrfToken || '')}`
+    form(method='POST' action=createAction enctype='multipart/form-data')
+      input(type='hidden' name='_csrf' value=csrfToken)
       .card
         .card-header Thông tin voucher
         .card-body

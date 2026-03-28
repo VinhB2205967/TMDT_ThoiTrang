@@ -6,8 +6,25 @@ function normalizeCode(raw) {
 }
 
 function isDateInRange(now, start, end) {
-  if (start && now < start) return false;
-  if (end && now > end) return false;
+  const nowDate = new Date(now);
+  const nowTime = nowDate.getTime();
+
+  if (start) {
+    const startDate = new Date(start);
+    if (!Number.isNaN(startDate.getTime())) {
+      startDate.setHours(0, 0, 0, 0);
+      if (nowTime < startDate.getTime()) return false;
+    }
+  }
+
+  if (end) {
+    const endDate = new Date(end);
+    if (!Number.isNaN(endDate.getTime())) {
+      endDate.setHours(23, 59, 59, 999);
+      if (nowTime > endDate.getTime()) return false;
+    }
+  }
+
   return true;
 }
 

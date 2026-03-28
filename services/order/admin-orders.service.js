@@ -335,6 +335,63 @@ function roundMoney(value) {
   return Math.round(toNumber(value, 0));
 }
 
+function splitAmountByQty(totalAmount, totalQty, partQty) {
+  const amount = Math.max(0, roundMoney(totalAmount));
+  const qty = Math.max(0, toPositiveInt(totalQty, 0));
+  const part = Math.max(0, toPositiveInt(partQty, 0));
+  if (amount <= 0 || qty <= 0 || part <= 0) return 0;
+  if (part >= qty) return amount;
+  return Math.max(0, Math.min(amount, Math.round((amount * part) / qty)));
+}
+
+function allocateProportionalAmounts(rows, totalAmount) {
+  const normalizedRows = (Array.isArray(rows) ? rows : [])
+    .map((row, index) => ({
+      id: String(row && row.id ? row.id : '').trim(),
+      weight: Math.max(0, roundMoney(row && row.amount ? row.amount : 0)),
+      index
+    }))
+    .filter((row) => row.id);
+
+  const result = {};
+  for (const row of normalizedRows) result[row.id] = 0;
+
+  const target = Math.max(0, roundMoney(totalAmount));
+  if (!normalizedRows.length || target <= 0) return result;
+
+  const totalWeight = normalizedRows.reduce((sum, row) => sum + row.weight, 0);
+  if (totalWeight <= 0) return result;
+
+  const allocations = normalizedRows.map((row) => {
+    const exact = (target * row.weight) / totalWeight;
+    const floorVal = Math.floor(exact);
+    return {
+      ...row,
+      value: floorVal,
+      fraction: exact - floorVal
+    };
+  });
+
+  let assigned = allocations.reduce((sum, row) => sum + row.value, 0);
+  let remain = target - assigned;
+
+  allocations.sort((a, b) => {
+    if (b.fraction !== a.fraction) return b.fraction - a.fraction;
+    if (b.weight !== a.weight) return b.weight - a.weight;
+    return a.index - b.index;
+  });
+
+  let cursor = 0;
+  while (remain > 0 && allocations.length) {
+    allocations[cursor % allocations.length].value += 1;
+    remain -= 1;
+    cursor += 1;
+  }
+
+  for (const row of allocations) result[row.id] = row.value;
+  return result;
+}
+
 function buildOrderItemExportKey(item = {}) {
   const productId = String(item?.sanpham_id || item?.sanphamid || '').trim();
   if (!productId) return '';
@@ -517,40 +574,255 @@ function buildReturnedItemSummary({ exportReceipt, orderItems = [] } = {}) {
   return out;
 }
 
+function buildAdminRefundFinancialSummary({
+  order = {},
+  items = [],
+  returnRequestItems = [],
+  returnedQtyByItemId = {},
+  returnActualTotalAmount = 0,
+  statusLabels = ADMIN_STATUS_LABELS
+} = {}) {
+  const itemRows = Array.isArray(items) ? items : [];
+  const requestRows = Array.isArray(returnRequestItems) ? returnRequestItems : [];
+  const currentStatus = String(order?.trangthai || '').trim();
+
+  const requestedQtyByItemId = {};
+  for (const row of requestRows) {
+    const itemId = String(row && row.orderItemId ? row.orderItemId : '').trim();
+    const qty = Math.max(0, toPositiveInt(row && row.qty, 0));
+    if (!itemId || qty <= 0) continue;
+    requestedQtyByItemId[itemId] = (requestedQtyByItemId[itemId] || 0) + qty;
+  }
+
+  const lines = itemRows.map((raw, index) => {
+    const id = String(raw && raw._id ? raw._id : `item-${index}`).trim();
+    const boughtQty = Math.max(0, toPositiveInt(raw?.tongSoLuong || raw?.soluong, 0));
+    const grossByStored = toNumber(raw?.tongThanhTien || raw?.thanhtien, 0);
+    const unitFallback = toNumber(raw?.giaban, 0) > 0
+      ? toNumber(raw?.giaban, 0)
+      : toNumber(raw?.giagoc, 0);
+    const grossAmount = Math.max(0, roundMoney(grossByStored > 0 ? grossByStored : (unitFallback * boughtQty)));
+    return { id, raw, boughtQty, grossAmount };
+  });
+
+  const goodsSubtotal = Math.max(0, lines.reduce((sum, row) => sum + row.grossAmount, 0));
+  const voucherRaw = toNumber(order?.voucher_discount, NaN);
+  const voucherDiscount = Math.min(
+    goodsSubtotal,
+    Math.max(0, roundMoney(Number.isFinite(voucherRaw) ? voucherRaw : toNumber(order?.giamgia, 0)))
+  );
+  const shippingFee = Math.max(0, roundMoney(order?.phivanchuyen));
+  const originalPayable = Math.max(0, goodsSubtotal - voucherDiscount + shippingFee);
+
+  const voucherByItem = allocateProportionalAmounts(
+    lines.map((line) => ({ id: line.id, amount: line.grossAmount })),
+    voucherDiscount
+  );
+
+  const actualReturnedQtyTotal = lines.reduce((sum, line) => {
+    const actual = Math.max(0, toPositiveInt(returnedQtyByItemId[line.id], 0));
+    return sum + Math.min(actual, line.boughtQty);
+  }, 0);
+
+  const hasActualReturned = actualReturnedQtyTotal > 0
+    || roundMoney(returnActualTotalAmount) > 0
+    || roundMoney(order?.tonggiamdoanhthu_hoantra) > 0;
+  const useRequestedMode = !hasActualReturned
+    && new Set(['requested_return', 'approved_return', 'return_shipping']).has(currentStatus);
+
+  const rows = lines.map((line) => {
+    const requestedQty = Math.min(
+      line.boughtQty,
+      Math.max(0, toPositiveInt(requestedQtyByItemId[line.id], 0))
+    );
+    const actualQty = Math.min(
+      line.boughtQty,
+      Math.max(0, toPositiveInt(returnedQtyByItemId[line.id], 0))
+    );
+    const returnedQty = hasActualReturned ? actualQty : (useRequestedMode ? requestedQty : actualQty);
+    const keptQty = Math.max(0, line.boughtQty - returnedQty);
+
+    const allocatedVoucher = Math.max(0, roundMoney(voucherByItem[line.id] || 0));
+    const lineAfterVoucher = Math.max(0, line.grossAmount - allocatedVoucher);
+    const returnedVoucher = splitAmountByQty(allocatedVoucher, line.boughtQty, returnedQty);
+    const keptVoucher = Math.max(0, allocatedVoucher - returnedVoucher);
+
+    return {
+      ...line,
+      requestedQty,
+      actualQty,
+      returnedQty,
+      keptQty,
+      allocatedVoucher,
+      lineAfterVoucher,
+      provisionalRefunded: splitAmountByQty(lineAfterVoucher, line.boughtQty, returnedQty),
+      keptAmount: 0,
+      refundedAmount: 0,
+      keptGrossAmount: splitAmountByQty(line.grossAmount, line.boughtQty, keptQty),
+      keptVoucher
+    };
+  });
+
+  const returnedRows = rows.filter((line) => line.returnedQty > 0);
+  const provisionalTotal = returnedRows.reduce((sum, row) => sum + roundMoney(row.provisionalRefunded), 0);
+  const actualTotal = Math.max(
+    0,
+    roundMoney(returnActualTotalAmount || order?.tonggiamdoanhthu_hoantra || 0)
+  );
+  // If we have actual returned quantities, refund must be computed from voucher-aware qty split.
+  // Use stored total only as fallback when quantity details are missing.
+  let refundTarget = provisionalTotal;
+  if (refundTarget <= 0 && actualTotal > 0) {
+    refundTarget = actualTotal;
+  } else if (actualReturnedQtyTotal <= 0 && actualTotal > 0) {
+    refundTarget = actualTotal;
+  }
+  refundTarget = Math.min(Math.max(0, refundTarget), originalPayable);
+
+  const refundedByItem = refundTarget > 0
+    ? allocateProportionalAmounts(
+      returnedRows.map((row) => ({
+        id: row.id,
+        amount: roundMoney(row.provisionalRefunded || splitAmountByQty(row.lineAfterVoucher, row.boughtQty, row.returnedQty))
+      })),
+      refundTarget
+    )
+    : {};
+
+  for (const row of rows) {
+    row.refundedAmount = Math.max(0, roundMoney(refundedByItem[row.id] || 0));
+    row.keptAmount = Math.max(0, roundMoney(row.lineAfterVoucher - row.refundedAmount));
+  }
+
+  const refundedAmount = Math.max(0, rows.reduce((sum, row) => sum + roundMoney(row.refundedAmount), 0));
+  const remainingPayable = Math.max(0, originalPayable - refundedAmount);
+  const keptGoodsValue = Math.max(0, rows.reduce((sum, row) => sum + roundMoney(row.keptGrossAmount), 0));
+  const keptVoucherTotal = Math.max(0, rows.reduce((sum, row) => sum + roundMoney(row.keptVoucher), 0));
+  const keptGoodsAfterVoucher = Math.max(
+    0,
+    Math.min(
+      rows.reduce((sum, row) => sum + roundMoney(row.keptAmount), 0),
+      Math.max(0, remainingPayable - shippingFee)
+    )
+  );
+
+  return {
+    requestedQtyByItemId,
+    original: {
+      goodsSubtotal,
+      voucherDiscount,
+      shippingFee,
+      payable: originalPayable
+    },
+    refund: {
+      mode: hasActualReturned ? 'actual' : (useRequestedMode ? 'requested' : 'none'),
+      statusLabel: statusLabels[currentStatus] || currentStatus || '-',
+      totalReturnedQty: rows.reduce((sum, row) => sum + Math.max(0, toPositiveInt(row.returnedQty, 0)), 0),
+      amount: refundedAmount,
+      items: rows
+        .filter((row) => row.returnedQty > 0)
+        .map((row) => ({
+          itemId: row.id,
+          name: String(row.raw?.tensanpham || 'San pham'),
+          color: String(row.raw?.mausac || ''),
+          size: String(row.raw?.kichco || ''),
+          returnedQty: row.returnedQty,
+          boughtQty: row.boughtQty,
+          amount: row.refundedAmount
+        }))
+    },
+    remaining: {
+      keptQtyTotal: rows.reduce((sum, row) => sum + Math.max(0, toPositiveInt(row.keptQty, 0)), 0),
+      goodsValue: keptGoodsValue,
+      voucherAllocated: keptVoucherTotal,
+      goodsAfterVoucher: keptGoodsAfterVoucher,
+      payable: remainingPayable,
+      items: rows
+        .filter((row) => row.keptQty > 0)
+        .map((row) => ({
+          itemId: row.id,
+          name: String(row.raw?.tensanpham || 'San pham'),
+          color: String(row.raw?.mausac || ''),
+          size: String(row.raw?.kichco || ''),
+          keptQty: row.keptQty,
+          boughtQty: row.boughtQty,
+          amount: row.keptAmount
+        }))
+    }
+  };
+}
+
 async function tinhSoTienHoanTheoYeuCau(order) {
   if (!order || !order._id) return 0;
 
   const requestedRows = normalizeReturnItemsPayload(
     order?.yeucauhoanhang?.requestedItems || order?.yeucauhoanhang?.returnItems
   );
-  if (!requestedRows.length) return 0;
-
   const orderItems = await Chitietdonhang.find({ donhang_id: order._id })
-    .select('_id soluong thanhtien giaban giagoc')
+    .select('_id soluong thanhtien giaban giagoc tensanpham hinhanh kichco mausac sanpham_id bienthe_id')
     .lean();
-  const itemMap = new Map((orderItems || []).map((it) => [String(it._id), it]));
+  if (!orderItems.length) return 0;
 
-  let tongTien = 0;
+  const requestedQtyByItemId = {};
   for (const row of requestedRows) {
-    const item = itemMap.get(String(row.orderItemId || ''));
-    if (!item) continue;
-
-    const boughtQty = Math.max(0, toPositiveInt(item.soluong, 0));
-    if (boughtQty <= 0) continue;
-
-    const reqQty = Math.min(toPositiveInt(row.qty, 0), boughtQty);
-    if (reqQty <= 0) continue;
-
-    const lineTotal = toNumber(item.thanhtien, 0);
-    const unitPrice = (lineTotal > 0 && boughtQty > 0)
-      ? (lineTotal / boughtQty)
-      : (toNumber(item.giaban, 0) > 0 ? toNumber(item.giaban, 0) : toNumber(item.giagoc, 0));
-    if (unitPrice <= 0) continue;
-
-    tongTien += roundMoney(unitPrice * reqQty);
+    const itemId = String(row?.orderItemId || '').trim();
+    const qty = Math.max(0, toPositiveInt(row?.qty, 0));
+    if (!itemId || qty <= 0) continue;
+    requestedQtyByItemId[itemId] = (requestedQtyByItemId[itemId] || 0) + qty;
   }
 
-  return Math.max(0, roundMoney(tongTien));
+  const itemsForCalc = orderItems.map((it) => ({
+    ...it,
+    tongSoLuong: Math.max(0, toPositiveInt(it?.soluong, 0)),
+    tongThanhTien: Math.max(
+      0,
+      roundMoney(
+        toNumber(it?.thanhtien, 0) > 0
+          ? toNumber(it?.thanhtien, 0)
+          : (toNumber(it?.giaban, 0) > 0 ? toNumber(it?.giaban, 0) : toNumber(it?.giagoc, 0)) * toPositiveInt(it?.soluong, 0)
+      )
+    )
+  }));
+
+  const returnRequestItems = Object.keys(requestedQtyByItemId).map((itemId) => {
+    const item = orderItems.find((it) => String(it?._id || '').trim() === itemId);
+    return {
+      orderItemId: itemId,
+      qty: Math.max(0, toPositiveInt(requestedQtyByItemId[itemId], 0)),
+      boughtQty: Math.max(0, toPositiveInt(item?.soluong, 0)),
+      tensanpham: String(item?.tensanpham || '').trim(),
+      hinhanh: String(item?.hinhanh || '').trim(),
+      kichco: String(item?.kichco || '').trim(),
+      mausac: String(item?.mausac || '').trim()
+    };
+  }).filter((row) => row.qty > 0);
+
+  // Try to use actual returned quantities first (from export return data), then fallback to requested quantities.
+  let returnedQtyByItemId = {};
+  let returnActualTotalAmount = 0;
+  const exportReceipt = await PhieuXuatKho.findOne({ donhang_id: order._id }).select('chitiet tongdoanhthuhoan').lean();
+  if (exportReceipt) {
+    const actualSummary = buildReturnedItemSummary({
+      exportReceipt,
+      orderItems
+    });
+    returnedQtyByItemId = actualSummary?.returnedQtyByItemId || {};
+    returnActualTotalAmount = Math.max(
+      0,
+      roundMoney(actualSummary?.totalRefundAmount || exportReceipt?.tongdoanhthuhoan || 0)
+    );
+  }
+
+  const financialSummary = buildAdminRefundFinancialSummary({
+    order,
+    items: itemsForCalc,
+    returnRequestItems,
+    returnedQtyByItemId,
+    returnActualTotalAmount,
+    statusLabels: ADMIN_STATUS_LABELS
+  });
+
+  return Math.max(0, roundMoney(financialSummary?.refund?.amount || 0));
 }
 
 function tinhTySuatLoiNhuan({ doanhThu, loiNhuan }) {
@@ -835,10 +1107,18 @@ async function getChiTietData(id) {
   );
   const returnActualDetailsMissing = (returnActualTotalQty > 0 || returnActualTotalAmount > 0)
     && (!Array.isArray(returnActualSummary.items) || returnActualSummary.items.length === 0);
+  const refundFinancialSummary = buildAdminRefundFinancialSummary({
+    order,
+    items,
+    returnRequestItems,
+    returnedQtyByItemId: returnActualSummary.returnedQtyByItemId,
+    returnActualTotalAmount,
+    statusLabels: ADMIN_STATUS_LABELS
+  });
 
   const allowedNext = (CHUYEN_TRANG_THAI[order.trangthai] || [])
     .filter((s) => s !== 'dahuy')
-    .filter((s) => s === 'returned' || !RETURN_STEP_STATUSES.has(s));
+    .filter((s) => !RETURN_STEP_STATUSES.has(s));
 
   return {
     ok: true,
@@ -853,6 +1133,7 @@ async function getChiTietData(id) {
       returnActualTotalQty,
       returnActualTotalAmount,
       returnActualDetailsMissing,
+      refundFinancialSummary,
       hasReturnImport,
       statusLabels: ADMIN_STATUS_LABELS,
       flow: ADMIN_FLOW,
@@ -964,6 +1245,14 @@ async function capNhatTrangThaiDon({ id, nextStatus, actor }) {
 
   if (!TAP_TRANG_THAI.has(status) || status === 'dahuy') {
     return { ok: false, code: 'INVALID_STATUS', message: 'Trạng thái không hợp lệ' };
+  }
+
+  if (['returned', 'returned_full', 'returned_partial'].includes(status)) {
+    return {
+      ok: false,
+      code: 'RETURN_RECEIVE_REQUIRED',
+      message: 'Vui lòng dùng thao tác "Xác nhận nhận hàng hoàn" để cập nhật hàng hoàn thực tế.'
+    };
   }
 
   const order = await Donhang.findOne({ _id: orderId, daxoa: { $ne: true } }).lean();
@@ -1113,6 +1402,29 @@ async function hoanTienDon(id) {
     return { ok: false, message: 'Đơn hàng chưa ở trạng thái đã nhận hàng hoàn.' };
   }
 
+  const [hasReturnImport, exportReceipt] = await Promise.all([
+    PhieuNhapKho.exists({ donhang_id: order._id, loaiphieu: 'return' }),
+    PhieuXuatKho.findOne({ donhang_id: order._id })
+      .select('chitiet tongdoanhthuhoan')
+      .lean()
+  ]);
+  const actualSummary = buildReturnedItemSummary({
+    exportReceipt,
+    orderItems: []
+  });
+  const actualReturnedQty = Math.max(0, toPositiveInt(actualSummary?.totalReturnedQty, 0));
+  const actualReturnedAmount = Math.max(
+    0,
+    roundMoney(actualSummary?.totalRefundAmount || exportReceipt?.tongdoanhthuhoan || 0)
+  );
+
+  if (!hasReturnImport && actualReturnedQty <= 0 && actualReturnedAmount <= 0) {
+    return {
+      ok: false,
+      message: 'Chưa có dữ liệu hàng hoàn thực tế. Vui lòng bấm "Xác nhận nhận hàng hoàn" hoặc "Đồng bộ nhập kho hoàn trả" trước khi hoàn tiền.'
+    };
+  }
+
   // Allow refund before manual stock sync.
   // Admin can run "Dong bo nhap kho hoan tra" later from order detail.
   const paymentMethod = String(order.phuongthucthanhtoan || '').trim().toLowerCase();
@@ -1143,17 +1455,20 @@ async function hoanTienDon(id) {
       )
     )
   );
-  const soTienTheoYeuCau = await tinhSoTienHoanTheoYeuCau(order);
+  const soTienTinhTheoVoucherPhanBo = await tinhSoTienHoanTheoYeuCau(order);
+  const daTinhHoanTheoVoucher = soTienTinhTheoVoucherPhanBo > 0;
 
-  if (String(order.trangthai) === 'returned_partial' && soTienTheoYeuCau > 0) {
-    // Partial return must refund only the requested/approved quantity.
-    soTienHoan = soTienTheoYeuCau;
-  } else if (soTienHoan <= 0 && soTienTheoYeuCau > 0) {
-    soTienHoan = soTienTheoYeuCau;
+  // Always prioritize standardized proportional-refund calculation.
+  if (daTinhHoanTheoVoucher) {
+    soTienHoan = soTienTinhTheoVoucherPhanBo;
   }
 
+  const tongDaGiamDoanhThu = Math.max(0, roundMoney(order.tonggiamdoanhthu_hoantra || 0));
+  const tongThanhToanHienTai = Math.max(0, roundMoney(order.tongtien || order.tamtinh || 0));
+  const tongThanhToanBanDau = Math.max(0, tongThanhToanHienTai + tongDaGiamDoanhThu);
+
   if (soTienHoan <= 0 && String(order.trangthai) === 'returned_full') {
-    soTienHoan = Math.max(0, Math.round(Number(order.tongtien || order.tamtinh || 0)));
+    soTienHoan = Math.max(0, tongThanhToanBanDau || tongThanhToanHienTai);
   }
 
   if (soTienHoan <= 0) {
@@ -1163,7 +1478,12 @@ async function hoanTienDon(id) {
     };
   }
 
-  const gioiHanHoan = Math.max(0, Math.round(Number(order.tongtien || order.tamtinh || 0)));
+  // Refund cap must be based on original payable amount, not current remaining payable.
+  // If voucher-aware refund is already computed, never clamp below that computed value.
+  const gioiHanHoanTheoTongDon = Math.max(0, tongThanhToanBanDau || tongThanhToanHienTai);
+  const gioiHanHoan = daTinhHoanTheoVoucher
+    ? Math.max(gioiHanHoanTheoTongDon, Math.max(0, roundMoney(soTienTinhTheoVoucherPhanBo)))
+    : gioiHanHoanTheoTongDon;
   if (gioiHanHoan > 0) {
     soTienHoan = Math.min(soTienHoan, gioiHanHoan);
   }
@@ -1226,8 +1546,10 @@ async function hoanTienDon(id) {
 
   order.trangthai = 'refunded';
   order.ngaycapnhat = new Date();
+  order.tonggiamdoanhthu_hoantra = Math.max(0, roundMoney(soTienHoan));
   order.yeucauhoanhang = {
     ...(order.yeucauhoanhang || {}),
+    refundAmount: Math.max(0, roundMoney(soTienHoan)),
     refundedAt: new Date()
   };
   await order.save();

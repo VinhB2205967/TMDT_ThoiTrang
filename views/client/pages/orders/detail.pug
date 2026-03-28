@@ -10,6 +10,10 @@ block main
       - const statusLabels = locals.statusLabels || { all: 'Tất cả', choxacnhan: 'Chờ xác nhận', daxacnhan: 'Đã xác nhận', dangchuanbi: 'Đang chuẩn bị', danggiao: 'Đang giao', dagiao: 'Đã giao', requested_return: 'Yêu cầu hoàn hàng', approved_return: 'Đã duyệt hoàn hàng', rejected_return: 'Từ chối hoàn hàng', return_shipping: 'Đang gửi hàng hoàn', returned: 'Đã nhận hàng hoàn', returned_full: 'Đã trả hàng', returned_partial: 'Trả hàng một phần', refunded: 'Đã hoàn tiền', dahuy: 'Đã hủy', hoanhang: 'Hoàn hàng' }
       - const isChoThanhToan = order.trangthai === 'choxacnhan' && (order.phuongthucthanhtoan === 'momo' || order.phuongthucthanhtoan === 'vnpay') && !order.dathanhtoan
       - const label = isChoThanhToan ? 'Chờ thanh toán' : (statusLabels[order.trangthai] || order.trangthai || '—')
+      - const rs = refundSummary || {}
+      - const rsOriginal = rs.original || {}
+      - const rsRefund = rs.refund || {}
+      - const rsRemain = rs.remaining || {}
 
       .d-flex.flex-wrap.justify-content-between.align-items-center.gap-2.mb-3
         div
@@ -55,7 +59,7 @@ block main
               i.bi.bi-x-circle.me-1
               | Hủy yêu cầu hoàn
 
-      if ['requested_return','approved_return','rejected_return','return_shipping','returned','refunded'].includes(order.trangthai)
+      if ['requested_return','approved_return','rejected_return','return_shipping','returned','returned_partial','returned_full','refunded'].includes(order.trangthai)
         .alert.alert-warning.py-2.small
           strong Trạng thái hoàn hàng:
           |  #{statusLabels[order.trangthai] || order.trangthai}
@@ -113,16 +117,19 @@ block main
               .fw-semibold.mb-2 Sản phẩm
               if items && items.length
                 each it in items
+                  - const __lineTotal = (it.thanhtien || ((it.giaban || 0) * (it.soluong || 1)) || 0)
+                  - const __rf = rs.perItem && rs.perItem[String(it._id)] ? rs.perItem[String(it._id)] : null
                   .d-flex.justify-content-between.align-items-start.py-2.border-bottom
                     .d-flex.gap-2.flex-grow-1
-                      img.rounded.border(src=(it.hinhanh || '/images/shopping.png') alt=(it.tensanpham || 'Sản phẩm') width="56" height="56" style="object-fit: cover;")
+                      img.rounded.border(src=(it.hinhanh || '/images/shopping.png') alt=(it.tensanpham || 'Sản phẩm') width='56' height='56' style='object-fit: cover;')
                       .me-2
                         .fw-semibold #{it.tensanpham}
                         .small.text-muted
                           | #{it.mausac || ''}#{it.kichco ? (' - ' + it.kichco) : ''} x#{it.soluong || 1}
-                    - const __lineTotal = (it.thanhtien || ((it.giaban || 0) * (it.soluong || 1)) || 0)
+                        if __rf && __rf.returnedQty > 0
+                          .small.fw-semibold.text-success Đã hoàn #{__rf.returnedQty}/#{__rf.boughtQty || it.soluong || 0}
                     .text-end
-                      .fw-semibold #{__lineTotal.toLocaleString('vi-VN')}₫
+                      .fw-semibold #{__lineTotal.toLocaleString('vi-VN')}đ
                       if order.trangthai === 'dagiao'
                         if it.daDanhGia
                           a.review-link.review-link--edit.mt-1(href=`/reviews/${it.reviewId}/edit#review-form`) Đã đánh giá • Sửa
@@ -132,9 +139,82 @@ block main
                 p.text-muted.small Không có sản phẩm.
 
               hr
-              .d-flex.justify-content-between.fw-semibold
-                span Tổng
-                span #{(order.tongtien || order.tamtinh || 0).toLocaleString('vi-VN')}₫
+              .partial-refund-wrap
+                .partial-refund-section
+                  .partial-refund-title 1. Tổng đơn ban đầu
+                  .partial-refund-row
+                    span Tổng tiền hàng
+                    strong #{(rsOriginal.goodsSubtotal || 0).toLocaleString('vi-VN')}đ
+                  .partial-refund-row
+                    span Voucher giảm giá
+                    strong.text-danger -#{(rsOriginal.voucherDiscount || 0).toLocaleString('vi-VN')}đ
+                  .partial-refund-row
+                    span Phí vận chuyển
+                    strong #{(rsOriginal.shippingFee || 0).toLocaleString('vi-VN')}đ
+                  .partial-refund-row.partial-refund-row--main
+                    span Tổng thanh toán ban đầu
+                    strong #{(rsOriginal.payable || 0).toLocaleString('vi-VN')}đ
+
+                .partial-refund-section
+                  .d-flex.justify-content-between.align-items-center.gap-2
+                    .partial-refund-title.mb-0 2. Thông tin hoàn hàng
+                    if rs.hasReturnFlow
+                      span.badge.text-bg-light #{rsRefund.statusLabel || 'Đang xử lý'}
+                  if rs.hasReturnFlow
+                    .partial-refund-row
+                      span Số lượng đã hoàn
+                      strong #{rsRefund.totalReturnedQty || 0}
+                    if rsRefund.items && rsRefund.items.length
+                      .partial-refund-list
+                        each rf in rsRefund.items
+                          .partial-refund-list__item
+                            .small.fw-semibold #{rf.name}
+                            .small.text-muted #{[rf.color, rf.size].filter(Boolean).join(' - ') || 'Mặc định'} • Đã hoàn #{rf.returnedQty}/#{rf.boughtQty}
+                            .small.fw-semibold.text-danger -#{(rf.amount || 0).toLocaleString('vi-VN')}đ
+                    else if rsRefund.requestedItems && rsRefund.requestedItems.length
+                      .partial-refund-list
+                        each rr in rsRefund.requestedItems
+                          .partial-refund-list__item
+                            .small.fw-semibold #{rr.name}
+                            .small.text-muted #{[rr.color, rr.size].filter(Boolean).join(' - ') || 'Mặc định'} • Yêu cầu hoàn #{rr.requestedQty}/#{rr.boughtQty || 0}
+                    else
+                      .small.text-muted.mb-2 Chưa có sản phẩm đã hoàn.
+                    .partial-refund-row.partial-refund-row--refund
+                      span Đã hoàn tiền
+                      strong.text-danger -#{(rsRefund.amount || 0).toLocaleString('vi-VN')}đ
+                    .partial-refund-progress
+                      span.partial-refund-step(class=(rsRefund.progress && rsRefund.progress.approved) ? 'is-done' : '') Đã duyệt
+                      span.partial-refund-step(class=(rsRefund.progress && rsRefund.progress.received) ? 'is-done' : '') Đã nhận hàng
+                      span.partial-refund-step(class=(rsRefund.progress && rsRefund.progress.refunded) ? 'is-done' : '') Đã hoàn tiền
+                  else
+                    .small.text-muted Chưa phát sinh hoàn hàng.
+
+                .partial-refund-section
+                  .partial-refund-title 3. Giá trị đơn hàng còn lại
+                  if rsRemain.items && rsRemain.items.length
+                    .partial-refund-list
+                      each rk in rsRemain.items
+                        .partial-refund-list__item
+                          .small.fw-semibold #{rk.name}
+                          .small.text-muted #{[rk.color, rk.size].filter(Boolean).join(' - ') || 'Mặc định'} • Giữ lại #{rk.keptQty}/#{rk.boughtQty}
+                          .small.fw-semibold #{(rk.amount || 0).toLocaleString('vi-VN')}đ
+                  else
+                    .small.text-muted.mb-2 Không còn sản phẩm giữ lại.
+                  .partial-refund-row
+                    span Giá trị sản phẩm giữ lại
+                    strong #{(rsRemain.goodsValue || 0).toLocaleString('vi-VN')}đ
+                  .partial-refund-row
+                    span Voucher phân bổ cho sản phẩm giữ lại
+                    strong.text-danger -#{(rsRemain.voucherAllocated || 0).toLocaleString('vi-VN')}đ
+                  .partial-refund-row
+                    span Giá trị còn lại sau hoàn
+                    strong #{(rsRemain.goodsAfterVoucher || 0).toLocaleString('vi-VN')}đ
+                  .partial-refund-row
+                    span Phí vận chuyển
+                    strong #{(rsOriginal.shippingFee || 0).toLocaleString('vi-VN')}đ
+                  .partial-refund-row.partial-refund-row--remain
+                    span Còn lại (khách thực trả cuối cùng)
+                    strong #{(rsRemain.payable || 0).toLocaleString('vi-VN')}đ
 
       if returnEligible
         - const firstItem = items && items.length ? items[0] : null
@@ -205,7 +285,7 @@ block main
                         label.form-check-label(for='refundBank') Chuyển khoản ngân hàng
                     else
                       input(type='hidden' name='refundMethod' value='bank')
-                      .small.text-muted.mb-2 Dơn COD: vui lòng nhập thông tin ngân hàng để hoàn tiền.
+                      .small.text-muted.mb-2 Đơn COD: vui lòng nhập thông tin ngân hàng để hoàn tiền.
 
                     .mt-2(class=_onlineWalletPaid ? 'd-none' : '' data-refund-bank-fields)
                       .row.g-2

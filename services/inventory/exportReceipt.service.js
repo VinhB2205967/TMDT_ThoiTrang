@@ -17,6 +17,58 @@ function toNumber(v, fallback = 0) {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
 }
+
+function roundMoney(value) {
+  return Math.round(toNumber(value, 0));
+}
+
+function allocateProportionalAmounts(rows, totalAmount) {
+  const normalizedRows = (Array.isArray(rows) ? rows : [])
+    .map((row, index) => ({
+      id: String(row && row.id ? row.id : '').trim(),
+      weight: Math.max(0, roundMoney(row && row.amount ? row.amount : 0)),
+      index
+    }))
+    .filter((row) => row.id);
+
+  const result = {};
+  for (const row of normalizedRows) result[row.id] = 0;
+
+  const target = Math.max(0, roundMoney(totalAmount));
+  if (!normalizedRows.length || target <= 0) return result;
+
+  const totalWeight = normalizedRows.reduce((sum, row) => sum + row.weight, 0);
+  if (totalWeight <= 0) return result;
+
+  const allocations = normalizedRows.map((row) => {
+    const exact = (target * row.weight) / totalWeight;
+    const floorVal = Math.floor(exact);
+    return {
+      ...row,
+      value: floorVal,
+      fraction: exact - floorVal
+    };
+  });
+
+  let assigned = allocations.reduce((sum, row) => sum + row.value, 0);
+  let remain = target - assigned;
+
+  allocations.sort((a, b) => {
+    if (b.fraction !== a.fraction) return b.fraction - a.fraction;
+    if (b.weight !== a.weight) return b.weight - a.weight;
+    return a.index - b.index;
+  });
+
+  let cursor = 0;
+  while (remain > 0 && allocations.length) {
+    allocations[cursor % allocations.length].value += 1;
+    remain -= 1;
+    cursor += 1;
+  }
+
+  for (const row of allocations) result[row.id] = row.value;
+  return result;
+}
 // Hàm tạo mã phiếu xuất kho duy nhất dựa trên thời gian hiện tại và một số ngẫu nhiên, định dạng mã sẽ là "XKYYYYMMDD-HHMMSS-RAND"
 function taoMaPhieuXuat() {
   const d = new Date();
@@ -403,6 +455,77 @@ function tinhTongSoLieu(lines) {
     tysuatloinhuan: Number(tySuat.toFixed(2))
   };
 }
+
+function apDungVoucherDonHangChoPhieuXuat({ lines, order }) {
+  const rows = Array.isArray(lines) ? lines : [];
+  if (!rows.length) return 0;
+
+  const goodsSubtotal = Math.max(0, roundMoney(rows.reduce((sum, row) => sum + toNumber(row?.doanhthu, 0), 0)));
+  if (goodsSubtotal <= 0) return 0;
+
+  const voucherRaw = toNumber(order?.voucher_discount, NaN);
+  const voucherDiscount = Math.min(
+    goodsSubtotal,
+    Math.max(0, roundMoney(Number.isFinite(voucherRaw) ? voucherRaw : toNumber(order?.giamgia, 0)))
+  );
+  if (voucherDiscount <= 0) return 0;
+
+  const voucherByLine = allocateProportionalAmounts(
+    rows.map((row, index) => ({
+      id: String(index),
+      amount: roundMoney(row?.doanhthu || 0)
+    })),
+    voucherDiscount
+  );
+
+  rows.forEach((line, lineIndex) => {
+    const lineDiscount = Math.max(0, roundMoney(voucherByLine[String(lineIndex)] || 0));
+    const lineRevenueBefore = Math.max(0, roundMoney(line?.doanhthu || 0));
+    const lineRevenueAfter = Math.max(0, lineRevenueBefore - lineDiscount);
+    const lineCost = Math.max(0, roundMoney(line?.giavon || 0));
+
+    line.doanhthu = lineRevenueAfter;
+    line.loinhuan = roundMoney(lineRevenueAfter - lineCost);
+
+    const allocs = Array.isArray(line?.allocations) ? line.allocations : [];
+    if (!allocs.length || lineDiscount <= 0) return;
+
+    const weightRows = allocs.map((alloc, allocIndex) => {
+      const qty = Math.max(0, toNumber(alloc?.soLuong, 0));
+      const fallbackRevenue = qty * (
+        toNumber(alloc?.giasaugiam, 0)
+        || toNumber(alloc?.giaban, 0)
+        || toNumber(alloc?.giaBanDeXuat, 0)
+      );
+      const baseRevenue = Math.max(0, roundMoney(toNumber(alloc?.doanhthu, 0) || fallbackRevenue));
+      const weight = baseRevenue > 0 ? baseRevenue : Math.max(0, roundMoney(qty));
+      return {
+        id: String(allocIndex),
+        amount: weight
+      };
+    });
+
+    const voucherByAlloc = allocateProportionalAmounts(weightRows, lineDiscount);
+
+    allocs.forEach((alloc, allocIndex) => {
+      const qty = Math.max(0, toNumber(alloc?.soLuong, 0));
+      const fallbackRevenue = qty * (
+        toNumber(alloc?.giasaugiam, 0)
+        || toNumber(alloc?.giaban, 0)
+        || toNumber(alloc?.giaBanDeXuat, 0)
+      );
+      const baseRevenue = Math.max(0, roundMoney(toNumber(alloc?.doanhthu, 0) || fallbackRevenue));
+      const allocDiscount = Math.max(0, roundMoney(voucherByAlloc[String(allocIndex)] || 0));
+      const revenueAfter = Math.max(0, baseRevenue - allocDiscount);
+      const allocCost = Math.max(0, roundMoney(toNumber(alloc?.giavon, 0) || (qty * toNumber(alloc?.giaNhap, 0))));
+
+      alloc.doanhthu = revenueAfter;
+      alloc.loinhuan = roundMoney(revenueAfter - allocCost);
+    });
+  });
+
+  return voucherDiscount;
+}
 // Hàm chính để tạo phiếu xuất kho từ đơn hàng, nó kiểm tra tính hợp lệ của orderId, kiểm tra xem đã tồn tại phiếu xuất kho cho đơn hàng này chưa, lấy thông tin đơn hàng và chi tiết đơn hàng, tính toán chi phí và điều chỉnh tồn kho theo từng dòng sản phẩm, sau đó tạo và lưu phiếu xuất kho mới vào cơ sở dữ liệu
 async function taoPhieuXuatTuDonHang({ orderId, adminUser, note = '', skipInventoryAdjustments = false }) {
   const oid = String(orderId || '').trim();
@@ -533,6 +656,11 @@ async function taoPhieuXuatTuDonHang({ orderId, adminUser, note = '', skipInvent
       await productDoc.save();
     }
   }
+
+  apDungVoucherDonHangChoPhieuXuat({
+    lines,
+    order
+  });
 
   const totals = tinhTongSoLieu(lines);
 

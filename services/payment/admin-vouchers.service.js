@@ -10,10 +10,16 @@ function parseNumber(raw, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function parseDate(raw) {
+function parseDate(raw, options = {}) {
+  const { endOfDay = false } = options || {};
   if (!raw) return null;
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) return null;
+  if (endOfDay) {
+    d.setHours(23, 59, 59, 999);
+  } else {
+    d.setHours(0, 0, 0, 0);
+  }
   return d;
 }
 
@@ -101,8 +107,12 @@ async function taoMoiVoucher({ body = {}, file = null }) {
   const don_toithieu = parseNumber(body.don_toithieu, 0);
   const giam_toida = parseNumber(body.giam_toida, 0);
   const soluong_toida = parseNumber(body.soluong_toida, 0);
-  const ngay_batdau = parseDate(body.ngay_batdau) || new Date();
-  const ngay_ketthuc = parseDate(body.ngay_ketthuc);
+  const ngay_batdau = parseDate(body.ngay_batdau) || (() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return now;
+  })();
+  const ngay_ketthuc = parseDate(body.ngay_ketthuc, { endOfDay: true });
   const trangthai = String(body.trangthai || 'active');
 
   if (!code) return { ok: false, status: 400, message: 'Vui lòng nhập mã voucher' };
@@ -149,8 +159,12 @@ async function capNhatVoucher({ id, body = {}, file = null }) {
   const don_toithieu = parseNumber(body.don_toithieu, 0);
   const giam_toida = parseNumber(body.giam_toida, 0);
   const soluong_toida = parseNumber(body.soluong_toida, 0);
-  const ngay_batdau = parseDate(body.ngay_batdau) || voucher.ngay_batdau || new Date();
-  const ngay_ketthuc = parseDate(body.ngay_ketthuc) || voucher.ngay_ketthuc;
+  const ngay_batdau = parseDate(body.ngay_batdau) || voucher.ngay_batdau || (() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return now;
+  })();
+  const ngay_ketthuc = parseDate(body.ngay_ketthuc, { endOfDay: true }) || voucher.ngay_ketthuc;
   const trangthai = String(body.trangthai || 'active');
 
   if (!code) return { ok: false, status: 400, message: 'Vui lòng nhập mã voucher' };

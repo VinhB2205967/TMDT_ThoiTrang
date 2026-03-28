@@ -1274,3 +1274,100 @@ body.modal-open #chatClientToastWrap {
               opacity 700ms ease;
   will-change: transform, opacity;
 }
+
+/* Order detail: partial refund layout */
+.partial-refund-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.partial-refund-section {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.partial-refund-title {
+  font-weight: 800;
+  font-size: 0.94rem;
+  margin-bottom: 8px;
+  color: #0f172a;
+}
+
+.partial-refund-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.88rem;
+  margin-bottom: 5px;
+  color: #334155;
+}
+
+.partial-refund-row:last-child {
+  margin-bottom: 0;
+}
+
+.partial-refund-row strong {
+  color: #0f172a;
+}
+
+.partial-refund-row--main {
+  border-top: 1px dashed rgba(100, 116, 139, 0.4);
+  padding-top: 7px;
+  margin-top: 7px;
+  font-weight: 750;
+}
+
+.partial-refund-row--refund {
+  border-top: 1px dashed rgba(239, 68, 68, 0.28);
+  padding-top: 7px;
+  margin-top: 7px;
+}
+
+.partial-refund-row--remain {
+  border-top: 1px dashed rgba(34, 197, 94, 0.3);
+  padding-top: 7px;
+  margin-top: 7px;
+  font-weight: 750;
+}
+
+.partial-refund-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.partial-refund-list__item {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 10px;
+  padding: 7px 8px;
+  background: #fff;
+}
+
+.partial-refund-progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.partial-refund-step {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  border-radius: 999px;
+  padding: 0 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #475569;
+  background: #e2e8f0;
+}
+
+.partial-refund-step.is-done {
+  color: #166534;
+  background: #dcfce7;
+}

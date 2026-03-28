@@ -61,6 +61,138 @@ function roundMoney(value) {
   return Math.round(toNumber(value, 0));
 }
 
+function splitAmountByQty(totalAmount, totalQty, partQty) {
+  const amount = Math.max(0, roundMoney(totalAmount));
+  const qty = Math.max(0, toPositiveInt(totalQty, 0));
+  const part = Math.max(0, toPositiveInt(partQty, 0));
+  if (amount <= 0 || qty <= 0 || part <= 0) return 0;
+  if (part >= qty) return amount;
+  return Math.max(0, Math.min(amount, Math.round((amount * part) / qty)));
+}
+
+function allocateProportionalAmounts(rows, totalAmount) {
+  const normalizedRows = (Array.isArray(rows) ? rows : [])
+    .map((row, index) => ({
+      id: String(row && row.id ? row.id : '').trim(),
+      weight: Math.max(0, roundMoney(row && row.amount ? row.amount : 0)),
+      index
+    }))
+    .filter((row) => row.id);
+
+  const result = {};
+  for (const row of normalizedRows) result[row.id] = 0;
+
+  const target = Math.max(0, roundMoney(totalAmount));
+  if (!normalizedRows.length || target <= 0) return result;
+
+  const totalWeight = normalizedRows.reduce((sum, row) => sum + row.weight, 0);
+  if (totalWeight <= 0) return result;
+
+  const allocations = normalizedRows.map((row) => {
+    const exact = (target * row.weight) / totalWeight;
+    const floorVal = Math.floor(exact);
+    return {
+      ...row,
+      value: floorVal,
+      fraction: exact - floorVal
+    };
+  });
+
+  let assigned = allocations.reduce((sum, row) => sum + row.value, 0);
+  let remain = target - assigned;
+
+  allocations.sort((a, b) => {
+    if (b.fraction !== a.fraction) return b.fraction - a.fraction;
+    if (b.weight !== a.weight) return b.weight - a.weight;
+    return a.index - b.index;
+  });
+
+  let cursor = 0;
+  while (remain > 0 && allocations.length) {
+    allocations[cursor % allocations.length].value += 1;
+    remain -= 1;
+    cursor += 1;
+  }
+
+  for (const row of allocations) result[row.id] = row.value;
+  return result;
+}
+
+function buildOrderItemFinancialMap(order, orderItems) {
+  const rows = Array.isArray(orderItems) ? orderItems : [];
+  const lines = rows.map((item, index) => {
+    const id = String(item && item._id ? item._id : `item-${index}`).trim();
+    const boughtQty = Math.max(0, toPositiveInt(item?.soluong, 0));
+    const lineStored = toNumber(item?.thanhtien, 0);
+    const unitFallback = toNumber(item?.giaban, 0) > 0
+      ? toNumber(item?.giaban, 0)
+      : toNumber(item?.giagoc, 0);
+    const grossAmount = Math.max(0, roundMoney(lineStored > 0 ? lineStored : (unitFallback * boughtQty)));
+    return { id, boughtQty, grossAmount };
+  });
+
+  const goodsSubtotal = Math.max(0, lines.reduce((sum, row) => sum + row.grossAmount, 0));
+  const voucherRaw = toNumber(order?.voucher_discount, NaN);
+  const voucherDiscount = Math.min(
+    goodsSubtotal,
+    Math.max(0, roundMoney(Number.isFinite(voucherRaw) ? voucherRaw : toNumber(order?.giamgia, 0)))
+  );
+
+  const voucherByItem = allocateProportionalAmounts(
+    lines.map((line) => ({ id: line.id, amount: line.grossAmount })),
+    voucherDiscount
+  );
+
+  const out = new Map();
+  for (const line of lines) {
+    const allocatedVoucher = Math.max(0, roundMoney(voucherByItem[line.id] || 0));
+    out.set(line.id, {
+      boughtQty: line.boughtQty,
+      grossAmount: line.grossAmount,
+      allocatedVoucher,
+      lineAfterVoucher: Math.max(0, line.grossAmount - allocatedVoucher)
+    });
+  }
+
+  return out;
+}
+
+function apDungDoanhThuHoanTheoVoucher({ allocations, orderItemFinancialMap }) {
+  const map = orderItemFinancialMap instanceof Map ? orderItemFinancialMap : new Map();
+  const rows = Array.isArray(allocations) ? allocations : [];
+  if (!rows.length || !map.size) return;
+
+  const grouped = new Map();
+  for (const allocation of rows) {
+    const itemId = String(allocation?.orderItem?._id || '').trim();
+    if (!itemId) continue;
+    if (!grouped.has(itemId)) grouped.set(itemId, []);
+    grouped.get(itemId).push(allocation);
+  }
+
+  for (const [itemId, group] of grouped.entries()) {
+    const finance = map.get(itemId);
+    if (!finance) continue;
+
+    const boughtQty = Math.max(0, toPositiveInt(finance.boughtQty, 0));
+    const returnedQty = group.reduce((sum, row) => sum + Math.max(0, toPositiveInt(row?.qty, 0)), 0);
+    if (boughtQty <= 0 || returnedQty <= 0) continue;
+
+    const revenueTarget = splitAmountByQty(finance.lineAfterVoucher, boughtQty, returnedQty);
+    const allocatedByRow = allocateProportionalAmounts(
+      group.map((row, idx) => ({ id: String(idx), amount: Math.max(0, toPositiveInt(row?.qty, 0)) })),
+      revenueTarget
+    );
+
+    for (let idx = 0; idx < group.length; idx += 1) {
+      const row = group[idx];
+      const amount = Math.max(0, roundMoney(allocatedByRow[String(idx)] || 0));
+      row.returnDoanhThu = amount;
+      row.returnLoiNhuan = roundMoney(amount - toNumber(row.returnGiaVon, 0));
+    }
+  }
+}
+
 function buildAllocationSlotsFromExportLine(line) {
   const exportedQty = toPositiveInt(line?.soluong, 0);
   const returnedQty = toPositiveInt(line?.soluonghoan, 0);
@@ -392,6 +524,14 @@ async function dongBoNhapKhoHoanTra({ id, payload = {}, actor = null }) {
   if (!allocations.length) {
     return { ok: false, message: 'Không có số lượng hoàn trả hợp lệ để xử lý' };
   }
+
+  // Recompute returned revenue with voucher-proportional allocation from order snapshot.
+  // Export receipt unit prices may not include order-level voucher.
+  const orderItemFinancialMap = buildOrderItemFinancialMap(order, orderItems);
+  apDungDoanhThuHoanTheoVoucher({
+    allocations,
+    orderItemFinancialMap
+  });
 
   const now = new Date();
   let maPhieuNhap = taoMaPhieuNhapHoanTra();
