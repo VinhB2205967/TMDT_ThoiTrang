@@ -19,7 +19,7 @@ function createImageUpload(subDir, options = {}) {
 
   return multer({
     storage,
-    limits: { fileSize: options.maxSize || 2 * 1024 * 1024, files: 1 },
+    limits: { fileSize: options.maxSize || 2 * 1024 * 1024, files: options.maxFiles || 1 },
     fileFilter: function (_req, file, cb) {
       const ok = /^image\//.test(String(file.mimetype || ''));
       cb(ok ? null : new Error('ONLY_IMAGE'), ok);

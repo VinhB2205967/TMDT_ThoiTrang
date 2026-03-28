@@ -1,12 +1,12 @@
-const mongoose = require('mongoose');
+﻿const mongoose = require('mongoose');
 const SizeGuide = require('../../models/size_guide_model');
 const Danhmuc = require('../../models/category_model');
 const {
-  slugify,
-  parseColumns,
-  parseRows,
-  rowsToTextarea,
-  ensureDefaultSizeGuides
+  taoSlug,
+  tachCot,
+  tachDong,
+  dongToText,
+  damBaoBangSizeMacDinh
 } = require('./sizeGuide.service.js');
 
 async function loaiSanPhamOptions() {
@@ -43,7 +43,7 @@ async function loaiSanPhamOptions() {
 }
 
 async function getDanhSachData() {
-  await ensureDefaultSizeGuides(SizeGuide);
+  await damBaoBangSizeMacDinh(SizeGuide);
   const guides = await SizeGuide.find({ daxoa: { $ne: true } })
     .sort({ loaisanpham: 1, ngaycapnhat: -1 })
     .lean();
@@ -73,8 +73,8 @@ async function getTaoMoiData() {
 async function taoMoiGuide(body = {}) {
   const tenbang = String(body.tenbang || '').trim();
   const loaisanpham = String(body.loaisanpham || '').trim();
-  const cot = parseColumns(body.cot);
-  const dong = parseRows(body.dong, cot.length);
+  const cot = tachCot(body.cot);
+  const dong = tachDong(body.dong, cot.length);
   const goiy = String(body.goiy || '').trim();
 
   if (!tenbang) return { ok: false, status: 400, message: 'Tên bảng size là bắt buộc' };
@@ -82,7 +82,7 @@ async function taoMoiGuide(body = {}) {
   if (!cot.length) return { ok: false, status: 400, message: 'Cần ít nhất 1 cột kích thước' };
   if (!dong.length) return { ok: false, status: 400, message: 'Cần ít nhất 1 dòng size' };
 
-  const baseSlug = slugify(body.slug || tenbang) || slugify(tenbang);
+  const baseSlug = taoSlug(body.slug || tenbang) || taoSlug(tenbang);
   let slug = baseSlug;
   let suffix = 1;
 
@@ -124,7 +124,7 @@ async function getChinhSuaData(id) {
   const guideForm = {
     ...guide,
     cotText: (guide.cot || []).join(', '),
-    dongText: rowsToTextarea(guide.dong)
+    dongText: dongToText(guide.dong)
   };
 
   return {
@@ -147,8 +147,8 @@ async function capNhatGuide(id, body = {}) {
 
   const tenbang = String(body.tenbang || '').trim();
   const loaisanpham = String(body.loaisanpham || '').trim();
-  const cot = parseColumns(body.cot);
-  const dong = parseRows(body.dong, cot.length);
+  const cot = tachCot(body.cot);
+  const dong = tachDong(body.dong, cot.length);
   const goiy = String(body.goiy || '').trim();
 
   if (!tenbang) return { ok: false, status: 400, message: 'Tên bảng size là bắt buộc' };
@@ -157,7 +157,7 @@ async function capNhatGuide(id, body = {}) {
   if (!dong.length) return { ok: false, status: 400, message: 'Cần ít nhất 1 dòng size' };
 
   let nextSlug = String(body.slug || guide.slug || tenbang).trim();
-  nextSlug = slugify(nextSlug);
+  nextSlug = taoSlug(nextSlug);
 
   const existed = await SizeGuide.findOne({ _id: { $ne: guide._id }, slug: nextSlug, daxoa: { $ne: true } }).select('_id').lean();
   if (existed && existed._id) return { ok: false, status: 409, message: 'Slug đã tồn tại, vui lòng đổi tên/slug' };
@@ -197,3 +197,4 @@ module.exports = {
   capNhatGuide,
   xoaGuide
 };
+

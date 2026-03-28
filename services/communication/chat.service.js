@@ -3,9 +3,9 @@ const ChatMessage = require('../../models/chat_message_model');
 const Nguoidung = require('../../models/user_model');
 const Taikhoan = require('../../models/accounts_model');
 
-const ADMIN_ROOM = 'admin_room';
+const PHONG_ADMIN = 'admin_room';
 
-function toObjectId(id) {
+function toOid(id) {
   try {
     return new mongoose.Types.ObjectId(String(id));
   } catch {
@@ -13,7 +13,7 @@ function toObjectId(id) {
   }
 }
 
-function formatMessage(doc) {
+function chuanTin(doc) {
   return {
     _id: String(doc._id),
     clientId: String(doc.clientId),
@@ -33,7 +33,7 @@ function formatMessage(doc) {
   };
 }
 
-async function createMessage({
+async function taoTin({
   clientId,
   senderId,
   senderRole,
@@ -42,9 +42,9 @@ async function createMessage({
   content,
   media = null
 }) {
-  const clientObjectId = toObjectId(clientId);
-  const senderObjectId = toObjectId(senderId);
-  const receiverObjectId = receiverId ? toObjectId(receiverId) : null;
+  const clientObjectId = toOid(clientId);
+  const senderObjectId = toOid(senderId);
+  const receiverObjectId = receiverId ? toOid(receiverId) : null;
   const text = String(content || '').trim();
   const mediaUrl = media && media.url ? String(media.url).trim() : '';
   const mediaType = media && media.type ? String(media.type).trim() : '';
@@ -68,11 +68,11 @@ async function createMessage({
     sentAt: new Date()
   });
 
-  return formatMessage(created);
+  return chuanTin(created);
 }
 
-async function getConversationMessages({ clientId, limit = 50 }) {
-  const clientObjectId = toObjectId(clientId);
+async function layTinHoiThoai({ clientId, limit = 50 }) {
+  const clientObjectId = toOid(clientId);
   if (!clientObjectId) return [];
 
   const cappedLimit = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
@@ -84,11 +84,11 @@ async function getConversationMessages({ clientId, limit = 50 }) {
     .limit(cappedLimit)
     .lean();
 
-  return rows.reverse().map(formatMessage);
+  return rows.reverse().map(chuanTin);
 }
 
-async function markClientRead({ clientId }) {
-  const clientObjectId = toObjectId(clientId);
+async function clientDaDoc({ clientId }) {
+  const clientObjectId = toOid(clientId);
   if (!clientObjectId) return 0;
 
   const result = await ChatMessage.updateMany(
@@ -108,8 +108,8 @@ async function markClientRead({ clientId }) {
   return Number(result.modifiedCount || 0);
 }
 
-async function markAdminRead({ clientId }) {
-  const clientObjectId = toObjectId(clientId);
+async function adminDaDoc({ clientId }) {
+  const clientObjectId = toOid(clientId);
   if (!clientObjectId) return 0;
 
   const result = await ChatMessage.updateMany(
@@ -129,8 +129,8 @@ async function markAdminRead({ clientId }) {
   return Number(result.modifiedCount || 0);
 }
 
-async function getClientUnreadCount({ clientId }) {
-  const clientObjectId = toObjectId(clientId);
+async function demChuaDocClient({ clientId }) {
+  const clientObjectId = toOid(clientId);
   if (!clientObjectId) return 0;
 
   return ChatMessage.countDocuments({
@@ -141,7 +141,7 @@ async function getClientUnreadCount({ clientId }) {
   });
 }
 
-async function getAdminUnreadTotal() {
+async function demChuaDocAdmin() {
   return ChatMessage.countDocuments({
     senderRole: 'client',
     isRead: false,
@@ -149,7 +149,7 @@ async function getAdminUnreadTotal() {
   });
 }
 
-function normalizeSearchText(input) {
+function chuanTim(input) {
   return String(input || '')
     .toLowerCase()
     .normalize('NFD')
@@ -157,7 +157,7 @@ function normalizeSearchText(input) {
     .trim();
 }
 
-async function getAdminConversationSummaries({ query = '' } = {}) {
+async function layTomTatHoiThoaiAdmin({ query = '' } = {}) {
   const rows = await ChatMessage.aggregate([
     { $match: { daxoa: { $ne: true } } },
     { $sort: { sentAt: -1, _id: -1 } },
@@ -206,7 +206,7 @@ async function getAdminConversationSummaries({ query = '' } = {}) {
   ]);
 
   const clientObjectIds = (rows || [])
-    .map((item) => toObjectId(item && (item.clientId || item._id)))
+    .map((item) => toOid(item && (item.clientId || item._id)))
     .filter(Boolean);
 
   const adminAccounts = clientObjectIds.length
@@ -241,11 +241,11 @@ async function getAdminConversationSummaries({ query = '' } = {}) {
     };
   }).filter((item) => item.clientId && !adminClientIdSet.has(item.clientId));
 
-  const q = normalizeSearchText(query);
+  const q = chuanTim(query);
   const filtered = !q
     ? merged
     : merged.filter((item) => {
-      const hay = normalizeSearchText(`${item.userName} ${item.userEmail} ${item.userPhone} ${item.lastMessage}`);
+      const hay = chuanTim(`${item.userName} ${item.userEmail} ${item.userPhone} ${item.lastMessage}`);
       return hay.includes(q);
     });
 
@@ -257,8 +257,8 @@ async function getAdminConversationSummaries({ query = '' } = {}) {
   });
 }
 
-async function getUserBasicInfo(userId) {
-  const objectId = toObjectId(userId);
+async function layUserCoBan(userId) {
+  const objectId = toOid(userId);
   if (!objectId) return null;
 
   const user = await Nguoidung.findOne({ _id: objectId, daxoa: { $ne: true } })
@@ -275,13 +275,14 @@ async function getUserBasicInfo(userId) {
 }
 
 module.exports = {
-  ADMIN_ROOM,
-  createMessage,
-  getConversationMessages,
-  markClientRead,
-  markAdminRead,
-  getClientUnreadCount,
-  getAdminUnreadTotal,
-  getAdminConversationSummaries,
-  getUserBasicInfo
+  PHONG_ADMIN,
+  taoTin,
+  layTinHoiThoai,
+  clientDaDoc,
+  adminDaDoc,
+  demChuaDocClient,
+  demChuaDocAdmin,
+  layTomTatHoiThoaiAdmin,
+  layUserCoBan
 };
+

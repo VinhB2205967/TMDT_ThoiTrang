@@ -7,6 +7,7 @@ const { NO_SIZE_TYPES, SIZE_LIST } = require('../../config/constants');
 const { tinhTongTon } = require('../catalog/productStock.service.js');
 const { getCategoryTree } = require('../catalog/category.service.js');
 const { normalizeItems, normalizeBienTheId, tinhTongTienNhap } = require('../../helpers/importReceipt');
+const { chuanIdNhanVienHienThi } = require('../../helpers/user-display-id');
 const paginationHelper = require('../../helpers/pagination');
 
 async function layDanhSachDanhMucNhapKho() {
@@ -75,11 +76,15 @@ function taoThongTinNhanVienKy({ adminUser, user }, fallback = {}) {
       || actor?.email
       || ''
   ).trim();
-  const idNhanVien = String(
+  const idNhanVienRaw = String(
     fallback.idnhanvien
       || actor?._id
       || ''
   ).trim();
+  const idNhanVien = chuanIdNhanVienHienThi({
+    rawId: idNhanVienRaw,
+    createdAt: actor?.ngaytao || fallback.thoigianky || new Date()
+  });
   const anhChuKy = String(
     fallback.anhchuky
       || actor?.chukyso
@@ -102,6 +107,18 @@ function normalizeLotSize(productDoc, item) {
   return String(item.kichco || item.kich_co || '').trim();
 }
 
+function layGiaHienTaiTuSanPham(productDoc, item) {
+  if (!productDoc) return 0;
+
+  const variantId = normalizeBienTheId(item?.bientheid || item?.bien_the_id);
+  if (!variantId) return Number(productDoc.gia || 0);
+
+  const variant = (productDoc.bienthe || []).find((v) => String(v._id) === String(variantId));
+  if (!variant) return Number(productDoc.gia || 0);
+
+  return Number(variant.gia != null ? variant.gia : productDoc.gia || 0);
+}
+
 async function taoLoNhapChoPhieu({ receiptDoc, items, productDocMap }) {
   const docs = [];
   for (const item of (items || [])) {
@@ -118,6 +135,7 @@ async function taoLoNhapChoPhieu({ receiptDoc, items, productDocMap }) {
       ? new mongoose.Types.ObjectId(String(variantId))
       : null;
     const sizeKey = normalizeLotSize(productDoc, item);
+    const giaBanHienTai = layGiaHienTaiTuSanPham(productDoc, item);
 
     docs.push({
       phieunhap_id: receiptDoc._id,
@@ -129,7 +147,9 @@ async function taoLoNhapChoPhieu({ receiptDoc, items, productDocMap }) {
       kichco: sizeKey,
       mausac: String(item.mausac || item.mau_sac || ''),
       gianhap: Number(item.gianhap ?? item.gia_nhap ?? 0) || 0,
-      giabandexuat: Number(item.giabandexuat ?? item.gia_ban_de_xuat ?? 0) || 0,
+      giabandexuat: giaBanHienTai > 0
+        ? giaBanHienTai
+        : (Number(item.giabandexuat ?? item.gia_ban_de_xuat ?? 0) || 0),
       soluongnhap: qty,
       soluongconlai: qty,
       ngaytao: new Date(),
@@ -320,7 +340,7 @@ function ganAnhNhapKhoTheoFile(items, files) {
   return arr;
 }
 
-function chuanHoaChiTietNhap(items) {
+function chuanHoaChiTietNhap(items, productDocMap = new Map()) {
   const normalizedItems = [];
   for (const raw of (items || [])) {
     const productId = String(raw.sanphamid || raw.san_pham_id || '').trim();
@@ -346,6 +366,31 @@ function chuanHoaChiTietNhap(items) {
     });
   }
   return normalizedItems;
+}
+
+function chuanHoaChiTietNhapTheoGiaSanPham(items, productDocMap = new Map()) {
+  return chuanHoaChiTietNhap(items, productDocMap).map((item) => {
+    const productDoc = productDocMap.get(String(item.sanphamid || '').trim());
+    const giaBanHienTai = layGiaHienTaiTuSanPham(productDoc, item);
+
+    return {
+      ...item,
+      giabandexuat: giaBanHienTai > 0 ? giaBanHienTai : Number(item.giabandexuat || 0)
+    };
+  });
+}
+
+async function taoBanDoSanPhamChoChiTietNhap(items = []) {
+  const productIds = Array.from(new Set((items || [])
+    .map((raw) => String(raw?.sanphamid || raw?.san_pham_id || '').trim())
+    .filter((id) => mongoose.Types.ObjectId.isValid(id))));
+
+  if (!productIds.length) return new Map();
+
+  const productDocs = await Sanpham.find({ _id: { $in: productIds } })
+    .select('_id gia bienthe')
+    .lean();
+  return new Map(productDocs.map((productDoc) => [String(productDoc._id), productDoc]));
 }
 
 function taoKhoaDongKho({ sanphamid, bientheid, kichco }) {
@@ -496,7 +541,8 @@ async function taoMoiPhieuNhap({ body, files, adminUser, user }) {
   const items = normalizeItems(body.chitiet || body.chi_tiet || body.items);
   if (!items.length) return { ok: false, message: 'Vui lòng thêm ít nhất 1 sản phẩm nhập' };
 
-  const normalizedItems = ganAnhNhapKhoTheoFile(chuanHoaChiTietNhap(items), files);
+  const productDocMap = await taoBanDoSanPhamChoChiTietNhap(items);
+  const normalizedItems = ganAnhNhapKhoTheoFile(chuanHoaChiTietNhapTheoGiaSanPham(items, productDocMap), files);
 
   const existed = await PhieuNhapKho.findOne({ maphieu }).select('_id').lean();
   if (existed) return { ok: false, message: 'Mã phiếu nhập đã tồn tại, vui lòng thử lại' };
@@ -531,7 +577,7 @@ async function taoMoiPhieuNhap({ body, files, adminUser, user }) {
 async function getChiTietData(id) {
   const receiptDoc = await findReceiptByIdOrCode(id);
   if (receiptDoc && receiptDoc.nguoitao) {
-    await receiptDoc.populate({ path: 'nguoitao', select: 'hoten email avatar' });
+    await receiptDoc.populate({ path: 'nguoitao', select: 'hoten email avatar chukyso ngaytao' });
   }
 
   let receipt = receiptDoc ? receiptDoc.toObject() : null;
@@ -539,10 +585,15 @@ async function getChiTietData(id) {
 
   receipt = await tachDongPhieuNhapHoanTheoFifo(receipt);
 
+  const idNhanVienRaw = receipt?.nhanvienky?.idnhanvien || (receipt?.nguoitao?._id ? String(receipt.nguoitao._id) : '');
   const nhanVienKy = {
     tennhanvien: receipt?.nhanvienky?.tennhanvien || receipt?.nguoitao?.hoten || receipt?.nguoitao?.email || '',
-    idnhanvien: receipt?.nhanvienky?.idnhanvien || (receipt?.nguoitao?._id ? String(receipt.nguoitao._id) : ''),
-    anhchuky: receipt?.nhanvienky?.anhchuky || receipt?.nguoitao?.avatar || '',
+    idnhanvien: chuanIdNhanVienHienThi({
+      rawId: idNhanVienRaw,
+      createdAt: receipt?.nguoitao?.ngaytao || receipt?.nhanvienky?.thoigianky || receipt?.ngaytao || new Date()
+    }),
+    anhdaidien: receipt?.nguoitao?.avatar || '/images/avatar/avatar.png',
+    anhchuky: receipt?.nhanvienky?.anhchuky || receipt?.nguoitao?.chukyso || receipt?.nguoitao?.avatar || '',
     thoigianky: receipt?.nhanvienky?.thoigianky || receipt?.ngaytao || null
   };
 
@@ -631,7 +682,8 @@ async function chinhSuaPhieuNhap({ id, body, files, adminUser, user }) {
   const items = normalizeItems(body.chitiet || body.chi_tiet || body.items);
   if (!items.length) return { ok: false, message: 'Vui lòng giữ ít nhất 1 dòng nhập', receiptId: receiptDoc._id };
 
-  const normalizedItems = ganAnhNhapKhoTheoFile(chuanHoaChiTietNhap(items), files);
+  const productDocMap = await taoBanDoSanPhamChoChiTietNhap(items);
+  const normalizedItems = ganAnhNhapKhoTheoFile(chuanHoaChiTietNhapTheoGiaSanPham(items, productDocMap), files);
 
   const ensuredCode = receiptDoc.maphieu || receiptDoc.ma_phieu || taoMaPhieuNhap();
   if (!receiptDoc.code) receiptDoc.code = ensuredCode;
@@ -765,10 +817,6 @@ async function xuatKhoPhieuNhap({ id, adminUser, user }) {
       kichco: it.kichco || it.kich_co || ''
     }, qty);
 
-    const daCapNhatGiaTheoDongNhap = capNhatGiaBanDeXuatChoSanPham(productDoc, it);
-    if (!daCapNhatGiaTheoDongNhap) {
-      await capNhatGiaTheoLoFIFOHienTai({ productDoc, item: it });
-    }
     touchedProductIds.add(pid);
   }
 

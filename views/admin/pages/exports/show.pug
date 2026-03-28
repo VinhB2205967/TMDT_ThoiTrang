@@ -100,7 +100,7 @@ block main
         border: 1px solid #d9e1ef;
       }
 
-    .d-flex.justify-content-between.align-items-center.mb-3
+    .d-flex.justify-content-between.align-items-center.mb-3.page-header-section.orders-header.admin-page-header
       h3.mb-0 Chi tiết phiếu xuất
       .d-flex.gap-2
         a.btn.btn-outline-secondary(href=`${admin}/exports`)
@@ -346,14 +346,21 @@ block main
       .card-body
         - const _nv = nhanVienKy || receipt.nhanvienky || {}
         - const _staffLabel = String(receipt.nguoitaophieu || '') === 'order' ? 'Nhân viên xác nhận đơn' : 'Nhân viên xuất kho'
+        - const _avatar = _nv.anhdaidien || '/images/avatar/avatar.png'
         .row.g-3.align-items-center
-          .col-md-8
+          .col-md-6
             .fw-semibold #{_staffLabel}
             div.fs-5 #{_nv.tennhanvien || '---'}
             .text-muted ID nhân viên: #{_nv.idnhanvien || '---'}
             if _nv.thoigianky
               .text-muted.mt-1 Ngày ký: #{new Date(_nv.thoigianky).toLocaleString('vi-VN')}
-          .col-md-4
+          .col-md-3
+            .fw-semibold Ảnh nhân viên
+            if _avatar
+              img(src=_avatar alt='Ảnh nhân viên' style='width:96px;height:96px;object-fit:cover;border:1px solid #e5e7eb;border-radius:10px;background:#fff;')
+            else
+              div.text-muted Chưa có ảnh nhân viên
+          .col-md-3
             .fw-semibold Ảnh chữ ký
             if _nv.anhchuky
               img(src=_nv.anhchuky alt='Chữ ký nhân viên' style='max-width:220px;max-height:120px;object-fit:contain;border:1px solid #e5e7eb;border-radius:8px;padding:6px;background:#fff;')

@@ -10,10 +10,6 @@ block main
         a.btn.btn-header.btn-header-outline(href=`${admin}/orders/export${exportQuery || ''}`)
           i.bi.bi-file-earmark-spreadsheet.me-1
           | Xuất Excel
-        button.btn.btn-header.btn-header-primary(type='button' disabled)
-          i.bi.bi-plus-lg.me-1
-          | Tạo đơn thủ công
-
   .container-fluid.p-4
     .card.border-0.shadow-sm.mb-3
       .card-body
@@ -64,9 +60,8 @@ block main
                 label.form-check-label(for='orderCheckAll') Tích tất cả
               select.form-select.form-select-sm(name='status' style='max-width:220px' required)
                 option(value='') Chọn trạng thái cần cập nhật
-                each st in (statusOptions || [])
-                  if st !== 'dahuy' && st !== 'requested_return'
-                    option(value=st) #{(statusLabels && statusLabels[st]) || st}
+                each st in (bulkStatusOptions || [])
+                  option(value=st) #{(statusLabels && statusLabels[st]) || st}
               input(type='hidden' name='returnTo' value=(currentListUrl || `${admin}/orders`))
               button#orderBulkSubmit.btn.btn-sm.btn-primary(type='submit' disabled) Cập nhật đã chọn
               small#orderBulkCount.text-muted Chưa chọn đơn hàng nào

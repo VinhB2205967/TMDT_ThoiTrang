@@ -2,7 +2,7 @@ extends ../../layouts/default.pug
 
 block main
   .container-fluid.p-3
-    .d-flex.justify-content-between.align-items-center.mb-3
+    .d-flex.justify-content-between.align-items-center.mb-3.page-header-section.orders-header.admin-page-header
       h3.mb-0 Tạo phiếu xuất kho
       a.btn.btn-outline-secondary(href=`${admin}/exports`)
         i.bi.bi-arrow-left
@@ -32,7 +32,7 @@ block main
       .card
         .card-header.d-flex.justify-content-between.align-items-center
           span Danh sách xuất
-          button#btn-add-row.btn.btn-sm.btn-primary(type='button')
+          button#btn-add-row.btn.btn-sm.btn-primary.btn-admin-accent(type='button')
             i.bi.bi-plus-lg
             |  Thêm dòng
         .card-body

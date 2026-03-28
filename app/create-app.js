@@ -16,6 +16,7 @@ const {
 const { attachCartCount } = require('../middlewares/cart');
 const { attachFavoriteCount } = require('../middlewares/favorites');
 const { attachCategoryMenu } = require('../middlewares/categories');
+const { ganCauHinhHeaderClient } = require('../middlewares/client-header-settings');
 const { configurePassport } = require('../config/passport');
 const { seedAdminOnConnect } = require('../services/seedAdmin');
 const systemConfig = require('../config/system');
@@ -144,6 +145,7 @@ function createApp() {
   app.use(attachCartCount);
   app.use(attachFavoriteCount);
   app.use(attachCategoryMenu);
+  app.use(ganCauHinhHeaderClient);
   app.use(trackOnline);
 
   registerRoutes(app, {

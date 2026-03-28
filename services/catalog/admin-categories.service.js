@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+﻿const mongoose = require('mongoose');
 const Danhmuc = require('../../models/category_model');
 const Sanpham = require('../../models/product_model');
 const Brand = require('../../models/brand_model');
@@ -11,7 +11,20 @@ const TYPE_ROOT_META = {
   brand: { name: 'Thương hiệu', order: 40 }
 };
 
-function normalizePayload(body) {
+function chuanHoaCayDanhMucChoAdmin(rawTree = []) {
+  return (rawTree || [])
+    .filter((node) => node.type !== 'gender')
+    .map((node) => {
+      const cloneNode = { ...node };
+      const cleanChildren = (children = []) => children
+        .filter((child) => child.type !== 'gender')
+        .map((child) => ({ ...child, children: cleanChildren(child.children || []) }));
+      cloneNode.children = cleanChildren(node.children || []);
+      return cloneNode;
+    });
+}
+
+function chuanPayload(body) {
   const name = String(body.name || body.tendanhmuc || '').trim();
   const slug = String(body.slug || '').trim();
   const allowedTypes = new Set(['category', 'brand', 'occasion', 'age_group']);
@@ -41,15 +54,15 @@ function normalizePayload(body) {
   };
 }
 
-function toObjectIdOrNull(value) {
+function toOid(value) {
   return value && mongoose.Types.ObjectId.isValid(String(value)) ? new mongoose.Types.ObjectId(String(value)) : null;
 }
 
-async function layThuTuCuoiCung({ parent_id, type, excludeId = null }) {
+async function layThuTuCuoi({ parent_id, type, excludeId = null }) {
   const query = {
     daxoa: { $ne: true },
     type,
-    parent_id: parent_id ? toObjectIdOrNull(parent_id) : null,
+    parent_id: parent_id ? toOid(parent_id) : null,
     ...(excludeId ? { _id: { $ne: excludeId } } : {})
   };
 
@@ -62,20 +75,20 @@ async function layThuTuCuoiCung({ parent_id, type, excludeId = null }) {
   return currentMax + 1;
 }
 
-async function kiemTraTrungTenCungCap({ name, parent_id, type, excludeId = null }) {
+async function kiemTraTrungTen({ name, parent_id, type, excludeId = null }) {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const regex = new RegExp(`^${escaped}$`, 'i');
   const query = {
     daxoa: { $ne: true },
     type,
     name: regex,
-    parent_id: parent_id ? toObjectIdOrNull(parent_id) : null,
+    parent_id: parent_id ? toOid(parent_id) : null,
     ...(excludeId ? { _id: { $ne: excludeId } } : {})
   };
   return Danhmuc.exists(query);
 }
 
-async function capNhatNhanhCayCon(parentId, parentMeta) {
+async function capNhatCayCon(parentId, parentMeta) {
   const children = await Danhmuc.find({
     daxoa: { $ne: true },
     parent_id: parentId
@@ -97,7 +110,7 @@ async function capNhatNhanhCayCon(parentId, parentMeta) {
       }
     );
 
-    await capNhatNhanhCayCon(child._id, {
+    await capNhatCayCon(child._id, {
       _id: child._id,
       ancestors: childAncestors,
       level: childLevel,
@@ -106,7 +119,7 @@ async function capNhatNhanhCayCon(parentId, parentMeta) {
   }
 }
 
-async function damBaoNhomThuongHieu() {
+async function damBaoNhomTH() {
   const coThuongHieu = await Danhmuc.exists({ daxoa: { $ne: true }, type: 'brand' });
   if (coThuongHieu) return;
 
@@ -123,7 +136,7 @@ async function damBaoNhomThuongHieu() {
   });
 }
 
-async function layHoacTaoNhomGocTheoLoai(type) {
+async function layHoacTaoNhomGoc(type) {
   const selectedType = TYPE_ROOT_META[type] ? type : 'category';
   const existed = await Danhmuc.findOne({
     daxoa: { $ne: true },
@@ -147,31 +160,31 @@ async function layHoacTaoNhomGocTheoLoai(type) {
   });
 }
 
-async function damBaoNhomGocTheoLoai() {
+async function damBaoNhomGoc() {
   for (const type of Object.keys(TYPE_ROOT_META)) {
-    await layHoacTaoNhomGocTheoLoai(type);
+    await layHoacTaoNhomGoc(type);
   }
 }
 
-function slugThuongHieuTheoId(id) {
+function slugTHTheoId(id) {
   return `brand-${String(id || '').trim()}`;
 }
 
-function layBrandIdTuSlug(slug) {
+function layBrandIdTheoSlug(slug) {
   const raw = String(slug || '').trim();
   if (!raw.startsWith('brand-')) return null;
   const id = raw.slice(6);
   return mongoose.Types.ObjectId.isValid(id) ? id : null;
 }
 
-function laDanhMucThuongHieuCon(categoryDoc) {
+function laDMThuongHieuCon(categoryDoc) {
   return categoryDoc && categoryDoc.type === 'brand' && Boolean(categoryDoc.parent_id);
 }
 
-async function dongBoDanhMucSangBrand(categoryDoc) {
-  if (!laDanhMucThuongHieuCon(categoryDoc)) return;
+async function dongBoDMSangBrand(categoryDoc) {
+  if (!laDMThuongHieuCon(categoryDoc)) return;
 
-  const mappedBrandId = layBrandIdTuSlug(categoryDoc.slug);
+  const mappedBrandId = layBrandIdTheoSlug(categoryDoc.slug);
   const payload = {
     ten: String(categoryDoc.name || categoryDoc.tendanhmuc || '').trim(),
     hienthi: Boolean(categoryDoc.isActive),
@@ -196,7 +209,7 @@ async function dongBoDanhMucSangBrand(categoryDoc) {
     await Brand.findByIdAndUpdate(existedByName._id, { $set: payload });
     await Danhmuc.updateOne(
       { _id: categoryDoc._id },
-      { $set: { slug: slugThuongHieuTheoId(existedByName._id) } }
+      { $set: { slug: slugTHTheoId(existedByName._id) } }
     );
     return;
   }
@@ -209,25 +222,25 @@ async function dongBoDanhMucSangBrand(categoryDoc) {
 
   await Danhmuc.updateOne(
     { _id: categoryDoc._id },
-    { $set: { slug: slugThuongHieuTheoId(createdBrand._id) } }
+    { $set: { slug: slugTHTheoId(createdBrand._id) } }
   );
 }
 
-async function dongBoXoaDanhMucSangBrand(categoryDoc) {
-  if (!laDanhMucThuongHieuCon(categoryDoc)) return;
-  const mappedBrandId = layBrandIdTuSlug(categoryDoc.slug);
+async function dongBoXoaDMSangBrand(categoryDoc) {
+  if (!laDMThuongHieuCon(categoryDoc)) return;
+  const mappedBrandId = layBrandIdTheoSlug(categoryDoc.slug);
   if (!mappedBrandId) return;
   await Brand.findByIdAndDelete(mappedBrandId);
 }
 
-async function dongBoTrangThaiDanhMucSangBrand(categoryDoc, nextActive) {
-  if (!laDanhMucThuongHieuCon(categoryDoc)) return;
-  const mappedBrandId = layBrandIdTuSlug(categoryDoc.slug);
+async function dongBoTrangThaiDMSangBrand(categoryDoc, nextActive) {
+  if (!laDMThuongHieuCon(categoryDoc)) return;
+  const mappedBrandId = layBrandIdTheoSlug(categoryDoc.slug);
   if (!mappedBrandId) return;
   await Brand.findByIdAndUpdate(mappedBrandId, { $set: { hienthi: Boolean(nextActive) } });
 }
 
-async function dongBoThuongHieuVaoDanhMuc() {
+async function dongBoTHVaoDM() {
   const root = await Danhmuc.findOne({
     daxoa: { $ne: true },
     type: 'brand',
@@ -248,7 +261,7 @@ async function dongBoThuongHieuVaoDanhMuc() {
   const brandSlugSet = new Set(brandCategoryDocs.map((item) => String(item.slug || '')));
 
   for (const thuongHieu of danhSachThuongHieu) {
-    const slug = slugThuongHieuTheoId(thuongHieu._id);
+    const slug = slugTHTheoId(thuongHieu._id);
     const ten = String(thuongHieu.ten || thuongHieu.name || '').trim();
     if (!ten) continue;
 
@@ -274,21 +287,12 @@ async function dongBoThuongHieuVaoDanhMuc() {
   }
 }
 
-async function getDanhSachData(query = {}) {
-  await damBaoNhomGocTheoLoai();
-  await damBaoNhomThuongHieu();
-  await dongBoThuongHieuVaoDanhMuc();
+async function layDanhSach(query = {}) {
+  await damBaoNhomGoc();
+  await damBaoNhomTH();
+  await dongBoTHVaoDM();
   const rawTree = await getCategoryTree({ includeDeleted: false });
-  const tree = (rawTree || [])
-    .filter((node) => node.type !== 'gender')
-    .map((node) => {
-      const cloneNode = { ...node };
-      const cleanChildren = (children = []) => children
-        .filter((child) => child.type !== 'gender')
-        .map((child) => ({ ...child, children: cleanChildren(child.children || []) }));
-      cloneNode.children = cleanChildren(node.children || []);
-      return cloneNode;
-    });
+  const tree = chuanHoaCayDanhMucChoAdmin(rawTree);
   const parentOptions = flattenTreeOptions(tree);
 
   return {
@@ -302,19 +306,19 @@ async function getDanhSachData(query = {}) {
   };
 }
 
-async function taoDanhMuc(body = {}) {
-  const payload = normalizePayload(body);
+async function taoDM(body = {}) {
+  const payload = chuanPayload(body);
   if (!payload.name) {
     return { ok: false, status: 400, message: 'Tên danh mục là bắt buộc' };
   }
 
-  const rootByType = await layHoacTaoNhomGocTheoLoai(payload.type);
+  const rootByType = await layHoacTaoNhomGoc(payload.type);
   payload.parent_id = rootByType ? rootByType._id : null;
   payload.danhmuccha = payload.parent_id;
 
   const coNhapThuTu = body.order !== undefined || body.thutu !== undefined;
   if (!coNhapThuTu) {
-    const nextOrder = await layThuTuCuoiCung({
+    const nextOrder = await layThuTuCuoi({
       parent_id: payload.parent_id,
       type: payload.type
     });
@@ -322,7 +326,7 @@ async function taoDanhMuc(body = {}) {
     payload.thutu = nextOrder;
   }
 
-  const isDuplicated = await kiemTraTrungTenCungCap({
+  const isDuplicated = await kiemTraTrungTen({
     name: payload.name,
     parent_id: payload.parent_id,
     type: payload.type
@@ -332,11 +336,11 @@ async function taoDanhMuc(body = {}) {
   }
 
   const created = await Danhmuc.create(payload);
-  await dongBoDanhMucSangBrand(created);
+  await dongBoDMSangBrand(created);
   return { ok: true, status: 200, message: 'Tạo danh mục thành công', data: created };
 }
 
-async function capNhatDanhMuc(id, body = {}) {
+async function capNhatDM(id, body = {}) {
   const categoryId = String(id || '');
   if (!mongoose.Types.ObjectId.isValid(categoryId)) {
     return { ok: false, status: 400, message: 'ID danh mục không hợp lệ' };
@@ -351,7 +355,7 @@ async function capNhatDanhMuc(id, body = {}) {
     return { ok: false, status: 400, message: 'Danh mục cha cố định, không thể sửa' };
   }
 
-  const payload = normalizePayload(body);
+  const payload = chuanPayload(body);
   if (!payload.name) {
     return { ok: false, status: 400, message: 'Tên danh mục là bắt buộc' };
   }
@@ -361,7 +365,7 @@ async function capNhatDanhMuc(id, body = {}) {
     payload.parent_id = null;
     payload.danhmuccha = null;
   } else {
-    const rootByType = await layHoacTaoNhomGocTheoLoai(payload.type);
+    const rootByType = await layHoacTaoNhomGoc(payload.type);
     payload.parent_id = rootByType ? rootByType._id : null;
     payload.danhmuccha = payload.parent_id;
   }
@@ -382,7 +386,7 @@ async function capNhatDanhMuc(id, body = {}) {
     }
   }
 
-  const isDuplicated = await kiemTraTrungTenCungCap({
+  const isDuplicated = await kiemTraTrungTen({
     name: payload.name,
     parent_id: payload.parent_id,
     type: payload.type,
@@ -395,14 +399,14 @@ async function capNhatDanhMuc(id, body = {}) {
   await Danhmuc.findByIdAndUpdate(categoryId, payload, { runValidators: true });
 
   const updated = await Danhmuc.findById(categoryId).select('_id ancestors level path').lean();
-  if (updated) await capNhatNhanhCayCon(updated._id, updated);
+  if (updated) await capNhatCayCon(updated._id, updated);
   const updatedFull = await Danhmuc.findById(categoryId).lean();
-  await dongBoDanhMucSangBrand(updatedFull);
+  await dongBoDMSangBrand(updatedFull);
 
   return { ok: true, status: 200, message: 'Cập nhật danh mục thành công' };
 }
 
-async function xoaDanhMuc(id) {
+async function xoaDM(id) {
   const categoryId = String(id || '');
   if (!mongoose.Types.ObjectId.isValid(categoryId)) {
     return { ok: false, status: 400, message: 'ID danh mục không hợp lệ' };
@@ -432,11 +436,11 @@ async function xoaDanhMuc(id) {
   }
 
   await Danhmuc.findByIdAndUpdate(categoryId, { daxoa: true });
-  await dongBoXoaDanhMucSangBrand(doc);
+  await dongBoXoaDMSangBrand(doc);
   return { ok: true, status: 200, message: 'Đã xóa danh mục' };
 }
 
-async function doiTrangThaiDanhMuc(id) {
+async function doiTrangThaiDM(id) {
   const categoryId = String(id || '');
   if (!mongoose.Types.ObjectId.isValid(categoryId)) {
     return { ok: false, status: 400, message: 'ID danh mục không hợp lệ' };
@@ -465,7 +469,7 @@ async function doiTrangThaiDanhMuc(id) {
       }
     }
   );
-  await dongBoTrangThaiDanhMucSangBrand(doc, nextActive);
+  await dongBoTrangThaiDMSangBrand(doc, nextActive);
 
   return {
     ok: true,
@@ -475,7 +479,7 @@ async function doiTrangThaiDanhMuc(id) {
   };
 }
 
-async function sapXepDanhMuc(items = []) {
+async function sapXepDM(items = []) {
   if (!Array.isArray(items) || !items.length) {
     return { ok: false, status: 400, message: 'Không có dữ liệu sắp xếp' };
   }
@@ -498,23 +502,27 @@ async function sapXepDanhMuc(items = []) {
   return { ok: true, status: 200, message: 'Đã cập nhật thứ tự danh mục' };
 }
 
-async function getTreeJsonData(query = {}) {
+async function layCayJson(query = {}) {
+  await damBaoNhomGoc();
+  await damBaoNhomTH();
+  await dongBoTHVaoDM();
   const type = String(query.type || '').trim();
   const activeOnly = String(query.active || '1') !== '0';
-  const tree = await getCategoryTree({
+  const tree = chuanHoaCayDanhMucChoAdmin(await getCategoryTree({
     type: type || undefined,
     isActive: activeOnly ? true : undefined,
     includeDeleted: false
-  });
+  }));
   return { ok: true, status: 200, data: tree };
 }
 
 module.exports = {
-  getDanhSachData,
-  taoDanhMuc,
-  capNhatDanhMuc,
-  xoaDanhMuc,
-  doiTrangThaiDanhMuc,
-  sapXepDanhMuc,
-  getTreeJsonData
+  layDanhSach,
+  taoDM,
+  capNhatDM,
+  xoaDM,
+  doiTrangThaiDM,
+  sapXepDM,
+  layCayJson
 };
+

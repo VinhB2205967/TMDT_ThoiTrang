@@ -2,20 +2,20 @@ extends ../../layouts/default.pug
 block main
     - const s = stats || { totalProducts: 0, activeProducts: 0, inactiveProducts: 0, outOfStockCount: 0, totalRevenue: 0, totalCOGS: 0, totalProfit: 0, totalSoldItems: 0, totalExportOrders: 0, profitMarginPct: 0 }
     .dashboard-container
-        .dashboard-hero
+        .page-header-section.orders-header.admin-page-header.d-flex.justify-content-between.align-items-center.flex-wrap.gap-2.mb-3
             .hero-left
-                h1.dashboard-title(style="color: #fff")
+                h1.page-title
                     i.bi.bi-speedometer2.me-2
                     | Tổng quan hệ thống
-                p.dashboard-subtitle(style="color: #e2e8f0") Theo dõi nhanh tình trạng sản phẩm và danh mục
-            .hero-actions
-                a.btn.btn-light.btn-sm(href="/admin/products/create")
+                p.mb-0 Theo dõi nhanh tình trạng sản phẩm và danh mục
+            .hero-actions.orders-actions.d-flex.flex-wrap.gap-2
+                a.btn.btn-header.btn-header-primary.btn-sm(href="/admin/products/create")
                     i.bi.bi-plus-circle.me-1
                     | Thêm sản phẩm
-                a.btn.btn-outline-light.btn-sm(href="/admin/products")
+                a.btn.btn-header.btn-header-outline.btn-sm(href="/admin/products")
                     i.bi.bi-list-ul.me-1
                     | Danh sách SP
-                a.btn.btn-outline-light.btn-sm(href="/admin/ai-assistant")
+                a.btn.btn-header.btn-header-outline.btn-sm(href="/admin/ai-assistant")
                     i.bi.bi-robot.me-1
                     | AI Assistant
 

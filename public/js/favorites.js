@@ -40,6 +40,15 @@ const xoaYeuThich = async (nut) => {
         }
         
         if (duLieu.success) {
+            if (window.App && window.App.setFavoriteBadge) {
+                const serverCount = Number(duLieu.count);
+                if (Number.isFinite(serverCount)) {
+                    window.App.setFavoriteBadge(serverCount);
+                } else if (window.App.getFavoriteBadgeCount) {
+                    const current = window.App.getFavoriteBadgeCount();
+                    window.App.setFavoriteBadge(Math.max(0, current - 1));
+                }
+            }
             hieuUngXoaThe(the, kiemTraTrongYeuThich);
         }
     } catch (error) {

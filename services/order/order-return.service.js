@@ -447,7 +447,7 @@ async function dongBoNhapKhoHoanTra({ id, payload = {}, actor = null }) {
     nhanvienky: {
       tennhanvien: String(actor?.hoten || actor?.email || '').trim(),
       idnhanvien: String(actor?._id || '').trim(),
-      anhchuky: String(actor?.avatar || '').trim(),
+      anhchuky: String(actor?.chukyso || actor?.chuKy || actor?.avatar || '').trim(),
       thoigianky: now
     },
     nguoitao: actor?._id || null,

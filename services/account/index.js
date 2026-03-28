@@ -7,29 +7,50 @@ const Taikhoan = require('../../models/accounts_model');
 const Nguoidung = require('../../models/user_model');
 const { chuanHoaSoDienThoai, laSoDienThoaiVN } = require('../../helpers/validators');
 // Các hàm tiện ích
-function normalizeEmail(email) {
+function chuanEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
 // Các hàm tiện ích khác có thể thêm ở đây
-function normalizeId(id) {
+function chuanId(id) {
   return id ? String(id) : null;
 }
 
-function normalizeRole(vaitro) {
+function chuanVaiTro(vaitro) {
   const r = String(vaitro || '').trim();
   return r === 'admin' ? 'admin' : 'user';
 }
 
-function normalizeStatus(trangthai) {
+function chuanTrangThai(trangthai) {
   const s = String(trangthai || '').trim();
   return s === 'noactive' ? 'noactive' : 'active';
 }
 
-function normalizeText(value) {
+function chuanChuoi(value) {
   return String(value || '').trim();
 }
 
-function formatDateInput(d) {
+function taoIdHienThiNguoiDung({ userId, createdAt } = {}) {
+  const uid = chuanId(userId);
+  if (!uid) return '';
+
+  const created = new Date(createdAt || Date.now());
+  const hopLeNgay = !Number.isNaN(created.getTime());
+  const ngay = hopLeNgay
+    ? `${String(created.getFullYear()).slice(-2)}${String(created.getMonth() + 1).padStart(2, '0')}${String(created.getDate()).padStart(2, '0')}`
+    : '000000';
+
+  const maRutGon = crypto
+    .createHash('sha1')
+    .update(uid)
+    .digest('base64url')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 8);
+
+  return `ND-${ngay}-${maRutGon || 'UNKNOWN'}`;
+}
+// Hàm tiện ích để chuẩn hóa mã voucher (chỉ giữ chữ và số, viết hoa)
+function dinhDangNgay(d) {
   try {
     if (!d) return '';
     const date = new Date(d);
@@ -42,21 +63,21 @@ function formatDateInput(d) {
     return '';
   }
 }
-
-function validateNewPassword(password) {
+// Hàm tiện ích để chuẩn hóa mã voucher (chỉ giữ chữ và số, viết hoa)
+function kiemTraMKMoi(password) {
   const p = String(password || '');
   if (p.length < 6) return 'Mật khẩu phải tối thiểu 6 ký tự';
   return null;
 }
 
-function createHandledError(message, code = 'BUSINESS_ERROR') {
+function taoLoi(message, code = 'BUSINESS_ERROR') {
   const err = new Error(message);
   err.code = code;
   return err;
 }
 
-async function fetchLegacyAuthFieldsByUserId(userId) {
-  const uid = normalizeId(userId);
+async function layAuthCu(userId) {
+  const uid = chuanId(userId);
   if (!uid || !mongoose.Types.ObjectId.isValid(uid)) return null;
 
   return Nguoidung.collection.findOne(
@@ -75,12 +96,12 @@ async function fetchLegacyAuthFieldsByUserId(userId) {
     }
   );
 }
-
-async function ensureAccountFromUser(userDoc, { provider, overrides } = {}) {
+// Các hàm dịch vụ chính
+async function damBaoTK(userDoc, { provider, overrides } = {}) {
   if (!userDoc || !userDoc._id) throw new Error('Thiáº¿u user');
 
-  const uid = normalizeId(userDoc._id);
-  const email = normalizeEmail(userDoc.email);
+  const uid = chuanId(userDoc._id);
+  const email = chuanEmail(userDoc.email);
   const now = new Date();
 
   const ov = overrides || {};
@@ -91,8 +112,8 @@ async function ensureAccountFromUser(userDoc, { provider, overrides } = {}) {
       $set: {
         email,
         provider: provider || 'local',
-        vaitro: normalizeRole(ov.vaitro ?? userDoc.vaitro ?? 'user'),
-        trangthai: normalizeStatus(ov.trangthai ?? userDoc.trangthai ?? 'active'),
+        vaitro: chuanVaiTro(ov.vaitro ?? userDoc.vaitro ?? 'user'),
+        trangthai: chuanTrangThai(ov.trangthai ?? userDoc.trangthai ?? 'active'),
         xacthuc: typeof ov.xacthuc === 'boolean' ? ov.xacthuc : Boolean(userDoc.xacthuc),
         tokenxacthuc: ov.tokenxacthuc ?? userDoc.tokenxacthuc ?? undefined,
         tokenquenmatkhau: ov.tokenquenmatkhau ?? userDoc.tokenquenmatkhau ?? undefined,
@@ -108,11 +129,11 @@ async function ensureAccountFromUser(userDoc, { provider, overrides } = {}) {
 
   return true;
 }
-
-async function createLocalAccountForUser({ userDoc, passwordPlain, overrides } = {}) {
+// Hàm tạo tài khoản local cho user (dùng khi đăng ký bằng email/mật khẩu hoặc khi user cũ đăng nhập bằng mật khẩu cũ)
+async function taoTKLocal({ userDoc, passwordPlain, overrides } = {}) {
   if (!userDoc || !userDoc._id) throw new Error('Thiếu user');
-  const uid = normalizeId(userDoc._id);
-  const email = normalizeEmail(userDoc.email);
+  const uid = chuanId(userDoc._id);
+  const email = chuanEmail(userDoc.email);
 
   const password = String(passwordPlain || '');
   if (password.length < 6) throw new Error('Mật khẩu phải tối thiểu 6 ký tự');
@@ -129,8 +150,8 @@ async function createLocalAccountForUser({ userDoc, passwordPlain, overrides } =
         email,
         matkhau: hash,
         provider: 'local',
-        vaitro: normalizeRole(ov.vaitro ?? userDoc.vaitro ?? 'user'),
-        trangthai: normalizeStatus(ov.trangthai ?? userDoc.trangthai ?? 'active'),
+        vaitro: chuanVaiTro(ov.vaitro ?? userDoc.vaitro ?? 'user'),
+        trangthai: chuanTrangThai(ov.trangthai ?? userDoc.trangthai ?? 'active'),
         xacthuc: typeof ov.xacthuc === 'boolean' ? ov.xacthuc : Boolean(userDoc.xacthuc),
         ngaycapnhat: now
       },
@@ -147,50 +168,56 @@ async function createLocalAccountForUser({ userDoc, passwordPlain, overrides } =
   return true;
 }
 
-async function findAccountByEmail(email) {
-  const e = normalizeEmail(email);
+async function timTKTheoEmail(email) {
+  const e = chuanEmail(email);
   if (!e) return null;
   return Taikhoan.findOne({ email: e }).lean();
 }
 
-async function getAccountByUserId({ userId }) {
-  const uid = normalizeId(userId);
+async function layTKTheoId({ userId }) {
+  const uid = chuanId(userId);
   if (!uid) return null;
   return Taikhoan.findOne({ nguoidung_id: uid }).select('-matkhau').lean();
 }
 
-async function hasLocalPassword({ userId }) {
-  const uid = normalizeId(userId);
+async function coMKLocal({ userId }) {
+  const uid = chuanId(userId);
   if (!uid) return false;
 
   const account = await Taikhoan.findOne({ nguoidung_id: uid }).select('matkhau').lean();
   if (account && String(account.matkhau || '').trim()) return true;
 
-  const legacy = await fetchLegacyAuthFieldsByUserId(uid);
+  const legacy = await layAuthCu(uid);
   return Boolean(String(legacy?.matkhau || '').trim());
 }
 
-async function getProfilePageData({ userId, fallbackUser } = {}) {
-  const uid = normalizeId(userId || fallbackUser?._id);
+async function layDuLieuHoSo({ userId, fallbackUser } = {}) {
+  const uid = chuanId(userId || fallbackUser?._id);
   const profileUser = fallbackUser || {};
+  const idHienThi = taoIdHienThiNguoiDung({
+    userId: uid,
+    createdAt: profileUser?.ngaytao || profileUser?.createdAt
+  });
 
   let coMatKhau = Boolean(profileUser?.matkhau);
   let loaiTaiKhoan = 'local';
 
   if (uid) {
-    const account = await getAccountByUserId({ userId: uid });
+    const account = await layTKTheoId({ userId: uid });
     if (account && account.provider) loaiTaiKhoan = String(account.provider);
-    coMatKhau = await hasLocalPassword({ userId: uid });
+    coMatKhau = await coMKLocal({ userId: uid });
   }
 
   return {
     profile: {
+      userid: uid || '',
+      idhienthi: idHienThi || '',
       hoten: profileUser?.hoten || '',
       email: profileUser?.email || '',
       sodienthoai: profileUser?.sodienthoai || '',
       diachi: profileUser?.diachi || '',
       gioitinh: profileUser?.gioitinh || '',
-      ngaysinh: formatDateInput(profileUser?.ngaysinh),
+      ngaysinh: dinhDangNgay(profileUser?.ngaysinh),
       avatar: profileUser?.avatar || ''
     },
     hasPassword: coMatKhau,
@@ -198,19 +225,19 @@ async function getProfilePageData({ userId, fallbackUser } = {}) {
   };
 }
 
-async function updateUserProfile({ userId, payload, fileUpload, currentAvatar } = {}) {
-  const uid = normalizeId(userId);
-  if (!uid) throw createHandledError('Vui lòng đăng nhập lại', 'AUTH_REQUIRED');
+async function capNhatHoSo({ userId, payload, fileUpload, currentAvatar } = {}) {
+  const uid = chuanId(userId);
+  if (!uid) throw taoLoi('Vui lòng đăng nhập lại', 'AUTH_REQUIRED');
 
-  const hoten = normalizeText(payload?.hoten);
-  const sdtraw = normalizeText(payload?.sodienthoai);
+  const hoten = chuanChuoi(payload?.hoten);
+  const sdtraw = chuanChuoi(payload?.sodienthoai);
   if (sdtraw && !laSoDienThoaiVN(sdtraw)) {
-    throw createHandledError('Số điện thoại không đúng định dạng', 'INVALID_PHONE');
+    throw taoLoi('Số điện thoại không đúng định dạng', 'INVALID_PHONE');
   }
 
   const sodienthoai = sdtraw ? chuanHoaSoDienThoai(sdtraw) : '';
-  const diachi = normalizeText(payload?.diachi);
-  const gioitinh = normalizeText(payload?.gioitinh);
+  const diachi = chuanChuoi(payload?.diachi);
+  const gioitinh = chuanChuoi(payload?.gioitinh);
 
   let ngaysinh = null;
   if (payload?.ngaysinh) {
@@ -249,36 +276,36 @@ async function updateUserProfile({ userId, payload, fileUpload, currentAvatar } 
   return true;
 }
 
-async function changeUserPassword({ userId, oldPassword, newPassword, confirmPassword } = {}) {
-  const uid = normalizeId(userId);
-  if (!uid) throw createHandledError('Vui lòng đăng nhập lại', 'AUTH_REQUIRED');
+async function doiMK({ userId, oldPassword, newPassword, confirmPassword } = {}) {
+  const uid = chuanId(userId);
+  if (!uid) throw taoLoi('Vui lòng đăng nhập lại', 'AUTH_REQUIRED');
 
-  const account = await getAccountByUserId({ userId: uid });
+  const account = await layTKTheoId({ userId: uid });
   if (account && String(account.provider || '') === 'google') {
-    throw createHandledError('Tài khoản Google không hỗ trợ đổi mật khẩu tại đây', 'GOOGLE_ACCOUNT');
+    throw taoLoi('Tài khoản Google không hỗ trợ đổi mật khẩu tại đây', 'GOOGLE_ACCOUNT');
   }
 
   const matkhaucu = String(oldPassword || '');
   const matkhaumoi = String(newPassword || '');
   const xacnhanmatkhau = String(confirmPassword || '');
 
-  const loimatkhau = validateNewPassword(matkhaumoi);
-  if (loimatkhau) throw createHandledError(loimatkhau, 'INVALID_PASSWORD');
+  const loimatkhau = kiemTraMKMoi(matkhaumoi);
+  if (loimatkhau) throw taoLoi(loimatkhau, 'INVALID_PASSWORD');
 
   if (matkhaumoi !== xacnhanmatkhau) {
-    throw createHandledError('Xác nhận mật khẩu không khớp', 'PASSWORD_CONFIRM_MISMATCH');
+    throw taoLoi('Xác nhận mật khẩu không khớp', 'PASSWORD_CONFIRM_MISMATCH');
   }
 
   const taikhoan = await Nguoidung.findOne({ _id: uid, daxoa: { $ne: true } });
-  if (!taikhoan) throw createHandledError('Không tìm thấy tài khoản', 'ACCOUNT_NOT_FOUND');
+  if (!taikhoan) throw taoLoi('Không tìm thấy tài khoản', 'ACCOUNT_NOT_FOUND');
 
-  const daCoMatKhau = (await hasLocalPassword({ userId: uid })) || Boolean(taikhoan.matkhau);
+  const daCoMatKhau = (await coMKLocal({ userId: uid })) || Boolean(taikhoan.matkhau);
   if (daCoMatKhau) {
-    const hople = await verifyPasswordWithLegacy({ userDoc: taikhoan, passwordPlain: matkhaucu });
-    if (!hople) throw createHandledError('Mật khẩu hiện tại không đúng', 'OLD_PASSWORD_INVALID');
+    const hople = await xacThucKieuCu({ userDoc: taikhoan, passwordPlain: matkhaucu });
+    if (!hople) throw taoLoi('Mật khẩu hiện tại không đúng', 'OLD_PASSWORD_INVALID');
   }
 
-  await setPasswordByUserId({ userId: uid, newPasswordPlain: matkhaumoi });
+  await datMKTheoId({ userId: uid, newPasswordPlain: matkhaumoi });
   await Nguoidung.updateOne(
     { _id: uid, daxoa: { $ne: true } },
     { $set: { ngaycapnhat: new Date() } }
@@ -287,9 +314,9 @@ async function changeUserPassword({ userId, oldPassword, newPassword, confirmPas
   return true;
 }
 
-async function softDeleteUserAccount({ userId } = {}) {
-  const uid = normalizeId(userId);
-  if (!uid) throw createHandledError('Vui lòng đăng nhập lại', 'AUTH_REQUIRED');
+async function xoaMemTK({ userId } = {}) {
+  const uid = chuanId(userId);
+  if (!uid) throw taoLoi('Vui lòng đăng nhập lại', 'AUTH_REQUIRED');
 
   await Nguoidung.updateOne(
     { _id: uid, daxoa: { $ne: true } },
@@ -306,8 +333,8 @@ async function softDeleteUserAccount({ userId } = {}) {
   return true;
 }
 
-async function verifyPasswordByEmail({ email, passwordPlain }) {
-  const acc = await findAccountByEmail(email);
+async function xacThucTheoEmail({ email, passwordPlain }) {
+  const acc = await timTKTheoEmail(email);
   if (!acc) return { ok: false, userId: null, account: null };
 
   const password = String(passwordPlain || '');
@@ -319,11 +346,11 @@ async function verifyPasswordByEmail({ email, passwordPlain }) {
 }
 
 // Kh cần script: user cũ đăng nhập bằng users.matkhau sẽ tự tạo record accounts.
-async function verifyPasswordWithLegacy({ userDoc, passwordPlain }) {
+async function xacThucKieuCu({ userDoc, passwordPlain }) {
   if (!userDoc || !userDoc._id) return false;
 
-  const uid = normalizeId(userDoc._id);
-  const email = normalizeEmail(userDoc.email);
+  const uid = chuanId(userDoc._id);
+  const email = chuanEmail(userDoc.email);
   const password = String(passwordPlain || '');
 
   const acc = await Taikhoan.findOne({ nguoidung_id: uid }).lean();
@@ -332,7 +359,7 @@ async function verifyPasswordWithLegacy({ userDoc, passwordPlain }) {
   }
 
   // legacy auth fields may no longer be in the Mongoose schema -> read raw from collection
-  const legacy = await fetchLegacyAuthFieldsByUserId(uid);
+  const legacy = await layAuthCu(uid);
   let legacyHash = String(legacy?.matkhau || '');
   if (!legacyHash) return false;
 
@@ -344,11 +371,11 @@ async function verifyPasswordWithLegacy({ userDoc, passwordPlain }) {
     { nguoidung_id: uid },
     {
       $set: {
-        email: email || normalizeEmail(legacy?.email),
+        email: email || chuanEmail(legacy?.email),
         matkhau: legacyHash,
         provider: 'local',
-        vaitro: normalizeRole(legacy?.vaitro ?? userDoc.vaitro ?? 'user'),
-        trangthai: normalizeStatus(legacy?.trangthai ?? userDoc.trangthai ?? 'active'),
+        vaitro: chuanVaiTro(legacy?.vaitro ?? userDoc.vaitro ?? 'user'),
+        trangthai: chuanTrangThai(legacy?.trangthai ?? userDoc.trangthai ?? 'active'),
         xacthuc: typeof legacy?.xacthuc === 'boolean' ? legacy.xacthuc : Boolean(userDoc.xacthuc),
         ngaycapnhat: now
       },
@@ -365,8 +392,8 @@ async function verifyPasswordWithLegacy({ userDoc, passwordPlain }) {
   return true;
 }
 
-async function setPasswordByUserId({ userId, newPasswordPlain }) {
-  const uid = normalizeId(userId);
+async function datMKTheoId({ userId, newPasswordPlain }) {
+  const uid = chuanId(userId);
   if (!uid) throw new Error('Thiáº¿u userId');
 
   const password = String(newPasswordPlain || '');
@@ -386,8 +413,8 @@ async function setPasswordByUserId({ userId, newPasswordPlain }) {
   return true;
 }
 
-async function syncRoleStatusFromUser({ userId, vaitro, trangthai }) {
-  const uid = normalizeId(userId);
+async function dongBoVaiTro({ userId, vaitro, trangthai }) {
+  const uid = chuanId(userId);
   if (!uid) return;
 
   const $set = { ngaycapnhat: new Date() };
@@ -397,17 +424,17 @@ async function syncRoleStatusFromUser({ userId, vaitro, trangthai }) {
   await Taikhoan.updateOne({ nguoidung_id: uid }, { $set }, { upsert: true }).catch(() => {});
 }
 
-function hashResetToken(tokenPlain) {
+function bamTokenReset(tokenPlain) {
   return crypto.createHash('sha256').update(String(tokenPlain || '')).digest('hex');
 }
 
-async function createPasswordResetToken({ userId, expiresMinutes = 15 }) {
-  const uid = normalizeId(userId);
+async function taoTokenReset({ userId, expiresMinutes = 15 }) {
+  const uid = chuanId(userId);
   if (!uid) throw new Error('Thiáº¿u userId');
 
   const minutes = Math.max(1, Number(expiresMinutes || 15));
   const tokenPlain = crypto.randomBytes(32).toString('hex');
-  const tokenHash = hashResetToken(tokenPlain);
+  const tokenHash = bamTokenReset(tokenPlain);
   const expiresAt = new Date(Date.now() + minutes * 60 * 1000);
 
   await Taikhoan.updateOne(
@@ -428,11 +455,11 @@ async function createPasswordResetToken({ userId, expiresMinutes = 15 }) {
   };
 }
 
-async function findAccountByResetToken({ tokenPlain }) {
+async function timTKTheoToken({ tokenPlain }) {
   const token = String(tokenPlain || '').trim();
   if (!token) return null;
 
-  const tokenHash = hashResetToken(token);
+  const tokenHash = bamTokenReset(token);
   const now = new Date();
   const account = await Taikhoan.findOne({
     tokenquenmatkhau: tokenHash,
@@ -442,8 +469,8 @@ async function findAccountByResetToken({ tokenPlain }) {
   return account || null;
 }
 
-async function clearPasswordResetTokenByUserId({ userId }) {
-  const uid = normalizeId(userId);
+async function xoaTokenTheoId({ userId }) {
+  const uid = chuanId(userId);
   if (!uid) return;
 
   await Taikhoan.updateOne(
@@ -456,21 +483,23 @@ async function clearPasswordResetTokenByUserId({ userId }) {
 }
 
 module.exports = {
-  ensureAccountFromUser,
-  createLocalAccountForUser,
-  getProfilePageData,
-  updateUserProfile,
-  changeUserPassword,
-  softDeleteUserAccount,
-  hasLocalPassword,
-  getAccountByUserId,
-  findAccountByEmail,
-  verifyPasswordByEmail,
-  verifyPasswordWithLegacy,
-  setPasswordByUserId,
-  syncRoleStatusFromUser,
-  createPasswordResetToken,
-  findAccountByResetToken,
-  clearPasswordResetTokenByUserId
+  damBaoTK,
+  taoTKLocal,
+  layDuLieuHoSo,
+  capNhatHoSo,
+  doiMK,
+  xoaMemTK,
+  coMKLocal,
+  layTKTheoId,
+  timTKTheoEmail,
+  xacThucTheoEmail,
+  xacThucKieuCu,
+  datMKTheoId,
+  dongBoVaiTro,
+  taoTokenReset,
+  timTKTheoToken,
+  xoaTokenTheoId
 };
+
+
 

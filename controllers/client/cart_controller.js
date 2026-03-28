@@ -1,4 +1,4 @@
-const cartService = require('../../services/cart');
+﻿const cartService = require('../../services/cart');
 
 module.exports.danhSach = async (req, res) => {
   try {
@@ -23,7 +23,7 @@ module.exports.them = async (req, res) => {
       userId: req.user._id,
       body: req.body
     });
-    return res.redirect(cartService.resolveRedirectResult(result, '/cart'));
+    return res.redirect(cartService.layRedirect(result, '/cart'));
   } catch {
     return res.redirect('/cart');
   }
@@ -35,7 +35,7 @@ module.exports.muaNgay = async (req, res) => {
       userId: req.user._id,
       body: req.body
     });
-    return res.redirect(cartService.resolveRedirectResult(result, '/cart/checkout'));
+    return res.redirect(cartService.layRedirect(result, '/cart/checkout'));
   } catch {
     return res.redirect('/cart');
   }
@@ -47,8 +47,8 @@ module.exports.capNhatSoLuong = async (req, res) => {
       userId: req.user._id,
       body: req.body
     });
-    cartService.applyFlashMessage(req.flash, result.flash);
-    return res.redirect(cartService.resolveRedirectResult(result, '/cart'));
+    cartService.apDungFlash(req.flash, result.flash);
+    return res.redirect(cartService.layRedirect(result, '/cart'));
   } catch {
     return res.redirect('/cart');
   }
@@ -60,7 +60,7 @@ module.exports.capNhatTuyChon = async (req, res) => {
       userId: req.user._id,
       body: req.body
     });
-    return res.redirect(cartService.resolveRedirectResult(result, '/cart'));
+    return res.redirect(cartService.layRedirect(result, '/cart'));
   } catch {
     return res.redirect('/cart');
   }
@@ -117,7 +117,7 @@ module.exports.xuLyThanhToan = async (req, res) => {
       ip: req.ip
     });
 
-    cartService.applyFlashMessage(req.flash, result.flash);
+    cartService.apDungFlash(req.flash, result.flash);
 
     if (result.json) {
       return res.status(result.status || 200).json(result.json);
@@ -125,7 +125,7 @@ module.exports.xuLyThanhToan = async (req, res) => {
 
     return res.redirect(result.redirect || '/orders');
   } catch (error) {
-    const message = cartService.resolveServiceErrorMessage(error, 'Có lỗi xảy ra');
+    const message = cartService.layThongDiepLoi(error, 'Có lỗi xảy ra');
     req.flash?.('error', message);
     return res.redirect('/cart/checkout');
   }
@@ -134,7 +134,7 @@ module.exports.xuLyThanhToan = async (req, res) => {
 module.exports.momoReturn = async (req, res) => {
   try {
     const result = await cartService.handleMoMoReturn({ query: req.query });
-    cartService.applyFlashMessage(req.flash, result.flash);
+    cartService.apDungFlash(req.flash, result.flash);
     return res.redirect(result.redirect || '/orders');
   } catch {
     req.flash?.('error', 'Có lỗi khi xử lý thanh toán MoMo');
@@ -145,7 +145,7 @@ module.exports.momoReturn = async (req, res) => {
 module.exports.momoIpn = async (req, res) => {
   try {
     const result = await cartService.handleMoMoIpn({ body: req.body });
-    const normalized = cartService.resolveJsonResult(result, { status: 200, json: { success: true } });
+    const normalized = cartService.layJsonPhanHoi(result, { status: 200, json: { success: true } });
     return res.status(normalized.status).json(normalized.json);
   } catch {
     return res.status(200).json({ success: false });
@@ -155,7 +155,7 @@ module.exports.momoIpn = async (req, res) => {
 module.exports.vnpayReturn = async (req, res) => {
   try {
     const result = await cartService.handleVnpayReturn({ query: req.query });
-    cartService.applyFlashMessage(req.flash, result.flash);
+    cartService.apDungFlash(req.flash, result.flash);
     return res.redirect(result.redirect || '/orders');
   } catch {
     req.flash?.('error', 'Có lỗi khi xử lý thanh toán VNPAY');
@@ -166,9 +166,10 @@ module.exports.vnpayReturn = async (req, res) => {
 module.exports.vnpayIpn = async (req, res) => {
   try {
     const result = await cartService.handleVnpayIpn({ query: req.query, body: req.body });
-    const normalized = cartService.resolveJsonResult(result, { status: 200, json: { RspCode: '00', Message: 'Success' } });
+    const normalized = cartService.layJsonPhanHoi(result, { status: 200, json: { RspCode: '00', Message: 'Success' } });
     return res.status(normalized.status).json(normalized.json);
   } catch {
     return res.status(200).json({ RspCode: '99', Message: 'Unknown error' });
   }
 };
+

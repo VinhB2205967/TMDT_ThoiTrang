@@ -4,9 +4,6 @@ block main
   .container.py-4
     h1.mb-3 Giỏ hàng
 
-    if fifoPriceNotice
-      .alert.alert-warning.mb-3 #{fifoPriceNotice}
-
     if cart && cart.sanpham && cart.sanpham.length
       .card
         .card-body

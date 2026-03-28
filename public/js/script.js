@@ -117,9 +117,14 @@
 		}
 
 		if (App.setFavoriteBadge) {
-			const current = parseInt((App.qs && App.qs('.favorite-badge') ? App.qs('.favorite-badge').textContent : '0'), 10) || 0;
-			const next = active ? current + 1 : Math.max(0, current - 1);
-			App.setFavoriteBadge(next);
+			const serverCount = Number(data.count);
+			if (Number.isFinite(serverCount)) {
+				App.setFavoriteBadge(serverCount);
+			} else {
+				const current = App.getFavoriteBadgeCount ? App.getFavoriteBadgeCount() : 0;
+				const next = active ? current + 1 : Math.max(0, current - 1);
+				App.setFavoriteBadge(next);
+			}
 		}
 
 		// On favorites page, unfavoriting should remove the item from the list
@@ -753,8 +758,17 @@
 			e.preventDefault();
 			const productId = removeFavoriteBtn.getAttribute('data-id');
 			if (!productId) return;
-			goiApi(`/api/favorites/remove/${productId}`, { method: 'POST' }).then(({ ok }) => {
+			goiApi(`/api/favorites/remove/${productId}`, { method: 'POST' }).then(({ ok, data }) => {
 				if (!ok) return;
+				if (App.setFavoriteBadge) {
+					const serverCount = Number(data && data.count);
+					if (Number.isFinite(serverCount)) {
+						App.setFavoriteBadge(serverCount);
+					} else {
+						const current = App.getFavoriteBadgeCount ? App.getFavoriteBadgeCount() : 0;
+						App.setFavoriteBadge(Math.max(0, current - 1));
+					}
+				}
 				const cardCol = removeFavoriteBtn.closest('.col-6, .col-md-4, .col-lg-3');
 				if (cardCol) cardCol.remove();
 			});

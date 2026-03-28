@@ -55,9 +55,16 @@
   }
 
   async function fetchSummary() {
-    const res = await fetch(summaryUrl, {
+    const url = new URL(summaryUrl, window.location.origin);
+    url.searchParams.set('_ts', String(Date.now()));
+
+    const res = await fetch(url.toString(), {
       credentials: 'same-origin',
-      headers: { Accept: 'application/json' }
+      cache: 'no-store',
+      headers: {
+        Accept: 'application/json',
+        'Cache-Control': 'no-cache'
+      }
     });
 
     const data = await res.json().catch(() => ({}));
@@ -105,6 +112,14 @@
   }
 
   poll().catch(() => {});
+  window.addEventListener('focus', () => {
+    poll().catch(() => {});
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      poll().catch(() => {});
+    }
+  });
   setInterval(() => {
     poll().catch(() => {});
   }, 15000);

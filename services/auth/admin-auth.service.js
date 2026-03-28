@@ -1,6 +1,6 @@
-const nguoidung = require('../../models/user_model');
+﻿const nguoidung = require('../../models/user_model');
 const { writeLoginLog } = require('../loginLog');
-const { verifyPasswordWithLegacy, getAccountByUserId } = require('../account/index.js');
+const { xacThucKieuCu, layTKTheoId } = require('../account/index.js');
 
 function chuanHoaEmail(email) {
   return String(email || '').trim().toLowerCase();
@@ -25,13 +25,13 @@ async function xacThucDangNhapAdmin({ req, email, password }) {
     return taoKetQua({ ok: false, status: 401, code: 'INVALID_CREDENTIALS', message: 'Sai email hoặc mật khẩu' });
   }
 
-  const hople = await verifyPasswordWithLegacy({ userDoc: taikhoan, passwordPlain: matkhau });
+  const hople = await xacThucKieuCu({ userDoc: taikhoan, passwordPlain: matkhau });
   if (!hople) {
     await writeLoginLog({ req, user: taikhoan, provider: 'admin', status: 'failed', message: 'wrong_password' });
     return taoKetQua({ ok: false, status: 401, code: 'INVALID_CREDENTIALS', message: 'Sai email hoặc mật khẩu' });
   }
 
-  const acc = await getAccountByUserId({ userId: taikhoan._id }).catch(() => null);
+  const acc = await layTKTheoId({ userId: taikhoan._id }).catch(() => null);
   if (!acc || acc.trangthai !== 'active') {
     await writeLoginLog({ req, user: taikhoan, provider: 'admin', status: 'failed', message: 'noactive' });
     return taoKetQua({ ok: false, status: 403, code: 'ACCOUNT_INACTIVE', message: 'Tài khoản đang bị khóa' });
@@ -86,3 +86,4 @@ module.exports = {
   danhDauOfflineAdmin,
   xoaSessionAdmin
 };
+

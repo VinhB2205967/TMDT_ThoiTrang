@@ -12,7 +12,7 @@ block main
   - const __localVal = `${__dt.getFullYear()}-${__pad2(__dt.getMonth() + 1)}-${__pad2(__dt.getDate())}T${__pad2(__dt.getHours())}:${__pad2(__dt.getMinutes())}`
 
   .container-fluid.p-3
-    .d-flex.justify-content-between.align-items-center.mb-3
+    .d-flex.justify-content-between.align-items-center.mb-3.page-header-section.orders-header.admin-page-header
       h3.mb-0 Chỉnh sửa phiếu nhập kho
       .d-flex.gap-2
         a.btn.btn-outline-secondary(href=`${admin}/imports/${receipt._id}`)
@@ -59,7 +59,7 @@ block main
           .tab-content
             .tab-pane.fade.show.active#tab-fashion(role='tabpanel')
               .d-flex.justify-content-end.mb-2
-                button#btn-add-fashion-block.btn.btn-sm.btn-primary(type='button')
+                button#btn-add-fashion-block.btn.btn-sm.btn-primary.btn-admin-accent(type='button')
                   i.bi.bi-plus-lg
                   |  Thêm sản phẩm (ma trận size/màu)
               #fashion-blocks
@@ -68,7 +68,7 @@ block main
 
             .tab-pane.fade#tab-accessory(role='tabpanel')
               .d-flex.justify-content-end.mb-2
-                button#btn-add-accessory-block.btn.btn-sm.btn-primary(type='button')
+                button#btn-add-accessory-block.btn.btn-sm.btn-primary.btn-admin-accent(type='button')
                   i.bi.bi-plus-lg
                   |  Thêm phụ kiện (theo biến thể)
               #accessory-blocks

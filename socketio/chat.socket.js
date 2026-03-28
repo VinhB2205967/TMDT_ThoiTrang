@@ -1,13 +1,13 @@
-const Nguoidung = require('../models/user_model');
-const { getAccountByUserId } = require('../services/account/index.js');
+﻿const Nguoidung = require('../models/user_model');
+const { layTKTheoId } = require('../services/account/index.js');
 const {
-  ADMIN_ROOM,
-  createMessage,
-  markClientRead,
-  markAdminRead,
-  getClientUnreadCount,
-  getAdminUnreadTotal,
-  getUserBasicInfo
+  PHONG_ADMIN,
+  taoTin,
+  clientDaDoc,
+  adminDaDoc,
+  demChuaDocClient,
+  demChuaDocAdmin,
+  layUserCoBan
 } = require('../services/communication/chat.service.js');
 
 const onlineByUser = new Map();
@@ -57,7 +57,7 @@ async function buildSocketUser(auth) {
   if (!user) return null;
 
   if (role === 'admin') {
-    const account = await getAccountByUserId({ userId: user._id }).catch(() => null);
+    const account = await layTKTheoId({ userId: user._id }).catch(() => null);
     if (!account || account.vaitro !== 'admin' || account.trangthai !== 'active') {
       return null;
     }
@@ -86,14 +86,14 @@ function setupChatSocket(io) {
 
     if (context.role === 'admin') {
       onlineAdmins.add(context.userId);
-      socket.join(ADMIN_ROOM);
+      socket.join(PHONG_ADMIN);
       io.emit('presence_update', {
         userId: context.userId,
         role: 'admin',
         online: true
       });
     } else {
-      io.to(ADMIN_ROOM).emit('presence_update', {
+      io.to(PHONG_ADMIN).emit('presence_update', {
         userId: context.userId,
         role: 'client',
         online: true
@@ -110,7 +110,7 @@ function setupChatSocket(io) {
       const userId = payload && payload.userId ? String(payload.userId) : '';
       if (!userId) return;
       socket.join(roomUser(userId));
-      const userInfo = await getUserBasicInfo(userId);
+      const userInfo = await layUserCoBan(userId);
       socket.emit('joined_user_room', {
         userId,
         user: userInfo,
@@ -137,7 +137,7 @@ function setupChatSocket(io) {
       } else {
         clientId = payload && payload.userId ? String(payload.userId) : '';
         if (clientId) {
-          const targetAccount = await getAccountByUserId({ userId: clientId }).catch(() => null);
+          const targetAccount = await layTKTheoId({ userId: clientId }).catch(() => null);
           if (targetAccount && targetAccount.vaitro === 'admin') {
             socket.emit('chat_error', { message: 'Khong the chat voi tai khoan admin' });
             return;
@@ -152,7 +152,7 @@ function setupChatSocket(io) {
         return;
       }
 
-      const saved = await createMessage({
+      const saved = await taoTin({
         clientId,
         senderId: me.userId,
         senderRole: me.role,
@@ -162,13 +162,13 @@ function setupChatSocket(io) {
         media
       });
 
-      io.to(roomUser(clientId)).to(ADMIN_ROOM).emit('receive_message', saved);
+      io.to(roomUser(clientId)).to(PHONG_ADMIN).emit('receive_message', saved);
 
       if (me.role === 'client') {
-        const adminUnreadTotal = await getAdminUnreadTotal();
-        io.to(ADMIN_ROOM).emit('unread_total', { count: adminUnreadTotal });
+        const adminUnreadTotal = await demChuaDocAdmin();
+        io.to(PHONG_ADMIN).emit('unread_total', { count: adminUnreadTotal });
       } else {
-        const userUnread = await getClientUnreadCount({ clientId });
+        const userUnread = await demChuaDocClient({ clientId });
         io.to(roomUser(clientId)).emit('unread_count', { count: userUnread });
       }
     });
@@ -178,16 +178,16 @@ function setupChatSocket(io) {
       if (!me) return;
 
       if (me.role === 'client') {
-        await markClientRead({ clientId: me.userId });
+        await clientDaDoc({ clientId: me.userId });
         io.to(roomUser(me.userId)).emit('unread_count', { count: 0 });
         return;
       }
 
       const userId = payload && payload.userId ? String(payload.userId) : '';
       if (!userId) return;
-      await markAdminRead({ clientId: userId });
-      const total = await getAdminUnreadTotal();
-      io.to(ADMIN_ROOM).emit('unread_total', { count: total });
+      await adminDaDoc({ clientId: userId });
+      const total = await demChuaDocAdmin();
+      io.to(PHONG_ADMIN).emit('unread_total', { count: total });
       io.to(roomUser(userId)).emit('messages_read_by_admin', { userId });
     });
 
@@ -205,12 +205,12 @@ function setupChatSocket(io) {
           role: 'admin',
           online: false
         });
-        io.to(ADMIN_ROOM).emit('presence_update', {
+        io.to(PHONG_ADMIN).emit('presence_update', {
           role: 'admin',
           online: getAdminOnlineStatus()
         });
       } else {
-        io.to(ADMIN_ROOM).emit('presence_update', {
+        io.to(PHONG_ADMIN).emit('presence_update', {
           userId: me.userId,
           role: 'client',
           online: false
@@ -223,7 +223,8 @@ function setupChatSocket(io) {
 module.exports = {
   setupChatSocket,
   roomUser,
-  ADMIN_ROOM,
+  PHONG_ADMIN,
   isUserOnline,
   getAdminOnlineStatus
 };
+

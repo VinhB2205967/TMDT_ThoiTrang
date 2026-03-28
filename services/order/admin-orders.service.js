@@ -62,6 +62,33 @@ const ADMIN_STATUS_LABELS = {
   hoanhang: 'Hoàn trả'
 };
 
+const ORDER_FILTER_STATUS_OPTIONS = [
+  'choxacnhan',
+  'daxacnhan',
+  'dangchuanbi',
+  'danggiao',
+  'dagiao',
+  'requested_return',
+  'approved_return',
+  'rejected_return',
+  'return_shipping',
+  'returned',
+  'refunded',
+  'dahuy'
+];
+
+const ORDER_BULK_STATUS_OPTIONS = [
+  'daxacnhan',
+  'dangchuanbi',
+  'danggiao',
+  'dagiao',
+  'approved_return',
+  'rejected_return',
+  'return_shipping',
+  'returned',
+  'refunded'
+];
+
 const ADMIN_FLOW = ['choxacnhan', 'daxacnhan', 'dangchuanbi', 'danggiao', 'dagiao', 'requested_return', 'approved_return', 'returned', 'refunded'];
 const RETURN_STEP_STATUSES = new Set(['approved_return', 'rejected_return', 'return_shipping', 'returned', 'returned_full', 'returned_partial', 'refunded']);
 const DEFAULT_ORDERS_LIST_URL = '/admin/orders';
@@ -204,7 +231,9 @@ function layNhanTrangThai(status) {
 function taoBoLocTuQuery(query = {}) {
   const keyword = chuanHoaTuKhoa(query.search);
   const statusRaw = String(query.status || 'all').trim();
-  const status = (statusRaw && TAP_TRANG_THAI.has(statusRaw)) ? statusRaw : 'all';
+  const status = ['returned_full', 'returned_partial', 'hoanhang'].includes(statusRaw)
+    ? 'returned'
+    : ((statusRaw && TAP_TRANG_THAI.has(statusRaw)) ? statusRaw : 'all');
   const paymentMethod = chuanHoaPhuongThuc(query.paymentMethod);
   const fromDate = phanTichNgay(query.fromDate);
   const toDate = phanTichNgay(query.toDate);
@@ -215,7 +244,13 @@ function taoBoLocTuQuery(query = {}) {
 
   const boloc = { daxoa: { $ne: true } };
 
-  if (status !== 'all') boloc.trangthai = status;
+  if (status !== 'all') {
+    if (status === 'returned') {
+      boloc.trangthai = { $in: ['returned', 'returned_full', 'returned_partial', 'hoanhang'] };
+    } else {
+      boloc.trangthai = status;
+    }
+  }
   if (paymentMethod) boloc.phuongthucthanhtoan = paymentMethod;
 
   if (keyword) {
@@ -670,7 +705,8 @@ async function getDanhSachData(query = {}) {
     },
     pagination: phantrang,
     statusLabels: ADMIN_STATUS_LABELS,
-    statusOptions: TRANG_THAI_CHO_PHEP,
+    statusOptions: ORDER_FILTER_STATUS_OPTIONS,
+    bulkStatusOptions: ORDER_BULK_STATUS_OPTIONS,
     badgeClass: buildBadgeClass,
     filterString,
     currentListUrl,
@@ -685,7 +721,8 @@ function getDanhSachFallbackData() {
     filters: { search: '', status: 'all', paymentMethod: '', fromDate: '', toDate: '', sort: 'newest', limit: 10 },
     pagination: { currentPage: 1, limit: 10, skip: 0, totalPages: 0, totalProducts: 0 },
     statusLabels: ADMIN_STATUS_LABELS,
-    statusOptions: TRANG_THAI_CHO_PHEP,
+    statusOptions: ORDER_FILTER_STATUS_OPTIONS,
+    bulkStatusOptions: ORDER_BULK_STATUS_OPTIONS,
     badgeClass: buildBadgeClass,
     filterString: '',
     currentListUrl: '/admin/orders',
@@ -1446,6 +1483,8 @@ async function huyDon({ id, reason }) {
 module.exports = {
   ADMIN_STATUS_LABELS,
   TRANG_THAI_CHO_PHEP,
+  ORDER_FILTER_STATUS_OPTIONS,
+  ORDER_BULK_STATUS_OPTIONS,
   ADMIN_FLOW,
   buildBadgeClass,
   layDuongDanDanhSachMacDinh,

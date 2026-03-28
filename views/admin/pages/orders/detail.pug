@@ -34,8 +34,9 @@ block main
       }
 
     if !order
-      h1.mb-3 Không tìm thấy đơn hàng
-      a.btn.btn-outline-secondary(href=`${admin}/orders`) Quay lại danh sách
+      .d-flex.justify-content-between.align-items-center.mb-3.page-header-section.orders-header.admin-page-header
+        h1.page-title.mb-0 Không tìm thấy đơn hàng
+        a.btn.btn-outline-secondary(href=`${admin}/orders`) Quay lại danh sách
     else
       - const label = (statusLabels && statusLabels[order.trangthai]) || order.trangthai || '-'
       - const badge = (badgeClass && typeof badgeClass === 'function') ? badgeClass(order.trangthai) : 'bg-secondary'
@@ -46,9 +47,9 @@ block main
       - const returnedQtyMap = (returnedQtyByItemId && typeof returnedQtyByItemId === 'object') ? returnedQtyByItemId : {}
       - const chatUserId = order && order.nguoidung_id ? String(order.nguoidung_id) : ''
 
-      .d-flex.flex-wrap.justify-content-between.align-items-center.gap-2.mb-3
+      .d-flex.flex-wrap.justify-content-between.align-items-center.gap-2.mb-3.page-header-section.orders-header.admin-page-header
         div
-          h1.mb-1 Chi tiết đơn hàng
+          h1.page-title.mb-1 Chi tiết đơn hàng
           .text-muted.small #{order.madonhang || order._id}
         .d-flex.align-items-center.gap-2
           span.badge(class=badge) #{label}

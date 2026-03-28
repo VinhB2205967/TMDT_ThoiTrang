@@ -4,13 +4,13 @@ include ../../mixins/search.pug
 include ../../mixins/page.pug
 block main
     - const currentFilter = filterStatus;
-    .page-header-section
+    .page-header-section.orders-header
         .d-flex.justify-content-between.align-items-center.flex-wrap.gap-2
             h1.page-title.mb-0
                 i.bi.bi-box-seam.me-2
                 | Quản lý sản phẩm
-            .d-flex.align-items-center.gap-3
-                a.btn.btn-success(href=`${admin}/products/create`)
+            .d-flex.align-items-center.gap-2.orders-actions.ms-auto
+                a.btn.btn-header.btn-admin-accent(href=`${admin}/products/create`)
                     i.bi.bi-plus-lg.me-1
                     | Thêm sản phẩm
                 //- .admin-user-menu

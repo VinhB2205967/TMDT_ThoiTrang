@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+﻿const mongoose = require('mongoose');
 const Sanpham = require('../../models/product_model');
 const OrderItem = require('../../models/order_item_model');
 const Brand = require('../../models/brand_model');
@@ -10,7 +10,7 @@ const paginationHelper = require('../../helpers/pagination');
 const productHelper = require('../../helpers/product');
 const { prepareProductData } = require('./product.service.js');
 const { getCategoryTree, flattenTreeOptions } = require('./category.service.js');
-const { ensureDefaultSizeGuides } = require('./sizeGuide.service.js');
+const { damBaoBangSizeMacDinh } = require('./sizeGuide.service.js');
 
 async function timHoacTaoDanhMuc({ name, slug, type, parentId = null, order = 0 }) {
   const existed = await Danhmuc.findOne({ slug, daxoa: { $ne: true } }).select('_id').lean();
@@ -100,7 +100,7 @@ async function damBaoDanhMucMacDinh() {
 }
 
 async function layDuLieuPhanLoaiSanPham() {
-  await ensureDefaultSizeGuides(SizeGuide);
+  await damBaoBangSizeMacDinh(SizeGuide);
 
   let [categoryTree, occasionTree, ageGroupTree, brands] = await Promise.all([
     getCategoryTree({ type: 'category', isActive: true }),
@@ -519,3 +519,4 @@ module.exports = {
   xoaMemSanPham,
   doiTrangThaiSanPham
 };
+

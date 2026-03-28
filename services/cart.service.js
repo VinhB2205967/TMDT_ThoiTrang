@@ -7,9 +7,7 @@ const SHIPPING_CONFIG = require('../config/shipping');
 const { getFlashSalePercentMap, tinhGiaFlash } = require('./catalog/flashSale.service.js');
 const { fixMojibakeText } = require('../helpers/textEncoding');
 const {
-  xuatTonTheoLoFIFO,
-  layGiaDeXuatSauKhiXuat,
-  apDungGiaDeXuatChoSanPham
+  xuatTonTheoLoFIFO
 } = require('./inventory/exportReceipt.service.js');
 // hàm chuẩn hóa đường dẫn hình ảnh, đảm bảo luôn có hình mặc định nếu không có hoặc đường dẫn không hợp lệ
 function normalizeImage(path) {
@@ -302,35 +300,14 @@ async function dongBoGiaGioHang(giohang, { capNhatTonKho = false } = {}) {
     }
 
     const qty = Math.max(1, Number(item.soluong || 1));
-    const giaNen = Number(ketqua.gia || item.gia || 0);
-    const quoteTheoLo = await tinhGiaTheoLoFIFO({
-      productDoc,
-      item,
-      giaMacDinh: giaNen
-    });
-    const giaGoc = Number(quoteTheoLo?.donGiaBinhQuan ?? giaNen);
+    const giaGoc = Number(ketqua.gia || item.gia || 0);
 
     const phanTramGoc = layPhanTramGiamMacDinh({ productDoc, item, ketqua });
     const phanTramFlash = Number(flashPercentMap.get(String(item.sanpham_id || '')) || 0);
     const phanTramApDung = phanTramFlash > 0 ? phanTramFlash : phanTramGoc;
 
-    let giaGiam = giaGoc;
-    let lineTotal = 0;
-
-    if (quoteTheoLo) {
-      if (phanTramApDung > 0) {
-        lineTotal = quoteTheoLo.allocations.reduce((sum, a) => {
-          const unitAfter = tinhGiaFlash(Number(a.gia || 0), phanTramApDung) || Number(a.gia || 0);
-          return sum + (Math.max(0, Number(a.soLuong || 0)) * unitAfter);
-        }, 0);
-      } else {
-        lineTotal = Math.round(Number(quoteTheoLo.tongTien || 0));
-      }
-      giaGiam = qty > 0 ? (lineTotal / qty) : giaGoc;
-    } else {
-      giaGiam = phanTramApDung > 0 ? (tinhGiaFlash(giaGoc, phanTramApDung) || giaGoc) : giaGoc;
-      lineTotal = Math.round(giaGiam * qty);
-    }
+    const giaGiam = phanTramApDung > 0 ? (tinhGiaFlash(giaGoc, phanTramApDung) || giaGoc) : giaGoc;
+    const lineTotal = Math.round(giaGiam * qty);
 
     if (Number(item.gia || 0) !== giaGoc) {
       item.gia = giaGoc;
@@ -381,17 +358,6 @@ async function truTonTheoItem(item) {
         .filter((a) => a.soLuong > 0)
       : [];
 
-    const suggestedPrice = await layGiaDeXuatSauKhiXuat({
-      productId: String(idsanpham),
-      variantId,
-      size: sizeKey,
-      allocations: fifoCost?.allocations || []
-    });
-
-    apDungGiaDeXuatChoSanPham(sanphamdoc, {
-      variantId,
-      suggestedPrice
-    });
   } catch {
     // Compatibility fallback: proceed with product-stock deduction when lots are legacy/incomplete.
   }

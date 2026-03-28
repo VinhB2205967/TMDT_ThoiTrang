@@ -1,5 +1,10 @@
 const Setting = require('../../../models/setting_model');
 const { traJsonThanhCong, traJsonThatBai } = require('../../../services/communication/hybrid-response.service');
+const {
+  layCauHinhHeaderClient,
+  capNhatCauHinhHeaderClient
+} = require('../../../services/content/client-header-settings.service');
+const { xoaCacheHeaderClient } = require('../../../middlewares/client-header-settings');
 
 module.exports.getHomeSettings = async (req, res) => {
   try {
@@ -30,5 +35,28 @@ module.exports.updateHomeSettings = async (req, res) => {
     return traJsonThanhCong(res, { status: 200, message: 'Cập nhật cấu hình thành công' });
   } catch (error) {
     return traJsonThatBai(res, { status: 500, code: 'SETTINGS_HOME_UPDATE_FAILED', message: error.message });
+  }
+};
+
+module.exports.getClientHeaderSettings = async (req, res) => {
+  try {
+    const data = await layCauHinhHeaderClient();
+    return traJsonThanhCong(res, { status: 200, data });
+  } catch (error) {
+    return traJsonThatBai(res, { status: 500, code: 'SETTINGS_HEADER_GET_FAILED', message: error.message });
+  }
+};
+
+module.exports.updateClientHeaderSettings = async (req, res) => {
+  try {
+    const data = await capNhatCauHinhHeaderClient({
+      name: req.body && req.body.client_header_name,
+      logoFile: req.file || null
+    });
+
+    xoaCacheHeaderClient();
+    return traJsonThanhCong(res, { status: 200, message: 'Cập nhật header client thành công', data });
+  } catch (error) {
+    return traJsonThatBai(res, { status: 500, code: 'SETTINGS_HEADER_UPDATE_FAILED', message: error.message });
   }
 };

@@ -1,43 +1,21 @@
-extends ../../layouts/default.pug
+﻿extends ../../layouts/default.pug
 
 block main
-  style.
-    .user-detail-actions .btn-back {
-      border: 1px solid rgba(255, 255, 255, 0.55);
-      color: #f8fafc;
-      background: rgba(255, 255, 255, 0.14);
-      border-radius: 999px;
-      font-weight: 700;
-      padding: 10px 18px;
-      box-shadow: 0 10px 20px rgba(15, 23, 42, 0.18);
-      backdrop-filter: blur(6px);
-      transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease;
-    }
-    .user-detail-actions .btn-back:hover {
-      color: #ffffff;
-      transform: translateY(-1px);
-      filter: brightness(1.05);
-      box-shadow: 0 14px 26px rgba(15, 23, 42, 0.24);
-    }
-    .user-detail-actions .btn-chat {
-      border-radius: 999px;
-      font-weight: 700;
-      padding: 10px 18px;
-      box-shadow: 0 10px 20px rgba(15, 23, 42, 0.18);
-    }
-
   - const accountProvider = String((u && u.account && u.account.provider) || '').toLowerCase()
   - const isGoogleAccount = accountProvider === 'google'
+  - const isAdminAccount = String((u && u.vaitro) || 'user') === 'admin'
+  - const avatarSrc = (u && u.avatar) ? u.avatar : '/images/avatar/avatar.png'
+  - const signatureSrc = (u && u.chukyso) ? u.chukyso : ''
 
-  .page-header-section
-    .d-flex.align-items-center.justify-content-between.flex-wrap.gap-2
+  .page-header-section.orders-header.user-detail-header
+    .d-flex.align-items-center.justify-content-between.flex-wrap.gap-2.users-detail-header-row
       h1.page-title Chi tiết tài khoản
-      .d-flex.align-items-center.gap-2.user-detail-actions
+      .d-flex.align-items-center.gap-2.orders-actions.users-detail-header-actions
         if u && u._id && String(u.vaitro || 'user') !== 'admin'
-          a.btn.btn-primary.btn-chat(href=`/admin/chats?userId=${u._id}`)
+          a.btn.btn-header.btn-header-primary.btn-user-detail-chat(href=`/admin/chats?userId=${u._id}`)
             i.bi.bi-chat-dots.me-1
             | Chat khách hàng
-        a.btn.btn-back(href="/admin/users")
+        a.btn.btn-header.btn-header-outline.btn-user-detail-back(href="/admin/users")
           i.bi.bi-arrow-left.me-1
           | Quay lại
 
@@ -49,6 +27,9 @@ block main
             .mb-2
               span.fw-semibold Email:
               |  #{u.email}
+            .mb-2
+              span.fw-semibold ID:
+              |  #{u.idHienThi || '-'}
             .mb-2
               span.fw-semibold Vai trò:
               |  #{u.vaitro}
@@ -72,21 +53,47 @@ block main
                 |  -
 
           .col-12.col-lg-6
-            img(src=(u.avatar || '/images/avatar/avatar.png') alt="avatar" style="width:96px;height:96px;object-fit:cover;border-radius:12px")
+            .d-flex.flex-wrap.justify-content-lg-end.gap-3
+              .text-center
+                .small.text-muted.mb-2 Ảnh đại diện
+                img#avatarPreviewHeader(src=avatarSrc alt="avatar" style="width:96px;height:96px;object-fit:cover;border-radius:12px")
+              if isAdminAccount
+                .text-center
+                  .small.text-muted.mb-2 Chữ ký
+                  if signatureSrc
+                    img#signaturePreviewHeader(src=signatureSrc alt="signature" style="width:180px;height:96px;object-fit:contain;border-radius:12px;border:1px solid #e5e7eb;padding:8px;background:#fff")
+                    .form-text.mb-0 Dùng trên phiếu nhập, xuất, hoàn trả.
+                  else
+                    .d-flex.align-items-center.justify-content-center.text-muted#signaturePreviewHeaderPlaceholder(style="width:180px;height:96px;border-radius:12px;border:1px dashed #cbd5e1;padding:8px;background:#fff")
+                      | Chưa có chữ ký
+                    img#signaturePreviewHeader(src="" alt="signature" style="width:180px;height:96px;object-fit:contain;border-radius:12px;border:1px solid #e5e7eb;padding:8px;background:#fff;display:none")
+                    .form-text.mb-0 Dùng trên phiếu nhập, xuất, hoàn trả.
 
     .row.g-4
       .col-12.col-lg-7
         .card.border-0.shadow-sm
           .card-body
             h2.h6.fw-bold.mb-3 Cập nhật thông tin
-            form(method="POST" action=`/admin/users/${u._id}/update`)
+            - const updateAction = `/admin/users/${u._id}/update?_csrf=${encodeURIComponent(csrfToken || '')}`
+            form(method="POST" action=updateAction enctype="multipart/form-data")
+              input(type="hidden" name="_csrf" value=csrfToken)
               .row.g-3
                 .col-12
                   label.form-label Họ tên
                   input.form-control(type="text" name="hoten" value=(u.hoten || ''))
                 .col-12.col-md-6
                   label.form-label Số điện thoại
-                  input.form-control(type="text" name="sodienthoai" value=(u.sodienthoai || ''))
+                  input#soDienThoaiInput.form-control(
+                    type="text"
+                    name="sodienthoai"
+                    value=(u.sodienthoai || '')
+                    inputmode="numeric"
+                    maxlength="10"
+                    minlength="10"
+                    pattern="0[0-9]{9}"
+                    title="Số điện thoại gồm 10 số và bắt đầu bằng 0"
+                    placeholder="0xxxxxxxxx"
+                  )
                 .col-12.col-md-6
                   label.form-label Giới tính
                   select.form-select(name="gioitinh")
@@ -122,8 +129,27 @@ block main
                   select.form-select(name="trangthai")
                     option(value="active" selected=(u.trangthai === 'active')) Active
                     option(value="noactive" selected=(u.trangthai === 'noactive')) Noactive
+                .col-12
+                  label.form-label Ảnh đại diện
+                  .d-flex.flex-wrap.align-items-center.gap-3
+                    img#avatarPreviewForm(src=avatarSrc alt="avatar-preview" style="width:72px;height:72px;object-fit:cover;border-radius:10px;border:1px solid #e5e7eb")
+                    input#avatarFileInput.form-control(type="file" name="avatarFile" accept="image/*" style="max-width:360px")
+                if isAdminAccount
+                  .col-12
+                    label.form-label Ảnh chữ ký
+                    .d-flex.flex-wrap.align-items-center.gap-3
+                      if signatureSrc
+                        img#signaturePreviewForm(src=signatureSrc alt="signature-preview" style="width:180px;height:90px;object-fit:contain;border-radius:10px;border:1px solid #e5e7eb;padding:6px;background:#fff")
+                      else
+                        .d-flex.align-items-center.justify-content-center.text-muted#signaturePreviewFormPlaceholder(style="width:180px;height:90px;border-radius:10px;border:1px dashed #cbd5e1;padding:6px;background:#fff")
+                          | Chưa có chữ ký
+                        img#signaturePreviewForm(src="" alt="signature-preview" style="width:180px;height:90px;object-fit:contain;border-radius:10px;border:1px solid #e5e7eb;padding:6px;background:#fff;display:none")
+                      .d-flex.flex-column.gap-1
+                        input#signatureFileInput.form-control(type="file" name="signatureFile" accept="image/*" style="max-width:360px")
+                        .form-text Ảnh này sẽ được dùng khi in hoặc xem phiếu nhập, xuất, hoàn trả của admin.
               .mt-3
                 button.btn.btn-primary(type="submit") Lưu thay đổi
+                button.btn.btn-outline-secondary.ms-2(type="submit") Cập nhật ảnh
 
       .col-12.col-lg-5
         .card.border-0.shadow-sm.mb-4
@@ -135,6 +161,7 @@ block main
                 | Tài khoản đăng nhập bằng Google, không hỗ trợ đặt lại mật khẩu tại đây.
             else
               form(method="POST" action=`/admin/users/${u._id}/password`)
+                input(type="hidden" name="_csrf" value=csrfToken)
                 .mb-3
                   label.form-label Mật khẩu mới
                   input.form-control(type="password" name="newPassword" minlength="6" required)
@@ -149,8 +176,75 @@ block main
             .d-flex.flex-wrap.gap-2
               if u.daxoa
                 form(method="POST" action=`/admin/users/${u._id}/restore`)
+                  input(type="hidden" name="_csrf" value=csrfToken)
                   button.btn.btn-outline-success(type="submit") Khôi phục
                 form(method="POST" action=`/admin/users/${u._id}/hard-delete` onsubmit="return confirm('Xóa vĩnh viễn tài khoản này? Hành động không thể hoàn tác!')")
+                  input(type="hidden" name="_csrf" value=csrfToken)
                   button.btn.btn-danger(type="submit") Xóa vĩnh viễn
               form(method="POST" action=`/admin/users/${u._id}/delete` onsubmit="return confirm('Xóa tài khoản này?')")
+                input(type="hidden" name="_csrf" value=csrfToken)
                 button.btn.btn-outline-danger(type="submit") Xóa (mềm)
+
+  script.
+    (function () {
+      var bindImagePreview = function (inputId, previewIds, placeholderIds) {
+        var fileInput = document.getElementById(inputId);
+        if (!fileInput) return;
+
+        var previews = (previewIds || []).map(function (id) {
+          return document.getElementById(id);
+        }).filter(Boolean);
+        var placeholders = (placeholderIds || []).map(function (id) {
+          return document.getElementById(id);
+        }).filter(Boolean);
+        var objectUrl = null;
+
+        fileInput.addEventListener('change', function (event) {
+          var file = event.target && event.target.files && event.target.files[0];
+          if (!file) return;
+
+          if (objectUrl) URL.revokeObjectURL(objectUrl);
+          objectUrl = URL.createObjectURL(file);
+
+          previews.forEach(function (preview) {
+            preview.src = objectUrl;
+            preview.style.display = '';
+          });
+          placeholders.forEach(function (placeholder) {
+            placeholder.style.display = 'none';
+          });
+        });
+      };
+
+      bindImagePreview('avatarFileInput', ['avatarPreviewHeader', 'avatarPreviewForm']);
+      bindImagePreview(
+        'signatureFileInput',
+        ['signaturePreviewHeader', 'signaturePreviewForm'],
+        ['signaturePreviewHeaderPlaceholder', 'signaturePreviewFormPlaceholder']
+      );
+
+      var phoneInput = document.getElementById('soDienThoaiInput');
+      if (phoneInput) {
+        var validatePhone = function () {
+          var val = String(phoneInput.value || '').trim();
+          if (!val) {
+            phoneInput.setCustomValidity('');
+            return;
+          }
+          if (/^0\d{9}$/.test(val)) {
+            phoneInput.setCustomValidity('');
+          } else {
+            phoneInput.setCustomValidity('Số điện thoại phải gồm 10 số và bắt đầu bằng 0');
+          }
+        };
+
+        phoneInput.addEventListener('input', function () {
+          var digitsOnly = String(phoneInput.value || '').replace(/\D/g, '').slice(0, 10);
+          phoneInput.value = digitsOnly;
+          validatePhone();
+        });
+
+        phoneInput.addEventListener('blur', validatePhone);
+        validatePhone();
+      }
+    })();

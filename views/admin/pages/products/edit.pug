@@ -1,14 +1,15 @@
 extends ../../layouts/default.pug
 
 block main
-    .page-header-section
+    .page-header-section.orders-header
         .d-flex.justify-content-between.align-items-center.flex-wrap.gap-2
             h1.page-title.mb-0
                 i.bi.bi-pencil-square.me-2
                 | Chỉnh sửa sản phẩm
-            a.btn.btn-outline-light(href=`${admin}/products`)
-                i.bi.bi-arrow-left.me-1
-                | Quay lại
+            .d-flex.align-items-center.gap-2.orders-actions
+                a.btn.btn-header.btn-header-outline(href=`${admin}/products`)
+                    i.bi.bi-arrow-left.me-1
+                    | Quay lại
 
     .dashboard-container.mt-4
         - const editActionUrl = `${admin}/products/${product._id}/edit?_csrf=${encodeURIComponent(csrfToken || '')}`

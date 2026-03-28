@@ -15,6 +15,13 @@ block main
                   input(type='hidden' name='_csrf' value=csrfToken)
                   .row.g-3
                     .col-12
+                      label.form-label ID người dùng
+                      .input-group
+                        - const userCode = ((profile && profile.idhienthi) || (profile && profile.userid) || '')
+                        input.form-control(type="text" value=userCode readonly)
+                        button#copyUserIdBtn.btn.btn-outline-secondary(type='button' data-copy-text=userCode data-copy-label='ID người dùng' title='Sao chép ID người dùng' aria-label='Sao chép ID người dùng')
+                          i.bi.bi-clipboard
+                    .col-12
                       label.form-label Họ tên
                       input.form-control(type="text" name="hoten" value=(profile && profile.hoten) || '')
                     .col-12.col-md-6
@@ -41,7 +48,7 @@ block main
                       .mb-2
                         img#accountAvatarPreview(src=((profile && profile.avatar) || '/images/avatar/avatar.png') alt="avatar" style="width:64px;height:64px;border-radius:12px;object-fit:cover")
                       input#accountAvatarFileInput.form-control(type="file" name="avatarFile" accept="image/*")
-                      
+
                   .d-flex.gap-2.mt-3
                     button.btn.btn-primary(type="submit") Lưu thay đổi
                     a.btn.btn-outline-secondary(href="/") Về trang chủ
@@ -68,11 +75,7 @@ block main
                   .alert.alert-info.mb-0 Tài khoản đăng nhập bằng Google không hỗ trợ đổi mật khẩu tại đây.
 
               .col-12
-                hr
-                h2.h6.fw-bold.text-danger.mb-2 Xóa tài khoản
-                form(method="POST" action="/account/delete" onsubmit="return confirm('Bạn chắc chắn muốn xóa tài khoản?')")
-                  input(type='hidden' name='_csrf' value=csrfToken)
-                  button.btn.btn-outline-danger(type="submit") Xóa tài khoản
+                
 
 block scripts
   script(src="/js/account-profile.js")

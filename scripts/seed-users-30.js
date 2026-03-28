@@ -1,9 +1,9 @@
-require('dotenv').config();
+﻿require('dotenv').config();
 const mongoose = require('mongoose');
 
 const database = require('../config/database');
 const Nguoidung = require('../models/user_model');
-const { createLocalAccountForUser, setPasswordByUserId, ensureAccountFromUser } = require('../services/account/index.js');
+const { taoTKLocal, datMKTheoId, damBaoTK } = require('../services/account/index.js');
 
 const DEFAULT_PASSWORD = '123456';
 const USER_TOTAL = 30;
@@ -44,7 +44,7 @@ async function ensureOneUser(profile) {
       ngaycapnhat: now
     });
 
-    await createLocalAccountForUser({
+    await taoTKLocal({
       userDoc: created,
       passwordPlain: DEFAULT_PASSWORD,
       overrides: { vaitro: 'user', trangthai: 'active', xacthuc: true }
@@ -67,7 +67,7 @@ async function ensureOneUser(profile) {
     }
   );
 
-  await ensureAccountFromUser(
+  await damBaoTK(
     {
       _id: user._id,
       email,
@@ -81,7 +81,7 @@ async function ensureOneUser(profile) {
     }
   );
 
-  await setPasswordByUserId({ userId: user._id, newPasswordPlain: DEFAULT_PASSWORD });
+  await datMKTheoId({ userId: user._id, newPasswordPlain: DEFAULT_PASSWORD });
 
   return { created: 0, updated: 1 };
 }
@@ -110,3 +110,4 @@ run().catch(async (err) => {
   } catch (_) {}
   process.exit(1);
 });
+

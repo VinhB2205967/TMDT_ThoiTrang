@@ -246,6 +246,7 @@
     }
 
     const tbody = matrixEl.querySelector('tbody');
+    matrixEl.querySelector('thead tr th:last-child')?.remove();
     const variants = [{ id: 'main', label: 'Mặc định', color: product.mausac_chinh || '' }].concat(
       (product.bienthe || []).map((v) => ({
         id: String(v._id),
@@ -257,6 +258,7 @@
     variants.forEach((v) => {
       const tr = cloneTemplate(rowTplId);
       if (!tr) return;
+      tr.querySelector('.js-suggested')?.closest('td')?.remove();
       tr.setAttribute('data-variant', v.id);
       tr.dataset.variant = v.id;
       const labelEl = tr.querySelector('.js-variant-label');
@@ -298,17 +300,11 @@
         if (!String(inp.value || '').trim()) inp.value = '0';
       });
 
-      // Default suggested price from product / variant price (still editable)
-      const suggestedEl = tr.querySelector('.js-suggested');
-      if (suggestedEl && !String(suggestedEl.value || '').trim()) {
-        const p = effectiveSuggestedPrice(product, v.id);
-        if (p > 0) suggestedEl.value = String(p);
-      }
-
       tbody?.appendChild(tr);
     });
 
     container.replaceChildren(matrixEl);
+    container.querySelectorAll('.js-suggested').forEach((el) => el.closest('td')?.remove());
     calcTotalImportMoney();
   }
 
@@ -330,6 +326,7 @@
     }
 
     const tbody = matrixEl.querySelector('tbody');
+    matrixEl.querySelector('thead tr th:last-child')?.remove();
     const variants = [{ id: 'main', label: 'Mặc định', color: product.mausac_chinh || '' }].concat(
       (product.bienthe || []).map((v) => ({
         id: String(v._id),
@@ -381,16 +378,11 @@
         if (!String(qtyElOne.value || '').trim()) qtyElOne.value = '0';
       }
 
-      const suggestedEl = tr.querySelector('.js-suggested');
-      if (suggestedEl && !String(suggestedEl.value || '').trim()) {
-        const p = effectiveSuggestedPrice(product, v.id);
-        if (p > 0) suggestedEl.value = String(p);
-      }
-
       tbody?.appendChild(tr);
     });
 
     container.replaceChildren(matrixEl);
+    container.querySelectorAll('.js-suggested').forEach((el) => el.closest('td')?.remove());
     calcTotalImportMoney();
   }
 
@@ -542,10 +534,8 @@
       if (qtyInput) qtyInput.value = String(Math.max(0, Number(it.soluong || 0)));
 
       const importEl = row.querySelector('.js-import');
-      const suggestedEl = row.querySelector('.js-suggested');
       const colorEl = row.querySelector('.js-variant-color');
       if (importEl) importEl.value = String(it.gianhap || 0);
-      if (suggestedEl) suggestedEl.value = String(it.giabandexuat || 0);
       if (colorEl && it.mausac) colorEl.value = it.mausac;
     });
   }
@@ -557,6 +547,7 @@
 
     const first = items[0];
     const productId = first.sanphamid;
+    const product = productMap.get(String(productId));
     const productSelect = block.querySelector('.js-accessory-product');
     const categoryEl = block.querySelector('.js-accessory-category');
     const materialEl = block.querySelector('.js-accessory-material');
@@ -576,12 +567,10 @@
 
       const qtyEl = row.querySelector('.js-qty-one');
       const importEl = row.querySelector('.js-import');
-      const suggestedEl = row.querySelector('.js-suggested');
       const colorEl = row.querySelector('.js-variant-color');
 
       if (qtyEl) qtyEl.value = String(Math.max(0, Number(it.soluong || 0)));
       if (importEl) importEl.value = String(it.gianhap || 0);
-      if (suggestedEl) suggestedEl.value = String(it.giabandexuat || 0);
       if (colorEl && it.mausac) colorEl.value = it.mausac;
     });
   }
@@ -893,7 +882,7 @@
           const variantId = row.getAttribute('data-variant') || 'main';
           const color = row.querySelector('.js-variant-color')?.value || '';
           const importPrice = row.querySelector('.js-import')?.value || '';
-          const suggested = row.querySelector('.js-suggested')?.value || '';
+          const suggested = String(effectiveSuggestedPrice(product, variantId) || 0);
 
           const qtyInputs = Array.from(row.querySelectorAll('.js-qty'));
           qtyInputs.forEach((qEl) => {
@@ -939,7 +928,7 @@
           const variantId = row.getAttribute('data-variant') || 'main';
           const color = row.querySelector('.js-variant-color')?.value || '';
           const importPrice = row.querySelector('.js-import')?.value || '';
-          const suggested = row.querySelector('.js-suggested')?.value || '';
+          const suggested = String(effectiveSuggestedPrice(product, variantId) || 0);
           const qtyEl = row.querySelector('.js-qty-one');
           const qty = Number(qtyEl?.value || 0);
           if (!qty || qty <= 0) return;

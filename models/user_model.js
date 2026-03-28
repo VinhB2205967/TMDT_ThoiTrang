@@ -27,6 +27,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: '/images/avatar/avatar.png'
   },
+  chukyso: {
+    type: String,
+    alias: 'chuKy',
+    default: ''
+  },
   daxoa: {
     type: Boolean,
     default: false

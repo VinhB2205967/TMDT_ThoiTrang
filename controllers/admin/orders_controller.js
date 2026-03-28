@@ -54,11 +54,15 @@ module.exports.exportExcel = async (req, res) => {
 module.exports.capNhatTrangThai = async (req, res) => {
   const id = req.params.id;
   const nextStatus = String(req.body.status || req.body.trangthai || '').trim();
+  const requestedListUrl = ordersAdminService.layDuongDanDanhSachHopLe(
+    req.body.returnTo || req.query.returnTo
+  );
   const returnTo = ordersAdminService.layDuongDanQuayLaiDanhSach({
     fromBody: req.body.returnTo,
     fromQuery: req.query.returnTo
   });
   const detailRedirectUrl = ordersAdminService.taoDuongDanChiTietDon({ id, returnTo });
+  const redirectUrl = requestedListUrl || detailRedirectUrl;
 
   try {
     const result = await ordersAdminService.capNhatTrangThaiDon({
@@ -71,11 +75,11 @@ module.exports.capNhatTrangThai = async (req, res) => {
       warningCodes: ['MAIL_ERROR']
     });
     req.flash(flashType, result.message || 'Cập nhật trạng thái thành công');
-    return res.redirect(detailRedirectUrl);
+    return res.redirect(redirectUrl);
   } catch (err) {
     console.error('orders.capNhatTrangThai error:', err);
     req.flash('error', 'Lỗi hệ thống khi cập nhật trạng thái');
-    return res.redirect(detailRedirectUrl);
+    return res.redirect(redirectUrl);
   }
 };
 

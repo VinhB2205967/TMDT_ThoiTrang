@@ -9,15 +9,8 @@ function tinhGiaFlash(giaGoc, phanTram) {
 }
 
 async function dongBoTrangThaiFlashSale(now = new Date()) {
-  await FlashSale.updateMany(
-    {
-      hienthi: false,
-      batdau: { $lte: now },
-      ketthuc: { $gt: now }
-    },
-    { $set: { hienthi: true } }
-  );
-
+  // Không tự bật lại flash sale đã bị admin tắt tay.
+  // Chỉ tự tắt các flash sale đã hết hạn để tránh tiếp tục áp giá.
   await FlashSale.updateMany(
     {
       hienthi: true,

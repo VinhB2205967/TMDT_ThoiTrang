@@ -1,12 +1,17 @@
 header.header 
+    - const clientHeaderName = String((clientHeader && clientHeader.name) || 'Fashion Store')
+    - const clientHeaderLogo = String((clientHeader && clientHeader.logo) || '')
     .container-fluid
         .header-wrapper
             
             //- LEFT: Logo
             .header-logo
                 a(href="/")
-                    i.bi.bi-bag-heart-fill.logo-icon
-                    span.logo-text Fashion Store
+                    if clientHeaderLogo
+                        img.logo-image(src=clientHeaderLogo alt=clientHeaderName)
+                    else
+                        i.bi.bi-bag-heart-fill.logo-icon
+                    span.logo-text #{clientHeaderName}
 
             //- CENTER: Search bar
             .header-search

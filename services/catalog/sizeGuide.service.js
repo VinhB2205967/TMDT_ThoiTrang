@@ -1,4 +1,4 @@
-﻿const DEFAULT_GUIDES = [
+﻿const BANG_SIZE_MAC_DINH = [
   {
     tenbang: 'Bảng size áo tiêu chuẩn',
     slug: 'guide-ao-default',
@@ -41,31 +41,31 @@
   }
 ];
 
-function stripVietnamese(text) {
+function boDau(text) {
   return String(text || '')
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
 }
 
-function looksMojibake(text) {
+function laLoiMa(text) {
   return /(Ã.|áº|á»|Æ°|Ä‘)/.test(String(text || ''));
 }
 
-function isWeightColumn(text) {
+function laCotCanNang(text) {
   const raw = String(text || '').toLowerCase();
-  const compact = stripVietnamese(raw).replace(/[^a-z0-9]/g, '');
+  const compact = boDau(raw).replace(/[^a-z0-9]/g, '');
   return compact.includes('cannang')
     || compact.includes('canang')
     || raw.includes('cã¢n')
     || raw.includes('náº·ng');
 }
 
-function dedupeWeightColumns(columns, rows) {
+function gopCotCanNang(columns, rows) {
   const cols = Array.isArray(columns) ? [...columns] : [];
   const listRows = Array.isArray(rows) ? rows : [];
   const weightIndexes = cols
-    .map((c, idx) => ({ idx, isWeight: isWeightColumn(c) }))
+    .map((c, idx) => ({ idx, isWeight: laCotCanNang(c) }))
     .filter((x) => x.isWeight)
     .map((x) => x.idx);
 
@@ -106,7 +106,7 @@ function dedupeWeightColumns(columns, rows) {
   };
 }
 
-function slugify(value) {
+function taoSlug(value) {
   return String(value || '')
     .toLowerCase()
     .normalize('NFD')
@@ -115,7 +115,7 @@ function slugify(value) {
     .replace(/^-+|-+$/g, '') || `size-guide-${Date.now()}`;
 }
 
-function normalizeGuideTypeFromProductType(loaiSanPham) {
+function chuanLoaiBangSize(loaiSanPham) {
   const type = String(loaiSanPham || '').trim().toLowerCase();
   if (!type) return null;
   if (['ao', 'aokhoac', 'vay'].includes(type)) return 'ao';
@@ -124,14 +124,14 @@ function normalizeGuideTypeFromProductType(loaiSanPham) {
   return null;
 }
 
-function parseColumns(raw) {
+function tachCot(raw) {
   return String(raw || '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
 }
 
-function parseRows(raw, expectedColumnCount) {
+function tachDong(raw, expectedColumnCount) {
   const lines = String(raw || '')
     .split('\n')
     .map((line) => line.trim())
@@ -154,7 +154,7 @@ function parseRows(raw, expectedColumnCount) {
   }).filter((row) => row.size);
 }
 
-function rowsToTextarea(rows) {
+function dongToText(rows) {
   const arr = Array.isArray(rows) ? rows : [];
   return arr
     .map((row) => {
@@ -165,8 +165,8 @@ function rowsToTextarea(rows) {
     .join('\n');
 }
 
-async function ensureDefaultSizeGuides(SizeGuide) {
-  for (const item of DEFAULT_GUIDES) {
+async function damBaoBangSizeMacDinh(SizeGuide) {
+  for (const item of BANG_SIZE_MAC_DINH) {
     const existed = await SizeGuide.findOne({ slug: item.slug, daxoa: { $ne: true } });
     if (!existed) {
       await SizeGuide.create({
@@ -179,19 +179,19 @@ async function ensureDefaultSizeGuides(SizeGuide) {
 
     let changed = false;
 
-    if (looksMojibake(existed.tenbang)) {
+    if (laLoiMa(existed.tenbang)) {
       existed.tenbang = item.tenbang;
       changed = true;
     }
 
-    if (looksMojibake(existed.goiy)) {
+    if (laLoiMa(existed.goiy)) {
       existed.goiy = item.goiy;
       changed = true;
     }
 
     if (Array.isArray(existed.cot)) {
       existed.cot = existed.cot.map((col, idx) => {
-        if (looksMojibake(col) && item.cot[idx]) {
+        if (laLoiMa(col) && item.cot[idx]) {
           changed = true;
           return item.cot[idx];
         }
@@ -199,7 +199,7 @@ async function ensureDefaultSizeGuides(SizeGuide) {
       });
     }
 
-    const deduped = dedupeWeightColumns(existed.cot, existed.dong);
+    const deduped = gopCotCanNang(existed.cot, existed.dong);
     if (deduped.changed) {
       existed.cot = deduped.columns;
       existed.dong = deduped.rows;
@@ -210,7 +210,7 @@ async function ensureDefaultSizeGuides(SizeGuide) {
     // but auto-add weight column for default clothing guides.
     if (item.slug === 'guide-ao-default' || item.slug === 'guide-quan-default') {
       const hasWeightColumn = Array.isArray(existed.cot)
-        && existed.cot.some((c) => isWeightColumn(c));
+        && existed.cot.some((c) => laCotCanNang(c));
 
       if (!hasWeightColumn) {
         const nextColumns = [...(existed.cot || []), 'Cân nặng (kg)'];
@@ -245,12 +245,13 @@ async function ensureDefaultSizeGuides(SizeGuide) {
 }
 
 module.exports = {
-  DEFAULT_GUIDES,
-  slugify,
-  parseColumns,
-  parseRows,
-  rowsToTextarea,
-  normalizeGuideTypeFromProductType,
-  ensureDefaultSizeGuides
+  BANG_SIZE_MAC_DINH,
+  taoSlug,
+  tachCot,
+  tachDong,
+  dongToText,
+  chuanLoaiBangSize,
+  damBaoBangSizeMacDinh
 };
+
 

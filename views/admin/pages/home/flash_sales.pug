@@ -13,6 +13,7 @@ block styles
       text-align: center;
     }
     .flash-sales-table { table-layout: fixed; }
+    .flash-sales-table { min-width: 980px; }
     .flash-sales-table thead th {
       white-space: nowrap;
       font-weight: 700;
@@ -34,6 +35,7 @@ block styles
     .flash-time-wrap { display: flex; gap: 8px; }
     .flash-time-wrap .form-control { min-width: 0; }
     .flash-actions { display: flex; flex-wrap: wrap; gap: 8px; min-width: 190px; }
+    .flash-actions .btn { white-space: nowrap; }
     .flash-product-cell .select2-container { width: 100% !important; }
     .flash-product-cell .select2-selection__choice {
       max-width: 100%;
@@ -41,10 +43,32 @@ block styles
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    @media (max-width: 1200px) {
+      .flash-sales-table { min-width: 920px; }
+      .flash-sales-table td,
+      .flash-sales-table th { font-size: 14px; }
+      .flash-time-wrap { flex-direction: column; }
+      .flash-actions { min-width: 150px; }
+      .flash-name-input { min-width: 180px; }
+    }
+    @media (max-width: 768px) {
+      .container-fluid.py-4 { padding: 0.75rem !important; }
+      .flash-sales-table { min-width: 860px; }
+      .flash-product-list { max-height: 70px; font-size: 11px; }
+      .flash-discount-input { min-width: 80px; font-size: 15px; }
+      .flash-actions {
+        flex-direction: column;
+        align-items: stretch;
+        min-width: 120px;
+      }
+      .flash-actions .btn { width: 100%; }
+    }
 
 block main
+  .page-header-section.orders-header
+    h1.page-title.mb-0 Quản lý Flash Sale
+
   .container-fluid.py-4
-    h1.mb-3 Quản lý Flash Sale
     .card.mb-4
       .card-body
         form#flashSaleCreate

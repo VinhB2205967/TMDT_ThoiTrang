@@ -1,7 +1,7 @@
-const passport = require('passport');
+﻿const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const Nguoidung = require('../models/user_model');
-const { ensureAccountFromUser, getAccountByUserId } = require('../services/account/index.js');
+const { damBaoTK, layTKTheoId } = require('../services/account/index.js');
 
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
@@ -20,7 +20,7 @@ function configurePassport() {
 
       // Attach account info so later code can read role/status from accounts
       // without refactoring every usage of req.user.vaitro/trangthai.
-      const account = await getAccountByUserId({ userId: user._id }).catch(() => null);
+      const account = await layTKTheoId({ userId: user._id }).catch(() => null);
       if (account) {
         user.account = account;
         if (account.vaitro) user.vaitro = account.vaitro;
@@ -66,7 +66,7 @@ function configurePassport() {
                 ngaytao: new Date(),
                 ngaycapnhat: new Date()
               });
-              await ensureAccountFromUser(user, {
+              await damBaoTK(user, {
                 provider: 'google',
                 overrides: { vaitro: 'user', trangthai: 'active', xacthuc: true }
               });
@@ -86,7 +86,7 @@ function configurePassport() {
                 await user.save();
               }
 
-              await ensureAccountFromUser(user, {
+              await damBaoTK(user, {
                 provider: 'google',
                 overrides: { vaitro: 'user', trangthai: 'active', xacthuc: true }
               });
@@ -105,3 +105,4 @@ function configurePassport() {
 module.exports = {
   configurePassport
 };
+

@@ -77,13 +77,18 @@ module.exports.xoaMem = async (req, res) => {
 };
 
 module.exports.capNhatTuChiTiet = async (req, res) => {
+  const currentAdminId = req.session && req.session.adminUserId
+    ? String(req.session.adminUserId)
+    : (req.adminUser && req.adminUser._id ? String(req.adminUser._id) : '');
+
   return xuLyAction(
     req,
     res,
     () => adminUsersService.capNhatTuChiTiet({
       userId: req.params.id,
+      currentAdminId,
       body: req.body,
-      referer: req.get('referer')
+      filesUpload: req.files
     }),
     'admin users updateFromDetail error:',
     'Không thể cập nhật tài khoản'

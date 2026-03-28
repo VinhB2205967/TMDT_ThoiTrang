@@ -1,6 +1,6 @@
-const systemConfig = require('../config/system');
+﻿const systemConfig = require('../config/system');
 const Nguoidung = require('../models/user_model');
-const { getAccountByUserId } = require('../services/account/index.js');
+const { layTKTheoId } = require('../services/account/index.js');
 
 function muonJSON(req) {
   const chapNhan = String(req.headers.accept || '');
@@ -46,7 +46,7 @@ function yeuCauAdmin(req, res, next) {
           return res.redirect(`${duongDanAdmin}/login`);
         }
 
-        return getAccountByUserId({ userId: nguoiDungAdmin._id })
+        return layTKTheoId({ userId: nguoiDungAdmin._id })
           .then((account) => {
             if (account) {
               nguoiDungAdmin.account = account;
@@ -143,7 +143,7 @@ function batBuocPhienHoatDong(req, res, next) {
             return res.redirect(`${duongDanAdmin}/login`);
           }
 
-          return getAccountByUserId({ userId: u._id })
+          return layTKTheoId({ userId: u._id })
             .then((account) => {
               if (account) {
                 u.account = account;
@@ -190,3 +190,4 @@ module.exports = {
   theoDoiTrucTuyen,
   batBuocPhienHoatDong
 };
+

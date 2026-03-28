@@ -38,13 +38,13 @@ function tinhTongTon(productdoc) {
   return tong;
 }
 
-// Láº¥y thÃ´ng tin biáº¿n thá»ƒ vÃ  tá»“n kho
+// Lấy thông tin biến thể và tồn kho 
 function layBienTheVaTon(productdoc, bientheId, kichco) {
   const coSize = !laLoaiKhongSize(productdoc.loaisanpham);
   const laChinh = !bientheId || bientheId === 'main';
 
   if (laChinh) {
-    const mausac = productdoc.mausac_chinh || 'Máº·c Ä‘á»‹nh';
+    const mausac = productdoc.mausac_chinh || 'Mặc định';
     const hinhanh = normalizeImage(productdoc.hinhanh);
     const gia = productdoc.gia || 0;
     const giamgia = productdoc.phantramgiamgia || 0;

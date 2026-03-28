@@ -2,14 +2,14 @@ extends ../../layouts/default.pug
 
 block main
     .dashboard-container
-        .dashboard-hero
+        .page-header-section.orders-header.admin-page-header.d-flex.justify-content-between.align-items-center.flex-wrap.gap-2.mb-3
             .hero-left
-                h1.dashboard-title(style="color: #fff")
+                h1.page-title
                     i.bi.bi-robot.me-2
                     | AI Assistant (Admin)
-                p.dashboard-subtitle(style="color: #e2e8f0") Hỏi đáp dữ liệu kinh doanh, đơn hàng, kho và khách hàng
-            .hero-actions
-                a.btn.btn-light.btn-sm(href="/admin/dashboard")
+                p.mb-0 Hỏi đáp dữ liệu kinh doanh, đơn hàng, kho và khách hàng
+            .hero-actions.orders-actions.d-flex.flex-wrap.gap-2
+                a.btn.btn-header.btn-header-outline.btn-sm(href="/admin/dashboard")
                     i.bi.bi-speedometer2.me-1
                     | Về Dashboard
 

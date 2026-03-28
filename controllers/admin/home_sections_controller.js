@@ -1,5 +1,6 @@
 const homeSectionsService = require('../../services/content/admin-home-sections.service.js');
 const { redirectBackOrDefault } = require('../../services/communication/redirect.service');
+const { layCauHinhHeaderClient } = require('../../services/content/client-header-settings.service');
 
 function xuLyKetQuaSSR(req, res, result) {
   if (req.flash && result.message) req.flash(result.ok ? 'success' : 'error', result.message);
@@ -7,10 +8,15 @@ function xuLyKetQuaSSR(req, res, result) {
 }
 
 module.exports.danhSach = async (req, res) => {
-  const result = await homeSectionsService.layDanhSachHomeSections();
+  const [result, headerSettings] = await Promise.all([
+    homeSectionsService.layDanhSachHomeSections(),
+    layCauHinhHeaderClient().catch(() => ({ name: 'Fashion Store', logo: '' }))
+  ]);
+
   return res.render('admin/pages/home/home_sections.pug', {
     titlePage: 'Quản lý Trang chủ',
-    sections: result.data || []
+    sections: result.data || [],
+    headerSettings
   });
 };
 

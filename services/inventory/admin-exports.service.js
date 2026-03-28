@@ -4,13 +4,12 @@ const Sanpham = require('../../models/product_model');
 const PhieuXuatKho = require('../../models/export_receipt_model');
 const { SIZE_LIST } = require('../../config/constants');
 const { tinhTongTon } = require('../../services/catalog/productStock.service.js');
+const { chuanIdNhanVienHienThi } = require('../../helpers/user-display-id');
 const {
   tinhTongSoLieu,
   tinhTaiChinhTheoPhanBo,
   taoBanDoGiaVonTrungBinhTheoSanPham,
   xuatTonTheoLoFIFO,
-  layGiaDeXuatSauKhiXuat,
-  apDungGiaDeXuatChoSanPham,
   layGiaVonTrungBinh,
   taoThongTinNhanVienKy,
   taoMaPhieuXuat,
@@ -237,20 +236,12 @@ async function taoPhieuXuat({ body = {}, adminUser = null, user = null }) {
       : Number(productDoc.phantramgiamgia || 0);
 
     let fifoCost;
-    let suggestedPrice = 0;
     try {
       fifoCost = await xuatTonTheoLoFIFO({
         productId: it.sanphamid,
         variantId,
         size: it.kichco,
         qty: it.soluong
-      });
-
-      suggestedPrice = await layGiaDeXuatSauKhiXuat({
-        productId: it.sanphamid,
-        variantId,
-        size: it.kichco,
-        allocations: fifoCost.allocations
       });
     } catch (fifoErr) {
       const giaNhapFallback = layGiaVonTrungBinh(costMap, {
@@ -262,8 +253,6 @@ async function taoPhieuXuat({ body = {}, adminUser = null, user = null }) {
         tongGiaVon: Number(it.soluong || 0) * giaNhapFallback,
         giaNhapBinhQuan: giaNhapFallback
       };
-
-      suggestedPrice = variant ? Number(variant.gia || productDoc.gia || 0) : Number(productDoc.gia || 0);
     }
 
     truTonKhoTheoDong(productDoc, {
@@ -271,8 +260,6 @@ async function taoPhieuXuat({ body = {}, adminUser = null, user = null }) {
       size: it.kichco,
       qty: it.soluong
     });
-
-    apDungGiaDeXuatChoSanPham(productDoc, { variantId, suggestedPrice });
 
     productDoc.soluongton = tinhTongTon(productDoc);
     productDoc.ngaycapnhat = new Date();
@@ -329,17 +316,23 @@ async function getChiTietData(idOrCode) {
   if (!receiptDoc) return { ok: false, status: 404, message: 'Không tìm thấy phiếu xuất kho', code: 'NOT_FOUND' };
 
   if (receiptDoc.nguoitao) {
-    await receiptDoc.populate({ path: 'nguoitao', select: 'hoten email avatar' });
+    await receiptDoc.populate({ path: 'nguoitao', select: 'hoten email avatar chukyso ngaytao' });
   }
   if (receiptDoc.donhang_id) {
     await receiptDoc.populate({ path: 'donhang_id', select: 'madonhang' });
   }
 
   const receipt = await hydrateLegacyOrderAllocations(receiptDoc.toObject());
+  const idNhanVienRaw = (receipt.nhanvienky && receipt.nhanvienky.idnhanvien)
+    || (receipt.nguoitao && receipt.nguoitao._id ? String(receipt.nguoitao._id) : '');
   const nhanVienKy = {
     tennhanvien: (receipt.nhanvienky && receipt.nhanvienky.tennhanvien) || (receipt.nguoitao && receipt.nguoitao.hoten) || (receipt.nguoitao && receipt.nguoitao.email) || '',
-    idnhanvien: (receipt.nhanvienky && receipt.nhanvienky.idnhanvien) || (receipt.nguoitao && receipt.nguoitao._id ? String(receipt.nguoitao._id) : ''),
-    anhchuky: (receipt.nhanvienky && receipt.nhanvienky.anhchuky) || (receipt.nguoitao && receipt.nguoitao.avatar) || '',
+    idnhanvien: chuanIdNhanVienHienThi({
+      rawId: idNhanVienRaw,
+      createdAt: (receipt.nguoitao && receipt.nguoitao.ngaytao) || (receipt.nhanvienky && receipt.nhanvienky.thoigianky) || receipt.ngaytao || new Date()
+    }),
+    anhdaidien: (receipt.nguoitao && receipt.nguoitao.avatar) || '/images/avatar/avatar.png',
+    anhchuky: (receipt.nhanvienky && receipt.nhanvienky.anhchuky) || (receipt.nguoitao && receipt.nguoitao.chukyso) || (receipt.nguoitao && receipt.nguoitao.avatar) || '',
     thoigianky: (receipt.nhanvienky && receipt.nhanvienky.thoigianky) || receipt.ngaytao || null
   };
 

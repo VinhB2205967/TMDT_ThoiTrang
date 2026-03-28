@@ -1,4 +1,4 @@
-const sanpham = require('../../models/product_model');
+﻿const sanpham = require('../../models/product_model');
 const mongoose = require('mongoose');
 const danhgia = require('../../models/review_model');
 const searchHelper = require('../../helpers/search');
@@ -10,7 +10,7 @@ const Danhmuc = require('../../models/category_model');
 const SizeGuide = require('../../models/size_guide_model');
 const { getCategoryTree, flattenTreeOptions } = require('../catalog/category.service.js');
 const { getFlashSalePercentMap, tinhGiaFlash } = require('../catalog/flashSale.service.js');
-const { normalizeGuideTypeFromProductType, ensureDefaultSizeGuides } = require('../catalog/sizeGuide.service.js');
+const { chuanLoaiBangSize, damBaoBangSizeMacDinh } = require('../catalog/sizeGuide.service.js');
 const { rankProductsByImage } = require('../catalog/openClip.service.js');
 
 async function timHoacTaoDanhMuc({ name, slug, type, parentId = null, order = 0 }) {
@@ -558,13 +558,13 @@ async function getChiTietData(idsanpham, query = {}) {
     return ganGiaFlashSaleChoSanPham(p, flashPercentMapRelated);
   });
 
-  await ensureDefaultSizeGuides(SizeGuide);
+  await damBaoBangSizeMacDinh(SizeGuide);
   let sizeGuide = null;
   if (sanphamdoc.sizeguide_id && mongoose.Types.ObjectId.isValid(String(sanphamdoc.sizeguide_id))) {
     sizeGuide = await SizeGuide.findOne({ _id: sanphamdoc.sizeguide_id, daxoa: { $ne: true } }).lean();
   }
   if (!sizeGuide) {
-    const guideType = normalizeGuideTypeFromProductType(capnhatsp.loaisanpham);
+    const guideType = chuanLoaiBangSize(capnhatsp.loaisanpham);
     if (guideType) {
       sizeGuide = await SizeGuide.findOne({
         loaisanpham: guideType,
@@ -758,3 +758,4 @@ module.exports = {
   timBangAnhData,
   getSearchSuggestionsData
 };
+

@@ -1,7 +1,7 @@
-const {
-  getConversationMessages,
-  getClientUnreadCount,
-  markClientRead
+﻿const {
+  layTinHoiThoai,
+  demChuaDocClient,
+  clientDaDoc
 } = require('../../../services/communication/chat.service.js');
 const { getAdminOnlineStatus } = require('../../../socketio/chat.socket');
 const { resolveChatMedia } = require('../../../middlewares/chatUpload');
@@ -12,7 +12,7 @@ module.exports.layLichSu = async (req, res) => {
     return res.status(401).json({ success: false, message: 'Bạn cần đăng nhập' });
   }
 
-  const messages = await getConversationMessages({
+  const messages = await layTinHoiThoai({
     clientId: userId,
     limit: req.query.limit || 50
   });
@@ -30,7 +30,7 @@ module.exports.laySoChuaDoc = async (req, res) => {
     return res.status(401).json({ success: false, message: 'Bạn cần đăng nhập' });
   }
 
-  const count = await getClientUnreadCount({ clientId: userId });
+  const count = await demChuaDocClient({ clientId: userId });
   return res.json({ success: true, count });
 };
 // Đánh dấu tất cả tin nhắn của khách hàng là đã đọc
@@ -40,7 +40,7 @@ module.exports.danhDauDaDoc = async (req, res) => {
     return res.status(401).json({ success: false, message: 'Bạn cần đăng nhập' });
   }
 
-  const updated = await markClientRead({ clientId: userId });
+  const updated = await clientDaDoc({ clientId: userId });
   return res.json({ success: true, updated });
 };
 
@@ -51,3 +51,4 @@ module.exports.uploadMedia = async (req, res) => {
   }
   return res.json({ success: true, media });
 };
+

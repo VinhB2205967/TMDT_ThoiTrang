@@ -1,14 +1,16 @@
 const {
-  getProfilePageData,
-  updateUserProfile,
-  changeUserPassword,
-  softDeleteUserAccount
+  layDuLieuHoSo,
+  capNhatHoSo,
+  doiMK,
+  xoaMemTK
 } = require('../../services/account/index.js');
 
 // Thông tin
 module.exports.trang = async (req, res) => {
   let viewData = {
     profile: {
+      userid: req.user?._id ? String(req.user._id) : '',
+      idhienthi: req.user?._id ? String(req.user._id) : '',
       hoten: req.user?.hoten || '',
       email: req.user?.email || '',
       sodienthoai: req.user?.sodienthoai || '',
@@ -22,7 +24,7 @@ module.exports.trang = async (req, res) => {
   };
 
   try {
-    viewData = await getProfilePageData({ userId: req.user?._id, fallbackUser: req.user });
+    viewData = await layDuLieuHoSo({ userId: req.user?._id, fallbackUser: req.user });
   } catch (err) {
     console.error('account page data error:', err);
   }
@@ -38,7 +40,7 @@ module.exports.trang = async (req, res) => {
 // Cập nhật hồ sơ
 module.exports.capNhatHoSo = async (req, res) => {
   try {
-    await updateUserProfile({
+    await capNhatHoSo({
       userId: req.user?._id,
       payload: req.body,
       fileUpload: req.file,
@@ -58,7 +60,7 @@ module.exports.capNhatHoSo = async (req, res) => {
 // Đổi mật khẩu
 module.exports.doiMatKhau = async (req, res) => {
   try {
-    await changeUserPassword({
+    await doiMK({
       userId: req.user?._id,
       oldPassword: req.body.oldPassword,
       newPassword: req.body.newPassword,
@@ -82,7 +84,7 @@ module.exports.doiMatKhau = async (req, res) => {
 // Xóa tài khoản
 module.exports.xoaTaiKhoan = async (req, res) => {
   try {
-    await softDeleteUserAccount({ userId: req.user?._id });
+    await xoaMemTK({ userId: req.user?._id });
 
     try {
       req.logout(() => {});

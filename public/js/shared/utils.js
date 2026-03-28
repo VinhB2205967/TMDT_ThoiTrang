@@ -34,9 +34,25 @@
   };
 
   App.setFavoriteBadge = App.setFavoriteBadge || function setFavoriteBadge(count) {
-    const huyHieu = App.qs('.favorite-badge');
-    if (!huyHieu) return;
-    huyHieu.textContent = String(count ?? 0);
+    const value = String(count ?? 0);
+    const nodes = [
+      ...App.qsa('.favorite-badge'),
+      ...App.qsa('.badge-favorite'),
+      ...App.qsa('a[href="/favorites"] .badge-counter')
+    ];
+    if (!nodes.length) return;
+    nodes.forEach((node) => {
+      node.textContent = value;
+    });
+  };
+
+  App.getFavoriteBadgeCount = App.getFavoriteBadgeCount || function getFavoriteBadgeCount() {
+    const node = App.qs('.badge-favorite')
+      || App.qs('.favorite-badge')
+      || App.qs('a[href="/favorites"] .badge-counter');
+    if (!node) return 0;
+    const value = parseInt(String(node.textContent || '0').trim(), 10);
+    return Number.isFinite(value) ? value : 0;
   };
 
   App.flyToCart = App.flyToCart || function flyToCart(sourceEl, targetEl) {

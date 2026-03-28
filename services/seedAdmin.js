@@ -1,6 +1,6 @@
-const mongoose = require('mongoose');
+﻿const mongoose = require('mongoose');
 const Nguoidung = require('../models/user_model');
-const { createLocalAccountForUser, ensureAccountFromUser, setPasswordByUserId } = require('./account/index.js');
+const { taoTKLocal, damBaoTK, datMKTheoId } = require('./account/index.js');
 
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
@@ -36,7 +36,7 @@ async function ensureAdminUser() {
       ngaycapnhat: new Date()
     });
 
-    await createLocalAccountForUser({
+    await taoTKLocal({
       userDoc: created,
       passwordPlain: password,
       overrides: { vaitro: 'admin', trangthai: 'active', xacthuc: true }
@@ -51,12 +51,12 @@ async function ensureAdminUser() {
 
   // Nếu user đã tồn tại nhưng chưa phải admin thì nâng quyền + cập nhật mật khẩu theo env
   // Ensure account is admin/active/verified and password matches env.
-  await ensureAccountFromUser(user, {
+  await damBaoTK(user, {
     provider: 'local',
     overrides: { vaitro: 'admin', trangthai: 'active', xacthuc: true }
   });
   if (password) {
-    await setPasswordByUserId({ userId: user._id, newPasswordPlain: password });
+    await datMKTheoId({ userId: user._id, newPasswordPlain: password });
   }
   await Nguoidung.updateOne({ _id: user._id }, { $set: { ngaycapnhat: new Date() } }).catch(() => {});
 
@@ -78,3 +78,4 @@ function seedAdminOnConnect() {
 module.exports = {
   seedAdminOnConnect
 };
+

@@ -7,6 +7,7 @@ const PhieuXuatKho = require('../../models/export_receipt_model');
 const TonKhoLo = require('../../models/inventory_lot_model');
 const { NO_SIZE_TYPES } = require('../../config/constants');
 const { tinhTongTon } = require('../catalog/productStock.service.js');
+const { chuanIdNhanVienHienThi } = require('../../helpers/user-display-id');
 // Dịch vụ này cung cấp các hàm liên quan đến việc tạo phiếu xuất kho từ đơn hàng, bao gồm việc tính toán giá vốn theo phương pháp FIFO, điều chỉnh tồn kho, và tính toán tài chính cho từng dòng sản phẩm trong phiếu xuất. Nó cũng xử lý các trường hợp đặc biệt như sản phẩm không có size và áp dụng giá đề xuất sau khi trừ tồn kho.
 function laLoaiKhongSize(loaisanpham) {
   return NO_SIZE_TYPES.includes(String(loaisanpham || '').toLowerCase());
@@ -31,10 +32,14 @@ function taoMaPhieuXuat() {
 // Hàm tạo thông tin nhân viên ký phiếu xuất kho, nếu có thông tin người dùng quản trị thì sử dụng thông tin đó, nếu không thì sử dụng thông tin fallback nếu có, nếu vẫn không có thì trả về các trường rỗng hoặc mặc định
 function taoThongTinNhanVienKy(adminUser, fallback = {}) {
   const u = adminUser || null;
+  const rawId = String(fallback.idnhanvien || u?._id || '').trim();
   return {
     tennhanvien: String(fallback.tennhanvien || u?.hoten || u?.email || '').trim(),
-    idnhanvien: String(fallback.idnhanvien || u?._id || '').trim(),
-    anhchuky: String(fallback.anhchuky || u?.avatar || '').trim(),
+    idnhanvien: chuanIdNhanVienHienThi({
+      rawId,
+      createdAt: u?.ngaytao || fallback.thoigianky || new Date()
+    }),
+    anhchuky: String(fallback.anhchuky || u?.chukyso || u?.chuKy || u?.avatar || '').trim(),
     thoigianky: fallback.thoigianky || new Date()
   };
 }
@@ -482,13 +487,6 @@ async function taoPhieuXuatTuDonHang({ orderId, adminUser, note = '', skipInvent
         };
       }
 
-      const suggestedPrice = await layGiaDeXuatSauKhiXuat({
-        productId,
-        variantId,
-        size,
-        allocations: fifoCost.allocations
-      });
-      apDungGiaDeXuatChoSanPham(productDoc, { variantId, suggestedPrice });
     } else {
       const giaNhapFallback = layGiaVonTrungBinh(costMap, { productId, variantId, size });
       fifoCost = {

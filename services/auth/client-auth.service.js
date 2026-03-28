@@ -1,14 +1,14 @@
-const {
-  normalizeEmail,
-  isGoogleAuthConfigured,
-  getGoogleAuthHint,
-  registerLocalUser,
-  authenticateLocalUser,
-  markUserOffline,
-  prepareGoogleUserLogin,
-  requestPasswordReset,
-  validateResetToken,
-  resetPasswordByToken,
+﻿const {
+  chuanEmail,
+  daCauHinhGoogle,
+  goiYLoiGoogle,
+  dangKyLocal,
+  dangNhapLocal,
+  danhDauOffline,
+  chuanBiDangNhapGoogle,
+  yeuCauDatLaiMK,
+  kiemTraTokenReset,
+  datLaiMKTheoToken,
   writeLoginLog
 } = require('./index.js');
 
@@ -48,7 +48,7 @@ function taoDuLieuTrangDangNhap(req) {
   return {
     titlePage: chedo === 'register' ? 'Đăng ký' : 'Đăng nhập',
     mode: chedo,
-    googleEnabled: isGoogleAuthConfigured(),
+    googleEnabled: daCauHinhGoogle(),
     rememberedEmail: emaildanho,
     formData
   };
@@ -56,10 +56,10 @@ function taoDuLieuTrangDangNhap(req) {
 
 async function xuLyDangKy(req) {
   const hoten = String(req.body.hoten || '').trim();
-  const emaildangky = normalizeEmail(req.body.email);
+  const emaildangky = chuanEmail(req.body.email);
 
   try {
-    await registerLocalUser({
+    await dangKyLocal({
       hoten,
       email: emaildangky,
       password: String(req.body.password || '')
@@ -108,11 +108,11 @@ function chonNhoEmail(remember) {
 }
 
 async function xuLyDangNhap(req) {
-  const emaildangnhap = normalizeEmail(req.body.email);
+  const emaildangnhap = chuanEmail(req.body.email);
   const ghinho = chonNhoEmail(req.body.remember);
 
   try {
-    const { user } = await authenticateLocalUser({
+    const { user } = await dangNhapLocal({
       req,
       email: emaildangnhap,
       password: String(req.body.password || '')
@@ -157,11 +157,11 @@ async function xuLyDangNhap(req) {
 
 async function xuLyDangXuat(req) {
   const idnguoidung = req.user && req.user._id ? String(req.user._id) : null;
-  await markUserOffline({ userId: idnguoidung });
+  await danhDauOffline({ userId: idnguoidung });
 }
 
 function kiemTraGoogleAuth() {
-  if (!isGoogleAuthConfigured()) {
+  if (!daCauHinhGoogle()) {
     return {
       ok: false,
       message: 'Chưa cấu hình đúng Google Login (kiểm tra GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET)',
@@ -174,7 +174,7 @@ function kiemTraGoogleAuth() {
 function xuLyLoiGoogleQuery(req) {
   if (!(req.query && req.query.error)) return null;
 
-  const goiy = getGoogleAuthHint(null, req);
+  const goiy = goiYLoiGoogle(null, req);
   return {
     shouldStop: true,
     log: { provider: 'google', status: 'failed', message: goiy || String(req.query.error || '') },
@@ -184,11 +184,11 @@ function xuLyLoiGoogleQuery(req) {
 }
 
 function layGoiYLoiGoogle(loi, req) {
-  return getGoogleAuthHint(loi, req);
+  return goiYLoiGoogle(loi, req);
 }
 
 async function xuLyGoogleDaXacThuc(req, taikhoan) {
-  const user = await prepareGoogleUserLogin({ req, user: taikhoan });
+  const user = await chuanBiDangNhapGoogle({ req, user: taikhoan });
   await dangNhapReq(req, user);
   return user;
 }
@@ -201,10 +201,10 @@ function getTrangQuenMatKhauData(req) {
 }
 
 async function xuLyGuiEmailDatLai(req) {
-  const email = normalizeEmail(req.body.email);
+  const email = chuanEmail(req.body.email);
 
   try {
-    const { normalizedEmail, mailInfo } = await requestPasswordReset({ req, email });
+    const { normalizedEmail, mailInfo } = await yeuCauDatLaiMK({ req, email });
     return {
       ok: true,
       normalizedEmail,
@@ -229,7 +229,7 @@ async function xuLyTrangDatLai(req) {
   const token = String(req.query.token || '').trim();
 
   try {
-    await validateResetToken({ token });
+    await kiemTraTokenReset({ token });
     return {
       ok: true,
       data: {
@@ -251,7 +251,7 @@ async function xuLyDatLaiMatKhau(req) {
   const token = String(req.body.token || '').trim();
 
   try {
-    await resetPasswordByToken({
+    await datLaiMKTheoToken({
       token,
       newPassword: String(req.body.password || ''),
       confirmPassword: String(req.body.confirmPassword || '')
@@ -301,3 +301,4 @@ module.exports = {
   xuLyDatLaiMatKhau,
   writeLoginLog
 };
+
