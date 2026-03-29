@@ -1,6 +1,22 @@
 const danhgia = require('../models/review_model');
 const chitietdonhang = require('../models/order_item_model');
 
+const SOLD_ORDER_STATUSES = [
+  'daxacnhan',
+  'dangchuanbi',
+  'danggiao',
+  'dagiao',
+  'requested_return',
+  'approved_return',
+  'rejected_return',
+  'return_shipping',
+  'returned',
+  'returned_full',
+  'returned_partial',
+  'refunded',
+  'hoanhang'
+];
+
 async function buildProductStats(ids) {
   const safeIds = (ids || []).filter(Boolean);
   if (!safeIds.length) {
@@ -16,9 +32,13 @@ async function buildProductStats(ids) {
     { $match: { sanpham_id: { $in: safeIds } } },
     { $lookup: { from: 'orders', localField: 'donhang_id', foreignField: '_id', as: 'order' } },
     { $unwind: '$order' },
-    { $match: { 'order.trangthai': 'dagiao', 'order.daxoa': { $ne: true } } },
-    { $group: { _id: '$sanpham_id', orders: { $addToSet: '$order._id' } } },
-    { $project: { sold: { $size: '$orders' } } }
+    { $match: { 'order.trangthai': { $in: SOLD_ORDER_STATUSES }, 'order.daxoa': { $ne: true } } },
+    {
+      $group: {
+        _id: '$sanpham_id',
+        sold: { $sum: { $ifNull: ['$soluong', 0] } }
+      }
+    }
   ]);
 
   return {

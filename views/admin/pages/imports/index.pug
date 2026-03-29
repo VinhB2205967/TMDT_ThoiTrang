@@ -2,11 +2,12 @@ extends ../../layouts/default.pug
 
 block main
   .container-fluid.p-3
-    .d-flex.justify-content-between.align-items-center.mb-3.page-header-section.orders-header.admin-page-header
+    .d-flex.justify-content-between.align-items-center.flex-wrap.gap-2.mb-3.page-header-section.orders-header.admin-page-header
       h3.mb-0 Phiếu nhập kho
-      a.btn.btn-primary(href=`${admin}/imports/create`)
-        i.bi.bi-plus-lg
-        |  Tạo phiếu nhập
+      .d-flex.align-items-center.gap-2.orders-actions.ms-auto
+        a.btn.btn-header.btn-admin-accent(href=`${admin}/imports/create`)
+          i.bi.bi-plus-lg
+          span Tạo phiếu nhập
 
     form.card.mb-3(method='GET' action=`${admin}/imports`)
       .card-body

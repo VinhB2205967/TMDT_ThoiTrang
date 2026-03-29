@@ -82,7 +82,6 @@ block main
                   th Màu
                   th Số lượng
                   th Giá nhập
-                  th Giá bán
                   th Danh mục
                   th Ảnh
               tbody
@@ -97,7 +96,6 @@ block main
                     td #{it.mausac || it.mau_sac || it.color || ''}
                     td #{it.soluong || it.so_luong || it.quantity || 0}
                     td #{((it.gianhap != null ? it.gianhap : (it.gia_nhap != null ? it.gia_nhap : it.import_price)) || 0).toLocaleString('vi-VN')}
-                    td #{((it.giabandexuat != null ? it.giabandexuat : (it.gia_ban_de_xuat != null ? it.gia_ban_de_xuat : it.suggested_price)) || 0).toLocaleString('vi-VN')}
                     - const _danhMucRaw = String(it.danhmuc || it.danh_muc || it.category || '').trim().toLowerCase()
                     - const _danhMucLabel = _danhMucRaw === 'ao' ? 'Áo' : _danhMucRaw === 'quan' ? 'Quần' : _danhMucRaw === 'vay' ? 'Váy' : _danhMucRaw === 'phukien' ? 'Phụ kiện' : _danhMucRaw === 'giay' ? 'Giày' : _danhMucRaw === 'tui' ? 'Túi' : _danhMucRaw === 'aokhoac' ? 'Áo khoác' : (it.danhmuc || it.danh_muc || it.category || '')
                     td #{_danhMucLabel}

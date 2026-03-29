@@ -193,6 +193,75 @@ block main
               else
                 .text-muted Không có sản phẩm.
 
+          .card.border-0.shadow-sm.mt-3
+            .card-body
+              .fw-semibold.mb-2 Chi tiết tài chính hoàn hàng
+              .border.rounded.p-2.mb-2.bg-light
+                .small.fw-semibold.mb-1 1. Tổng đơn ban đầu
+                .d-flex.justify-content-between.small
+                  span.text-muted Tổng tiền hàng
+                  span #{Number(rfOriginal.goodsSubtotal || 0).toLocaleString('vi-VN')}đ
+                .d-flex.justify-content-between.small
+                  span.text-muted Voucher giảm giá
+                  span.text-danger -#{Number(rfOriginal.voucherDiscount || 0).toLocaleString('vi-VN')}đ
+                .d-flex.justify-content-between.small
+                  span.text-muted Phí vận chuyển
+                  span #{Number(rfOriginal.shippingFee || 0).toLocaleString('vi-VN')}đ
+                .d-flex.justify-content-between.small.fw-semibold.border-top.pt-1.mt-1
+                  span Tổng thanh toán ban đầu
+                  span #{Number(rfOriginal.payable || 0).toLocaleString('vi-VN')}đ
+
+              .border.rounded.p-2.mb-2.bg-white
+                .small.fw-semibold.mb-1 2. Thông tin hoàn hàng
+                .d-flex.justify-content-between.small
+                  span.text-muted Trạng thái
+                  span #{rfRefund.statusLabel || '-'}
+                .d-flex.justify-content-between.small
+                  span.text-muted Kiểu đối soát
+                  span #{rfRefund.mode === 'actual' ? 'Theo hàng hoàn thực tế' : (rfRefund.mode === 'requested' ? 'Theo yêu cầu khách' : 'Chưa có hoàn hàng')}
+                .d-flex.justify-content-between.small
+                  span.text-muted Số lượng đã hoàn
+                  span #{Number(rfRefund.totalReturnedQty || 0).toLocaleString('vi-VN')} sản phẩm
+                if rfRefund.items && rfRefund.items.length
+                  .small.text-muted.mt-1.mb-1 Danh sách sản phẩm đã hoàn:
+                  each rr in rfRefund.items
+                    - const rrVariant = [rr.color, rr.size].filter(Boolean).join(' / ')
+                    .small.d-flex.justify-content-between.gap-2
+                      span #{rr.name}#{rrVariant ? ` (${rrVariant})` : ''} (#{rr.returnedQty}/#{rr.boughtQty})
+                      span.text-danger -#{Number(rr.amount || 0).toLocaleString('vi-VN')}đ
+                else
+                  .small.text-muted.mt-1.mb-1 Chưa có sản phẩm hoàn.
+                .d-flex.justify-content-between.small.fw-semibold.border-top.pt-1.mt-1
+                  span Đã hoàn tiền
+                  span.text-danger -#{Number(rfRefund.amount || 0).toLocaleString('vi-VN')}đ
+
+              .border.rounded.p-2.bg-light
+                .small.fw-semibold.mb-1 3. Giá trị đơn hàng còn lại
+                .d-flex.justify-content-between.small
+                  span.text-muted Sản phẩm giữ lại
+                  span #{Number(rfRemain.keptQtyTotal || 0).toLocaleString('vi-VN')}
+                .d-flex.justify-content-between.small
+                  span.text-muted Giá trị sản phẩm giữ lại
+                  span #{Number(rfRemain.goodsValue || 0).toLocaleString('vi-VN')}đ
+                .d-flex.justify-content-between.small
+                  span.text-muted Voucher phân bổ còn lại
+                  span.text-danger -#{Number(rfRemain.voucherAllocated || 0).toLocaleString('vi-VN')}đ
+                .d-flex.justify-content-between.small
+                  span.text-muted Giá trị còn lại sau hoàn
+                  span #{Number(rfRemain.goodsAfterVoucher || 0).toLocaleString('vi-VN')}đ
+                if rfRemain.items && rfRemain.items.length
+                  .small.text-muted.mt-1.mb-1 Sản phẩm giữ lại:
+                  each keep in rfRemain.items
+                    - const keepVariant = [keep.color, keep.size].filter(Boolean).join(' / ')
+                    .small.d-flex.justify-content-between.gap-2
+                      span #{keep.name}#{keepVariant ? ` (${keepVariant})` : ''} (#{keep.keptQty}/#{keep.boughtQty})
+                      span #{Number(keep.amount || 0).toLocaleString('vi-VN')}đ
+                else
+                  .small.text-muted.mt-1.mb-1 Không còn sản phẩm giữ lại.
+                .d-flex.justify-content-between.small.fw-semibold.border-top.pt-1.mt-1
+                  span Còn lại (khách thực trả cuối cùng)
+                  span #{Number(rfRemain.payable || 0).toLocaleString('vi-VN')}đ
+
         .col-lg-5
           .card.border-0.shadow-sm.mb-3
             .card-body
@@ -391,72 +460,4 @@ block main
                   if order.lydohuy
                     li.list-group-item.text-muted.small Lý do: #{order.lydohuy}
 
-          .card.border-0.shadow-sm.mb-3
-            .card-body
-              .fw-semibold.mb-2 Chi tiết tài chính hoàn hàng
-              .border.rounded.p-2.mb-2.bg-light
-                .small.fw-semibold.mb-1 1. Tổng đơn ban đầu
-                .d-flex.justify-content-between.small
-                  span.text-muted Tổng tiền hàng
-                  span #{Number(rfOriginal.goodsSubtotal || 0).toLocaleString('vi-VN')}đ
-                .d-flex.justify-content-between.small
-                  span.text-muted Voucher giảm giá
-                  span.text-danger -#{Number(rfOriginal.voucherDiscount || 0).toLocaleString('vi-VN')}đ
-                .d-flex.justify-content-between.small
-                  span.text-muted Phí vận chuyển
-                  span #{Number(rfOriginal.shippingFee || 0).toLocaleString('vi-VN')}đ
-                .d-flex.justify-content-between.small.fw-semibold.border-top.pt-1.mt-1
-                  span Tổng thanh toán ban đầu
-                  span #{Number(rfOriginal.payable || 0).toLocaleString('vi-VN')}đ
-
-              .border.rounded.p-2.mb-2.bg-white
-                .small.fw-semibold.mb-1 2. Thông tin hoàn hàng
-                .d-flex.justify-content-between.small
-                  span.text-muted Trạng thái
-                  span #{rfRefund.statusLabel || '-'}
-                .d-flex.justify-content-between.small
-                  span.text-muted Kiểu đối soát
-                  span #{rfRefund.mode === 'actual' ? 'Theo hàng hoàn thực tế' : (rfRefund.mode === 'requested' ? 'Theo yêu cầu khách' : 'Chưa có hoàn hàng')}
-                .d-flex.justify-content-between.small
-                  span.text-muted Số lượng đã hoàn
-                  span #{Number(rfRefund.totalReturnedQty || 0).toLocaleString('vi-VN')} sản phẩm
-                if rfRefund.items && rfRefund.items.length
-                  .small.text-muted.mt-1.mb-1 Danh sách sản phẩm đã hoàn:
-                  each rr in rfRefund.items
-                    - const rrVariant = [rr.color, rr.size].filter(Boolean).join(' / ')
-                    .small.d-flex.justify-content-between.gap-2
-                      span #{rr.name}#{rrVariant ? ` (${rrVariant})` : ''} (#{rr.returnedQty}/#{rr.boughtQty})
-                      span.text-danger -#{Number(rr.amount || 0).toLocaleString('vi-VN')}đ
-                else
-                  .small.text-muted.mt-1.mb-1 Chưa có sản phẩm hoàn.
-                .d-flex.justify-content-between.small.fw-semibold.border-top.pt-1.mt-1
-                  span Đã hoàn tiền
-                  span.text-danger -#{Number(rfRefund.amount || 0).toLocaleString('vi-VN')}đ
-
-              .border.rounded.p-2.bg-light
-                .small.fw-semibold.mb-1 3. Giá trị đơn hàng còn lại
-                .d-flex.justify-content-between.small
-                  span.text-muted Sản phẩm giữ lại
-                  span #{Number(rfRemain.keptQtyTotal || 0).toLocaleString('vi-VN')}
-                .d-flex.justify-content-between.small
-                  span.text-muted Giá trị sản phẩm giữ lại
-                  span #{Number(rfRemain.goodsValue || 0).toLocaleString('vi-VN')}đ
-                .d-flex.justify-content-between.small
-                  span.text-muted Voucher phân bổ còn lại
-                  span.text-danger -#{Number(rfRemain.voucherAllocated || 0).toLocaleString('vi-VN')}đ
-                .d-flex.justify-content-between.small
-                  span.text-muted Giá trị còn lại sau hoàn
-                  span #{Number(rfRemain.goodsAfterVoucher || 0).toLocaleString('vi-VN')}đ
-                if rfRemain.items && rfRemain.items.length
-                  .small.text-muted.mt-1.mb-1 Sản phẩm giữ lại:
-                  each keep in rfRemain.items
-                    - const keepVariant = [keep.color, keep.size].filter(Boolean).join(' / ')
-                    .small.d-flex.justify-content-between.gap-2
-                      span #{keep.name}#{keepVariant ? ` (${keepVariant})` : ''} (#{keep.keptQty}/#{keep.boughtQty})
-                      span #{Number(keep.amount || 0).toLocaleString('vi-VN')}đ
-                else
-                  .small.text-muted.mt-1.mb-1 Không còn sản phẩm giữ lại.
-                .d-flex.justify-content-between.small.fw-semibold.border-top.pt-1.mt-1
-                  span Còn lại (khách thực trả cuối cùng)
-                  span #{Number(rfRemain.payable || 0).toLocaleString('vi-VN')}đ
 

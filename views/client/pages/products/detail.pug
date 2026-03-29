@@ -285,7 +285,7 @@ block main
                             .description-content= product.mota
 
                 //- Reviews Section
-                .section-block
+                .section-block#reviews
                     .section-header
                         i.bi.bi-star
                         h3 Đánh giá sản phẩm
@@ -311,7 +311,7 @@ block main
                                                     .progress-bar(style=`width:${Math.round((byStar[s] || 0) * 100 / maxCount)}%`)
                                                 span.small.text-muted #{byStar[s] || 0}
 
-                        form#reviewFilterForm.row.g-2.mb-3(method='GET' action=`/products/${product._id}`)
+                        form#reviewFilterForm.row.g-2.mb-3(method='GET' action=`/products/${product._id}#reviews`)
                             .col-6.col-lg-2
                                 select.form-select(name='rating')
                                     option(value='' selected=(!reviewFilters || !reviewFilters.rating)) Tất cả sao
@@ -332,7 +332,7 @@ block main
                                     option(value='both' selected=(reviewFilters && reviewFilters.media === 'both')) Có ảnh và video
                             .col-6.col-lg-2.d-flex.gap-2
                                 button.btn.btn-primary.flex-fill(type='submit') Lọc
-                                a.btn.btn-outline-secondary.flex-fill(href=`/products/${product._id}`) Reset
+                                a.btn.btn-outline-secondary.flex-fill(href=`/products/${product._id}#reviews`) Reset
 
                         if reviews && reviews.length
                             .reviews-list
@@ -408,4 +408,14 @@ block scripts
     if product && product.bienthe
         script.
             window.productVariants = !{JSON.stringify(product.bienthe)};
+    script.
+        (() => {
+            const reviewHash = '#reviews';
+            if (window.location.hash !== reviewHash) return;
+            window.requestAnimationFrame(() => {
+                const reviewSection = document.getElementById('reviews');
+                if (!reviewSection) return;
+                reviewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        })();
     script(src="/js/product-detail.js")

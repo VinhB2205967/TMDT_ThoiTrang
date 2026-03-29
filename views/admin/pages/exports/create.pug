@@ -143,7 +143,7 @@ block scripts
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td style="min-width:230px">
-            <select class="form-select form-select-sm js-product" data-field="sanphamid">${optProducts('')}</select>
+            <select class="form-select form-select-sm js-product" data-field="sanphamid" required>${optProducts('')}</select>
             <input type="hidden" class="js-product-name" data-field="tensanpham" />
           </td>
           <td style="min-width:170px"><select class="form-select form-select-sm js-variant" data-field="bientheid"><option value="main">Mặc định</option></select></td>
@@ -203,14 +203,15 @@ block scripts
         });
 
         refreshFromProduct();
-        renumber();
         return tr;
       }
 
       addBtn?.addEventListener('click', () => {
         const idx = tbody.querySelectorAll('tr').length;
         tbody.appendChild(rowTemplate(idx));
+        renumber();
       });
 
       tbody.appendChild(rowTemplate(0));
+      renumber();
     })();
