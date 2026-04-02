@@ -1,12 +1,15 @@
 const mongoose = require('mongoose');
 const donhang = require('../../models/order_model');
 const chitietdonhang = require('../../models/order_item_model');
+const InventoryLot = require('../../models/inventory_lot_model');
 const danhgia = require('../../models/review_model');
 const sanpham = require('../../models/product_model');
 const { getOrCreateCart, normalizeImage } = require('../cart.service');
 const { laLoaiKhongSize, tinhTongTon } = require('../catalog/productStock.service.js');
 const { taoHoanTienMoMo, taoThanhToanMoMo, truyVanGiaoDichMoMo } = require('../payment/momo.service.js');
 const { taoThanhToanVnpay } = require('../payment/vnpay.service.js');
+const { sendOrderConfirmedEmail } = require('../communication/orderEmail.service.js');
+const { taoPhieuXuatTuDonHang } = require('../inventory/exportReceipt.service.js');
 const {
   taoGiaoDichThanhToan,
   capNhatGiaoDichThanhToan,
@@ -14,6 +17,12 @@ const {
   danhDauHoanTienMoMoTheoDonHang,
   danhDauThanhCongTheoDonHang
 } = require('../payment/payment.service.js');
+const {
+  dongBoYeuCauHoanHangTuDon,
+  ghiNhanLichSuTrangThaiDonHang,
+  ganThongTinHoanHangChoDon,
+  ganThongTinHoanHangChoDanhSachDon
+} = require('./order-sidecar.service.js');
 const { nhantrangthai, layTrangThaiChoPhep } = require('../../helpers/orderStatus');
 const phanTrangHelper = require('../../helpers/pagination');
 
@@ -26,6 +35,93 @@ const LY_DO_HOAN_LABELS = {
   khong_giong_mo_ta: 'Không giống mô tả',
   khac: 'Khác'
 };
+
+async function dongBoSidecarAnToan(taskName, runner) {
+  try {
+    await runner();
+  } catch (error) {
+    console.error(`${taskName} error:`, error);
+  }
+}
+
+function ganSessionNeuCo(query, session) {
+  return session ? query.session(session) : query;
+}
+
+function taoSessionOptions(session, extra = {}) {
+  return session ? { ...extra, session } : { ...extra };
+}
+
+function laLoiMongoKhongHoTroTransaction(error) {
+  const message = String(error?.message || error || '').toLowerCase();
+  return message.includes('transaction numbers are only allowed on a replica set member or mongos')
+    || (message.includes('transaction') && message.includes('replica set'))
+    || (message.includes('transaction') && message.includes('mongos'));
+}
+
+async function chayVoiTransactionNeuHoTro(work, label = 'mongo transaction') {
+  const session = await mongoose.startSession();
+  try {
+    let result;
+    await session.withTransaction(async () => {
+      result = await work(session);
+    });
+    return result;
+  } catch (error) {
+    if (!laLoiMongoKhongHoTroTransaction(error)) throw error;
+    console.warn(`${label} fallback without transaction:`, error.message || error);
+    return work(null);
+  } finally {
+    await session.endSession();
+  }
+}
+
+async function tuDongXacNhanDonThanhToanOnline({ orderId, orderDoc }) {
+  const currentOrder = orderDoc || await donhang.findById(orderId)
+    .select('_id nguoidung_id madonhang trangthai')
+    .lean();
+
+  if (!currentOrder || String(currentOrder.trangthai || '') !== 'choxacnhan') return;
+
+  const updated = await donhang.updateOne(
+    { _id: currentOrder._id, trangthai: 'choxacnhan', daxoa: { $ne: true } },
+    { $set: { trangthai: 'daxacnhan', ngaycapnhat: new Date() } }
+  );
+
+  if (!updated || Number(updated.modifiedCount || 0) === 0) return;
+
+  try {
+    await taoPhieuXuatTuDonHang({
+      orderId: currentOrder._id,
+      adminUser: null,
+      note: 'Tự động xác nhận đơn hàng đã thanh toán online',
+      skipInventoryAdjustments: true
+    });
+  } catch (error) {
+    console.error('client online paid auto confirm export error:', error);
+  }
+
+  try {
+    await sendOrderConfirmedEmail({ orderId: currentOrder._id });
+  } catch (error) {
+    console.error('client online paid auto confirm email error:', error);
+  }
+
+  await dongBoSidecarAnToan('client online paid auto confirm log', async () => {
+    await ghiNhanLichSuTrangThaiDonHang({
+      order: {
+        _id: currentOrder._id,
+        nguoidung_id: currentOrder.nguoidung_id,
+        madonhang: currentOrder.madonhang
+      },
+      previousStatus: 'choxacnhan',
+      nextStatus: 'daxacnhan',
+      action: 'system_auto_confirm_online_paid_order',
+      actor: { vaitro: 'system', name: 'client-payment-polling' },
+      metadata: { autoConfirmedFromPayment: true }
+    });
+  });
+}
 
 function toNumber(value, fallback = 0) {
   const n = Number(value);
@@ -381,14 +477,16 @@ function tinhHanThanhToanMs(don) {
   return t + THOI_GIAN_CHO_THANH_TOAN_MS;
 }
 
-async function congTonChoChiTietDon(orderitemdoc) {
+async function congTonChoChiTietDon(orderitemdoc, session = null) {
   const productid = orderitemdoc.sanpham_id;
   const variantid = orderitemdoc.bienthe_id;
   const size = orderitemdoc.kichco;
   const qty = Math.max(1, parseInt(orderitemdoc.soluong, 10) || 1);
 
-  const product = await sanpham.findById(productid);
-  if (!product) throw new Error('Sản phẩm không tồn tại');
+  let productQuery = sanpham.findById(productid);
+  if (session) productQuery = productQuery.session(session);
+  const product = await productQuery;
+  if (!product) throw new Error('San pham khong ton tai');
 
   const basetotal = (typeof product.soluongton === 'number') ? product.soluongton : tinhTongTon(product);
   const hassize = !laLoaiKhongSize(product.loaisanpham);
@@ -396,7 +494,7 @@ async function congTonChoChiTietDon(orderitemdoc) {
   if (!variantid) {
     if (hassize) {
       product.sizes = product.sizes || [];
-      let row = (product.sizes || []).find(s => s.size === size);
+      let row = (product.sizes || []).find((s) => s.size === size);
       if (!row) {
         product.sizes.push({ size, soluong: qty });
       } else {
@@ -405,29 +503,76 @@ async function congTonChoChiTietDon(orderitemdoc) {
     } else {
       product.soluong_chinh = Number(product.soluong_chinh || 0) + qty;
     }
-
-    product.soluongton = basetotal + qty;
-    await product.save();
-    return;
-  }
-
-  const v = (product.bienthe || []).id(variantid);
-  if (!v) throw new Error('Biến thể không tồn tại');
-
-  if (hassize) {
-    v.sizes = v.sizes || [];
-    let row = (v.sizes || []).find(s => s.size === size);
-    if (!row) {
-      v.sizes.push({ size, soluong: qty });
-    } else {
-      row.soluong = Number(row.soluong || 0) + qty;
-    }
   } else {
-    v.soluong = Number(v.soluong || 0) + qty;
+    const v = (product.bienthe || []).id(variantid);
+    if (!v) throw new Error('Bien the khong ton tai');
+
+    if (hassize) {
+      v.sizes = v.sizes || [];
+      let row = (v.sizes || []).find((s) => s.size === size);
+      if (!row) {
+        v.sizes.push({ size, soluong: qty });
+      } else {
+        row.soluong = Number(row.soluong || 0) + qty;
+      }
+    } else {
+      v.soluong = Number(v.soluong || 0) + qty;
+    }
   }
 
   product.soluongton = basetotal + qty;
-  await product.save();
+  await product.save(session ? { session } : undefined);
+
+  const fifoAllocations = Array.isArray(orderitemdoc?.fifoAllocations) ? orderitemdoc.fifoAllocations : [];
+  for (const alloc of fifoAllocations) {
+    const lotId = String(alloc?.lotId || '').trim();
+    const soLuong = Math.max(0, Number(alloc?.soLuong || 0));
+    if (!lotId || !mongoose.Types.ObjectId.isValid(lotId) || soLuong <= 0) continue;
+
+    await InventoryLot.updateOne(
+      { _id: new mongoose.Types.ObjectId(lotId) },
+      {
+        $inc: { soluongconlai: soLuong },
+        $set: { ngaycapnhat: new Date() }
+      },
+      session ? { session } : undefined
+    );
+  }
+}
+
+async function huyDonKhachHangTrongTransaction({ userId, orderId, lydo }) {
+  let donhangdoc = null;
+
+  donhangdoc = await chayVoiTransactionNeuHoTro(async (session) => {
+      const currentOrder = await ganSessionNeuCo(donhang.findOne({
+        _id: orderId,
+        nguoidung_id: userId,
+        daxoa: { $ne: true },
+        trangthai: 'choxacnhan'
+      }), session);
+
+      if (!currentOrder) return null;
+
+      currentOrder.trangthai = 'dahuy';
+      currentOrder.lydohuy = lydo;
+      currentOrder.ngaycapnhat = new Date();
+      await currentOrder.save(taoSessionOptions(session));
+
+      const danhsachitem = await ganSessionNeuCo(chitietdonhang.find({ donhang_id: currentOrder._id }), session);
+      for (const it of (danhsachitem || [])) {
+        await congTonChoChiTietDon(it, session);
+      }
+
+      await chitietdonhang.updateMany(
+        { donhang_id: currentOrder._id },
+        { $set: { trangthai: 'dahuy' } },
+        taoSessionOptions(session)
+      );
+
+      return currentOrder;
+    }, 'client cancel order transaction');
+
+  return donhangdoc;
 }
 
 async function tuDongHuyDonQuaHan(userId) {
@@ -499,6 +644,7 @@ async function getOrdersPageData({ userId, query }) {
     .skip(phanTrang.skip)
     .limit(phanTrang.limit)
     .lean();
+  await ganThongTinHoanHangChoDanhSachDon(danhsachdon);
 
   const nowMs = Date.now();
   for (const o of (danhsachdon || [])) {
@@ -578,6 +724,7 @@ async function getOrderDetailPageData({ userId, orderId, paidFlag }) {
       statusLabels: nhantrangthai
     };
   }
+  await ganThongTinHoanHangChoDon(donhangdoc);
 
   if (laDonChoThanhToanOnline(donhangdoc)) {
     const deadline = tinhHanThanhToanMs(donhangdoc);
@@ -626,6 +773,7 @@ async function createReturnRequest({ userId, orderId, body, files }) {
   if (!order) {
     return { ok: false, redirect: '/orders', flash: { type: 'error', message: 'Không tìm thấy đơn hàng.' } };
   }
+  await ganThongTinHoanHangChoDon(order);
 
   if (!coTheYeuCauHoan(order)) {
     return {
@@ -729,6 +877,7 @@ async function createReturnRequest({ userId, orderId, body, files }) {
     : [];
   const proofMedia = proofMedias.length ? proofMedias[0] : '';
 
+  const previousStatus = String(order.trangthai || '');
   order.trangthai = 'requested_return';
   order.yeucauhoanhang = {
     ...(order.yeucauhoanhang || {}),
@@ -754,6 +903,26 @@ async function createReturnRequest({ userId, orderId, body, files }) {
   };
   order.ngaycapnhat = new Date();
   await order.save();
+  await dongBoSidecarAnToan('order refund sidecar sync', async () => {
+    const actor = { _id: userId, vaitro: 'user' };
+    await dongBoYeuCauHoanHangTuDon({
+      order,
+      action: 'user_requested_return',
+      actor
+    });
+    await ghiNhanLichSuTrangThaiDonHang({
+      order,
+      previousStatus,
+      nextStatus: String(order.trangthai || ''),
+      action: 'user_requested_return',
+      actor,
+      note: detail || '',
+      metadata: {
+        requestedItemsCount: requestedItems.length,
+        refundMethod
+      }
+    });
+  });
 
   return { ok: true, redirect: `/orders/${order._id}`, flash: { type: 'success', message: 'Đã gửi yêu cầu hoàn hàng. Vui lòng chờ admin duyệt.' } };
 }
@@ -768,6 +937,7 @@ async function cancelReturnRequestByUser({ userId, orderId }) {
   if (!order) {
     return { ok: false, redirect: '/orders', flash: { type: 'error', message: 'Không tìm thấy đơn hàng.' } };
   }
+  await ganThongTinHoanHangChoDon(order);
 
   if (String(order.trangthai || '') !== 'requested_return') {
     return {
@@ -786,6 +956,7 @@ async function cancelReturnRequestByUser({ userId, orderId }) {
     };
   }
 
+  const previousStatus = String(order.trangthai || '');
   order.trangthai = 'dagiao';
   order.ngaycapnhat = new Date();
   order.yeucauhoanhang = {
@@ -799,6 +970,22 @@ async function cancelReturnRequestByUser({ userId, orderId }) {
     adminNote: ''
   };
   await order.save();
+  await dongBoSidecarAnToan('order refund cancel sidecar sync', async () => {
+    const actor = { _id: userId, vaitro: 'user' };
+    await dongBoYeuCauHoanHangTuDon({
+      order,
+      action: 'user_canceled_return_request',
+      actor
+    });
+    await ghiNhanLichSuTrangThaiDonHang({
+      order,
+      previousStatus,
+      nextStatus: String(order.trangthai || ''),
+      action: 'user_canceled_return_request',
+      actor,
+      metadata: { canceledByUser: true }
+    });
+  });
 
   return {
     ok: true,
@@ -808,53 +995,37 @@ async function cancelReturnRequestByUser({ userId, orderId }) {
 }
 
 async function cancelOrderByUser({ userId, orderId, reason }) {
-  const lydo = String(reason || '').trim() || 'Khách hàng hủy đơn';
+  const lydo = String(reason || '').trim() || 'Khach hang huy don';
+  const previousStatus = 'choxacnhan';
 
-  const donhangdoc = await donhang.findOneAndUpdate(
-    { _id: orderId, nguoidung_id: userId, daxoa: { $ne: true }, trangthai: 'choxacnhan' },
-    { $set: { trangthai: 'dahuy', lydohuy: lydo, ngaycapnhat: new Date() } },
-    { new: true }
-  );
+  const donhangdoc = await huyDonKhachHangTrongTransaction({ userId, orderId, lydo });
 
   if (!donhangdoc) {
     const tontai = await donhang.findOne({ _id: orderId, nguoidung_id: userId, daxoa: { $ne: true } })
       .select('_id trangthai')
       .lean();
 
-    if (!tontai) return { ok: false, redirect: '/orders', flash: { type: 'error', message: 'Không tìm thấy đơn hàng.' } };
-    return { ok: false, redirect: `/orders/${tontai._id}`, flash: { type: 'error', message: 'Đơn hàng này không thể hủy ở trạng thái hiện tại.' } };
+    if (!tontai) return { ok: false, redirect: '/orders', flash: { type: 'error', message: 'Khong tim thay don hang.' } };
+    return { ok: false, redirect: "/orders/" + tontai._id, flash: { type: 'error', message: 'Don hang nay khong the huy o trang thai hien tai.' } };
   }
 
-  const danhsachitem = await chitietdonhang.find({ donhang_id: donhangdoc._id });
-  const danhsachloi = [];
-  for (const it of (danhsachitem || [])) {
-    try {
-      await congTonChoChiTietDon(it);
-    } catch (e) {
-      danhsachloi.push(e?.message || 'Có lỗi khi hoàn tồn kho');
-    }
-  }
-
-  if (danhsachloi.length) {
-    return {
-      ok: false,
-      redirect: `/orders/${donhangdoc._id}`,
-      flash: { type: 'error', message: 'Đã hủy đơn, nhưng có lỗi khi hoàn tồn kho cho một số sản phẩm. Vui lòng liên hệ shop.' }
-    };
-  }
-
-  try {
-    await chitietdonhang.updateMany({ donhang_id: donhangdoc._id }, { $set: { trangthai: 'dahuy' } });
-  } catch {
-    // best-effort
-  }
+  await dongBoSidecarAnToan('order cancel status log', async () => {
+    await ghiNhanLichSuTrangThaiDonHang({
+      order: donhangdoc,
+      previousStatus,
+      nextStatus: String(donhangdoc.trangthai || ''),
+      action: 'user_canceled_order',
+      actor: { _id: userId, vaitro: 'user' },
+      note: lydo
+    });
+  });
 
   if (!donhangdoc.dathanhtoan) {
     try {
       await danhDauThatBaiTatCaPendingTheoDonHang({
         donhangId: donhangdoc._id,
         response: { cancel: true, reason: lydo },
-        ghichu: 'Hủy đơn trước khi thanh toán'
+        ghichu: 'Huy don truoc khi thanh toan'
       });
     } catch {
       // best-effort
@@ -868,7 +1039,7 @@ async function cancelOrderByUser({ userId, orderId, reason }) {
         requestId: String(donhangdoc._id) + '-refund',
         amount: String(Math.max(0, Math.round(donhangdoc.tongtien || donhangdoc.tamtinh || 0))),
         transId: String(donhangdoc.momoTransId),
-        description: `Hoàn tiền đơn hàng ${donhangdoc.madonhang || String(donhangdoc._id)}`
+        description: 'Hoan tien don hang ' + (donhangdoc.madonhang || String(donhangdoc._id))
       });
 
       if (ketqua && (ketqua.resultCode === 0 || ketqua.message === 'Success')) {
@@ -881,22 +1052,22 @@ async function cancelOrderByUser({ userId, orderId, reason }) {
             sotien: Math.max(0, Math.round(donhangdoc.tongtien || donhangdoc.tamtinh || 0)),
             magiaodich: donhangdoc.momoOrderId || undefined,
             refundResponse: ketqua,
-            ghichu: 'Hoàn tiền MoMo thành công'
+            ghichu: 'Hoan tien MoMo thanh cong'
           });
         } catch {
           // best-effort
         }
 
-        return { ok: true, redirect: '/orders', flash: { type: 'success', message: 'Đã hủy đơn hàng, hoàn tiền MoMo thành công.' } };
+        return { ok: true, redirect: '/orders', flash: { type: 'success', message: 'Da huy don hang, hoan tien MoMo thanh cong.' } };
       }
 
-      return { ok: false, redirect: `/orders/${donhangdoc._id}`, flash: { type: 'error', message: ketqua?.message || 'Đã hủy đơn nhưng hoàn tiền MoMo thất bại.' } };
+      return { ok: false, redirect: "/orders/" + donhangdoc._id, flash: { type: 'error', message: ketqua?.message || 'Da huy don nhung hoan tien MoMo that bai.' } };
     } catch {
-      return { ok: false, redirect: `/orders/${donhangdoc._id}`, flash: { type: 'error', message: 'Đã hủy đơn nhưng hoàn tiền MoMo lỗi.' } };
+      return { ok: false, redirect: "/orders/" + donhangdoc._id, flash: { type: 'error', message: 'Da huy don nhung hoan tien MoMo loi.' } };
     }
   }
 
-  return { ok: true, redirect: '/orders', flash: { type: 'success', message: 'Đã hủy đơn hàng và hoàn lại số lượng sản phẩm.' } };
+  return { ok: true, redirect: '/orders', flash: { type: 'success', message: 'Da huy don hang va hoan lai so luong san pham.' } };
 }
 
 async function reorderFromOldOrder({ userId, orderId }) {
@@ -1050,7 +1221,7 @@ async function repayOrder({ userId, orderId, protocol, host, headers, socketRemo
 
 async function checkOrderPaymentStatus({ userId, orderId }) {
   const donhangdoc = await donhang.findOne({ _id: orderId, nguoidung_id: userId, daxoa: { $ne: true } })
-    .select('_id nguoidung_id tongtien tamtinh dathanhtoan phuongthucthanhtoan momoOrderId momoRequestId momoTransId')
+    .select('_id nguoidung_id madonhang trangthai tongtien tamtinh dathanhtoan phuongthucthanhtoan momoOrderId momoRequestId momoTransId')
     .lean();
 
   if (!donhangdoc) return { status: 404, payload: { success: false, message: 'Không tìm thấy đơn hàng' } };
@@ -1086,6 +1257,16 @@ async function checkOrderPaymentStatus({ userId, orderId }) {
     } catch {
       // best-effort
     }
+
+    await tuDongXacNhanDonThanhToanOnline({
+      orderId: donhangdoc._id,
+      orderDoc: {
+        _id: donhangdoc._id,
+        nguoidung_id: donhangdoc.nguoidung_id,
+        madonhang: donhangdoc.madonhang,
+        trangthai: 'choxacnhan'
+      }
+    });
 
     return { status: 200, payload: { success: true, paid: true } };
   }

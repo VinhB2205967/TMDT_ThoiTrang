@@ -18,6 +18,9 @@ block main
         a.btn.btn-outline-secondary(href=`${admin}/imports/${receipt._id}`)
           i.bi.bi-arrow-left
           |  Chi tiết
+        a.btn.btn-outline-danger(href=`${admin}/imports/${receipt._id}`)
+          i.bi.bi-x-circle
+          |  Hủy chỉnh sửa
         a.btn.btn-outline-secondary(href=`${admin}/imports`)
           i.bi.bi-list
           |  Danh sách
@@ -27,9 +30,9 @@ block main
       input(type='hidden' name='_csrf' value=csrfToken)
 
       if __isReturnReceipt
-        .alert.alert-warning
-          i.bi.bi-exclamation-triangle.me-1
-          | Phiếu nhập hoàn trả được tạo tự động theo FIFO, chỉ xem chi tiết và không chỉnh sửa thủ công.
+        .alert.alert-info
+          i.bi.bi-info-circle.me-1
+          | Phiếu nhập hoàn trả có thể chỉnh sửa trước khi xác nhận nhập kho.
 
       .card.mb-3
         .card-header Thông tin chung phiếu nhập
@@ -80,7 +83,7 @@ block main
               | Tổng tiền nhập: 
               span#import-total-money 0
               |  đ
-            button.btn.btn-success(type='submit' disabled=__isReturnReceipt)
+            button.btn.btn-success(type='submit')
               i.bi.bi-check2-circle
               |  Lưu phiếu nhập
 

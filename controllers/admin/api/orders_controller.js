@@ -71,7 +71,8 @@ module.exports.duyetHoanHang = async (req, res) => {
   try {
     const result = await ordersAdminService.duyetHoanHang({
       id: req.params.id,
-      note: req.body.note || req.body.adminNote
+      note: req.body.note || req.body.adminNote,
+      actor: req.user || req.adminUser || null
     });
     return traKetQua(res, result, 'ORDER_APPROVE_RETURN_FAILED');
   } catch (error) {
@@ -84,7 +85,8 @@ module.exports.tuChoiHoanHang = async (req, res) => {
   try {
     const result = await ordersAdminService.tuChoiHoanHang({
       id: req.params.id,
-      note: req.body.note || req.body.adminNote
+      note: req.body.note || req.body.adminNote,
+      actor: req.user || req.adminUser || null
     });
     return traKetQua(res, result, 'ORDER_REJECT_RETURN_FAILED');
   } catch (error) {
@@ -109,7 +111,7 @@ module.exports.xacNhanDaNhanHangHoan = async (req, res) => {
 
 module.exports.hoanTienDon = async (req, res) => {
   try {
-    const result = await ordersAdminService.hoanTienDon(req.params.id);
+    const result = await ordersAdminService.hoanTienDon(req.params.id, req.user || req.adminUser || null);
     return traKetQua(res, result, 'ORDER_REFUND_FAILED');
   } catch (error) {
     console.error('orders.api.hoanTienDon error:', error);

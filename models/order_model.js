@@ -30,18 +30,43 @@ const orderSchema = new mongoose.Schema({
     default: false
   },
   ngaythanhtoan: Date,
-  vnpayTransId: String,
-  vnpayBankCode: String,
-  vnpayTxnRef: String,
-  momoTransId: String,
-  momoOrderId: String,
-  momoRequestId: String,
-  momoPayUrl: String,
+  vnpayTransId: {
+    type: String,
+    alias: 'magiaodichvnpay'
+  },
+  vnpayBankCode: {
+    type: String,
+    alias: 'manganhangvnpay'
+  },
+  vnpayTxnRef: {
+    type: String,
+    alias: 'mathamchieuvnpay'
+  },
+  momoTransId: {
+    type: String,
+    alias: 'magiaodichmomo'
+  },
+  momoOrderId: {
+    type: String,
+    alias: 'madonhangmomo'
+  },
+  momoRequestId: {
+    type: String,
+    alias: 'mayeucaumomo'
+  },
+  momoPayUrl: {
+    type: String,
+    alias: 'duongdanthanhtoanmomo'
+  },
   momoRefunded: {
     type: Boolean,
-    default: false
+    default: false,
+    alias: 'dadahoantienmomo'
   },
-  momoRefundAt: Date,
+  momoRefundAt: {
+    type: Date,
+    alias: 'thoigianhoantienmomo'
+  },
 
   // Thông tin vận chuyển
   phuongthucvanchuyen: {           
@@ -103,57 +128,6 @@ const orderSchema = new mongoose.Schema({
   lydohuy: String,                  // Lý do hủy đơn
   ngaygiaohang: Date,
 
-  // Luồng hoàn hàng / hoàn tiền
-  yeucauhoanhang: {
-    requestedAt: Date,
-    reason: {
-      type: String,
-      enum: ['sai_size', 'loi_san_pham', 'khong_giong_mo_ta', 'khac']
-    },
-    reasonLabel: String,
-    detail: String,
-    requestedItems: [
-      {
-        orderItemId: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: 'Chitietdonhang'
-        },
-        qty: {
-          type: Number,
-          default: 0
-        },
-        boughtQty: {
-          type: Number,
-          default: 0
-        },
-        tensanpham: String,
-        hinhanh: String,
-        kichco: String,
-        mausac: String
-      }
-    ],
-    proofMedias: [String],
-    proofMedia: String,
-    proofImage: String,
-    refundMethod: {
-      type: String,
-      enum: ['momo', 'vnpay', 'bank', 'wallet']
-    },
-    refundWallet: {
-      type: String,
-      enum: ['momo', 'vnpay']
-    },
-    refundBankName: String,
-    refundBankAccountName: String,
-    refundBankAccountNumber: String,
-    adminNote: String,
-    reviewedAt: Date,
-    approvedAt: Date,
-    rejectedAt: Date,
-    returnedAt: Date,
-    refundedAt: Date
-  },
-
   tonggiamdoanhthu_hoantra: {
     type: Number,
     default: 0
@@ -175,19 +149,7 @@ const orderSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  ngaycapnhat: Date,
-
-  emailxacnhan_dagui: {
-    type: Boolean,
-    default: false
-  },
-  emailxacnhan_guio: Date,
-  emaildagiao_dagui: {
-    type: Boolean,
-    default: false
-  },
-  emaildagiao_guio: Date,
-  emailloi_cuoi: String
+  ngaycapnhat: Date
 });
 
 // Tạo mã đơn hàng tự động

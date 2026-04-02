@@ -139,7 +139,7 @@ function setupChatSocket(io) {
         if (clientId) {
           const targetAccount = await layTKTheoId({ userId: clientId }).catch(() => null);
           if (targetAccount && targetAccount.vaitro === 'admin') {
-            socket.emit('chat_error', { message: 'Khong the chat voi tai khoan admin' });
+            socket.emit('chat_error', { message: 'Không thể chat với tài khoản admin' });
             return;
           }
         }

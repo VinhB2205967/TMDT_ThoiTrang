@@ -14,7 +14,7 @@ block main
         a.btn.btn-outline-secondary(href=`${admin}/imports`)
           i.bi.bi-arrow-left
           |  Danh sách
-        if !receipt.daxuatkho && receipt.loaiphieu !== 'return'
+        if !receipt.daxuatkho
           form(method='POST' action=`${admin}/imports/${receipt._id}/export` onsubmit='return confirm("Xác nhận nhập kho phiếu này? Sau khi xác nhận sẽ không thể chỉnh sửa.")')
             input(type='hidden' name='_csrf' value=_csrf)
             button.btn.btn-success(type='submit')

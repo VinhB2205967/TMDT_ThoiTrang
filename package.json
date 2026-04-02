@@ -13,6 +13,8 @@
     "backfill:products:vn-fields": "node scripts/backfill-product-vietnamese-fields.js",
     "seed:home": "node scripts/seed-home.js",
     "seed:users:30": "node scripts/seed-users-30.js",
+    "seed:auth:demo": "node scripts/seed-auth-demo-users.js",
+    "db:cleanup:keep-active-users": "node scripts/cleanup-db-keep-active-users.js",
     "openclip:warmup": "python scripts/openclip_warmup.py",
     "postinstall": "patch-package",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -43,6 +45,7 @@
     "pug": "^3.0.3",
     "qs": "^6.14.1",
     "socket.io": "^4.8.3",
+    "tinymce": "^8.4.0",
     "validator": "^13.12.0",
     "xss": "^1.0.15",
     "xss-clean": "^0.1.4"

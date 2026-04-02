@@ -59,7 +59,7 @@ block main
                       span.badge.bg-success.me-1 Đã nhập kho
                     else
                       span.badge.bg-secondary.me-1 Chưa nhập kho
-                    if !r.daxuatkho && r.loaiphieu !== 'return'
+                    if !r.daxuatkho
                       form.d-inline.me-1(method='POST' action=`${admin}/imports/${r._id}/export` onsubmit='return confirm("Xác nhận nhập kho phiếu này? Sau khi xác nhận sẽ không thể chỉnh sửa.")')
                         input(type='hidden' name='_csrf' value=_csrf)
                         button.btn.btn-sm.btn-success(type='submit')

@@ -471,6 +471,7 @@
   function normalizeInitialItem(raw) {
     return {
       chisoblock: raw?.chisoblock,
+      orderitemid: String(raw?.orderitemid || raw?.orderItemId || raw?.order_item_id || '').trim(),
       sanphamid: String(raw?.sanphamid || raw?.san_pham_id || '').trim(),
       bientheid: String(raw?.bientheid || raw?.bien_the_id || 'main').trim() || 'main',
       kichco: String(raw?.kichco || raw?.kich_co || '').trim(),
@@ -531,7 +532,10 @@
       if (!row) return;
 
       const qtyInput = row.querySelector(`.js-qty[data-size="${it.kichco}"]`);
-      if (qtyInput) qtyInput.value = String(Math.max(0, Number(it.soluong || 0)));
+      if (qtyInput) {
+        qtyInput.value = String(Math.max(0, Number(it.soluong || 0)));
+        if (it.orderitemid) qtyInput.dataset.orderitemid = it.orderitemid;
+      }
 
       const importEl = row.querySelector('.js-import');
       const colorEl = row.querySelector('.js-variant-color');
@@ -570,6 +574,7 @@
       const colorEl = row.querySelector('.js-variant-color');
 
       if (qtyEl) qtyEl.value = String(Math.max(0, Number(it.soluong || 0)));
+      if (qtyEl && it.orderitemid) qtyEl.dataset.orderitemid = it.orderitemid;
       if (importEl) importEl.value = String(it.gianhap || 0);
       if (colorEl && it.mausac) colorEl.value = it.mausac;
     });
@@ -894,6 +899,7 @@
 
             const fields = {
               chisoblock: String(blockIndex),
+              orderitemid: String(qEl.dataset.orderitemid || ''),
               sanphamid: String(productId),
               tensanpham: String(productName),
               bientheid: String(variantId),
@@ -937,6 +943,7 @@
 
           appendFields({
             chisoblock: '',
+            orderitemid: String(qtyEl?.dataset.orderitemid || ''),
             sanphamid: String(productId),
             tensanpham: String(productName),
             bientheid: String(variantId),

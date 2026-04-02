@@ -84,7 +84,10 @@ block main
                 each o in orders
                   - const badge = (badgeClass && typeof badgeClass === 'function') ? badgeClass(o.trangthai) : 'bg-secondary'
                   - const label = (statusLabels && statusLabels[o.trangthai]) || o.trangthai || '—'
-                  - const actionNext = (o.allowedNext || []).filter((st) => !(o.trangthai === 'choxacnhan' && st === 'daxacnhan'))
+                  - const currentStatus = String(o.trangthai || '')
+                  - const isPaidOnlineOrder = ['momo', 'vnpay'].includes(String(o.phuongthucthanhtoan || '').toLowerCase()) && o.dathanhtoan
+                  - const needsReturnAction = ['requested_return', 'approved_return', 'return_shipping', 'returned', 'returned_full', 'returned_partial'].includes(currentStatus) || (currentStatus === 'refunded' && !o.hasConfirmedReturnImport)
+                  - const actionNext = (o.allowedNext || []).filter((st) => !(o.trangthai === 'choxacnhan' && st === 'daxacnhan')).filter((st) => !['requested_return', 'approved_return', 'rejected_return', 'return_shipping', 'returned', 'returned_full', 'returned_partial', 'refunded'].includes(String(st || '')))
                   tr
                     td
                       input.order-row-check.form-check-input(type='checkbox' value=String(o._id))
@@ -103,7 +106,7 @@ block main
                       a.btn.btn-sm.btn-outline-primary.me-1(href=`${admin}/orders/${o._id}`)
                         i.bi.bi-eye
                         |  Xem
-                      if o.trangthai === 'choxacnhan'
+                      if o.trangthai === 'choxacnhan' && !isPaidOnlineOrder
                         form.d-inline(method='POST', action=`${admin}/orders/${o._id}/status`)
                           input(type='hidden' name='status' value='daxacnhan')
                           input(type='hidden' name='returnTo' value=(currentListUrl || `${admin}/orders`))
@@ -116,6 +119,19 @@ block main
                           button.btn.btn-sm.btn-outline-danger.me-1(type='button' onclick=`return promptRejectOrder('${o._id}', '${(o.madonhang || o._id).replace(/'/g, "\\'")}')`)
                             i.bi.bi-x-circle
                             |  Không xác nhận
+                      if needsReturnAction
+                        - const returnActionClass = currentStatus === 'requested_return' ? 'btn-outline-warning' : (['approved_return', 'return_shipping'].includes(currentStatus) ? 'btn-primary' : (['returned', 'returned_full', 'returned_partial'].includes(currentStatus) ? 'btn-dark' : 'btn-outline-primary'))
+                        a.btn.btn-sm.me-1(class=returnActionClass, href=`${admin}/orders/${o._id}#return-workflow`, title='Mở chi tiết để xử lý hoàn hàng')
+                          if currentStatus === 'requested_return'
+                            |  Xử lý hoàn hàng
+                          else if ['approved_return', 'return_shipping'].includes(currentStatus)
+                            |  Nhận hàng hoàn
+                          else if ['returned', 'returned_full', 'returned_partial'].includes(currentStatus)
+                            |  Hoàn tiền
+                          else if currentStatus === 'refunded' && !o.hasConfirmedReturnImport
+                            |  #{o.returnImportReceipt ? 'Xem phiếu nhập' : 'Tạo phiếu nhập'}
+                          else
+                            |  Xem phiếu nhập
                       if actionNext && actionNext.length
                         if actionNext.length === 1
                           - const st = actionNext[0]
@@ -133,7 +149,7 @@ block main
                                     input(type='hidden' name='status' value=st)
                                     input(type='hidden' name='returnTo' value=(currentListUrl || `${admin}/orders`))
                                     button.dropdown-item(type='submit' onclick="return confirm('Xác nhận cập nhật trạng thái?')") #{(statusLabels && statusLabels[st]) || st}
-                      else
+                      else if !needsReturnAction && !(o.trangthai === 'choxacnhan' && !isPaidOnlineOrder)
                         span.text-muted.small —
 
         if pagination && pagination.totalPages > 1

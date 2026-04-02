@@ -56,6 +56,100 @@ const boLayNhanh = {
     minusBtn: () => document.querySelector('.qty-btn.minus')
 };
 
+const khoiTaoMoTaThuGon = () => {
+    const wrap = layPhanTu('productDescriptionWrap');
+    const content = layPhanTu('productDescriptionContent');
+    const toggle = layPhanTu('productDescriptionToggle');
+    const toggleLabel = toggle ? toggle.querySelector('.description-toggle-label') : null;
+
+    if (!wrap || !content || !toggle || !toggleLabel) return;
+
+    const collapsedHeight = 520;
+    const needsCollapse = content.scrollHeight > collapsedHeight + 24;
+
+    if (!needsCollapse) {
+        wrap.classList.remove('is-collapsed');
+        toggle.hidden = true;
+        return;
+    }
+
+    wrap.classList.add('is-collapsed');
+    toggle.hidden = false;
+    toggle.dataset.expanded = 'false';
+    toggleLabel.textContent = 'Xem thêm';
+
+    toggle.addEventListener('click', () => {
+        const expanded = toggle.dataset.expanded === 'true';
+
+        if (expanded) {
+            wrap.classList.add('is-collapsed');
+            toggle.dataset.expanded = 'false';
+            toggleLabel.textContent = 'Xem thêm';
+            wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+        }
+
+        wrap.classList.remove('is-collapsed');
+        toggle.dataset.expanded = 'true';
+        toggleLabel.textContent = 'Thu gọn';
+    });
+};
+
+const khoiTaoDanhGiaThuGon = () => {
+    const list = layPhanTu('productReviewsList');
+    const toggle = layPhanTu('productReviewsToggle');
+    const toggleLabel = toggle ? toggle.querySelector('.reviews-toggle-label') : null;
+
+    if (!list || !toggle || !toggleLabel) return;
+
+    const cards = Array.from(list.querySelectorAll('.review-card'));
+    if (!cards.length) {
+        toggle.hidden = true;
+        return;
+    }
+
+    const initialCount = Math.max(1, parseInt(list.dataset.initialCount || '3', 10) || 3);
+    const step = Math.max(1, parseInt(list.dataset.step || '3', 10) || 3);
+    let visibleCount = initialCount;
+
+    const render = () => {
+        cards.forEach((card, index) => {
+            card.classList.toggle('is-hidden', index >= visibleCount);
+        });
+
+        if (visibleCount >= cards.length) {
+            toggle.hidden = false;
+            toggle.dataset.mode = 'collapse';
+            toggleLabel.textContent = 'Thu gọn đánh giá';
+            return;
+        }
+
+        toggle.hidden = false;
+        toggle.dataset.mode = 'expand';
+        toggleLabel.textContent = `Xem thêm đánh giá (${Math.min(step, cards.length - visibleCount)})`;
+    };
+
+    if (cards.length <= initialCount) {
+        toggle.hidden = true;
+        return;
+    }
+
+    render();
+
+    toggle.addEventListener('click', () => {
+        const mode = toggle.dataset.mode || 'expand';
+        if (mode === 'collapse') {
+            visibleCount = initialCount;
+            render();
+            list.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+        }
+
+        visibleCount = Math.min(cards.length, visibleCount + step);
+        render();
+    });
+};
+
 // ===== UPDATE UI FUNCTIONS =====
 
 /**
@@ -406,6 +500,8 @@ function ganSubmitThemGioAjax() {
  */
 const khoiTaoTrangChiTiet = () => {
     ganSubmitThemGioAjax();
+    khoiTaoMoTaThuGon();
+    khoiTaoDanhGiaThuGon();
 
     // Kiểm tra xem `productVariants` có tồn tại không
     if (typeof window.productVariants === 'undefined' || window.productVariants.length === 0) {

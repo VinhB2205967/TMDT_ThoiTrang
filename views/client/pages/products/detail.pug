@@ -282,7 +282,12 @@ block main
                             if product.mota_hinhanh
                                 .mb-3
                                     img.img-fluid.rounded.border(src=product.mota_hinhanh alt='Ảnh mô tả sản phẩm' style='max-height:420px;object-fit:cover;')
-                            .description-content= product.mota
+                            .description-collapsible#productDescriptionWrap
+                                .description-content#productDescriptionContent!= product.mota
+                                .description-fade#productDescriptionFade
+                            .text-center.mt-3
+                                button.btn.btn-outline-primary.btn-sm.description-toggle#productDescriptionToggle(type='button' hidden data-expanded='false')
+                                    span.description-toggle-label Xem thêm
 
                 //- Reviews Section
                 .section-block#reviews
@@ -335,9 +340,9 @@ block main
                                 a.btn.btn-outline-secondary.flex-fill(href=`/products/${product._id}#reviews`) Reset
 
                         if reviews && reviews.length
-                            .reviews-list
-                                each r in reviews
-                                    .review-card
+                            .reviews-list#productReviewsList(data-initial-count='3' data-step='3')
+                                each r, reviewIndex in reviews
+                                    .review-card(data-review-index=reviewIndex)
                                         .review-header
                                             .reviewer-info
                                                 .avatar
@@ -368,6 +373,9 @@ block main
                                                     span.meta-tag Màu: #{r.mausac}
                                                 if r.kichco
                                                     span.meta-tag Size: #{r.kichco}
+                            .text-center.mt-3
+                                button.btn.btn-outline-primary.btn-sm.reviews-toggle#productReviewsToggle(type='button' hidden)
+                                    span.reviews-toggle-label Xem thêm đánh giá
                         else
                             .no-reviews
                                 i.bi.bi-chat-left-text

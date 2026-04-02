@@ -24,6 +24,8 @@ const PhieuXuatKho = require('./export_receipt_model');
 const PhieuDieuChinhKho = require('./inventory_adjustment_model');
 const TonKhoLo = require('./inventory_lot_model');
 const SizeGuide = require('./size_guide_model');
+const OrderRefund = require('./order_refund_model');
+const OrderStatusLog = require('./order_status_log_model');
 
 module.exports = {
     Sanpham,
@@ -50,5 +52,7 @@ module.exports = {
     PhieuXuatKho,
     PhieuDieuChinhKho,
     TonKhoLo,
-    SizeGuide
+    SizeGuide,
+    OrderRefund,
+    OrderStatusLog
 };

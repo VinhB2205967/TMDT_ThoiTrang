@@ -3165,11 +3165,74 @@ body.openclip-loading {
     font-weight: 600;
 }
 
+.description-collapsible {
+    position: relative;
+}
+
+.description-collapsible.is-collapsed {
+    max-height: 520px;
+    overflow: hidden;
+}
+
 .description-content {
     line-height: 1.8;
     color: #444;
-    white-space: pre-line;
+    white-space: normal;
     word-break: break-word;
+}
+
+.description-content p,
+.description-content ul,
+.description-content ol,
+.description-content blockquote,
+.description-content h1,
+.description-content h2,
+.description-content h3,
+.description-content h4 {
+    margin-bottom: 1rem;
+}
+
+.description-content img,
+.description-content video {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    height: auto;
+    border-radius: 16px;
+    margin: 1rem auto;
+}
+
+.description-content video {
+    width: min(100%, 720px);
+    max-height: 420px;
+    background: #111;
+    object-fit: contain;
+}
+
+.description-content a {
+    color: #3b66f5;
+    text-decoration: underline;
+}
+
+.description-fade {
+    display: none;
+}
+
+.description-collapsible.is-collapsed .description-fade {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 120px;
+    display: block;
+    background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.92) 58%, rgba(255,255,255,1) 100%);
+    pointer-events: none;
+}
+
+.description-toggle {
+    min-width: 140px;
+    border-radius: 999px;
+    font-weight: 600;
 }
 
 /* Reviews */
@@ -3184,6 +3247,10 @@ body.openclip-loading {
     border-radius: 16px;
     padding: 25px;
     border-left: 4px solid #667eea;
+}
+
+.review-card.is-hidden {
+    display: none;
 }
 
 .review-header {
@@ -3244,6 +3311,12 @@ body.openclip-loading {
     border-radius: 20px;
     font-size: 12px;
     color: #6c757d;
+}
+
+.reviews-toggle {
+    min-width: 190px;
+    border-radius: 999px;
+    font-weight: 600;
 }
 
 .no-reviews {

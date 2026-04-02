@@ -5,6 +5,8 @@ const {
   getOrCreateCart,
   dongBoGiaGioHang,
   truTonTheoItem,
+  hoanTonTheoItem,
+  kiemTraTonKhoDatHang,
   normalizeShippingRegion,
   calcShippingFee
 } = require('../cart.service');
@@ -14,7 +16,8 @@ const {
   validateVoucherForOrder,
   reserveVoucherUsage,
   releaseVoucherUsage,
-  markVoucherUsed
+  markVoucherUsed,
+  unmarkVoucherUsed
 } = require('../payment/voucher.service.js');
 const { taoThanhToanMoMo } = require('../payment/momo.service.js');
 const { taoThanhToanVnpay } = require('../payment/vnpay.service.js');
@@ -95,6 +98,9 @@ async function processCheckout({ userId, body, protocol, host, headers, socketRe
   let voucherDoc = null;
   let reservedVoucher = false;
   let orderCreated = false;
+  let donhangdoc = null;
+  let voucherMarkedUsed = false;
+  const deductedItems = [];
 
   try {
     const giohang = await getOrCreateCart(userId);
@@ -179,6 +185,14 @@ async function processCheckout({ userId, body, protocol, host, headers, socketRe
     const shippingRegion = normalizeShippingRegion(body.shippingRegion);
     const phivanchuyen = calcShippingFee(tamtinh, shippingRegion);
 
+    const stockCheck = await kiemTraTonKhoDatHang(danhsachitem);
+    if (!stockCheck.ok) {
+      return {
+        redirect: '/cart/checkout',
+        flash: { type: 'error', message: stockCheck.message || 'San pham khong du hang de thanh toan.' }
+      };
+    }
+
     let giamgia = 0;
     const voucherCode = normalizeCode(body.voucherCode);
 
@@ -203,8 +217,6 @@ async function processCheckout({ userId, body, protocol, host, headers, socketRe
     }
 
     const tongtien = Math.max(0, tamtinh - giamgia + phivanchuyen);
-
-    let donhangdoc;
     try {
       donhangdoc = await donhang.create({
         nguoidung_id: userId,
@@ -233,10 +245,36 @@ async function processCheckout({ userId, body, protocol, host, headers, socketRe
       throw error;
     }
 
-    if (voucherDoc) await markVoucherUsed({ voucherId: voucherDoc._id, userId });
-
     for (const it of danhsachitem) {
-      const inventoryResult = await truTonTheoItem(it);
+      let inventoryResult;
+      try {
+        inventoryResult = await truTonTheoItem(it);
+      } catch (inventoryError) {
+        for (let i = deductedItems.length - 1; i >= 0; i -= 1) {
+          const rollbackItem = deductedItems[i];
+          await hoanTonTheoItem(rollbackItem.item, rollbackItem.inventoryResult).catch(() => {});
+        }
+
+        await chitietdonhang.deleteMany({ donhang_id: donhangdoc._id }).catch(() => {});
+        await donhang.deleteOne({ _id: donhangdoc._id }).catch(() => {});
+        orderCreated = false;
+        donhangdoc = null;
+
+        if (reservedVoucher && voucherDoc) {
+          await releaseVoucherUsage(voucherDoc._id).catch(() => {});
+          reservedVoucher = false;
+        }
+
+        return {
+          redirect: '/cart/checkout',
+          flash: {
+            type: 'error',
+            message: inventoryError && inventoryError.message ? inventoryError.message : 'San pham khong du hang de thanh toan.'
+          }
+        };
+      }
+
+      deductedItems.push({ item: it, inventoryResult });
       const fifoAllocations = Array.isArray(inventoryResult?.fifoAllocations)
         ? inventoryResult.fifoAllocations
           .map((a) => ({
@@ -267,6 +305,11 @@ async function processCheckout({ userId, body, protocol, host, headers, socketRe
         thanhtien: lineTotal,
         fifoAllocations
       });
+    }
+
+    if (voucherDoc) {
+      await markVoucherUsed({ voucherId: voucherDoc._id, userId });
+      voucherMarkedUsed = true;
     }
 
     const tapdathanhtoan = new Set(danhsachitem.map(it => String(it._id)));
@@ -361,6 +404,28 @@ async function processCheckout({ userId, body, protocol, host, headers, socketRe
 
     return { redirect: `/orders/${donhangdoc._id}` };
   } catch (e) {
+    if (orderCreated && donhangdoc?._id) {
+      for (let i = deductedItems.length - 1; i >= 0; i -= 1) {
+        const rollbackItem = deductedItems[i];
+        await hoanTonTheoItem(rollbackItem.item, rollbackItem.inventoryResult).catch(() => {});
+      }
+      await chitietdonhang.deleteMany({ donhang_id: donhangdoc._id }).catch(() => {});
+      await donhang.deleteOne({ _id: donhangdoc._id }).catch(() => {});
+    }
+
+    if (voucherMarkedUsed && voucherDoc?._id) {
+      try {
+        await unmarkVoucherUsed({ voucherId: voucherDoc._id, userId });
+      } catch {
+        // ignore
+      }
+      try {
+        await releaseVoucherUsage(voucherDoc._id);
+      } catch {
+        // ignore
+      }
+    }
+
     if (reservedVoucher && voucherDoc && !orderCreated) {
       try {
         await releaseVoucherUsage(voucherDoc._id);

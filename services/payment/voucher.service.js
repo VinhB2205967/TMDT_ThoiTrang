@@ -122,6 +122,14 @@ async function markVoucherUsed({ voucherId, userId }) {
   );
 }
 
+async function unmarkVoucherUsed({ voucherId, userId }) {
+  if (!voucherId || !userId) return;
+  await UserVoucher.updateOne(
+    { nguoidung_id: userId, voucher_id: voucherId },
+    { $set: { isUsed: false, usedAt: null, savedAt: new Date() } }
+  );
+}
+
 async function saveVoucher({ voucherId, userId }) {
   if (!voucherId || !userId) return;
   await UserVoucher.findOneAndUpdate(
@@ -137,6 +145,7 @@ module.exports = {
   reserveVoucherUsage,
   releaseVoucherUsage,
   markVoucherUsed,
+  unmarkVoucherUsed,
   saveVoucher
 };
 

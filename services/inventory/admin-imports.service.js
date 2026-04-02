@@ -9,6 +9,7 @@ const { getCategoryTree } = require('../catalog/category.service.js');
 const { normalizeItems, normalizeBienTheId, tinhTongTienNhap } = require('../../helpers/importReceipt');
 const { chuanIdNhanVienHienThi } = require('../../helpers/user-display-id');
 const paginationHelper = require('../../helpers/pagination');
+const { xacNhanNhapKhoPhieuNhapHoanTra } = require('../order/order-return.service.js');
 
 async function layDanhSachDanhMucNhapKho() {
   const tree = await getCategoryTree({ type: 'category', isActive: true });
@@ -352,6 +353,7 @@ function chuanHoaChiTietNhap(items, productDocMap = new Map()) {
     normalizedItems.push({
       chisoblock: raw.chisoblock != null && raw.chisoblock !== '' ? Number(raw.chisoblock) : (raw.chi_so_block != null && raw.chi_so_block !== '' ? Number(raw.chi_so_block) : undefined),
       sanphamid: productId,
+      orderitemid: normalizeBienTheId(raw.orderitemid || raw.orderItemId || raw.order_item_id),
       tensanpham: String(raw.tensanpham || raw.ten_san_pham || '').trim(),
       masku: String(raw.masku || raw.ma_sku || '').trim(),
       danhmuc: String(raw.danhmuc || raw.danh_muc || '').trim(),
@@ -583,6 +585,33 @@ async function getChiTietData(id) {
   let receipt = receiptDoc ? receiptDoc.toObject() : null;
   if (!receipt) return { ok: false, message: 'Không tìm thấy phiếu nhập' };
 
+  if (false && String(receipt.loaiphieu || '') === 'return') {
+    return {
+      ok: false,
+      code: 'READ_ONLY_RETURN',
+      message: 'Phiếu nhập hoàn trả không cho chỉnh sửa tại màn phiếu nhập.',
+      receiptId: receipt._id
+    };
+  }
+
+  if (false && String(receipt.loaiphieu || '') === 'return') {
+    return {
+      ok: false,
+      code: 'READ_ONLY_RETURN',
+      message: 'Phiếu nhập hoàn trả không cho chỉnh sửa tại màn phiếu nhập.',
+      receiptId: receipt._id
+    };
+  }
+
+  if (false && String(receipt.loaiphieu || '') === 'return') {
+    return {
+      ok: false,
+      code: 'READ_ONLY_RETURN',
+      message: 'Phiếu nhập hoàn trả không cho chỉnh sửa tại màn phiếu nhập.',
+      receiptId: receipt._id
+    };
+  }
+
   receipt = await tachDongPhieuNhapHoanTheoFifo(receipt);
 
   const idNhanVienRaw = receipt?.nhanvienky?.idnhanvien || (receipt?.nguoitao?._id ? String(receipt.nguoitao._id) : '');
@@ -611,15 +640,6 @@ async function getChinhSuaData(id) {
   const receiptDoc = await findReceiptByIdOrCode(id);
   let receipt = receiptDoc ? receiptDoc.toObject() : null;
   if (!receipt) return { ok: false, message: 'Không tìm thấy phiếu nhập' };
-
-  if (String(receipt.loaiphieu || '') === 'return') {
-    return {
-      ok: false,
-      code: 'READ_ONLY_RETURN',
-      message: 'Phiếu nhập hoàn trả được tạo tự động theo FIFO, không cho chỉnh sửa.',
-      receiptId: receipt._id
-    };
-  }
 
   if (receipt.daxuatkho) {
     return {
@@ -656,19 +676,20 @@ async function chinhSuaPhieuNhap({ id, body, files, adminUser, user }) {
   const receiptDoc = await findReceiptByIdOrCode(id);
   if (!receiptDoc) return { ok: false, message: 'Không tìm thấy phiếu nhập' };
 
-  if (String(receiptDoc.loaiphieu || '') === 'return') {
-    return {
-      ok: false,
-      message: 'Phiếu nhập hoàn trả được tạo tự động theo FIFO, không hỗ trợ chỉnh sửa thủ công.',
-      receiptId: receiptDoc._id
-    };
-  }
-
   if (receiptDoc.daxuatkho) {
     return {
       ok: false,
       code: 'READ_ONLY_CONFIRMED',
       message: 'Phiếu nhập đã xác nhận nhập kho, không cho chỉnh sửa.',
+      receiptId: receiptDoc._id
+    };
+  }
+
+  if (String(receiptDoc.loaiphieu || '') === 'return') {
+    return {
+      ok: false,
+      code: 'READ_ONLY_RETURN',
+      message: 'Phiếu nhập hoàn trả không cho chỉnh sửa tại màn phiếu nhập.',
       receiptId: receiptDoc._id
     };
   }
@@ -777,11 +798,10 @@ async function xuatKhoPhieuNhap({ id, adminUser, user }) {
   if (!receiptDoc) return { ok: false, message: 'Không tìm thấy phiếu nhập' };
 
   if (String(receiptDoc.loaiphieu || '') === 'return') {
-    return {
-      ok: false,
-      message: 'Phiếu nhập hoàn trả được tạo tự động, không cần xác nhận nhập kho.',
-      receiptId: receiptDoc._id
-    };
+    return xacNhanNhapKhoPhieuNhapHoanTra({
+      receiptId: receiptDoc._id,
+      actor: adminUser || user || null
+    });
   }
 
   if (receiptDoc.daxuatkho) {

@@ -4,6 +4,7 @@ const importItemSchema = new mongoose.Schema(
   {
     chisoblock: { type: Number, required: false },
     sanphamid: { type: mongoose.Schema.Types.ObjectId, ref: 'Sanpham', required: true },
+    orderitemid: { type: mongoose.Schema.Types.ObjectId, ref: 'Chitietdonhang', required: false },
     tensanpham: { type: String },
     masku: { type: String },
 

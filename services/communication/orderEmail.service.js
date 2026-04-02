@@ -1,5 +1,6 @@
 ﻿const Donhang = require('../../models/order_model');
 const Chitietdonhang = require('../../models/order_item_model');
+const OrderStatusLog = require('../../models/order_status_log_model');
 const { sendMail } = require('../communication/mailer.service.js');
 
 function formatCurrency(value) {
@@ -140,17 +141,57 @@ function getBaseUrl() {
   return String(process.env.APP_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
 }
 
+async function claimEmailLog({ order, action }) {
+  const uniqueKey = `${action}:${String(order._id)}`;
+  try {
+    await OrderStatusLog.create({
+      donhang_id: order._id,
+      nguoidung_id: order.nguoidung_id || null,
+      madonhang: String(order.madonhang || ''),
+      trangthai_cu: String(order.trangthai || ''),
+      trangthai_moi: String(order.trangthai || ''),
+      hanhdong: action,
+      ghichu: '',
+      actorRole: 'system',
+      actorName: 'mailer',
+      uniqueKey,
+      metadata: {
+        sent: false,
+        channel: 'email'
+      },
+      ngaytao: new Date()
+    });
+    return { claimed: true, uniqueKey };
+  } catch (error) {
+    if (error && error.code === 11000) {
+      return { claimed: false, reason: 'already-sent' };
+    }
+    throw error;
+  }
+}
+
+async function updateEmailLog(uniqueKey, metadata = {}, options = {}) {
+  if (!uniqueKey) return;
+  const clearClaim = Boolean(options.clearClaim);
+  await OrderStatusLog.updateOne(
+    { uniqueKey },
+    {
+      $set: {
+        metadata,
+        ghichu: String(metadata.error || metadata.message || ''),
+        ngaytao: metadata.sentAt || metadata.failedAt || new Date(),
+        ...(clearClaim ? { uniqueKey: null } : {})
+      }
+    }
+  );
+}
+
 async function sendOrderConfirmedEmail({ orderId }) {
   const order = await Donhang.findOne({ _id: orderId, daxoa: { $ne: true } }).lean();
   if (!order || !order.email) return { sent: false, reason: 'missing-order-or-email' };
 
-  const claim = await Donhang.findOneAndUpdate(
-    { _id: order._id, emailxacnhan_dagui: { $ne: true } },
-    { $set: { emailxacnhan_dagui: true, emailxacnhan_guio: new Date(), emailloi_cuoi: '' } },
-    { new: false }
-  ).lean();
-
-  if (!claim) return { sent: false, reason: 'already-sent' };
+  const claim = await claimEmailLog({ order, action: 'email_order_confirmed' });
+  if (!claim.claimed) return { sent: false, reason: 'already-sent' };
 
   const items = await Chitietdonhang.find({ donhang_id: order._id }).lean();
   const estimatedDeliveryAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
@@ -164,12 +205,23 @@ async function sendOrderConfirmedEmail({ orderId }) {
       html: emailContent.html
     });
 
+    await updateEmailLog(claim.uniqueKey, {
+      sent: true,
+      sentAt: new Date(),
+      channel: 'email',
+      to: String(order.email || ''),
+      message: 'order confirmed email sent'
+    });
+
     return { sent: true, info };
   } catch (error) {
-    await Donhang.updateOne(
-      { _id: order._id },
-      { $set: { emailxacnhan_dagui: false, emailloi_cuoi: String(error && error.message ? error.message : error) } }
-    );
+    await updateEmailLog(claim.uniqueKey, {
+      sent: false,
+      failedAt: new Date(),
+      channel: 'email',
+      to: String(order.email || ''),
+      error: String(error && error.message ? error.message : error)
+    }, { clearClaim: true });
     throw error;
   }
 }
@@ -178,13 +230,8 @@ async function sendOrderDeliveredEmail({ orderId }) {
   const order = await Donhang.findOne({ _id: orderId, daxoa: { $ne: true } }).lean();
   if (!order || !order.email) return { sent: false, reason: 'missing-order-or-email' };
 
-  const claim = await Donhang.findOneAndUpdate(
-    { _id: order._id, emaildagiao_dagui: { $ne: true } },
-    { $set: { emaildagiao_dagui: true, emaildagiao_guio: new Date(), emailloi_cuoi: '' } },
-    { new: false }
-  ).lean();
-
-  if (!claim) return { sent: false, reason: 'already-sent' };
+  const claim = await claimEmailLog({ order, action: 'email_order_delivered' });
+  if (!claim.claimed) return { sent: false, reason: 'already-sent' };
 
   const reviewUrl = `${getBaseUrl()}/orders`;
   const emailContent = buildOrderDeliveredTemplate({ order, reviewUrl });
@@ -197,12 +244,23 @@ async function sendOrderDeliveredEmail({ orderId }) {
       html: emailContent.html
     });
 
+    await updateEmailLog(claim.uniqueKey, {
+      sent: true,
+      sentAt: new Date(),
+      channel: 'email',
+      to: String(order.email || ''),
+      message: 'order delivered email sent'
+    });
+
     return { sent: true, info };
   } catch (error) {
-    await Donhang.updateOne(
-      { _id: order._id },
-      { $set: { emaildagiao_dagui: false, emailloi_cuoi: String(error && error.message ? error.message : error) } }
-    );
+    await updateEmailLog(claim.uniqueKey, {
+      sent: false,
+      failedAt: new Date(),
+      channel: 'email',
+      to: String(order.email || ''),
+      error: String(error && error.message ? error.message : error)
+    }, { clearClaim: true });
     throw error;
   }
 }

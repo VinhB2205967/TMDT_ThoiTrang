@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+﻿const mongoose = require('mongoose');
 const Donhang = require('../../models/order_model');
 const Chitietdonhang = require('../../models/order_item_model');
 const Sanpham = require('../../models/product_model');
@@ -6,6 +6,11 @@ const PhieuXuatKho = require('../../models/export_receipt_model');
 const PhieuNhapKho = require('../../models/import_receipt_model');
 const TonKhoLo = require('../../models/inventory_lot_model');
 const { laLoaiKhongSize, tinhTongTon } = require('../catalog/productStock.service.js');
+const {
+  dongBoYeuCauHoanHangTuDon,
+  ghiNhanLichSuTrangThaiDonHang,
+  ganThongTinHoanHangChoDon
+} = require('./order-sidecar.service.js');
 
 function taoMaPhieuNhapHoanTra() {
   return `NK-RETURN-${Date.now()}`;
@@ -57,8 +62,97 @@ function buildExportLineKey({ sanphamid, bientheid, kichco }) {
   return `${productId}|${variantId}|${sizeKey}`;
 }
 
+function suyRaDanhSachHoanTheoChiTietPhieuNhap(orderItems = [], receiptDetails = []) {
+  const rows = Array.isArray(receiptDetails) ? receiptDetails : [];
+  if (!rows.length) return [];
+
+  const directRows = normalizeReturnItemsPayload(rows.map((item) => ({
+    orderItemId: item?.orderitemid || item?.orderItemId || item?.order_item_id || item?._id || '',
+    qty: item?.soluong
+  })));
+  if (directRows.length) return directRows;
+
+  const qtyByKey = new Map();
+  for (const row of rows) {
+    const key = buildExportLineKey({
+      sanphamid: row?.sanphamid || row?.sanpham_id,
+      bientheid: row?.bientheid || row?.bienthe_id,
+      kichco: row?.kichco
+    });
+    const qty = toPositiveInt(row?.soluong, 0);
+    if (!key || qty <= 0) continue;
+    qtyByKey.set(key, toPositiveInt(qtyByKey.get(key), 0) + qty);
+  }
+
+  const derived = [];
+  for (const item of (orderItems || [])) {
+    const itemId = String(item?._id || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(itemId)) continue;
+
+    const key = buildExportLineKey({
+      sanphamid: item?.sanpham_id,
+      bientheid: item?.bienthe_id,
+      kichco: item?.kichco
+    });
+    const remainQty = toPositiveInt(qtyByKey.get(key), 0);
+    if (remainQty <= 0) continue;
+
+    const soldQty = toPositiveInt(item?.soluong, 0);
+    const takeQty = Math.min(soldQty, remainQty);
+    if (takeQty <= 0) continue;
+
+    derived.push({
+      orderItemId: itemId,
+      qty: takeQty
+    });
+    qtyByKey.set(key, remainQty - takeQty);
+  }
+
+  return derived;
+}
+
 function roundMoney(value) {
   return Math.round(toNumber(value, 0));
+}
+
+async function dongBoSidecarAnToan(taskName, runner) {
+  try {
+    await runner();
+  } catch (error) {
+    console.error(`${taskName} error:`, error);
+  }
+}
+
+function ganSessionNeuCo(query, session) {
+  return session ? query.session(session) : query;
+}
+
+function taoSessionOptions(session, extra = {}) {
+  return session ? { ...extra, session } : { ...extra };
+}
+
+function laLoiMongoKhongHoTroTransaction(error) {
+  const message = String(error?.message || error || '').toLowerCase();
+  return message.includes('transaction numbers are only allowed on a replica set member or mongos')
+    || (message.includes('transaction') && message.includes('replica set'))
+    || (message.includes('transaction') && message.includes('mongos'));
+}
+
+async function chayVoiTransactionNeuHoTro(work, label = 'mongo transaction') {
+  const session = await mongoose.startSession();
+  try {
+    let result;
+    await session.withTransaction(async () => {
+      result = await work(session);
+    });
+    return result;
+  } catch (error) {
+    if (!laLoiMongoKhongHoTroTransaction(error)) throw error;
+    console.warn(`${label} fallback without transaction:`, error.message || error);
+    return work(null);
+  } finally {
+    await session.endSession();
+  }
 }
 
 function splitAmountByQty(totalAmount, totalQty, partQty) {
@@ -313,80 +407,58 @@ function congTonChoDongTraHang(productDoc, { variantId, size, qty, mausac }) {
   }
 }
 
-async function dongBoNhapKhoHoanTra({ id, payload = {}, actor = null }) {
-  const orderId = String(id || '').trim();
-  if (!mongoose.Types.ObjectId.isValid(orderId)) {
-    return { ok: false, message: 'ID đơn hàng không hợp lệ' };
-  }
-
-  const order = await Donhang.findOne({ _id: orderId, daxoa: { $ne: true } });
-  if (!order) return { ok: false, message: 'Không tìm thấy đơn hàng' };
-
-  const currentStatus = String(order.trangthai || '');
-  const keepRefundedStatus = currentStatus === 'refunded';
-
-  if (!['approved_return', 'return_shipping', 'returned', 'returned_full', 'returned_partial', 'refunded'].includes(currentStatus)) {
-    return { ok: false, message: 'Đơn chưa ở trạng thái nhận hàng hoàn.' };
-  }
-
-  const exportReceipt = await PhieuXuatKho.findOne({ donhang_id: order._id });
-  if (!exportReceipt) {
-    return { ok: false, message: 'Không tìm thấy phiếu xuất kho của đơn hàng này' };
-  }
-
-  const alreadySynced = (exportReceipt.chitiet || []).length > 0
-    && (exportReceipt.chitiet || []).every((line) => {
-      const exportedQty = toPositiveInt(line.soluong, 0);
-      const returnedQty = toPositiveInt(line.soluonghoan, 0);
-      return returnedQty >= exportedQty;
-    });
-
-  if (alreadySynced) {
-    if (!keepRefundedStatus && String(order.trangthai || '') !== 'returned_full') {
-      order.trangthai = 'returned_full';
-      order.ngaycapnhat = new Date();
-      await order.save();
-    }
-
-    return {
-      ok: true,
-      message: 'Đơn này đã đồng bộ nhập kho hoàn trả trước đó.',
-      data: {
-        alreadySynced: true,
-        exportReceiptCode: String(exportReceipt.maphieu || ''),
-        orderCode: String(order.madonhang || ''),
-        allReturned: true
-      }
-    };
-  }
-
-  const orderItems = await Chitietdonhang.find({ donhang_id: order._id }).lean();
-  if (!Array.isArray(orderItems) || orderItems.length === 0) {
-    return { ok: false, message: 'Đơn hàng không có sản phẩm để hoàn trả' };
-  }
-
-  const payloadRequestedRows = normalizeReturnItemsPayload(payload && payload.returnItems);
-  const storedRequestedRows = normalizeReturnItemsPayload(
+async function lapKeHoachNhapKhoHoanTra({ order, exportReceipt, orderItems, requestedRows = [] }) {
+  const rows = normalizeReturnItemsPayload(requestedRows);
+  const approvedRequestedRows = normalizeReturnItemsPayload(
     order && order.yeucauhoanhang && (order.yeucauhoanhang.requestedItems || order.yeucauhoanhang.returnItems)
   );
-  const requestedMap = new Map();
+  const orderItemMap = new Map();
+  for (const item of (orderItems || [])) {
+    const itemId = String(item?._id || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(itemId)) continue;
+    orderItemMap.set(itemId, item);
+  }
+
   const approvedRequestedMap = new Map();
-  for (const row of storedRequestedRows) {
+  for (const row of approvedRequestedRows) {
     approvedRequestedMap.set(String(row.orderItemId), toPositiveInt(row.qty, 0));
   }
 
-  // Always constrain actual return quantities by the customer's approved requested items.
-  if (payloadRequestedRows.length) {
-    for (const row of payloadRequestedRows) {
-      const itemId = String(row.orderItemId);
-      const payloadQty = toPositiveInt(row.qty, 0);
+  const requestedMap = new Map();
+  if (rows.length) {
+    for (const row of rows) {
+      const itemId = String(row.orderItemId || '').trim();
+      const requestedQty = toPositiveInt(row.qty, 0);
+      if (!itemId || requestedQty <= 0) continue;
+
+      const orderItem = orderItemMap.get(itemId);
+      if (!orderItem) {
+        return {
+          ok: false,
+          message: 'Không tìm thấy dòng sản phẩm hoàn trả hợp lệ để xử lý.'
+        };
+      }
+
+      const soldQty = toPositiveInt(orderItem?.soluong, 0);
+      if (requestedQty > soldQty) {
+        return {
+          ok: false,
+          message: `Số lượng trả của sản phẩm ${String(orderItem?.tensanpham || '').trim() || itemId} vượt quá số lượng đã bánmua.`
+        };
+      }
 
       if (approvedRequestedMap.size > 0) {
         const approvedQty = toPositiveInt(approvedRequestedMap.get(itemId), 0);
         if (approvedQty <= 0) continue;
-        requestedMap.set(itemId, Math.min(payloadQty, approvedQty));
+        if (requestedQty > approvedQty) {
+          return {
+            ok: false,
+            message: `Số lượng trả của sản phẩm ${String(orderItem?.tensanpham || '').trim() || itemId} vượt quá số lượng đã duyệt hoàn (${approvedQty}).`
+          };
+        }
+        requestedMap.set(itemId, requestedQty);
       } else {
-        requestedMap.set(itemId, payloadQty);
+        requestedMap.set(itemId, requestedQty);
       }
     }
   } else {
@@ -400,7 +472,7 @@ async function dongBoNhapKhoHoanTra({ id, payload = {}, actor = null }) {
   if (hasReturnRequest && (!requestedMap.size || !hasPositiveRequestedQty)) {
     return {
       ok: false,
-      message: 'Yêu cầu hoàn hàng không có chi tiết sản phẩm. Vui lòng chọn đúng sản phẩm và số lượng cần hoàn trước khi đồng bộ.'
+      message: 'Yêu cầu hoàn hàng không có chi tiết sản phẩm hợp lệ để xử lý.'
     };
   }
 
@@ -429,8 +501,8 @@ async function dongBoNhapKhoHoanTra({ id, payload = {}, actor = null }) {
   const isManualSelection = requestedMap.size > 0;
   const allocations = [];
 
-  for (const item of orderItems) {
-    const orderItemId = String(item._id);
+  for (const item of (orderItems || [])) {
+    const orderItemId = String(item._id || '');
     const soldQty = toPositiveInt(item.soluong, 0);
 
     let requestedQty = isManualSelection
@@ -516,28 +588,20 @@ async function dongBoNhapKhoHoanTra({ id, payload = {}, actor = null }) {
     if (canReturn > 0) {
       return {
         ok: false,
-        message: `Số lượng trả vượt quá số lượng còn có thể hoàn của sản phẩm ${item.tensanpham || ''}`.trim()
+        message: ('Số lượng trả vượt quá số lượng còn có thể hoàn của sản phẩm ' + (item.tensanpham || '')).trim()
       };
     }
   }
 
   if (!allocations.length) {
-    return { ok: false, message: 'Không có số lượng hoàn trả hợp lệ để xử lý' };
+    return { ok: false, message: 'Không có số lượng hoàn trả hợp lệ để xử lý.' };
   }
 
-  // Recompute returned revenue with voucher-proportional allocation from order snapshot.
-  // Export receipt unit prices may not include order-level voucher.
   const orderItemFinancialMap = buildOrderItemFinancialMap(order, orderItems);
   apDungDoanhThuHoanTheoVoucher({
     allocations,
     orderItemFinancialMap
   });
-
-  const now = new Date();
-  let maPhieuNhap = taoMaPhieuNhapHoanTra();
-  while (await PhieuNhapKho.findOne({ maphieu: maPhieuNhap }).select('_id').lean()) {
-    maPhieuNhap = taoMaPhieuNhapHoanTra();
-  }
 
   const importDetails = allocations.map((allocation) => {
     const item = allocation.orderItem;
@@ -550,6 +614,9 @@ async function dongBoNhapKhoHoanTra({ id, payload = {}, actor = null }) {
 
     return {
       sanphamid: new mongoose.Types.ObjectId(productId),
+      orderitemid: item._id && mongoose.Types.ObjectId.isValid(String(item._id))
+        ? new mongoose.Types.ObjectId(String(item._id))
+        : undefined,
       tensanpham: String(item.tensanpham || line.tensanpham || ''),
       hinhanh: String(item.hinhanh || line.hinhanh || ''),
       bientheid: variantId,
@@ -565,150 +632,686 @@ async function dongBoNhapKhoHoanTra({ id, payload = {}, actor = null }) {
     return sum + (Number(item.soluong || 0) * Number(item.gianhap || 0));
   }, 0);
 
-  const importReceipt = new PhieuNhapKho({
-    code: maPhieuNhap,
-    maphieu: maPhieuNhap,
-    ma_phieu: maPhieuNhap,
-    loaiphieu: 'return',
-    tenloaiphieu: 'Nhập kho hoàn trả',
-    nguonnhap: 'Trả hàng khách',
-    donhang_id: order._id,
-    madonhang: String(order.madonhang || ''),
-    phieuxuat_id: exportReceipt._id,
-    maphieuxuat: String(exportReceipt.maphieu || ''),
-    ngaynhap: now,
-    nhacungcap: 'Trả hàng khách',
-    ghichu: `Đơn hàng: ${String(order.madonhang || '')} | Phiếu xuất: ${String(exportReceipt.maphieu || '')}`,
-    tongtiennhap: tongTienNhap,
-    chitiet: importDetails,
-    daxuatkho: true,
-    ngayxuatkho: now,
-    nguoixuatkho: actor?._id || null,
-    nhanvienky: {
-      tennhanvien: String(actor?.hoten || actor?.email || '').trim(),
-      idnhanvien: String(actor?._id || '').trim(),
-      anhchuky: String(actor?.chukyso || actor?.chuKy || actor?.avatar || '').trim(),
-      thoigianky: now
-    },
-    nguoitao: actor?._id || null,
-    ngaytao: now,
-    ngaycapnhat: now
-  });
-  await importReceipt.save();
+  return {
+    ok: true,
+    allocations,
+    importDetails,
+    tongTienNhap
+  };
+}
 
-  const lotDocs = importDetails.map((item) => ({
-    phieunhap_id: importReceipt._id,
-    maphieunhap: maPhieuNhap,
-    ngaynhap: now,
-    nhacungcap: 'Trả hàng khách',
-    sanphamid: item.sanphamid,
-    bientheid: item.bientheid || null,
-    kichco: String(item.kichco || ''),
-    mausac: String(item.mausac || ''),
-    gianhap: Number(item.gianhap || 0),
-    giabandexuat: Number(item.giabandexuat || 0),
-    soluongnhap: Number(item.soluong || 0),
-    soluongconlai: Number(item.soluong || 0),
-    ngaytao: now,
-    ngaycapnhat: now
-  })).filter((lot) => Number(lot.soluongnhap || 0) > 0);
-  if (lotDocs.length) {
-    await TonKhoLo.insertMany(lotDocs);
+async function taoMaPhieuNhapHoanTraKhongTrung() {
+  let maPhieuNhap = taoMaPhieuNhapHoanTra();
+  while (await PhieuNhapKho.findOne({ maphieu: maPhieuNhap }).select('_id').lean()) {
+    maPhieuNhap = taoMaPhieuNhapHoanTra();
+  }
+  return maPhieuNhap;
+}
+
+async function taoHoacCapNhatPhieuNhapHoanTraChoDon({ order, exportReceipt, importDetails, tongTienNhap, actor = null, existingReceipt = null }) {
+  const now = new Date();
+  const receipt = existingReceipt || new PhieuNhapKho();
+  const maPhieuNhap = String(receipt.maphieu || receipt.ma_phieu || receipt.code || '').trim() || await taoMaPhieuNhapHoanTraKhongTrung();
+
+  receipt.code = maPhieuNhap;
+  receipt.maphieu = maPhieuNhap;
+  receipt.ma_phieu = maPhieuNhap;
+  receipt.loaiphieu = 'return';
+  receipt.tenloaiphieu = 'Nhập kho hoàn trả';
+  receipt.nguonnhap = 'Trả hàng khách';
+  receipt.donhang_id = order._id;
+  receipt.madonhang = String(order.madonhang || '');
+  receipt.phieuxuat_id = exportReceipt._id;
+  receipt.maphieuxuat = String(exportReceipt.maphieu || '');
+  receipt.ngaynhap = now;
+  receipt.nhacungcap = 'Trả hàng khách';
+  receipt.ghichu = 'Đơn hàng: ' + String(order.madonhang || '') + ' | Phiếu xuất: ' + String(exportReceipt.maphieu || '');
+  receipt.tongtiennhap = tongTienNhap;
+  receipt.chitiet = importDetails;
+  receipt.daxuatkho = false;
+  receipt.ngayxuatkho = null;
+  receipt.nguoixuatkho = null;
+  receipt.nhanvienky = {
+    tennhanvien: String(actor?.hoten || actor?.email || '').trim(),
+    idnhanvien: String(actor?._id || '').trim(),
+    anhchuky: String(actor?.chukyso || actor?.chuKy || actor?.avatar || '').trim(),
+    thoigianky: now
+  };
+  if (!receipt.nguoitao) receipt.nguoitao = actor?._id || null;
+  if (!receipt.ngaytao) receipt.ngaytao = now;
+  receipt.ngaycapnhat = now;
+  await receipt.save();
+  return receipt;
+}
+
+function taoDanhSachDaNhanTuKeHoach(plan = {}) {
+  return (Array.isArray(plan.importDetails) ? plan.importDetails : []).map((item) => ({
+    orderItemId: item?.orderitemid || null,
+    qty: Math.max(0, toPositiveInt(item?.soluong, 0)),
+    boughtQty: 0,
+    tensanpham: String(item?.tensanpham || '').trim(),
+    hinhanh: String(item?.hinhanh || '').trim(),
+    kichco: String(item?.kichco || '').trim(),
+    mausac: String(item?.mausac || '').trim(),
+    gianhap: Math.max(0, roundMoney(item?.gianhap || 0)),
+    giabandexuat: Math.max(0, roundMoney(item?.giabandexuat || 0))
+  })).filter((item) => item.qty > 0);
+}
+
+function taoChiTietPhieuNhapTuHangDaNhan({ orderItems = [], receivedItems = [] } = {}) {
+  const itemMap = new Map();
+  for (const item of (orderItems || [])) {
+    const itemId = String(item?._id || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(itemId)) continue;
+    itemMap.set(itemId, item);
   }
 
-  const productIds = Array.from(new Set(importDetails
-    .map((item) => String(item.sanphamid || ''))
-    .filter((id) => mongoose.Types.ObjectId.isValid(id))));
-  const productDocs = await Sanpham.find({ _id: { $in: productIds } });
-  const productMap = new Map(productDocs.map((p) => [String(p._id), p]));
+  const importDetails = [];
+  for (const row of (Array.isArray(receivedItems) ? receivedItems : [])) {
+    const orderItemId = String(row?.orderItemId || row?._id || '').trim();
+    const orderItem = itemMap.get(orderItemId);
+    if (!orderItem) continue;
 
-  for (const detail of importDetails) {
-    const productDoc = productMap.get(String(detail.sanphamid || ''));
-    if (!productDoc) continue;
-    congTonChoDongTraHang(productDoc, {
-      variantId: detail.bientheid,
-      size: detail.kichco,
-      qty: detail.soluong,
-      mausac: detail.mausac
+    const productId = String(orderItem?.sanpham_id || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(productId)) continue;
+
+    const variantId = orderItem?.bienthe_id && mongoose.Types.ObjectId.isValid(String(orderItem.bienthe_id))
+      ? new mongoose.Types.ObjectId(String(orderItem.bienthe_id))
+      : null;
+    const qty = Math.max(0, toPositiveInt(row?.qty, 0));
+    if (qty <= 0) continue;
+
+    importDetails.push({
+      sanphamid: new mongoose.Types.ObjectId(productId),
+      orderitemid: new mongoose.Types.ObjectId(orderItemId),
+      tensanpham: String(row?.tensanpham || orderItem?.tensanpham || '').trim(),
+      hinhanh: String(row?.hinhanh || orderItem?.hinhanh || '').trim(),
+      bientheid: variantId,
+      kichco: String(row?.kichco || orderItem?.kichco || '').trim(),
+      mausac: String(row?.mausac || orderItem?.mausac || '').trim(),
+      soluong: qty,
+      gianhap: Math.max(0, roundMoney(row?.gianhap || 0)),
+      giabandexuat: Math.max(0, roundMoney(row?.giabandexuat || 0))
     });
   }
 
-  for (const productDoc of productDocs) {
-    productDoc.soluongton = tinhTongTon(productDoc);
-    productDoc.ngaycapnhat = now;
-    await productDoc.save();
-  }
+  const tongTienNhap = importDetails.reduce((sum, item) => {
+    return sum + (Number(item.soluong || 0) * Number(item.gianhap || 0));
+  }, 0);
 
-  let tongGiamDoanhThu = 0;
-  let tongGiamGiaVon = 0;
-  let tongGiamLoiNhuan = 0;
-  let tongSoLuongTra = 0;
-
-  for (const allocation of allocations) {
-    const line = allocation.exportLine;
-    line.soluonghoan = toNumber(line.soluonghoan, 0) + allocation.qty;
-    line.doanhthuhoan = toNumber(line.doanhthuhoan, 0) + allocation.returnDoanhThu;
-    line.giavonhoan = toNumber(line.giavonhoan, 0) + allocation.returnGiaVon;
-    line.loinhuanhoan = toNumber(line.loinhuanhoan, 0) + allocation.returnLoiNhuan;
-    if (allocation.exportAllocation) {
-      allocation.exportAllocation.soluonghoan = toNumber(allocation.exportAllocation.soluonghoan, 0) + allocation.qty;
-    }
-
-    tongGiamDoanhThu += allocation.returnDoanhThu;
-    tongGiamGiaVon += allocation.returnGiaVon;
-    tongGiamLoiNhuan += allocation.returnLoiNhuan;
-    tongSoLuongTra += allocation.qty;
-  }
-
-  exportReceipt.tongdoanhthuhoan = toNumber(exportReceipt.tongdoanhthuhoan, 0) + tongGiamDoanhThu;
-  exportReceipt.tonggiavonhoan = toNumber(exportReceipt.tonggiavonhoan, 0) + tongGiamGiaVon;
-  exportReceipt.tongloinhuanhoan = toNumber(exportReceipt.tongloinhuanhoan, 0) + tongGiamLoiNhuan;
-  exportReceipt.tongdoanhthu = Math.max(0, toNumber(exportReceipt.tongdoanhthu, 0) - tongGiamDoanhThu);
-  exportReceipt.tonggiavon = Math.max(0, toNumber(exportReceipt.tonggiavon, 0) - tongGiamGiaVon);
-  exportReceipt.tongloinhuan = toNumber(exportReceipt.tongdoanhthu, 0) - toNumber(exportReceipt.tonggiavon, 0);
-  exportReceipt.tysuatloinhuan = tinhTySuatLoiNhuan({
-    doanhThu: exportReceipt.tongdoanhthu,
-    loiNhuan: exportReceipt.tongloinhuan
-  });
-  exportReceipt.ngaycapnhat = now;
-  await exportReceipt.save();
-
-  const allReturned = (exportReceipt.chitiet || []).every((line) => {
-    const exportedQty = toPositiveInt(line.soluong, 0);
-    const returnedQty = toPositiveInt(line.soluonghoan, 0);
-    return returnedQty >= exportedQty;
-  });
-
-  const tongGiamDoanhThuLuyKe = toNumber(order.tonggiamdoanhthu_hoantra, 0) + tongGiamDoanhThu;
-  order.tamtinh = Math.max(0, toNumber(order.tamtinh, 0) - tongGiamDoanhThu);
-  order.tongtien = Math.max(0, toNumber(order.tongtien, 0) - tongGiamDoanhThu);
-  order.tonggiamdoanhthu_hoantra = tongGiamDoanhThuLuyKe;
-  order.tonggiamloinhuan_hoantra = toNumber(order.tonggiamloinhuan_hoantra, 0) + tongGiamLoiNhuan;
-  order.tongsoluong_hoantra = toPositiveInt(order.tongsoluong_hoantra, 0) + tongSoLuongTra;
-  order.trangthai = keepRefundedStatus
-    ? 'refunded'
-    : (allReturned ? 'returned_full' : 'returned_partial');
-  order.ngaycapnhat = now;
-  order.yeucauhoanhang = {
-    ...(order.yeucauhoanhang || {}),
-    returnedAt: now,
-    refundAmount: tongGiamDoanhThuLuyKe
+  return {
+    importDetails,
+    tongTienNhap
   };
-  await order.save();
+}
 
-  const statusLabel = allReturned ? 'Đã trả hàng' : 'Trả hàng một phần';
+async function dongBoNhapKhoHoanTra({ id, payload = {}, actor = null }) {
+  const orderId = String(id || '').trim();
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    return { ok: false, message: 'ID đơn hàng không hợp lệ' };
+  }
+
+  const order = await Donhang.findOne({ _id: orderId, daxoa: { $ne: true } });
+  if (!order) return { ok: false, message: 'Không tìm thấy đơn hàng' };
+  await ganThongTinHoanHangChoDon(order);
+
+  const currentStatus = String(order.trangthai || '');
+  if (['returned', 'returned_full', 'returned_partial', 'refunded'].includes(currentStatus)) {
+    return { ok: true, message: 'Đơn hàng đã được ghi nhận hàng hoàn thực tế trước đó.' };
+  }
+  if (!['approved_return', 'return_shipping'].includes(currentStatus)) {
+    return { ok: false, message: 'Đơn hàng chưa ở trạng thái nhận hàng hoàn.' };
+  }
+
+  const exportReceipt = await PhieuXuatKho.findOne({ donhang_id: order._id });
+  if (!exportReceipt) {
+    return { ok: false, message: 'Không tìm thấy phiếu xuất kho của đơn hàng này' };
+  }
+
+  const existingReceipt = await PhieuNhapKho.findOne({ donhang_id: order._id, loaiphieu: 'return' })
+    .sort({ ngaytao: -1, _id: -1 });
+
+  if (existingReceipt && existingReceipt.daxuatkho) {
+    return {
+      ok: true,
+      message: 'Phiếu nhập hoàn trả đã được xác nhận trước đó.',
+      receiptId: existingReceipt._id,
+      data: {
+        alreadySynced: true,
+        importReceiptCode: String(existingReceipt.maphieu || ''),
+        exportReceiptCode: String(exportReceipt.maphieu || ''),
+        orderCode: String(order.madonhang || '')
+      }
+    };
+  }
+
+  const orderItems = await Chitietdonhang.find({ donhang_id: order._id }).lean();
+  if (!Array.isArray(orderItems) || orderItems.length === 0) {
+    return { ok: false, message: 'Đơn hàng không có sản phẩm để hoàn trả' };
+  }
+
+  const payloadRequestedRows = normalizeReturnItemsPayload(payload && payload.returnItems);
+  const storedRequestedRows = normalizeReturnItemsPayload(
+    order && order.yeucauhoanhang && (order.yeucauhoanhang.requestedItems || order.yeucauhoanhang.returnItems)
+  );
+
+  const plan = await lapKeHoachNhapKhoHoanTra({
+    order,
+    exportReceipt,
+    orderItems,
+    requestedRows: payloadRequestedRows.length ? payloadRequestedRows : storedRequestedRows
+  });
+  if (!plan.ok) return plan;
+
+  let result = null;
+  let sidecarPayload = null;
+
+  try {
+    result = await chayVoiTransactionNeuHoTro(async (session) => {
+      const orderDoc = await ganSessionNeuCo(Donhang.findOne({ _id: orderId, daxoa: { $ne: true } }), session);
+      if (!orderDoc) throw new Error('Không tìm thấy đơn hàng');
+
+      const exportReceiptDoc = await ganSessionNeuCo(PhieuXuatKho.findOne({ donhang_id: orderDoc._id }), session);
+      if (!exportReceiptDoc) throw new Error('Không tìm thấy phiếu xuất kho của đơn hàng này');
+
+      let tongGiamDoanhThu = 0;
+      let tongGiamGiaVon = 0;
+      let tongGiamLoiNhuan = 0;
+      let tongSoLuongTra = 0;
+
+      for (const allocation of plan.allocations) {
+        const line = allocation.exportLine;
+        const targetLine = (exportReceiptDoc.chitiet || []).find((row) => String(row?._id || '') === String(line?._id || ''));
+        if (!targetLine) continue;
+
+        targetLine.soluonghoan = toNumber(targetLine.soluonghoan, 0) + allocation.qty;
+        targetLine.doanhthuhoan = toNumber(targetLine.doanhthuhoan, 0) + allocation.returnDoanhThu;
+        targetLine.giavonhoan = toNumber(targetLine.giavonhoan, 0) + allocation.returnGiaVon;
+        targetLine.loinhuanhoan = toNumber(targetLine.loinhuanhoan, 0) + allocation.returnLoiNhuan;
+
+        if (allocation.exportAllocation && Array.isArray(targetLine.allocations)) {
+          const targetAlloc = targetLine.allocations.find((alloc) => String(alloc?._id || '') === String(allocation.exportAllocation?._id || ''));
+          if (targetAlloc) {
+            targetAlloc.soluonghoan = toNumber(targetAlloc.soluonghoan, 0) + allocation.qty;
+          }
+        }
+
+        tongGiamDoanhThu += allocation.returnDoanhThu;
+        tongGiamGiaVon += allocation.returnGiaVon;
+        tongGiamLoiNhuan += allocation.returnLoiNhuan;
+        tongSoLuongTra += allocation.qty;
+      }
+
+      exportReceiptDoc.tongdoanhthuhoan = toNumber(exportReceiptDoc.tongdoanhthuhoan, 0) + tongGiamDoanhThu;
+      exportReceiptDoc.tonggiavonhoan = toNumber(exportReceiptDoc.tonggiavonhoan, 0) + tongGiamGiaVon;
+      exportReceiptDoc.tongloinhuanhoan = toNumber(exportReceiptDoc.tongloinhuanhoan, 0) + tongGiamLoiNhuan;
+      exportReceiptDoc.tongdoanhthu = Math.max(0, toNumber(exportReceiptDoc.tongdoanhthu, 0) - tongGiamDoanhThu);
+      exportReceiptDoc.tonggiavon = Math.max(0, toNumber(exportReceiptDoc.tonggiavon, 0) - tongGiamGiaVon);
+      exportReceiptDoc.tongloinhuan = toNumber(exportReceiptDoc.tongdoanhthu, 0) - toNumber(exportReceiptDoc.tonggiavon, 0);
+      exportReceiptDoc.tysuatloinhuan = tinhTySuatLoiNhuan({
+        doanhThu: exportReceiptDoc.tongdoanhthu,
+        loiNhuan: exportReceiptDoc.tongloinhuan
+      });
+      exportReceiptDoc.ngaycapnhat = new Date();
+      await exportReceiptDoc.save(taoSessionOptions(session));
+
+      const allReturned = (exportReceiptDoc.chitiet || []).every((line) => {
+        const exportedQty = toPositiveInt(line.soluong, 0);
+        const returnedQty = toPositiveInt(line.soluonghoan, 0);
+        return returnedQty >= exportedQty;
+      });
+
+      const previousStatus = String(orderDoc.trangthai || '');
+      const tongGiamDoanhThuLuyKe = toNumber(orderDoc.tonggiamdoanhthu_hoantra, 0) + tongGiamDoanhThu;
+      const receivedItems = taoDanhSachDaNhanTuKeHoach(plan);
+      const now = new Date();
+
+      orderDoc.tamtinh = Math.max(0, toNumber(orderDoc.tamtinh, 0) - tongGiamDoanhThu);
+      orderDoc.tongtien = Math.max(0, toNumber(orderDoc.tongtien, 0) - tongGiamDoanhThu);
+      orderDoc.tonggiamdoanhthu_hoantra = tongGiamDoanhThuLuyKe;
+      orderDoc.tonggiamloinhuan_hoantra = toNumber(orderDoc.tonggiamloinhuan_hoantra, 0) + tongGiamLoiNhuan;
+      orderDoc.tongsoluong_hoantra = toPositiveInt(orderDoc.tongsoluong_hoantra, 0) + tongSoLuongTra;
+      orderDoc.trangthai = allReturned ? 'returned_full' : 'returned_partial';
+      orderDoc.ngaycapnhat = now;
+      orderDoc.yeucauhoanhang = {
+        ...(orderDoc.yeucauhoanhang || {}),
+        returnedAt: now,
+        refundAmount: tongGiamDoanhThuLuyKe,
+        receivedItems
+      };
+      await orderDoc.save(taoSessionOptions(session));
+
+      sidecarPayload = {
+        order: {
+          _id: orderDoc._id,
+          nguoidung_id: orderDoc.nguoidung_id,
+          madonhang: orderDoc.madonhang,
+          trangthai: orderDoc.trangthai,
+          yeucauhoanhang: orderDoc.yeucauhoanhang
+        },
+        previousStatus,
+        nextStatus: String(orderDoc.trangthai || ''),
+        allReturned,
+        refundAmount: tongGiamDoanhThuLuyKe
+      };
+
+      const statusLabel = allReturned ? 'đã trả hàng' : 'trả hàng một phần';
+      return {
+        ok: true,
+        message: 'Đã xác nhận đã nhận hàng hoàn và cập nhật phiếu xuất (' + statusLabel + ').',
+        data: {
+          exportReceiptCode: String(exportReceiptDoc.maphieu || ''),
+          orderCode: String(orderDoc.madonhang || ''),
+          allReturned
+        }
+      };
+    }, 'return receive transaction');
+  } catch (error) {
+    result = { ok: false, message: error && error.message ? error.message : 'Không thể xác nhận đã nhận hàng hoàn.' };
+  }
+
+  if (result && result.ok && sidecarPayload) {
+    await dongBoSidecarAnToan('return receive sidecar sync', async () => {
+      await dongBoYeuCauHoanHangTuDon({
+        order: sidecarPayload.order,
+        action: 'system_received_return_goods',
+        actor
+      });
+      await ghiNhanLichSuTrangThaiDonHang({
+        order: sidecarPayload.order,
+        previousStatus: sidecarPayload.previousStatus,
+        nextStatus: sidecarPayload.nextStatus,
+        action: 'system_received_return_goods',
+        actor,
+        metadata: {
+          allReturned: sidecarPayload.allReturned,
+          refundAmount: sidecarPayload.refundAmount
+        }
+      });
+    });
+  }
+
+  return result || { ok: false, message: 'Không thể xác nhận đã nhận hàng hoàn.' };
+
+  const importReceipt = await taoHoacCapNhatPhieuNhapHoanTraChoDon({
+    order,
+    exportReceipt,
+    importDetails: plan.importDetails,
+    tongTienNhap: plan.tongTienNhap,
+    actor,
+    existingReceipt
+  });
+
   return {
     ok: true,
-    message: `Đã tạo phiếu nhập hoàn trả ${maPhieuNhap} (${statusLabel}).`,
+    message: existingReceipt
+      ? (' Cập nhật phiếu nhập hoàn trả ' + String(importReceipt.maphieu || '') + '. Vui lòng vào Nhập kho để xác nhận.')
+      : ('Đã tạo phiếu nhập hoàn trả ' + String(importReceipt.maphieu || '') + '. Vui lòng vào Nhập kho để xác nhận.'),
+    receiptId: importReceipt._id,
     data: {
-      importReceiptCode: maPhieuNhap,
+      importReceiptCode: String(importReceipt.maphieu || ''),
       exportReceiptCode: String(exportReceipt.maphieu || ''),
-      orderCode: String(order.madonhang || ''),
-      allReturned
+      orderCode: String(order.madonhang || '')
     }
   };
 }
 
+async function taoPhieuNhapHoanTraSauHoanTien({ id, actor = null }) {
+  const orderId = String(id || '').trim();
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    return { ok: false, message: 'ID đơn hàng không hợp lệ' };
+  }
+
+  const order = await Donhang.findOne({ _id: orderId, daxoa: { $ne: true } });
+  if (!order) return { ok: false, message: 'Không tìm thấy đơn hàng' };
+  await ganThongTinHoanHangChoDon(order);
+
+  if (String(order.trangthai || '') !== 'refunded') {
+    return { ok: false, message: 'Chỉ có thể tạo phiếu nhập hoàn trả sau khi đơn hàng đã hoàn tiền.' };
+  }
+
+  const [exportReceipt, existingReceipt, orderItems] = await Promise.all([
+    PhieuXuatKho.findOne({ donhang_id: order._id }),
+    PhieuNhapKho.findOne({ donhang_id: order._id, loaiphieu: 'return' }).sort({ ngaytao: -1, _id: -1 }),
+    Chitietdonhang.find({ donhang_id: order._id }).lean()
+  ]);
+
+  if (!exportReceipt) {
+    return { ok: false, message: 'Không tìm thấy phiếu xuất kho của đơn hàng này' };
+  }
+
+  if (existingReceipt) {
+    return {
+      ok: true,
+      message: existingReceipt.daxuatkho
+        ? ('Phiếu nhập hoàn trả ' + String(existingReceipt.maphieu || '') + ' đã được xác nhận nhập kho.')
+        : ('Đã có phiếu nhập hoàn trả ' + String(existingReceipt.maphieu || '') + '. Vui lòng vào Nhập kho để xác nhận.'),
+      receiptId: existingReceipt._id,
+      data: {
+        importReceiptCode: String(existingReceipt.maphieu || ''),
+        exportReceiptCode: String(exportReceipt.maphieu || ''),
+        orderCode: String(order.madonhang || '')
+      }
+    };
+  }
+
+  const receivedItems = Array.isArray(order?.yeucauhoanhang?.receivedItems)
+    ? order.yeucauhoanhang.receivedItems
+    : [];
+  const receiptPlan = taoChiTietPhieuNhapTuHangDaNhan({ orderItems, receivedItems });
+  if (!receiptPlan.importDetails.length) {
+    return { ok: false, message: 'Chưa có dữ liệu hàng đã nhận hoàn thực tế để tạo phiếu nhập.' };
+  }
+
+  const importReceipt = await taoHoacCapNhatPhieuNhapHoanTraChoDon({
+    order,
+    exportReceipt,
+    importDetails: receiptPlan.importDetails,
+    tongTienNhap: receiptPlan.tongTienNhap,
+    actor,
+    existingReceipt: null
+  });
+
+  return {
+    ok: true,
+    message: 'Đã tạo phiếu nhập hoàn trả ' + String(importReceipt.maphieu || '') + '. Vui lòng vào Nhập kho để xác nhận.',
+    receiptId: importReceipt._id,
+    data: {
+      importReceiptCode: String(importReceipt.maphieu || ''),
+      exportReceiptCode: String(exportReceipt.maphieu || ''),
+      orderCode: String(order.madonhang || '')
+    }
+  };
+}
+
+async function xacNhanNhapKhoPhieuNhapHoanTra({ receiptId, actor = null }) {
+  const rawReceiptId = String(receiptId || '').trim();
+  if (!mongoose.Types.ObjectId.isValid(rawReceiptId)) {
+    return { ok: false, message: 'ID phiếu nhập không hợp lệ' };
+  }
+
+  let result = null;
+  let sidecarPayload = null;
+
+  try {
+    result = await chayVoiTransactionNeuHoTro(async (session) => {
+      const importReceipt = await ganSessionNeuCo(PhieuNhapKho.findOne({
+        _id: rawReceiptId,
+        loaiphieu: 'return'
+      }), session);
+      if (!importReceipt) throw new Error('Không tìm thấy phiếu nhập hoàn trả');
+
+      if (importReceipt.daxuatkho) {
+        return {
+          ok: true,
+          message: 'Phiếu nhập hoàn trả đã được xác nhận trước đó.',
+          receiptId: importReceipt._id
+        };
+      }
+
+      const orderAfterRefund = await ganSessionNeuCo(Donhang.findOne({ _id: importReceipt.donhang_id, daxoa: { $ne: true } }), session);
+      if (orderAfterRefund && String(orderAfterRefund.trangthai || '') !== 'refunded') {
+        throw new Error('Đơn hàng chưa hoàn tiền nên chưa thể nhập kho hàng hoàn.');
+      }
+
+      const receiptDetails = Array.isArray(importReceipt.chitiet) ? importReceipt.chitiet : [];
+      if (!receiptDetails.length) throw new Error('Phiếu nhập hoàn trả không có chi tiết sản phẩm.');
+
+      const nowStockSync = new Date();
+      const returnLotDocs = receiptDetails.map((item) => ({
+        phieunhap_id: importReceipt._id,
+        maphieunhap: String(importReceipt.maphieu || importReceipt.ma_phieu || importReceipt.code || ''),
+        ngaynhap: importReceipt.ngaynhap || nowStockSync,
+        nhacungcap: String(importReceipt.nhacungcap || 'Khách trả hàng'),
+        sanphamid: item.sanphamid,
+        bientheid: item.bientheid || null,
+        kichco: String(item.kichco || ''),
+        mausac: String(item.mausac || ''),
+        gianhap: Number(item.gianhap || 0),
+        giabandexuat: Number(item.giabandexuat || 0),
+        soluongnhap: Number(item.soluong || 0),
+        soluongconlai: Number(item.soluong || 0),
+        ngaytao: nowStockSync,
+        ngaycapnhat: nowStockSync
+      })).filter((lot) => Number(lot.soluongnhap || 0) > 0);
+      if (returnLotDocs.length) {
+        await TonKhoLo.insertMany(returnLotDocs, taoSessionOptions(session));
+      }
+
+      const stockProductIds = Array.from(new Set(receiptDetails
+        .map((item) => String(item.sanphamid || ''))
+        .filter((itemId) => mongoose.Types.ObjectId.isValid(itemId))));
+      const stockProductDocs = await ganSessionNeuCo(Sanpham.find({ _id: { $in: stockProductIds } }), session);
+      const stockProductMap = new Map(stockProductDocs.map((productDoc) => [String(productDoc._id), productDoc]));
+
+      for (const detail of receiptDetails) {
+        const productDoc = stockProductMap.get(String(detail.sanphamid || ''));
+        if (!productDoc) continue;
+        congTonChoDongTraHang(productDoc, {
+          variantId: detail.bientheid,
+          size: detail.kichco,
+          qty: detail.soluong,
+          mausac: detail.mausac
+        });
+      }
+
+      for (const productDoc of stockProductDocs) {
+        productDoc.soluongton = tinhTongTon(productDoc);
+        productDoc.ngaycapnhat = nowStockSync;
+        await productDoc.save(taoSessionOptions(session));
+      }
+
+      importReceipt.daxuatkho = true;
+      importReceipt.ngayxuatkho = nowStockSync;
+      importReceipt.nguoixuatkho = actor?._id || null;
+      importReceipt.ngaycapnhat = nowStockSync;
+      await importReceipt.save(taoSessionOptions(session));
+
+      return {
+        ok: true,
+        message: 'Đã xác nhận nhập kho phiếu hoàn trả ' + String(importReceipt.maphieu || '') + '.',
+        receiptId: importReceipt._id,
+        data: {
+          importReceiptCode: String(importReceipt.maphieu || ''),
+          orderCode: String(orderAfterRefund?.madonhang || '')
+        }
+      };
+      return;
+
+      const order = await Donhang.findOne({ _id: importReceipt.donhang_id, daxoa: { $ne: true } }).session(session);
+      if (!order) throw new Error('Không tìm thấy đơn hàng của phiếu nhập hoàn trả');
+      await ganThongTinHoanHangChoDon(order);
+
+      const exportReceipt = await PhieuXuatKho.findOne({ _id: importReceipt.phieuxuat_id || undefined, donhang_id: order._id }).session(session)
+        || await PhieuXuatKho.findOne({ donhang_id: order._id }).session(session);
+      if (!exportReceipt) throw new Error('Không tìm thấy phiếu xuất kho của đơn hàng này');
+
+      const orderItems = await Chitietdonhang.find({ donhang_id: order._id }).session(session).lean();
+      if (!Array.isArray(orderItems) || orderItems.length === 0) {
+        throw new Error('Đơn hàng không có sản phẩm để hoàn trả');
+      }
+
+      const requestedRows = suyRaDanhSachHoanTheoChiTietPhieuNhap(
+        orderItems,
+        importReceipt.chitiet || []
+      );
+
+      const plan = await lapKeHoachNhapKhoHoanTra({
+        order,
+        exportReceipt,
+        orderItems,
+        requestedRows
+      });
+      if (!plan.ok) throw new Error(plan.message || 'không thể lập kế hoạch nhập kho hoàn trả');
+
+      const now = new Date();
+      const lotDocs = plan.importDetails.map((item) => ({
+        phieunhap_id: importReceipt._id,
+        maphieunhap: String(importReceipt.maphieu || importReceipt.ma_phieu || importReceipt.code || ''),
+        ngaynhap: importReceipt.ngaynhap || now,
+        nhacungcap: String(importReceipt.nhacungcap || 'Khách trả hàng'),
+        sanphamid: item.sanphamid,
+        bientheid: item.bientheid || null,
+        kichco: String(item.kichco || ''),
+        mausac: String(item.mausac || ''),
+        gianhap: Number(item.gianhap || 0),
+        giabandexuat: Number(item.giabandexuat || 0),
+        soluongnhap: Number(item.soluong || 0),
+        soluongconlai: Number(item.soluong || 0),
+        ngaytao: now,
+        ngaycapnhat: now
+      })).filter((lot) => Number(lot.soluongnhap || 0) > 0);
+      if (lotDocs.length) {
+        await TonKhoLo.insertMany(lotDocs, { session });
+      }
+
+      const productIds = Array.from(new Set(plan.importDetails
+        .map((item) => String(item.sanphamid || ''))
+        .filter((itemId) => mongoose.Types.ObjectId.isValid(itemId))));
+      const productDocs = await Sanpham.find({ _id: { $in: productIds } }).session(session);
+      const productMap = new Map(productDocs.map((productDoc) => [String(productDoc._id), productDoc]));
+
+      for (const detail of plan.importDetails) {
+        const productDoc = productMap.get(String(detail.sanphamid || ''));
+        if (!productDoc) continue;
+        congTonChoDongTraHang(productDoc, {
+          variantId: detail.bientheid,
+          size: detail.kichco,
+          qty: detail.soluong,
+          mausac: detail.mausac
+        });
+      }
+
+      for (const productDoc of productDocs) {
+        productDoc.soluongton = tinhTongTon(productDoc);
+        productDoc.ngaycapnhat = now;
+        await productDoc.save({ session });
+      }
+
+      let tongGiamDoanhThu = 0;
+      let tongGiamGiaVon = 0;
+      let tongGiamLoiNhuan = 0;
+      let tongSoLuongTra = 0;
+
+      for (const allocation of plan.allocations) {
+        const line = allocation.exportLine;
+        line.soluonghoan = toNumber(line.soluonghoan, 0) + allocation.qty;
+        line.doanhthuhoan = toNumber(line.doanhthuhoan, 0) + allocation.returnDoanhThu;
+        line.giavonhoan = toNumber(line.giavonhoan, 0) + allocation.returnGiaVon;
+        line.loinhuanhoan = toNumber(line.loinhuanhoan, 0) + allocation.returnLoiNhuan;
+        if (allocation.exportAllocation) {
+          allocation.exportAllocation.soluonghoan = toNumber(allocation.exportAllocation.soluonghoan, 0) + allocation.qty;
+        }
+
+        tongGiamDoanhThu += allocation.returnDoanhThu;
+        tongGiamGiaVon += allocation.returnGiaVon;
+        tongGiamLoiNhuan += allocation.returnLoiNhuan;
+        tongSoLuongTra += allocation.qty;
+      }
+
+      exportReceipt.tongdoanhthuhoan = toNumber(exportReceipt.tongdoanhthuhoan, 0) + tongGiamDoanhThu;
+      exportReceipt.tonggiavonhoan = toNumber(exportReceipt.tonggiavonhoan, 0) + tongGiamGiaVon;
+      exportReceipt.tongloinhuanhoan = toNumber(exportReceipt.tongloinhuanhoan, 0) + tongGiamLoiNhuan;
+      exportReceipt.tongdoanhthu = Math.max(0, toNumber(exportReceipt.tongdoanhthu, 0) - tongGiamDoanhThu);
+      exportReceipt.tonggiavon = Math.max(0, toNumber(exportReceipt.tonggiavon, 0) - tongGiamGiaVon);
+      exportReceipt.tongloinhuan = toNumber(exportReceipt.tongdoanhthu, 0) - toNumber(exportReceipt.tonggiavon, 0);
+      exportReceipt.tysuatloinhuan = tinhTySuatLoiNhuan({
+        doanhThu: exportReceipt.tongdoanhthu,
+        loiNhuan: exportReceipt.tongloinhuan
+      });
+      exportReceipt.ngaycapnhat = now;
+      await exportReceipt.save({ session });
+
+      const allReturned = (exportReceipt.chitiet || []).every((line) => {
+        const exportedQty = toPositiveInt(line.soluong, 0);
+        const returnedQty = toPositiveInt(line.soluonghoan, 0);
+        return returnedQty >= exportedQty;
+      });
+
+      const keepRefundedStatus = String(order.trangthai || '') === 'refunded';
+      const previousStatus = String(order.trangthai || '');
+      const tongGiamDoanhThuLuyKe = toNumber(order.tonggiamdoanhthu_hoantra, 0) + tongGiamDoanhThu;
+      order.tamtinh = Math.max(0, toNumber(order.tamtinh, 0) - tongGiamDoanhThu);
+      order.tongtien = Math.max(0, toNumber(order.tongtien, 0) - tongGiamDoanhThu);
+      order.tonggiamdoanhthu_hoantra = tongGiamDoanhThuLuyKe;
+      order.tonggiamloinhuan_hoantra = toNumber(order.tonggiamloinhuan_hoantra, 0) + tongGiamLoiNhuan;
+      order.tongsoluong_hoantra = toPositiveInt(order.tongsoluong_hoantra, 0) + tongSoLuongTra;
+      order.trangthai = keepRefundedStatus
+        ? 'refunded'
+        : (allReturned ? 'returned_full' : 'returned_partial');
+      order.ngaycapnhat = now;
+      order.yeucauhoanhang = {
+        ...(order.yeucauhoanhang || {}),
+        returnedAt: now,
+        refundAmount: tongGiamDoanhThuLuyKe
+      };
+      await order.save({ session });
+
+      importReceipt.chitiet = plan.importDetails;
+      importReceipt.tongtiennhap = plan.tongTienNhap;
+      importReceipt.daxuatkho = true;
+      importReceipt.ngayxuatkho = now;
+      importReceipt.nguoixuatkho = actor?._id || null;
+      importReceipt.ngaycapnhat = now;
+      await importReceipt.save({ session });
+
+      sidecarPayload = {
+        order: {
+          _id: order._id,
+          nguoidung_id: order.nguoidung_id,
+          madonhang: order.madonhang,
+          trangthai: order.trangthai,
+          yeucauhoanhang: order.yeucauhoanhang
+        },
+        previousStatus,
+        nextStatus: String(order.trangthai || ''),
+        allReturned,
+        refundAmount: tongGiamDoanhThuLuyKe
+      };
+
+      const statusLabel = allReturned ? 'đã trả hàng' : 'trả hàng một phần';
+      result = {
+        ok: true,
+        message: 'Đã xác nhận nhập kho phiếu hoàn trả ' + String(importReceipt.maphieu || '') + ' (' + statusLabel + ').',
+        receiptId: importReceipt._id,
+        data: {
+          importReceiptCode: String(importReceipt.maphieu || ''),
+          exportReceiptCode: String(exportReceipt.maphieu || ''),
+          orderCode: String(order.madonhang || ''),
+          allReturned
+        }
+      };
+    }, 'return import confirm transaction');
+  } catch (error) {
+    result = { ok: false, message: error && error.message ? error.message : 'Không thể xác nhận nhập kho hoàn trả.' };
+  }
+
+  if (result && result.ok && sidecarPayload) {
+    await dongBoSidecarAnToan('return receive sidecar sync', async () => {
+      await dongBoYeuCauHoanHangTuDon({
+        order: sidecarPayload.order,
+        action: 'system_received_return_goods',
+        actor
+      });
+      await ghiNhanLichSuTrangThaiDonHang({
+        order: sidecarPayload.order,
+        previousStatus: sidecarPayload.previousStatus,
+        nextStatus: sidecarPayload.nextStatus,
+        action: 'system_received_return_goods',
+        actor,
+        metadata: {
+          allReturned: sidecarPayload.allReturned,
+          refundAmount: sidecarPayload.refundAmount
+        }
+      });
+    });
+  }
+
+  return result || { ok: false, message: 'Không thể xác nhận nhập kho hoàn trả.' };
+}
+
 module.exports = {
-  dongBoNhapKhoHoanTra
+  dongBoNhapKhoHoanTra,
+  taoPhieuNhapHoanTraSauHoanTien,
+  xacNhanNhapKhoPhieuNhapHoanTra
 };

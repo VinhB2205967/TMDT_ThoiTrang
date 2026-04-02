@@ -404,6 +404,121 @@ async function truTonTheoItem(item) {
     fifoApplied: fifoAllocations.length > 0
   };
 }
+
+async function hoanTonTheoItem(item, inventoryResult = {}) {
+  const idsanpham = item.sanpham_id;
+  const idbienthe = item.bienthe_id;
+  const kichco = item.kichco;
+  const soluong = Math.max(1, Number(item.soluong || 1));
+
+  const sanphamdoc = await sanpham.findById(idsanpham);
+  if (!sanphamdoc) return;
+
+  const tonggoc = (typeof sanphamdoc.soluongton === 'number') ? sanphamdoc.soluongton : tinhTongTon(sanphamdoc);
+  const cosize = !laLoaiKhongSize(sanphamdoc.loaisanpham);
+
+  if (!idbienthe) {
+    if (cosize) {
+      sanphamdoc.sizes = Array.isArray(sanphamdoc.sizes) ? sanphamdoc.sizes : [];
+      let dong = (sanphamdoc.sizes || []).find((s) => s.size === kichco);
+      if (!dong) {
+        sanphamdoc.sizes.push({ size: kichco, soluong });
+      } else {
+        dong.soluong = Number(dong.soluong || 0) + soluong;
+      }
+    } else {
+      sanphamdoc.soluong_chinh = Number(sanphamdoc.soluong_chinh || 0) + soluong;
+    }
+  } else {
+    const bienthe = (sanphamdoc.bienthe || []).id(idbienthe);
+    if (bienthe) {
+      if (cosize) {
+        bienthe.sizes = Array.isArray(bienthe.sizes) ? bienthe.sizes : [];
+        let dong = (bienthe.sizes || []).find((s) => s.size === kichco);
+        if (!dong) {
+          bienthe.sizes.push({ size: kichco, soluong });
+        } else {
+          dong.soluong = Number(dong.soluong || 0) + soluong;
+        }
+      } else {
+        bienthe.soluong = Number(bienthe.soluong || 0) + soluong;
+      }
+    }
+  }
+
+  sanphamdoc.soluongton = Math.max(0, tonggoc + soluong);
+  await sanphamdoc.save();
+
+  const fifoAllocations = Array.isArray(inventoryResult?.fifoAllocations) ? inventoryResult.fifoAllocations : [];
+  for (const alloc of fifoAllocations) {
+    const lotId = String(alloc?.lotId || '').trim();
+    const soLuong = Math.max(0, Number(alloc?.soLuong || 0));
+    if (!lotId || soLuong <= 0 || !mongoose.Types.ObjectId.isValid(lotId)) continue;
+
+    await TonKhoLo.updateOne(
+      { _id: new mongoose.Types.ObjectId(lotId) },
+      {
+        $inc: { soluongconlai: soLuong },
+        $set: { ngaycapnhat: new Date() }
+      }
+    ).catch(() => {});
+  }
+}
+
+async function kiemTraTonKhoDatHang(items = []) {
+  const rows = Array.isArray(items) ? items : [];
+  if (!rows.length) return { ok: true };
+
+  const grouped = new Map();
+  for (const item of rows) {
+    const productId = String(item?.sanpham_id || '').trim();
+    const variantId = String(item?.bienthe_id || '').trim();
+    const sizeKey = String(item?.kichco || '').trim();
+    const qty = Math.max(1, Number(item?.soluong || 1));
+    const key = `${productId}|${variantId}|${sizeKey}`;
+    const current = grouped.get(key) || { item, qty: 0 };
+    current.qty += qty;
+    grouped.set(key, current);
+  }
+
+  for (const { item, qty } of grouped.values()) {
+    const productId = String(item?.sanpham_id || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return { ok: false, message: 'San pham khong hop le.' };
+    }
+
+    const sanphamdoc = await sanpham.findOne({
+      _id: productId,
+      daxoa: { $ne: true },
+      trangthai: 'dangban'
+    });
+
+    if (!sanphamdoc) {
+      return {
+        ok: false,
+        message: `San pham "${item?.tensanpham || 'Khong xac dinh'}" khong con ban.`
+      };
+    }
+
+    const ketqua = layBienTheVaTon(sanphamdoc, item?.bienthe_id, item?.kichco);
+    if (ketqua?.error) {
+      return {
+        ok: false,
+        message: ketqua.error
+      };
+    }
+
+    const tonkho = Math.max(0, Number(ketqua?.stock || 0));
+    if (tonkho < qty) {
+      return {
+        ok: false,
+        message: `San pham "${item?.tensanpham || sanphamdoc.tensanpham || 'Khong xac dinh'}" khong du hang.`
+      };
+    }
+  }
+
+  return { ok: true };
+}
 // hàm chuẩn hóa vùng giao hàng, nếu vùng không hợp lệ thì trả về vùng mặc định, nếu có cấu hình vùng giao hàng thì kiểm tra và trả về vùng hợp lệ, nếu không có cấu hình thì trả về 'noithanh' làm mặc định
 function normalizeShippingRegion(raw) {
   const key = String(raw || '').trim().toLowerCase();
@@ -424,6 +539,8 @@ module.exports = {
   tinhTongTienGio,
   dongBoGiaGioHang,
   truTonTheoItem,
+  hoanTonTheoItem,
+  kiemTraTonKhoDatHang,
   normalizeShippingRegion,
   calcShippingFee
 };

@@ -15,15 +15,44 @@ const storage = multer.diskStorage({
     }
 });
 
-const upload = multer({ 
+const IMAGE_EXTENSIONS = /jpeg|jpg|png|gif|webp/;
+const VIDEO_EXTENSIONS = /mp4|webm|ogg|mov|m4v/;
+
+function isImageFile(file) {
+    const extname = IMAGE_EXTENSIONS.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = /^image\/(jpeg|jpg|png|gif|webp)$/i.test(String(file.mimetype || ''));
+    return extname && mimetype;
+}
+
+function isDescriptionMediaFile(file) {
+    const extension = path.extname(file.originalname).toLowerCase();
+    const mimetype = String(file.mimetype || '').toLowerCase();
+
+    if (IMAGE_EXTENSIONS.test(extension) && /^image\/(jpeg|jpg|png|gif|webp)$/i.test(mimetype)) {
+        return true;
+    }
+
+    if (VIDEO_EXTENSIONS.test(extension) && /^(video\/mp4|video\/webm|video\/ogg|video\/quicktime|video\/x-m4v)$/i.test(mimetype)) {
+        return true;
+    }
+
+    return false;
+}
+
+const upload = multer({
     storage: storage,
     fileFilter: function (req, file, cb) {
-        const filetypes = /jpeg|jpg|png|gif|webp/;
-        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-        const mimetype = filetypes.test(file.mimetype);
-        if (mimetype && extname) {
+        if (file.fieldname === 'mota_media_uploads') {
+            if (isDescriptionMediaFile(file)) {
+                return cb(null, true);
+            }
+            return cb(new Error('Chỉ cho phép chèn ảnh hoặc video hợp lệ trong nội dung mô tả!'));
+        }
+
+        if (isImageFile(file)) {
             return cb(null, true);
         }
+
         cb(new Error('Chỉ cho phép upload file ảnh!'));
     }
 });
@@ -32,7 +61,8 @@ const upload = multer({
 const uploadFields = upload.fields([
     { name: 'hinhanh', maxCount: 1 },
     { name: 'mota_hinhanh', maxCount: 1 },
-    { name: 'bienthe_hinhanh', maxCount: 20 }
+    { name: 'bienthe_hinhanh', maxCount: 20 },
+    { name: 'mota_media_uploads', maxCount: 20 }
 ]);
 
 // Routes

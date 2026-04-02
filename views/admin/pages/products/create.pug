@@ -1,5 +1,9 @@
 extends ../../layouts/default.pug
 
+block styles
+    link(rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css")
+    link(rel="stylesheet" href="/admin/css/product-editor.css")
+
 block main
     .page-header-section.orders-header
         .d-flex.justify-content-between.align-items-center.flex-wrap.gap-2
@@ -16,7 +20,6 @@ block main
         form(action=createActionUrl method="POST" enctype="multipart/form-data")
             input(type="hidden" name="_csrf" value=csrfToken)
             .row.g-4
-                //- Cột trái - Thông tin cơ bản
                 .col-lg-8
                     .card.mb-4
                         .card-header.bg-primary.text-white
@@ -26,28 +29,34 @@ block main
                             .mb-3
                                 label.form-label.fw-bold Tên sản phẩm *
                                 input.form-control(type="text" name="tensanpham" required placeholder="Nhập tên sản phẩm...")
-                            
+
                             .mb-3
                                 label.form-label.fw-bold Mô tả
-                                textarea.form-control(name="mota" rows="4" placeholder="Mô tả chi tiết sản phẩm...")
+                                .product-rich-editor-card
+                                    .product-rich-editor-toolbar#productDescriptionToolbar
+                                    #productDescriptionEditor.product-rich-editor(data-placeholder="Viết mô tả sản phẩm, chèn ảnh/video theo đúng thứ tự hiển thị...")
+                                textarea#productDescriptionInput.d-none(name="mota" rows="4" data-richtext="quill" placeholder="Mô tả chi tiết sản phẩm...")
+                                input#productDescriptionMediaTokens(type="hidden" name="mota_media_tokens" value="[]")
+                                input#productDescriptionMediaInput(type="file" name="mota_media_uploads" accept="image/*,video/*" multiple hidden)
+                                small.text-muted.d-block.mt-2 Dùng thanh công cụ để chèn ảnh/video, nội dung sẽ hiển thị như một bài viết ở trang chi tiết sản phẩm.
 
                             .mb-3
                                 label.form-label.fw-bold Ảnh mô tả sản phẩm
                                 input.form-control(type="file" name="mota_hinhanh" accept="image/*")
-                                small.text-muted Chèn ảnh minh họa hiển thị trong phần mô tả ở trang chi tiết sản phẩm
-                            
+                                small.text-muted Chèn ảnh minh họa hiển thị trước phần nội dung mô tả ở trang chi tiết sản phẩm.
+
                             .row.g-3
                                 .col-md-6
                                     label.form-label.fw-bold Giá gốc (₫)
                                     input.form-control(type="number" name="gia" min="0" placeholder="Để trống, sẽ cập nhật từ phiếu nhập")
-                                
+
                                 .col-md-6
                                     label.form-label.fw-bold Giảm giá (%)
                                     input.form-control(type="number" name="phantramgiamgia" min="0" max="100" value="0" placeholder="0")
 
                             .mt-2
                                 small.text-muted Giá sản phẩm chính và biến thể có thể cập nhật tự động từ phiếu nhập kho, không bắt buộc nhập tại form này.
-                            
+
                             .row.g-3.mt-2
                                 .col-12
                                     .alert.alert-info.mb-0.py-2
@@ -57,7 +66,7 @@ block main
                                                 strong Tổng số lượng tồn kho:
                                             span.fs-5.fw-bold#tongsoluong 0
                                         input(type="hidden" name="soluongton" id="soluongton" value="0")
-                    
+
                     .card
                         .card-header.bg-info.text-white
                             i.bi.bi-tags.me-2
@@ -70,14 +79,14 @@ block main
                                         option(value="unisex") Unisex
                                         option(value="nam") Nam
                                         option(value="nu") Nữ
-                                
+
                                 .col-md-4
                                     label.form-label.fw-bold Loại sản phẩm
                                     select#loaisanpham.form-select(name="loaisanpham" onchange="doiHienThiSize()")
                                         option(value="") -- Chọn loại sản phẩm --
                                         each c in (categoryOptions || [])
                                             option(value=c.slug) #{c.name}
-                                
+
                                 .col-md-4
                                     label.form-label.fw-bold Trạng thái
                                     select.form-select(name="trangthai")
@@ -124,42 +133,26 @@ block main
                                         each sg in (sizeGuideOptions || [])
                                             option(value=sg._id data-loai=sg.loaisanpham) #{sg.tenbang} (#{sg.loaisanpham.toUpperCase()})
                                     small.text-muted Khi để tự động, hệ thống sẽ lấy bảng size phù hợp theo loại sản phẩm.
-                            
+
                             .mt-3
                                 label.form-label.fw-bold Màu sắc sản phẩm chính
                                 input.form-control(type="text" name="mausac_chinh" placeholder="VD: Đen, Trắng, Xanh...")
-                                small.text-muted Màu sắc đại diện cho ảnh sản phẩm
-                            
+                                small.text-muted Màu sắc đại diện cho ảnh sản phẩm.
+
                             #baseSizeSection.mt-3
                                 label.form-label.fw-bold Size chung (không theo biến thể)
                                 small.text-muted.d-block.mb-2 Số lượng tồn kho được quản lý qua phiếu nhập/xuất kho (FIFO), không nhập trực tiếp tại đây.
                                 .row.g-2
-                                    .col-4.col-md-2
-                                        label.form-label.small XS
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XS" min="0" value="0" readonly disabled)
-                                    .col-4.col-md-2
-                                        label.form-label.small S
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_S" min="0" value="0" readonly disabled)
-                                    .col-4.col-md-2
-                                        label.form-label.small M
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_M" min="0" value="0" readonly disabled)
-                                    .col-4.col-md-2
-                                        label.form-label.small L
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_L" min="0" value="0" readonly disabled)
-                                    .col-4.col-md-2
-                                        label.form-label.small XL
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XL" min="0" value="0" readonly disabled)
-                                    .col-4.col-md-2
-                                        label.form-label.small XXL
-                                        input.form-control.form-control-sm.base-size-qty(type="number" name="size_XXL" min="0" value="0" readonly disabled)
-                            
-                            //- Số lượng chung (cho sản phẩm không có size như Túi, Phụ kiện)
+                                    each sizeCode in ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+                                        .col-4.col-md-2
+                                            label.form-label.small #{sizeCode}
+                                            input.form-control.form-control-sm.base-size-qty(type="number" name=`size_${sizeCode}` min="0" value="0" readonly disabled)
+
                             #baseQtySection.mt-3(style="display:none")
                                 label.form-label.fw-bold Số lượng sản phẩm
                                 input.form-control.base-direct-qty(type="number" name="soluong_chinh" min="0" value="0" readonly disabled)
                                 small.text-muted Số lượng cho sản phẩm được quản lý bằng nhập/xuất kho.
-                    
-                    //- Card biến thể
+
                     .card.mt-4
                         .card-header.bg-secondary.text-white.d-flex.justify-content-between.align-items-center
                             span
@@ -170,12 +163,10 @@ block main
                                 | Thêm
                         .card-body
                             #variants-container
-                                //- Biến thể sẽ được thêm bằng JavaScript
                             .text-muted.small.text-center#no-variant-msg
                                 i.bi.bi-info-circle.me-1
                                 | Nhấn "Thêm" để thêm biến thể màu sắc
-                
-                //- Cột phải - Hình ảnh
+
                 .col-lg-4
                     .card
                         .card-header.bg-success.text-white
@@ -184,10 +175,10 @@ block main
                         .card-body.text-center
                             .mb-3
                                 img#preview-image.img-fluid.rounded.mb-3(src="/images/shopping.png" alt="Preview" style="max-height: 250px; object-fit: cover;")
-                            
+
                             input.form-control(type="file" name="hinhanh" accept="image/*" onchange="xemTruocAnh(this)")
                             small.text-muted.d-block.mt-2 Chấp nhận: JPG, PNG, GIF, WEBP
-                    
+
                     .card.mt-4
                         .card-body
                             .d-grid.gap-2
@@ -199,11 +190,11 @@ block main
                                     | Hủy bỏ
 
 block scripts
+    script(src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js")
+    script(src="/admin/js/product-rich-editor.js")
     script(src="/admin/js/products.js")
     script.
-        // Khởi tạo variantIndex cho trang create
         khoiTaoChiSoBienThe(0);
-        // Kiểm tra loại sản phẩm khi load trang
         document.addEventListener('DOMContentLoaded', function() {
             doiHienThiSize();
         });

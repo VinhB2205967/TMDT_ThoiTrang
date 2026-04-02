@@ -88,7 +88,8 @@ module.exports.duyetHoanHang = async (req, res) => {
   try {
     const result = await ordersAdminService.duyetHoanHang({
       id: req.params.id,
-      note: req.body.note || req.body.adminNote
+      note: req.body.note || req.body.adminNote,
+      actor: req.adminUser || req.user || null
     });
     adminControllerService.flashKetQua(req, result, ordersAdminService.xacDinhLoaiFlashKetQua);
   } catch (err) {
@@ -104,7 +105,8 @@ module.exports.tuChoiHoanHang = async (req, res) => {
   try {
     const result = await ordersAdminService.tuChoiHoanHang({
       id: req.params.id,
-      note: req.body.note || req.body.adminNote
+      note: req.body.note || req.body.adminNote,
+      actor: req.adminUser || req.user || null
     });
     adminControllerService.flashKetQua(req, result, ordersAdminService.xacDinhLoaiFlashKetQua);
   } catch (err) {
@@ -135,7 +137,7 @@ module.exports.xacNhanDaNhanHangHoan = async (req, res) => {
 module.exports.hoanTienDon = async (req, res) => {
   const redirectUrl = adminControllerService.taoDuongDanChiTietDon(req, req.params.id);
   try {
-    const result = await ordersAdminService.hoanTienDon(req.params.id);
+    const result = await ordersAdminService.hoanTienDon(req.params.id, req.adminUser || req.user || null);
     adminControllerService.flashKetQua(req, result, ordersAdminService.xacDinhLoaiFlashKetQua);
   } catch (err) {
     console.error('hoanTienDon error:', err);

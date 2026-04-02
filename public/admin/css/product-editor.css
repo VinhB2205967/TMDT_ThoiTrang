@@ -1,0 +1,60 @@
+.product-rich-editor-card {
+    border: 1px solid #d7def0;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 10px 24px rgba(48, 74, 147, 0.08);
+}
+
+.product-rich-editor-toolbar {
+    border-bottom: 1px solid #e5ebf7;
+    background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
+}
+
+.product-rich-editor .ql-editor {
+    min-height: 280px;
+    font-size: 15px;
+    line-height: 1.8;
+    color: #25324a;
+}
+
+.product-rich-editor .ql-editor.ql-blank::before {
+    color: #8c96ab;
+    font-style: normal;
+}
+
+.product-rich-editor .ql-editor p,
+.product-rich-editor .ql-editor ul,
+.product-rich-editor .ql-editor ol,
+.product-rich-editor .ql-editor blockquote,
+.product-rich-editor .ql-editor h1,
+.product-rich-editor .ql-editor h2,
+.product-rich-editor .ql-editor h3 {
+    margin-bottom: 0.9rem;
+}
+
+.product-rich-editor .ql-editor img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 14px;
+    margin: 1rem auto;
+}
+
+.product-rich-editor .ql-editor video {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 14px;
+    background: #111;
+    margin: 1rem 0;
+}
+
+.product-rich-editor .ql-editor .product-rich-video {
+    margin: 1rem 0;
+}
+
+.product-rich-editor .ql-container.ql-snow,
+.product-rich-editor-toolbar.ql-snow {
+    border: 0;
+}

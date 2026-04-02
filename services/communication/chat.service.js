@@ -50,7 +50,7 @@ async function taoTin({
   const mediaType = media && media.type ? String(media.type).trim() : '';
 
   if (!clientObjectId || !senderObjectId || (!text && !mediaUrl)) {
-    throw new Error('Du lieu tin nhan khong hop le');
+    throw new Error('Dữ liệu tin nhắn không hợp lệ  (clientId, senderId, content/mediaUrl)');
   }
 
   const created = await ChatMessage.create({
@@ -226,12 +226,12 @@ async function layTomTatHoiThoaiAdmin({ query = '' } = {}) {
     const mediaFallback = item.lastMediaType === 'video'
       ? '[Video]'
       : item.lastMediaType === 'image'
-        ? '[Hinh anh]'
+        ? '[Hình ảnh]'
         : '';
 
     return {
       clientId,
-      userName: item.user && item.user.hoten ? item.user.hoten : 'Khach hang',
+      userName: item.user && item.user.hoten ? item.user.hoten : 'Khách hàng',
       userEmail: item.user && item.user.email ? item.user.email : '',
       userPhone: item.user && item.user.sodienthoai ? item.user.sodienthoai : '',
       avatar: item.user && item.user.avatar ? item.user.avatar : '/images/avatar/avatar.png',
@@ -268,7 +268,7 @@ async function layUserCoBan(userId) {
   if (!user) return null;
   return {
     userId: String(user._id),
-    userName: user.hoten || 'Khach hang',
+    userName: user.hoten || 'Khách hàng',
     userEmail: user.email || '',
     avatar: user.avatar || '/images/avatar/avatar.png'
   };

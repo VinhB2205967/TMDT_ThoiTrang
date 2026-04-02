@@ -3,6 +3,7 @@ const Donhang = require('../../models/order_model');
 const Sanpham = require('../../models/product_model');
 const PhieuNhapKho = require('../../models/import_receipt_model');
 const PhieuXuatKho = require('../../models/export_receipt_model');
+const { ganThongTinHoanHangChoDanhSachDon } = require('../order/order-sidecar.service.js');
 const { nhantrangthai, layTrangThaiChoPhep } = require('../../helpers/orderStatus');
 
 const STATUS_CHOICES = layTrangThaiChoPhep();
@@ -644,8 +645,9 @@ async function getDuLieuBaoCao(query = {}) {
 
   const orderMatch = buildOrderMatch(filters, range);
   const orders = await Donhang.find(orderMatch)
-    .select('_id madonhang ngaytao trangthai tennguoinhan tongtien giamgia phivanchuyen tonggiamdoanhthu_hoantra tonggiamloinhuan_hoantra tongsoluong_hoantra yeucauhoanhang.requestedItems')
+    .select('_id madonhang ngaytao trangthai tennguoinhan tongtien giamgia phivanchuyen tonggiamdoanhthu_hoantra tonggiamloinhuan_hoantra tongsoluong_hoantra')
     .lean();
+  await ganThongTinHoanHangChoDanhSachDon(orders);
 
   const orderMap = new Map();
   orders.forEach((order) => {
