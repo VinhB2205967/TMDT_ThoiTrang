@@ -5,6 +5,10 @@ function normalizeCode(raw) {
   return String(raw || '').trim().toUpperCase();
 }
 
+function withSession(session, options = {}) {
+  return session ? { ...options, session } : { ...options };
+}
+
 function isDateInRange(now, start, end) {
   const nowDate = new Date(now);
   const nowTime = nowDate.getTime();
@@ -89,7 +93,7 @@ async function validateVoucherForOrder({ code, userId, orderTotal }) {
   return { ok: true, voucher, discount };
 }
 
-async function reserveVoucherUsage(voucherId) {
+async function reserveVoucherUsage(voucherId, { session } = {}) {
   const result = await Coupon.updateOne(
     {
       _id: voucherId,
@@ -99,43 +103,54 @@ async function reserveVoucherUsage(voucherId) {
         { $expr: { $lt: ['$soluong_dasudung', '$soluong_toida'] } }
       ]
     },
-    { $inc: { soluong_dasudung: 1 }, $set: { ngaycapnhat: new Date() } }
+    { $inc: { soluong_dasudung: 1 }, $set: { ngaycapnhat: new Date() } },
+    withSession(session)
   );
 
   const modified = Number(result?.modifiedCount || result?.nModified || 0);
   return modified > 0;
 }
 
-async function releaseVoucherUsage(voucherId) {
+async function releaseVoucherUsage(voucherId, { session } = {}) {
   await Coupon.updateOne(
     { _id: voucherId, soluong_dasudung: { $gt: 0 } },
-    { $inc: { soluong_dasudung: -1 }, $set: { ngaycapnhat: new Date() } }
+    { $inc: { soluong_dasudung: -1 }, $set: { ngaycapnhat: new Date() } },
+    withSession(session)
   );
 }
 
-async function markVoucherUsed({ voucherId, userId }) {
+async function markVoucherUsed({ voucherId, userId }, { session } = {}) {
   if (!voucherId || !userId) return;
   await UserVoucher.findOneAndUpdate(
     { nguoidung_id: userId, voucher_id: voucherId },
     { $set: { isUsed: true, usedAt: new Date(), savedAt: new Date() } },
-    { upsert: true, new: true }
+    withSession(session, { upsert: true, new: true })
   );
 }
 
-async function unmarkVoucherUsed({ voucherId, userId }) {
+async function unmarkVoucherUsed({ voucherId, userId }, { session } = {}) {
   if (!voucherId || !userId) return;
   await UserVoucher.updateOne(
     { nguoidung_id: userId, voucher_id: voucherId },
-    { $set: { isUsed: false, usedAt: null, savedAt: new Date() } }
+    { $set: { isUsed: false, usedAt: null, savedAt: new Date() } },
+    withSession(session)
   );
 }
 
-async function saveVoucher({ voucherId, userId }) {
+async function restoreVoucherUsageForUser({ voucherId, userId }, { session } = {}) {
+  if (!voucherId) return;
+  if (userId) {
+    await unmarkVoucherUsed({ voucherId, userId }, { session });
+  }
+  await releaseVoucherUsage(voucherId, { session });
+}
+
+async function saveVoucher({ voucherId, userId }, { session } = {}) {
   if (!voucherId || !userId) return;
   await UserVoucher.findOneAndUpdate(
     { nguoidung_id: userId, voucher_id: voucherId },
     { $setOnInsert: { isUsed: false, savedAt: new Date() } },
-    { upsert: true, new: true }
+    withSession(session, { upsert: true, new: true })
   );
 }
 
@@ -146,6 +161,7 @@ module.exports = {
   releaseVoucherUsage,
   markVoucherUsed,
   unmarkVoucherUsed,
+  restoreVoucherUsageForUser,
   saveVoucher
 };
 

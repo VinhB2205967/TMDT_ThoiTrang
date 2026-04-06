@@ -4,7 +4,9 @@ const crypto = require('crypto');
 const MOMO_MACDINH = {
   partnerCode: '',
   accessKey: '',
-  secretKey: ''
+  secretKey: '',
+  partnerName: 'Test',
+  storeId: 'MomoTestStore'
 };
 // Lấy giá trị môi trường với tên biến và giá trị mặc định nếu không tồn tại
 function layGiaTriMoiTruong(name, fallback = '') {
@@ -16,7 +18,9 @@ function layThongTinXacThucMoMo() {
   return {
     partnerCode: layGiaTriMoiTruong('MOMO_PARTNER_CODE', MOMO_MACDINH.partnerCode),
     accessKey: layGiaTriMoiTruong('MOMO_ACCESS_KEY', MOMO_MACDINH.accessKey),
-    secretKey: layGiaTriMoiTruong('MOMO_SECRET_KEY', MOMO_MACDINH.secretKey)
+    secretKey: layGiaTriMoiTruong('MOMO_SECRET_KEY', MOMO_MACDINH.secretKey),
+    partnerName: layGiaTriMoiTruong('MOMO_PARTNER_NAME', MOMO_MACDINH.partnerName),
+    storeId: layGiaTriMoiTruong('MOMO_STORE_ID', MOMO_MACDINH.storeId)
   };
 }
 
@@ -102,18 +106,20 @@ function kiemTraChuKyKetQuaMoMo(payload = {}) {
 // Gửi yêu cầu thanh toán đến MoMo
 function guiYeuCauMoMo(requestBody) {
   const payload = JSON.stringify(requestBody);
-//
+
   const options = {
     hostname: 'test-payment.momo.vn',
     port: 443,
     path: '/v2/gateway/api/create',
     method: 'POST',
     headers: {
+      Accept: 'application/json',
       'Content-Type': 'application/json',
+      'User-Agent': 'TMDT-ThoiTrang/1.0',
       'Content-Length': Buffer.byteLength(payload)
     }
   };
-// Trả về một Promise để xử lý kết quả bất đồng bộ
+
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
       let data = '';
@@ -124,7 +130,12 @@ function guiYeuCauMoMo(requestBody) {
           const json = JSON.parse(data || '{}');
           resolve({ status: res.statusCode, data: json });
         } catch (err) {
-          reject(err);
+          resolve({
+            status: res.statusCode,
+            data: null,
+            raw: data,
+            contentType: String(res.headers['content-type'] || '')
+          });
         }
       });
     });
@@ -206,8 +217,8 @@ function guiYeuCauTruyVan(requestBody) {
 }
 
 async function taoThanhToanMoMo({ orderId, requestId, amount, orderInfo, redirectUrl, ipnUrl, extraData = '' }) {
-  const { partnerCode, accessKey, secretKey } = layThongTinXacThucMoMo();
-  const requestType = String(process.env.MOMO_REQUEST_TYPE || 'captureWallet');
+  const { partnerCode, accessKey, secretKey, partnerName, storeId } = layThongTinXacThucMoMo();
+  const requestType = String(process.env.MOMO_REQUEST_TYPE || 'payWithMethod');
   const lang = String(process.env.MOMO_LANG || 'vi');
 
   const signature = taoSignature({
@@ -225,6 +236,8 @@ async function taoThanhToanMoMo({ orderId, requestId, amount, orderInfo, redirec
 
   const requestBody = {
     partnerCode,
+    partnerName,
+    storeId,
     accessKey,
     requestId,
     amount,
@@ -234,11 +247,19 @@ async function taoThanhToanMoMo({ orderId, requestId, amount, orderInfo, redirec
     ipnUrl,
     extraData,
     requestType,
+    autoCapture: true,
     signature,
     lang
   };
 
-  const { data } = await guiYeuCauMoMo(requestBody);
+  const { data, raw, status, contentType } = await guiYeuCauMoMo(requestBody);
+  if (!data || typeof data !== 'object') {
+    const snippet = String(raw || '').replace(/\s+/g, ' ').trim().slice(0, 180);
+    return {
+      resultCode: -1,
+      message: `MoMo khong tra ve JSON hop le (HTTP ${status || 0}${contentType ? `, ${contentType}` : ''}). Vui long kiem tra requestType, redirectUrl/ipnUrl va tai khoan sandbox.${snippet ? ` Phan hoi: ${snippet}` : ''}`
+    };
+  }
   return data;
 }
 

@@ -16,6 +16,7 @@ const loginLogSchema = new mongoose.Schema({
   },
   provider: {
     type: String,
+
     enum: ['local', 'google', 'admin'],
     default: 'local'
   },

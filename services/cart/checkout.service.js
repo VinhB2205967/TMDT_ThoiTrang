@@ -25,6 +25,8 @@ const {
   taoGiaoDichThanhToan
 } = require('../payment/payment.service.js');
 
+const MAX_ORDER_TOTAL = 50000000;
+
 async function getCheckoutPageData({ userId, itemIdsQuery }) {
   const giohang = await getOrCreateCart(userId);
   const daDongBoGia = await dongBoGiaGioHang(giohang);
@@ -217,6 +219,21 @@ async function processCheckout({ userId, body, protocol, host, headers, socketRe
     }
 
     const tongtien = Math.max(0, tamtinh - giamgia + phivanchuyen);
+    if (tongtien > MAX_ORDER_TOTAL) {
+      if (reservedVoucher && voucherDoc) {
+        await releaseVoucherUsage(voucherDoc._id).catch(() => {});
+        reservedVoucher = false;
+      }
+
+      return {
+        redirect: '/cart/checkout',
+        flash: {
+          type: 'error',
+          message: `Mỗi đơn hàng chỉ được thanh toán tối đa ${MAX_ORDER_TOTAL.toLocaleString('vi-VN')}đ.`
+        }
+      };
+    }
+
     try {
       donhangdoc = await donhang.create({
         nguoidung_id: userId,
@@ -319,7 +336,7 @@ async function processCheckout({ userId, body, protocol, host, headers, socketRe
     if (phuongthucthanhtoan === 'momo') {
       const redirectUrl = String(process.env.MOMO_REDIRECT_URL || `${protocol}://${host}/cart/momo/return`);
       const ipnUrl = String(process.env.MOMO_IPN_URL || `${protocol}://${host}/cart/momo/ipn`);
-      const orderInfo = `Thanh toán đơn hàng ${donhangdoc.madonhang || String(donhangdoc._id)}`;
+      const orderInfo = `Thanh toan don hang ${donhangdoc.madonhang || String(donhangdoc._id)}`;
       const maMoMo = `${donhangdoc._id}-${Date.now()}`;
       const extraData = Buffer.from(JSON.stringify({ orderId: String(donhangdoc._id) })).toString('base64');
       const soTienThanhToan = Math.max(0, Math.round(tongtien));

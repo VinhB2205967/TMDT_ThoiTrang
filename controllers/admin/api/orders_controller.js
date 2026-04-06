@@ -137,7 +137,8 @@ module.exports.huyDon = async (req, res) => {
   try {
     const result = await ordersAdminService.huyDon({
       id: req.params.id,
-      reason: req.body.reason || req.body.lydohuy
+      reason: req.body.reason || req.body.lydohuy,
+      actor: req.adminUser || req.user || null
     });
     return traKetQua(res, result, 'ORDER_CANCEL_FAILED');
   } catch (error) {

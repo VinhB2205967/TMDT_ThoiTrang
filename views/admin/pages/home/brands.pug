@@ -1,12 +1,12 @@
 extends ../../layouts/default.pug
 
 block main
-  .page-header-section.orders-header
+  .page-header-section.orders-header.brands-admin-header
     h1.page-title.mb-0 Quản lý Thương hiệu
 
-  .container-fluid.py-4
+  .container-fluid.py-4.brands-admin-page
     .card.mb-4
-      .card-body
+      .card-body.brands-form-card
         form#brandCreate
           .row.g-3
             .col-12.col-md-4
@@ -32,7 +32,7 @@ block main
 
     .card
       .card-body
-        table.table.table-striped.align-middle
+        table.table.table-striped.align-middle.brands-table
           thead
             tr
               th Tên

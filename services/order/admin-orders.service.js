@@ -15,6 +15,7 @@ const {
   capNhatGiaoDichThanhToan
 } = require('../payment/payment.service.js');
 const { taoHoanTienMoMo } = require('../payment/momo.service.js');
+const { restoreVoucherUsageForUser } = require('../payment/voucher.service.js');
 const {
   sendOrderConfirmedEmail,
   sendOrderDeliveredEmail
@@ -1202,19 +1203,17 @@ async function getChiTietData(id) {
       .lean()
   ]);
   const items = (itemsRaw || []).map((it) => {
-    const goc = Number(it?.giagoc || 0);
-    const giam = Number(it?.giaban || it?.giagoc || 0);
-    const heSoGiam = goc > 0 ? (giam / goc) : 1;
-    const heSoApDung = Number.isFinite(heSoGiam) && heSoGiam > 0 ? heSoGiam : 1;
+    const unitOriginalPrice = Math.max(0, Number(it?.giagoc || 0));
+    const unitDiscountedPrice = Math.max(0, Number(it?.giaban || it?.giagoc || 0));
 
     const fifoRows = Array.isArray(it?.fifoAllocations)
       ? it.fifoAllocations
         .map((a) => {
           const soLuong = Math.max(0, Number(a?.soLuong || 0));
-          const giaGocLo = Math.max(0, Number(a?.giaBanDeXuat || 0));
-          if (soLuong <= 0 || giaGocLo <= 0) return null;
+          if (soLuong <= 0) return null;
 
-          const giaBanLo = Math.max(0, Math.round(giaGocLo * heSoApDung));
+          const giaGocLo = unitOriginalPrice;
+          const giaBanLo = unitDiscountedPrice > 0 ? unitDiscountedPrice : unitOriginalPrice;
           const thanhTienLo = Math.max(0, Math.round(giaBanLo * soLuong));
           return {
             soLuong,
@@ -1964,7 +1963,7 @@ async function capNhatTrangThaiHangLoat({ orderIds, nextStatus, actor }) {
   return { ok: true, message };
 }
 
-async function huyDon({ id, reason }) {
+async function huyDon({ id, reason, actor = null }) {
   const orderId = String(id || '');
   const lydo = String(reason || '').trim() || 'Admin hủy đơn hàng';
 
@@ -2064,6 +2063,15 @@ async function huyDon({ id, reason }) {
     return { ok: false, code: 'CONFLICT', message: 'Không thể hủy đơn hàng' };
   }
 
+  try {
+    await restoreVoucherUsageForUser({
+      voucherId: updated.voucher_id,
+      userId: updated.nguoidung_id
+    });
+  } catch (error) {
+    console.error('admin cancel restore voucher error:', error);
+  }
+
   const danhsachitem = await Chitietdonhang.find({ donhang_id: updated._id });
   const danhsachloi = [];
 
@@ -2083,6 +2091,18 @@ async function huyDon({ id, reason }) {
   } catch {
     // best-effort
   }
+
+  await dongBoSidecarAnToan('admin cancel order log', async () => {
+    await ghiNhanLichSuTrangThaiDonHang({
+      order: updated,
+      previousStatus: String(order.trangthai || ''),
+      nextStatus: 'dahuy',
+      action: 'admin_canceled_order',
+      actor,
+      note: lydo,
+      metadata: { refundedByAdminCancel: daHoanTien }
+    });
+  });
 
   try {
     await danhDauThatBaiTatCaPendingTheoDonHang({

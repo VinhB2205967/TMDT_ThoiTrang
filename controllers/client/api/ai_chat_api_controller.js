@@ -1,5 +1,7 @@
 const fs = require('fs');
 const { Sanpham } = require('../../../models');
+const Danhmuc = require('../../../models/category_model');
+const Brand = require('../../../models/brand_model');
 const { buildDataContext, askAI } = require('../../../services/content/aiChat.service.js');
 const { rankProductsByQuery, rankProductsByImage, classifyImageCategory } = require('../../../services/catalog/openClip.service.js');
 
@@ -49,6 +51,398 @@ function normalizeForCompare(input) {
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function normalizeLooseText(input) {
+  return String(input || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[-_]/g, ' ')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getDisplayName(item) {
+  return String(
+    (item && (item.name || item.tendanhmuc || item.ten || item.slug)) || ''
+  ).trim();
+}
+
+const PRODUCT_TYPE_RULES = [
+  { value: 'aokhoac', label: 'Áo khoác', patterns: [/ao\s*khoac/i, /áo\s*khoác/i, /\bjacket\b/i, /\bblazer\b/i, /\bcoat\b/i, /\bouterwear\b/i] },
+  { value: 'ao', label: 'Áo', patterns: [/\bao\b/i, /áo/i, /ao\s*thun/i, /áo\s*thun/i, /so\s*mi/i, /sơ\s*mi/i, /\bshirt\b/i, /\btee\b/i, /\bpolo\b/i, /\bhoodie\b/i] },
+  { value: 'quan', label: 'Quần', patterns: [/\bquan\b/i, /quần/i, /\bjean\b/i, /\bdenim\b/i, /\bshort\b/i, /\bjogger\b/i, /\btrouser\b/i, /\bpants?\b/i] },
+  { value: 'vay', label: 'Váy', patterns: [/\bvay\b/i, /váy/i, /\bdam\b/i, /đầm/i, /\bdress\b/i, /\bskirt\b/i] },
+  { value: 'giay', label: 'Giày', patterns: [/\bgiay\b/i, /giày/i, /\bsneaker\b/i, /\bshoe\b/i, /\bsandal\b/i, /\bboot\b/i] },
+  { value: 'tui', label: 'Túi', patterns: [/\btui\b/i, /túi/i, /tui\s*xach/i, /túi\s*xách/i, /\bbag\b/i, /\bhandbag\b/i] },
+  { value: 'phukien', label: 'Phụ kiện', patterns: [/\bphu\s*kien\b/i, /phụ\s*kiện/i, /\baccessor/i, /\bthat\s*lung\b/i, /thắt\s*lưng/i, /\bmu\b/i, /mũ/i, /\bnon\b/i, /nón/i, /\bhat\b/i, /\bcap\b/i, /\bscarf\b/i] }
+];
+
+function inferProductType(question) {
+  const text = String(question || '');
+  return PRODUCT_TYPE_RULES.find((item) => item.patterns.some((pattern) => pattern.test(text))) || null;
+}
+
+function inferGender(question) {
+  const q = normalizeForCompare(question);
+  if (!q) return null;
+  if (/\bunisex\b/.test(q)) return { value: 'unisex', label: 'Unisex' };
+  if (/\bbe gai\b|\bbegai\b|\bgirl\b|\bnu\b|\bnữ\b|\bnu gioi\b|\bnữ giới\b/.test(q)) return { value: 'nu', label: 'Nữ' };
+  if (/\bbe trai\b|\bbetrai\b|\bboy\b|\bnam\b|\bnam gioi\b/.test(q)) return { value: 'nam', label: 'Nam' };
+  return null;
+}
+
+function inferCoreRoute(question) {
+  const q = normalizeForCompare(question);
+  if (!q) return null;
+  if (/\bdon hang\b|\bma don\b|\btrang thai don\b|\bgiao hang\b|\bhoan hang\b/.test(q)) {
+    return { label: 'Xem đơn hàng', url: '/orders', kind: 'route' };
+  }
+  if (/\bvoucher\b|\bma giam gia\b|\bgiam gia\b|\bkhuyen mai\b|\bkhuyến mại\b/.test(q)) {
+    return { label: 'Xem voucher', url: '/vouchers', kind: 'route' };
+  }
+  if (/\bsize\b|\bbang size\b|\bbảng size\b|\bkich co\b|\bkích cỡ\b/.test(q)) {
+    return { label: 'Xem bảng size', url: '/size-guide', kind: 'route' };
+  }
+  if (/\bgio hang\b|\bgiỏ hàng\b|\bcart\b/.test(q)) {
+    return { label: 'Mở giỏ hàng', url: '/cart', kind: 'route' };
+  }
+  return null;
+}
+
+function buildProductsUrl(filters = {}) {
+  const params = new URLSearchParams();
+  const push = (key, value) => {
+    if (value === undefined || value === null) return;
+    const text = String(value).trim();
+    if (!text) return;
+    params.set(key, text);
+  };
+
+  push('loaisanpham', filters.loaisanpham);
+  push('gioitinh', filters.gioitinh);
+  push('brand', filters.brand);
+  push('occasion', filters.occasion);
+  push('ageGroup', filters.ageGroup);
+  push('priceMin', filters.priceMin);
+  push('priceMax', filters.priceMax);
+  push('sort', filters.sort);
+  push('keyword', filters.keyword);
+
+  const query = params.toString();
+  return query ? `/products?${query}` : '/products';
+}
+
+function pushUniqueAction(actions, action) {
+  const item = action && typeof action === 'object' ? action : null;
+  if (!item || !item.label || !item.url) return;
+  const key = `${String(item.label).trim().toLowerCase()}|${String(item.url).trim()}`;
+  if (actions.some((entry) => `${String(entry.label).trim().toLowerCase()}|${String(entry.url).trim()}` === key)) {
+    return;
+  }
+  actions.push({
+    label: String(item.label).trim(),
+    url: String(item.url).trim(),
+    kind: String(item.kind || 'link').trim()
+  });
+}
+
+async function findMatchedOccasions(question) {
+  const q = normalizeLooseText(question);
+  if (!q) return [];
+
+  const aliases = [
+    { term: 'di choi', patterns: [/di\s*choi/i, /đi\s*chơi/i] },
+    { term: 'di lam', patterns: [/di\s*lam/i, /đi\s*làm/i] },
+    { term: 'du tiec', patterns: [/du\s*tiec/i, /dự\s*tiệc/i, /\bparty\b/i] },
+    { term: 'the thao', patterns: [/the\s*thao/i, /thể\s*thao/i, /\bsport\b/i] },
+    { term: 'o nha', patterns: [/o\s*nha/i, /ở\s*nhà/i, /\bhome\b/i] }
+  ];
+  const wanted = aliases
+    .filter((item) => item.patterns.some((pattern) => pattern.test(String(question || ''))))
+    .map((item) => item.term);
+
+  if (!wanted.length) return [];
+
+  const rows = await Danhmuc.find({
+    daxoa: { $ne: true },
+    type: 'occasion',
+    isActive: true
+  }).select('_id name tendanhmuc slug').lean();
+
+  return (rows || [])
+    .filter((item) => {
+      const label = normalizeLooseText(getDisplayName(item));
+      return wanted.some((term) => label.includes(term));
+    })
+    .map((item) => ({
+      id: String(item._id || ''),
+      label: getDisplayName(item)
+    }))
+    .filter((item) => item.id && item.label);
+}
+
+async function findMatchedAgeGroups(question) {
+  const rawQuestion = String(question || '');
+  const normalizedQuestion = String(question || '').toLowerCase();
+  const asciiQuestion = normalizeLooseText(question);
+  if (!asciiQuestion) return [];
+
+  const rows = await Danhmuc.find({
+    daxoa: { $ne: true },
+    type: 'age_group',
+    isActive: true
+  }).select('_id name tendanhmuc slug').lean();
+
+  const requestedAges = [];
+  let minRequestedAge = null;
+  let maxRequestedAge = null;
+
+  const minAgeMatch = normalizedQuestion.match(/(?:tu\s*|from\s*)(\d{1,2})\s*(?:tuoi|tuổi)\s*(?:tro len|trở lên|len|lớn hơn|lon hon)/i)
+    || asciiQuestion.match(/(?:tu\s*|from\s*)(\d{1,2})\s*tuoi\s*(?:tro len|len|lon hon)/i);
+  if (minAgeMatch) {
+    const value = Number(minAgeMatch[1] || 0);
+    if (Number.isFinite(value) && value > 0 && value <= 120) minRequestedAge = value;
+  }
+
+  const ageRangeMatch = normalizedQuestion.match(/(?:tu\s*|from\s*)(\d{1,2})\s*(?:tuoi|tuổi)?\s*(?:den|đến|toi|tới|-)\s*(\d{1,2})\s*(?:tuoi|tuổi)?/i)
+    || asciiQuestion.match(/(?:tu\s*|from\s*)(\d{1,2})\s*tuoi?\s*(?:den|toi|-)\s*(\d{1,2})\s*tuoi?/i);
+  if (ageRangeMatch) {
+    const a = Number(ageRangeMatch[1] || 0);
+    const b = Number(ageRangeMatch[2] || 0);
+    if (Number.isFinite(a) && Number.isFinite(b) && a > 0 && b > 0) {
+      minRequestedAge = Math.min(a, b);
+      maxRequestedAge = Math.max(a, b);
+    }
+  }
+
+  const collectAgeMatches = (sourceText) => {
+    const agePattern = /(\d{1,2})\s*(?:tuoi|tuổi)\b|(?:tuoi|tuổi)\s*(\d{1,2})/gi;
+    const matches = String(sourceText || '').matchAll(agePattern);
+    for (const match of matches) {
+      const ageValue = Number(match[1] || match[2] || 0);
+      if (Number.isFinite(ageValue) && ageValue > 0 && ageValue <= 120) {
+        requestedAges.push(ageValue);
+      }
+    }
+  };
+
+  collectAgeMatches(rawQuestion);
+  collectAgeMatches(asciiQuestion);
+
+  return (rows || [])
+    .filter((item) => {
+      const label = String(getDisplayName(item) || '').toLowerCase();
+      const normalizedLabel = normalizeLooseText(label);
+      if (!normalizedLabel) return false;
+
+      if (normalizedQuestion.includes(label) || asciiQuestion.includes(normalizedLabel)) {
+        return true;
+      }
+
+      const rangeMatch = normalizedLabel.match(/(\d{1,2})\s*-\s*(\d{1,2})/);
+      if (!rangeMatch) return false;
+      const min = Number(rangeMatch[1] || 0);
+      const max = Number(rangeMatch[2] || 0);
+      if (!Number.isFinite(min) || !Number.isFinite(max)) return false;
+
+      if (Number.isFinite(minRequestedAge) && !Number.isFinite(maxRequestedAge)) {
+        return max >= minRequestedAge;
+      }
+
+      if (Number.isFinite(minRequestedAge) && Number.isFinite(maxRequestedAge)) {
+        return Math.max(min, minRequestedAge) <= Math.min(max, maxRequestedAge);
+      }
+
+      return requestedAges.some((age) => age >= min && age <= max);
+    })
+    .map((item) => ({
+      id: String(item._id || ''),
+      label: getDisplayName(item)
+    }))
+    .filter((item) => item.id && item.label);
+}
+
+async function findMatchedBrands(question) {
+  const q = normalizeLooseText(question);
+  if (!q) return [];
+
+  const rows = await Brand.find({
+    daXoa: { $ne: true },
+    $or: [{ isActive: true }, { hienthi: true }]
+  }).select('_id ten slug').lean();
+
+  return (rows || [])
+    .filter((item) => {
+      const label = normalizeLooseText(getDisplayName(item));
+      if (!label || label.length < 2) return false;
+      return q.includes(label);
+    })
+    .map((item) => ({
+      id: String(item._id || ''),
+      label: getDisplayName(item)
+    }))
+    .filter((item) => item.id && item.label)
+    .slice(0, 2);
+}
+
+async function buildSuggestedActions({ question, context, exactOrder }) {
+  const actions = [];
+  const typeMatch = inferProductType(question);
+  const genderMatch = inferGender(question);
+  const coreRoute = inferCoreRoute(question);
+
+  if (exactOrder) {
+    pushUniqueAction(actions, { label: 'Xem đơn hàng', url: '/orders', kind: 'primary' });
+  }
+
+  const [occasionMatches, ageGroupMatches, brandMatches] = await Promise.all([
+    findMatchedOccasions(question),
+    findMatchedAgeGroups(question),
+    findMatchedBrands(question)
+  ]);
+
+  const baseFilters = {};
+  if (typeMatch) baseFilters.loaisanpham = typeMatch.value;
+  if (genderMatch) baseFilters.gioitinh = genderMatch.value;
+  if (brandMatches.length === 1) baseFilters.brand = brandMatches[0].id;
+  if (occasionMatches.length === 1) baseFilters.occasion = occasionMatches[0].id;
+  if (ageGroupMatches.length === 1) baseFilters.ageGroup = ageGroupMatches[0].id;
+  const primaryFilters = {
+    ...baseFilters,
+    ...(baseFilters.brand ? {} : (brandMatches[0] ? { brand: brandMatches[0].id } : {})),
+    ...(baseFilters.occasion ? {} : (occasionMatches[0] ? { occasion: occasionMatches[0].id } : {})),
+    ...(baseFilters.ageGroup ? {} : (ageGroupMatches[0] ? { ageGroup: ageGroupMatches[0].id } : {}))
+  };
+
+  const hasFacetFilters = Boolean(
+    typeMatch
+    || genderMatch
+    || brandMatches.length
+    || occasionMatches.length
+    || ageGroupMatches.length
+  );
+
+  if (hasFacetFilters) {
+    pushUniqueAction(actions, {
+      label: 'Xem sản phẩm phù hợp',
+      url: buildProductsUrl(primaryFilters),
+      kind: 'primary'
+    });
+  }
+
+  if (typeMatch) {
+    pushUniqueAction(actions, {
+      label: typeMatch.label,
+      url: buildProductsUrl({ ...baseFilters, loaisanpham: typeMatch.value }),
+      kind: 'filter'
+    });
+  }
+
+  if (genderMatch) {
+    pushUniqueAction(actions, {
+      label: genderMatch.label,
+      url: buildProductsUrl({ ...baseFilters, gioitinh: genderMatch.value }),
+      kind: 'filter'
+    });
+  }
+
+  occasionMatches.slice(0, 2).forEach((item) => {
+    pushUniqueAction(actions, {
+      label: item.label,
+      url: buildProductsUrl({ ...baseFilters, occasion: item.id }),
+      kind: 'filter'
+    });
+  });
+
+  ageGroupMatches.slice(0, 2).forEach((item) => {
+    pushUniqueAction(actions, {
+      label: item.label,
+      url: buildProductsUrl({ ...baseFilters, ageGroup: item.id }),
+      kind: 'filter'
+    });
+  });
+
+  brandMatches.slice(0, 2).forEach((item) => {
+    pushUniqueAction(actions, {
+      label: item.label,
+      url: buildProductsUrl({ ...baseFilters, brand: item.id }),
+      kind: 'filter'
+    });
+  });
+
+  if (!hasFacetFilters && shouldSuggestProducts(question) && Array.isArray(context && context.products) && context.products.length > 0) {
+    pushUniqueAction(actions, {
+      label: 'Mở danh sách sản phẩm',
+      url: '/products',
+      kind: 'primary'
+    });
+  }
+
+  if (coreRoute) {
+    pushUniqueAction(actions, coreRoute);
+  }
+
+  return actions.slice(0, 5);
+}
+
+const ADMIN_DIRECT_PATTERNS = [
+  /\badmin\b/,
+  /\bquan tri\b/,
+  /\bban quan tri\b/,
+  /\bquan ly cua hang\b/,
+  /\bquan ly shop\b/,
+  /\bquan ly he thong\b/,
+  /\bdoanh thu\b/,
+  /\bdoanh so\b/,
+  /\bloi nhuan\b/,
+  /\blai rong\b/,
+  /\blai gop\b/,
+  /\bchi phi\b/,
+  /\bbien loi nhuan\b/,
+  /\bkpi\b/,
+  /\bdashboard\b/,
+  /\bbao cao\b/,
+  /\bton kho\b/,
+  /\bhang ton\b/,
+  /\bnhap kho\b/,
+  /\bxuat kho\b/,
+  /\bphieu nhap\b/,
+  /\bphieu xuat\b/,
+  /\bdieu chinh kho\b/,
+  /\btop khach hang\b/,
+  /\bphan khuc khach hang\b/,
+  /\bty le chuyen doi\b/,
+  /\bconversion rate\b/,
+  /\bhieu suat ban hang\b/
+];
+
+const ADMIN_ACTION_PATTERN = /\b(thong ke|bao cao|phan tich|tong hop|tong ket|liet ke|so sanh|xep hang|top|nhieu nhat|it nhat|bao nhieu|tong so)\b/;
+const ADMIN_OBJECT_PATTERN = /\b(don hang|san pham|khach hang|nguoi dung|voucher|ma giam gia|danh muc|thuong hieu)\b/;
+const ADMIN_SCOPE_PATTERN = /\b(toan shop|toan he thong|cua hang|shop|he thong|hom nay|tuan nay|thang nay|quy nay|nam nay)\b/;
+
+function isAdminRelatedQuestion(question) {
+  const q = normalizeForCompare(question);
+  if (!q) return false;
+
+  if (ADMIN_DIRECT_PATTERNS.some((pattern) => pattern.test(q))) return true;
+
+  if (ADMIN_ACTION_PATTERN.test(q) && ADMIN_OBJECT_PATTERN.test(q) && ADMIN_SCOPE_PATTERN.test(q)) {
+    return true;
+  }
+
+  if (/\b(don hang|khach hang|nguoi dung)\b/.test(q) && /\b(toan shop|toan he thong|cua hang|shop|he thong)\b/.test(q)) {
+    return true;
+  }
+
+  return false;
+}
+
+function buildAdminRestrictionAnswer() {
+  return '\u0054r\u1ee3 l\u00fd n\u00e0y ch\u1ec9 h\u1ed7 tr\u1ee3 kh\u00e1ch mua s\u1eafm n\u00ean m\u00ecnh kh\u00f4ng tr\u1ea3 l\u1eddi c\u00e1c c\u00e2u h\u1ecfi thu\u1ed9c ph\u1ea1m vi qu\u1ea3n tr\u1ecb nh\u01b0 doanh thu, l\u1ee3i nhu\u1eadn, t\u1ed3n kho, b\u00e1o c\u00e1o ho\u1eb7c th\u1ed1ng k\u00ea n\u1ed9i b\u1ed9. B\u1ea1n c\u00f3 th\u1ec3 h\u1ecfi m\u00ecnh v\u1ec1 s\u1ea3n ph\u1ea9m, gi\u00e1, size, khuy\u1ebfn m\u1ea1i, voucher ho\u1eb7c \u0111\u01a1n h\u00e0ng c\u1ee7a b\u1ea1n.';
 }
 
 function getCurrentPriceFromRecord(item) {
@@ -316,6 +710,11 @@ function sanitizeBadLinksInAnswer(answer) {
     .replace(/\b(?:https?:\/\/)?(?:www\.)?ban-thoi-trang\.com\/[^\s)]*/gi, '/products')
     .replace(/\b(?:https?:\/\/)?(?:www\.)?(?:website|example\.com|localhost(?::\d+)?)\/[^\s)]*/gi, '/products');
 
+  // Never expose random external links in the client chat bubble.
+  text = text.replace(/\bhttps?:\/\/[^\s)]+/gi, '');
+  text = text.replace(/\[(.*?)\]\(\s*\)/g, '$1');
+  text = text.replace(/\s{2,}/g, ' ').trim();
+
   return text;
 }
 
@@ -565,6 +964,33 @@ module.exports.sendMessage = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Câu hỏi quá dài (tối đa 1200 ký tự)' });
     }
 
+    if (isAdminRelatedQuestion(question)) {
+      return res.json({
+        success: true,
+        data: {
+          answer: buildAdminRestrictionAnswer(),
+          model: 'policy-guard',
+          provider: 'system',
+          suggestedProducts: [],
+          contextMeta: {
+            products: 0,
+            hasFlashSale: false,
+            vouchers: 0,
+            sizeGuides: 0,
+            topSelling: 0,
+            topRated: 0,
+            openClipUsed: false,
+            openClipModel: '',
+            reviewsRecent: 0,
+            reviewsMine: 0,
+            settings: 0,
+            myOrders: 0,
+            myVouchers: 0
+          }
+        }
+      });
+    }
+
     const context = await buildDataContext({
       question,
       userId: req.user && req.user._id ? req.user._id : null,
@@ -579,6 +1005,11 @@ module.exports.sendMessage = async (req, res) => {
 
     const exactOrder = buildExactOrderAnswer(question, context && context.myOrders);
     if (exactOrder) {
+      const suggestedActions = await buildSuggestedActions({
+        question,
+        context,
+        exactOrder
+      });
       return res.json({
         success: true,
         data: {
@@ -586,6 +1017,7 @@ module.exports.sendMessage = async (req, res) => {
           model: 'db-verified',
           provider: 'system',
           suggestedProducts: [],
+          suggestedActions,
           contextMeta: {
             products: Array.isArray(context.products) ? context.products.length : 0,
             hasFlashSale: Boolean(context.flashSale),
@@ -639,6 +1071,10 @@ module.exports.sendMessage = async (req, res) => {
     }
 
     answer = sanitizeBadLinksInAnswer(answer);
+    const suggestedActions = await buildSuggestedActions({
+      question,
+      context
+    });
 
     return res.json({
       success: true,
@@ -647,6 +1083,7 @@ module.exports.sendMessage = async (req, res) => {
         model: ai.model,
         provider: ai.provider || provider,
         suggestedProducts,
+        suggestedActions,
         contextMeta: {
           products: Array.isArray(context.products) ? context.products.length : 0,
           hasFlashSale: Boolean(context.flashSale),

@@ -1,0 +1,146 @@
+classDiagram
+direction LR
+
+class users {
+  +ObjectId _id
+  +String hoten
+  +String email
+  +String sodienthoai
+  +String diachi
+  +Date ngaytao
+}
+
+class accounts {
+  +ObjectId _id
+  +ObjectId nguoidung_id
+  +String email
+  +String provider
+  +String vaitro
+  +String trangthai
+}
+
+class carts {
+  +ObjectId _id
+  +ObjectId nguoidung_id
+  +Array sanpham[]
+  +Number tongtien
+  +Date ngaycapnhat
+}
+
+class orders {
+  +ObjectId _id
+  +String madonhang
+  +ObjectId nguoidung_id
+  +String tennguoinhan
+  +ObjectId voucher_id
+  +String trangthai
+  +Number tongtien
+}
+
+class order_items {
+  +ObjectId _id
+  +ObjectId donhang_id
+  +ObjectId sanpham_id
+  +ObjectId bienthe_id
+  +Number soluong
+  +Number giaban
+  +String trangthai
+}
+
+class pays {
+  +ObjectId _id
+  +ObjectId donhang_id
+  +ObjectId nguoidung_id
+  +String phuongthuc
+  +Number sotien
+  +String trangthai
+}
+
+class coupons {
+  +ObjectId _id
+  +String code
+  +String ten
+  +String loai
+  +Number giatri
+  +Date ngay_ketthuc
+}
+
+class user_vouchers {
+  +ObjectId _id
+  +ObjectId nguoidung_id
+  +ObjectId voucher_id
+  +Boolean isUsed
+}
+
+class products {
+  +ObjectId _id
+  +String tensanpham
+  +ObjectId danhmuc_id
+  +ObjectId thuonghieu_id
+  +ObjectId sizeguide_id
+  +Number gia
+  +Number phantramgiamgia
+  +String trangthai
+}
+
+class categories {
+  +ObjectId _id
+  +String tendanhmuc
+  +String slug
+  +ObjectId parent_id
+  +Number level
+}
+
+class brands {
+  +ObjectId _id
+  +String ten
+  +String slug
+  +String logo
+  +Boolean isActive
+}
+
+class size_guides {
+  +ObjectId _id
+  +String tenbang
+  +String loaisanpham
+  +Array dong[]
+}
+
+class reviews {
+  +ObjectId _id
+  +ObjectId sanpham_id
+  +ObjectId nguoidung_id
+  +ObjectId donhang_id
+  +ObjectId chitietdonhang_id
+  +Number diem
+  +String tieude
+  +String trangthai
+}
+
+class favorites {
+  +ObjectId _id
+  +ObjectId nguoidung_id
+  +ObjectId sanpham_id
+}
+
+users "1" --> "1" accounts : nguoidung_id
+users "1" --> "1" carts : nguoidung_id
+users "1" --> "0..*" orders : nguoidung_id
+users "1" --> "0..*" pays : nguoidung_id
+users "1" --> "0..*" reviews : nguoidung_id
+users "1" --> "0..*" favorites : nguoidung_id
+users "1" --> "0..*" user_vouchers : nguoidung_id
+
+orders "1" --> "1..*" order_items : donhang_id
+orders "1" --> "0..*" pays : donhang_id
+orders "0..*" --> "0..1" coupons : voucher_id
+
+products "1" --> "0..*" order_items : sanpham_id
+products "1" --> "0..*" reviews : sanpham_id
+products "1" --> "0..*" favorites : sanpham_id
+
+categories "1" --> "0..*" products : danhmuc_id
+categories "1" --> "0..*" categories : parent_id
+brands "1" --> "0..*" products : thuonghieu_id
+size_guides "1" --> "0..*" products : sizeguide_id
+coupons "1" --> "0..*" user_vouchers : voucher_id

@@ -19,6 +19,33 @@ module.exports.danhSach = async (req, res) => {
   }
 };
 
+module.exports.taoMoiPage = async (_req, res) => {
+  try {
+    return res.render('admin/pages/blog/create.pug', {
+      titlePage: 'Tạo Blog mới',
+      blogPost: null
+    });
+  } catch (error) {
+    console.error('blog.taoMoiPage error:', error);
+    return res.status(500).send('Không thể tải trang tạo blog');
+  }
+};
+
+module.exports.chinhSuaPage = async (req, res) => {
+  try {
+    const result = await blogService.layChiTietBaiViet({ id: req.params.id });
+    if (!result.ok) return res.status(404).send('Không tìm thấy bài viết');
+
+    return res.render('admin/pages/blog/edit.pug', {
+      titlePage: 'Chỉnh sửa Blog',
+      blogPost: result.data
+    });
+  } catch (error) {
+    console.error('blog.chinhSuaPage error:', error);
+    return res.status(500).send('Không thể tải trang chỉnh sửa blog');
+  }
+};
+
 module.exports.taoMoi = async (req, res) => {
   try {
     const result = await blogService.taoBaiViet({ body: req.body || {}, file: req.file });

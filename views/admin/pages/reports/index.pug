@@ -8,18 +8,18 @@ block styles
 
 block main
     .reports-dashboard(data-default-status=defaultStatus)
-        .page-header-section.orders-header.admin-page-header.d-flex.justify-content-between.align-items-center.flex-wrap.gap-2.mb-3
+        .page-header-section.orders-header.admin-page-header.reports-header-bar.d-flex.justify-content-between.align-items-center.flex-wrap.gap-2.mb-3
             .hero-content
                 h1.page-title Báo cáo thống kê bán hàng
                 p.mb-0 Theo dõi doanh thu, lợi nhuận và hiệu quả kinh doanh theo thời gian.
-            .hero-actions.orders-actions.d-flex.flex-wrap.gap-2
-                button.btn.btn-header.btn-header-primary.btn-sm(type="button" id="btn-export-excel")
+            .hero-actions.orders-actions.reports-header-actions.d-flex.flex-wrap.gap-2
+                button.btn.btn-header.btn-header-primary.btn-sm.btn-report-main(type="button" id="btn-export-excel")
                     i.bi.bi-file-earmark-excel.me-1
                     | Xuất Excel
-                button.btn.btn-header.btn-header-outline.btn-sm(type="button" id="btn-export-pdf")
+                button.btn.btn-header.btn-header-outline.btn-sm.btn-report-ghost(type="button" id="btn-export-pdf")
                     i.bi.bi-file-earmark-pdf.me-1
                     | Xuất PDF
-                button.btn.btn-header.btn-header-outline.btn-sm(type="button" id="btn-print")
+                button.btn.btn-header.btn-header-outline.btn-sm.btn-report-ghost(type="button" id="btn-print")
                     i.bi.bi-printer.me-1
                     | In báo cáo
 

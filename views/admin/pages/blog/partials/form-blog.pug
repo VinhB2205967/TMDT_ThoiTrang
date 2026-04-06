@@ -1,18 +1,19 @@
 .card.blog-editor-card
   .card-header.bg-white.border-0.pb-0
-    h5.mb-1 Tạo bài viết mới
-    p.text-muted.mb-0 Nhập thông tin cơ bản, kiểm tra nhanh trước khi xuất bản.
+    - const isEditMode = Boolean(blogPost && blogPost._id)
+    h5.mb-1 #{isEditMode ? 'Chỉnh sửa bài viết' : 'Tạo bài viết mới'}
+    p.text-muted.mb-0 #{isEditMode ? 'Cập nhật thông tin và lưu thay đổi.' : 'Nhập thông tin cơ bản, kiểm tra nhanh trước khi xuất bản.'}
   .card-body
-    form#blogCreate.blog-form(novalidate)
+    form#blogForm.blog-form(novalidate)
       .row.g-3
         .col-12
           label.form-label(for='blogTitle') Tiêu đề
-          input#blogTitle.form-control(type='text' name='tieude' required maxlength='180' placeholder='Ví dụ: Xu hướng thời trang thu đông 2025')
+          input#blogTitle.form-control(type='text' name='tieude' required maxlength='180' placeholder='Ví dụ: Xu hướng thời trang thu đông 2025' value=((blogPost && blogPost.tieude) || ''))
           .invalid-feedback Vui lòng nhập tiêu đề bài viết.
 
         .col-12
           label.form-label(for='blogSummary') Tóm tắt
-          textarea#blogSummary.form-control(name='tomtat' rows='2' maxlength='320' placeholder='Mô tả ngắn gọn nội dung bài viết')
+          textarea#blogSummary.form-control(name='tomtat' rows='2' maxlength='320' placeholder='Mô tả ngắn gọn nội dung bài viết') #{(blogPost && blogPost.tomtat) || ''}
 
         .col-12
           label.form-label(for='blogImageInput') Hình ảnh đại diện
@@ -21,18 +22,25 @@
 
         .col-12
           label.form-label(for='blogContent') Nội dung
-          textarea#blogContent.form-control(name='noidung' rows='10' required placeholder='Nhập nội dung chi tiết...')
+          .product-rich-editor-card
+            .product-rich-editor-toolbar#blogContentToolbar
+            #blogContentEditor.product-rich-editor(data-placeholder='Viết nội dung blog, chèn ảnh/video theo đúng thứ tự hiển thị...')
+          textarea#blogContent.d-none(name='noidung' rows='10' required placeholder='Nhập nội dung chi tiết...') #{(blogPost && blogPost.noidung) || ''}
+          input#blogContentMediaTokens(type='hidden' name='content_media_tokens' value='[]')
+          input#blogContentMediaInput(type='file' name='content_media_uploads' accept='image/*,video/*' multiple hidden)
+          .form-text Dùng thanh công cụ để chèn ảnh/video, nội dung sẽ hiển thị như một bài viết hoàn chỉnh ở trang blog.
           .invalid-feedback Vui lòng nhập nội dung bài viết.
 
         .col-12
           .form-check
-            input#blogPublish.form-check-input(type='checkbox' name='xuatban')
-            label.form-check-label(for='blogPublish') Xuất bản ngay sau khi tạo
+            input#blogPublish.form-check-input(type='checkbox' name='xuatban' checked=Boolean(blogPost && blogPost.xuatban))
+            label.form-check-label(for='blogPublish') #{isEditMode ? 'Xuất bản bài viết' : 'Xuất bản ngay sau khi tạo'}
 
       .d-flex.flex-wrap.gap-2.mt-4
         button.btn.btn-primary(type='submit')
-          i.bi.bi-plus-circle.me-1
-          | Tạo bài viết
-        button#blogResetBtn.btn.btn-outline-secondary(type='button')
-          i.bi.bi-arrow-counterclockwise.me-1
-          | Làm mới form
+          i.bi(class=isEditMode ? 'bi-check2-circle me-1' : 'bi-plus-circle me-1')
+          | #{isEditMode ? 'Lưu thay đổi' : 'Tạo bài viết'}
+        if !isEditMode
+          button#blogResetBtn.btn.btn-outline-secondary(type='button')
+            i.bi.bi-arrow-counterclockwise.me-1
+            | Làm mới form

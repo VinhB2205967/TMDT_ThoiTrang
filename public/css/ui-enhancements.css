@@ -1299,11 +1299,16 @@ body.modal-open #chatClientToastWrap {
 .partial-refund-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   font-size: 0.88rem;
   margin-bottom: 5px;
   color: #334155;
+}
+
+.partial-refund-row > span:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .partial-refund-row:last-child {
@@ -1312,6 +1317,10 @@ body.modal-open #chatClientToastWrap {
 
 .partial-refund-row strong {
   color: #0f172a;
+  flex: 0 0 auto;
+  min-width: 88px;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .partial-refund-row--main {

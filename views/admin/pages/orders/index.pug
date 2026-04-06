@@ -82,10 +82,11 @@ block main
                   th Hành động
               tbody
                 each o in orders
+                  - const isOnlinePayment = ['momo', 'vnpay'].includes(String(o.phuongthucthanhtoan || '').toLowerCase())
+                  - const isPaidWaitingConfirm = o.trangthai === 'choxacnhan' && isOnlinePayment && o.dathanhtoan
                   - const badge = (badgeClass && typeof badgeClass === 'function') ? badgeClass(o.trangthai) : 'bg-secondary'
-                  - const label = (statusLabels && statusLabels[o.trangthai]) || o.trangthai || '—'
+                  - const label = isPaidWaitingConfirm ? 'Đã thanh toán' : ((statusLabels && statusLabels[o.trangthai]) || o.trangthai || '—')
                   - const currentStatus = String(o.trangthai || '')
-                  - const isPaidOnlineOrder = ['momo', 'vnpay'].includes(String(o.phuongthucthanhtoan || '').toLowerCase()) && o.dathanhtoan
                   - const needsReturnAction = ['requested_return', 'approved_return', 'return_shipping', 'returned', 'returned_full', 'returned_partial'].includes(currentStatus) || (currentStatus === 'refunded' && !o.hasConfirmedReturnImport)
                   - const actionNext = (o.allowedNext || []).filter((st) => !(o.trangthai === 'choxacnhan' && st === 'daxacnhan')).filter((st) => !['requested_return', 'approved_return', 'rejected_return', 'return_shipping', 'returned', 'returned_full', 'returned_partial', 'refunded'].includes(String(st || '')))
                   tr
@@ -106,7 +107,7 @@ block main
                       a.btn.btn-sm.btn-outline-primary.me-1(href=`${admin}/orders/${o._id}`)
                         i.bi.bi-eye
                         |  Xem
-                      if o.trangthai === 'choxacnhan' && !isPaidOnlineOrder
+                      if o.trangthai === 'choxacnhan'
                         form.d-inline(method='POST', action=`${admin}/orders/${o._id}/status`)
                           input(type='hidden' name='status' value='daxacnhan')
                           input(type='hidden' name='returnTo' value=(currentListUrl || `${admin}/orders`))
@@ -116,7 +117,11 @@ block main
                         form.d-inline(id=`reject-order-form-${o._id}` method='POST' action=`${admin}/orders/${o._id}/cancel`)
                           input(type='hidden' name='returnTo' value=(currentListUrl || `${admin}/orders`))
                           input(type='hidden' name='reason' value='')
-                          button.btn.btn-sm.btn-outline-danger.me-1(type='button' onclick=`return promptRejectOrder('${o._id}', '${(o.madonhang || o._id).replace(/'/g, "\\'")}')`)
+                          button.btn.btn-sm.btn-outline-danger.me-1.order-reject-trigger(
+                            type='button'
+                            data-order-id=String(o._id)
+                            data-order-code=(o.madonhang || o._id)
+                          )
                             i.bi.bi-x-circle
                             |  Không xác nhận
                       if needsReturnAction
@@ -149,7 +154,7 @@ block main
                                     input(type='hidden' name='status' value=st)
                                     input(type='hidden' name='returnTo' value=(currentListUrl || `${admin}/orders`))
                                     button.dropdown-item(type='submit' onclick="return confirm('Xác nhận cập nhật trạng thái?')") #{(statusLabels && statusLabels[st]) || st}
-                      else if !needsReturnAction && !(o.trangthai === 'choxacnhan' && !isPaidOnlineOrder)
+                      else if !needsReturnAction && o.trangthai !== 'choxacnhan'
                         span.text-muted.small —
 
         if pagination && pagination.totalPages > 1
@@ -187,30 +192,90 @@ block main
           .text-center.text-muted.mt-2
             small Hiển thị #{orders.length} trên #{pagination.totalProducts} đơn hàng
 
+    .modal.fade#rejectOrderModal(tabindex='-1' aria-hidden='true')
+      .modal-dialog
+        .modal-content
+          .modal-header
+            h5.modal-title Không xác nhận đơn hàng
+            button.btn-close(type='button' data-bs-dismiss='modal' aria-label='Close')
+          .modal-body
+            p.mb-2#rejectOrderModalLabel Nhập lý do không xác nhận đơn hàng.
+            textarea#rejectOrderReason.form-control(rows='3' placeholder='Nhập lý do không xác nhận' required) Không đủ điều kiện xác nhận đơn
+            .invalid-feedback Vui lòng nhập lý do không xác nhận.
+          .modal-footer
+            button.btn.btn-outline-secondary(type='button' data-bs-dismiss='modal') Hủy
+            button#rejectOrderSubmit.btn.btn-danger(type='button') Xác nhận không duyệt
+
 block scripts
   script.
     (function () {
-      window.promptRejectOrder = function (orderId, orderCode) {
-        const form = document.getElementById('reject-order-form-' + String(orderId || ''));
-        if (!form) return false;
+      const rejectModalEl = document.getElementById('rejectOrderModal');
+      const rejectLabelEl = document.getElementById('rejectOrderModalLabel');
+      const rejectReasonInput = document.getElementById('rejectOrderReason');
+      const rejectSubmitBtn = document.getElementById('rejectOrderSubmit');
+      const rejectTriggers = Array.from(document.querySelectorAll('.order-reject-trigger'));
+      const defaultRejectReason = 'Không đủ điều kiện xác nhận đơn';
+      let activeRejectForm = null;
 
-        const reason = window.prompt(
-          'Nhập lý do không xác nhận đơn ' + (orderCode || orderId) + ':',
-          'Không đủ điều kiện xác nhận đơn'
-        );
+      const rejectModal = rejectModalEl && window.bootstrap && typeof window.bootstrap.Modal === 'function'
+        ? new window.bootstrap.Modal(rejectModalEl)
+        : null;
 
-        if (reason === null) return false;
-        const trimmedReason = String(reason || '').trim();
-        if (!trimmedReason) {
-          window.alert('Vui lòng nhập lý do không xác nhận.');
-          return false;
-        }
-
-        const reasonInput = form.querySelector('input[name="reason"]');
-        if (reasonInput) reasonInput.value = trimmedReason;
-        form.submit();
-        return false;
+      const resetRejectValidation = function () {
+        if (!rejectReasonInput) return;
+        rejectReasonInput.classList.remove('is-invalid');
       };
+
+      rejectTriggers.forEach((button) => {
+        button.addEventListener('click', function () {
+          const orderId = String(this.dataset.orderId || '').trim();
+          const orderCode = String(this.dataset.orderCode || orderId).trim();
+          const form = document.getElementById('reject-order-form-' + orderId);
+          if (!form || !rejectModal) return;
+
+          activeRejectForm = form;
+          if (rejectLabelEl) {
+            rejectLabelEl.textContent = 'Nhập lý do không xác nhận đơn ' + (orderCode || orderId) + ':';
+          }
+          if (rejectReasonInput) {
+            rejectReasonInput.value = defaultRejectReason;
+            resetRejectValidation();
+          }
+          rejectModal.show();
+          window.setTimeout(function () {
+            if (rejectReasonInput) rejectReasonInput.focus();
+          }, 150);
+        });
+      });
+
+      if (rejectSubmitBtn) {
+        rejectSubmitBtn.addEventListener('click', function () {
+          if (!activeRejectForm || !rejectReasonInput) return;
+
+          const trimmedReason = String(rejectReasonInput.value || '').trim();
+          if (!trimmedReason) {
+            rejectReasonInput.classList.add('is-invalid');
+            rejectReasonInput.focus();
+            return;
+          }
+
+          const reasonInput = activeRejectForm.querySelector('input[name="reason"]');
+          if (reasonInput) reasonInput.value = trimmedReason;
+          activeRejectForm.submit();
+        });
+      }
+
+      if (rejectReasonInput) {
+        rejectReasonInput.addEventListener('input', resetRejectValidation);
+      }
+
+      if (rejectModalEl) {
+        rejectModalEl.addEventListener('hidden.bs.modal', function () {
+          activeRejectForm = null;
+          if (rejectReasonInput) rejectReasonInput.value = defaultRejectReason;
+          resetRejectValidation();
+        });
+      }
 
       if (window.FilterAutoSubmit && typeof window.FilterAutoSubmit.attachOnReady === 'function') {
         window.FilterAutoSubmit.attachOnReady('#orderFilterForm', {

@@ -39,22 +39,27 @@ const orderStatusLogSchema = new mongoose.Schema({
   actorId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Nguoidung',
+    alias: 'nguoithuchien_id',
     default: null
   },
   actorRole: {
     type: String,
+    alias: 'vaitronguoithuchien',
     default: ''
   },
   actorName: {
     type: String,
+    alias: 'tennguoithuchien',
     default: ''
   },
   uniqueKey: {
     type: String,
+    alias: 'khoachinh',
     default: null
   },
   metadata: {
     type: mongoose.Schema.Types.Mixed,
+    alias: 'thongtin',
     default: {}
   },
   ngaytao: {

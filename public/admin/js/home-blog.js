@@ -2,14 +2,45 @@
   const form = document.getElementById('blogCreate');
   const App = window.App || {};
 
+  function hienToast(message, type = 'success') {
+    if (!message) return;
+    let wrap = document.getElementById('adminBlogNotifyStack');
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.id = 'adminBlogNotifyStack';
+      wrap.className = 'admin-notify-stack';
+      document.body.appendChild(wrap);
+    }
+
+    const isError = type === 'error';
+    const item = document.createElement('div');
+    item.className = `admin-notify-item ${isError ? 'error' : 'success'}`;
+    item.innerHTML = `
+      <div class="admin-notify-inner">
+        <span class="admin-notify-icon"><i class="bi ${isError ? 'bi-exclamation-triangle-fill' : 'bi-check-circle-fill'}"></i></span>
+        <div>
+          <div class="admin-notify-title">${isError ? 'Thao tác thất bại' : 'Thao tác thành công'}</div>
+          <div class="admin-notify-message"></div>
+        </div>
+        <button type="button" class="admin-notify-close" aria-label="Đóng">×</button>
+      </div>
+    `;
+    item.querySelector('.admin-notify-message').textContent = message;
+    wrap.appendChild(item);
+
+    const close = () => item.remove();
+    item.querySelector('.admin-notify-close').addEventListener('click', close);
+    setTimeout(close, 3200);
+  }
+
   const thongBao = (res, fallback) => {
     const message = (res && res.data && res.data.message) || fallback || 'Có lỗi xảy ra';
-    window.alert(message);
+    hienToast(message, 'error');
   };
 
   const thongBaoThanhCong = (res, fallback) => {
     const message = (res && res.data && res.data.message) || fallback || 'Thao tác thành công';
-    window.alert(message);
+    hienToast(message, 'success');
   };
 
   function hienThiXemTruocAnh(fileInput) {
@@ -38,19 +69,23 @@
   if (form) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const fd = new FormData(form);
-      fd.set('xuatban', String(Boolean(fd.get('xuatban'))));
+      try {
+        const fd = new FormData(form);
+        fd.set('xuatban', String(Boolean(fd.get('xuatban'))));
 
-      const res = await App.apiFetch('/admin/api/blog', {
-        method: 'POST',
-        body: fd
-      });
+        const res = await App.apiFetch('/admin/api/blog', {
+          method: 'POST',
+          body: fd
+        });
 
-      if (res.ok) {
-        thongBaoThanhCong(res, 'Tạo bài viết thành công');
-        window.location.reload();
-      } else {
-        thongBao(res, 'Không thể tạo bài viết');
+        if (res.ok) {
+          thongBaoThanhCong(res, 'Tạo bài viết thành công');
+          setTimeout(() => window.location.reload(), 450);
+        } else {
+          thongBao(res, 'Không thể tạo bài viết');
+        }
+      } catch (_error) {
+        hienToast('Không thể kết nối máy chủ. Vui lòng thử lại.', 'error');
       }
     });
   }
@@ -71,29 +106,37 @@
 
     if (action === 'delete') {
       if (!App.confirmDelete()) return;
-      const res = await App.apiFetch(`/admin/api/blog/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        row.remove();
-        thongBaoThanhCong(res, 'Đã xóa bài viết');
-      } else {
-        thongBao(res, 'Không thể xóa bài viết');
+      try {
+        const res = await App.apiFetch(`/admin/api/blog/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          row.remove();
+          thongBaoThanhCong(res, 'Đã xóa bài viết');
+        } else {
+          thongBao(res, 'Không thể xóa bài viết');
+        }
+      } catch (_error) {
+        hienToast('Không thể kết nối máy chủ. Vui lòng thử lại.', 'error');
       }
       return;
     }
 
     if (action === 'publish') {
       const xuatban = Boolean(row.querySelector('input[name="xuatban"]')?.checked);
-      const res = await App.apiFetch(`/admin/api/blog/${id}/publish`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ xuatban })
-      });
-      if (res.ok && res.data && res.data.data) {
-        const checkbox = row.querySelector('input[name="xuatban"]');
-        if (checkbox) checkbox.checked = Boolean(res.data.data.xuatban);
-        thongBaoThanhCong(res, checkbox && checkbox.checked ? 'Đã xuất bản bài viết' : 'Đã hủy xuất bản bài viết');
-      } else if (!res.ok) {
-        thongBao(res, 'Không thể cập nhật xuất bản');
+      try {
+        const res = await App.apiFetch(`/admin/api/blog/${id}/publish`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ xuatban })
+        });
+        if (res.ok && res.data && res.data.data) {
+          const checkbox = row.querySelector('input[name="xuatban"]');
+          if (checkbox) checkbox.checked = Boolean(res.data.data.xuatban);
+          thongBaoThanhCong(res, checkbox && checkbox.checked ? 'Đã xuất bản bài viết' : 'Đã hủy xuất bản bài viết');
+        } else if (!res.ok) {
+          thongBao(res, 'Không thể cập nhật xuất bản');
+        }
+      } catch (_error) {
+        hienToast('Không thể kết nối máy chủ. Vui lòng thử lại.', 'error');
       }
       return;
     }
@@ -110,17 +153,21 @@
         fd.set('image', fileInput.files[0]);
       }
 
-      const res = await App.apiFetch(`/admin/api/blog/${id}`, {
-        method: 'PUT',
-        body: fd
-      });
+      try {
+        const res = await App.apiFetch(`/admin/api/blog/${id}`, {
+          method: 'PUT',
+          body: fd
+        });
 
-      if (res.ok) {
-        thongBaoThanhCong(res, 'Lưu bài viết thành công');
-        return;
+        if (res.ok) {
+          thongBaoThanhCong(res, 'Lưu bài viết thành công');
+          return;
+        }
+
+        thongBao(res, 'Không thể lưu bài viết');
+      } catch (_error) {
+        hienToast('Không thể kết nối máy chủ. Vui lòng thử lại.', 'error');
       }
-
-      thongBao(res, 'Không thể lưu bài viết');
     }
   });
 })();

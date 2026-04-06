@@ -8,9 +8,6 @@ const {
   capNhatGiaoDichThanhToan,
   danhDauThanhCongTheoDonHang
 } = require('../payment/payment.service.js');
-const { taoPhieuXuatTuDonHang } = require('../inventory/exportReceipt.service.js');
-const { sendOrderConfirmedEmail } = require('../communication/orderEmail.service.js');
-const { ghiNhanLichSuTrangThaiDonHang } = require('../order/order-sidecar.service.js');
 
 function parseOrderIdFromMoMo({ orderId, extraData }) {
   let idDon = '';
@@ -78,54 +75,6 @@ function xacThucDuLieuDonMoMo({ payload, orderDoc }) {
   return { ok: true, amount: expectedAmount };
 }
 
-async function tuDongXacNhanDonThanhToanOnline({ orderId, actorName }) {
-  const current = await donhang.findOne({ _id: orderId, daxoa: { $ne: true } })
-    .select('_id nguoidung_id madonhang trangthai')
-    .lean();
-  if (!current || String(current.trangthai || '') !== 'choxacnhan') return;
-
-  const updated = await donhang.updateOne(
-    { _id: orderId, trangthai: 'choxacnhan', daxoa: { $ne: true } },
-    { $set: { trangthai: 'daxacnhan', ngaycapnhat: new Date() } }
-  );
-
-  if (!updated || Number(updated.modifiedCount || 0) === 0) return;
-
-  try {
-    await taoPhieuXuatTuDonHang({
-      orderId,
-      adminUser: null,
-      note: 'Tự động xác nhận đơn hàng đã thanh toán online',
-      skipInventoryAdjustments: true
-    });
-  } catch (error) {
-    console.error('auto confirm export receipt error:', error);
-  }
-
-  try {
-    await sendOrderConfirmedEmail({ orderId });
-  } catch (error) {
-    console.error('auto confirm email error:', error);
-  }
-
-  try {
-    await ghiNhanLichSuTrangThaiDonHang({
-      order: {
-        _id: current._id,
-        nguoidung_id: current.nguoidung_id,
-        madonhang: current.madonhang
-      },
-      previousStatus: 'choxacnhan',
-      nextStatus: 'daxacnhan',
-      action: 'system_auto_confirm_online_paid_order',
-      actor: { role: 'system', vaitro: 'system', name: actorName || 'payment-callback' },
-      metadata: { autoConfirmedFromPayment: true }
-    });
-  } catch (error) {
-    console.error('auto confirm order log error:', error);
-  }
-}
-
 async function handleMoMoReturn({ query }) {
   const payload = query || {};
   const signatureCheck = kiemTraChuKyKetQuaMoMo(payload);
@@ -176,11 +125,6 @@ async function handleMoMoReturn({ query }) {
         // best-effort
       }
     }
-
-    await tuDongXacNhanDonThanhToanOnline({
-      orderId: idDon,
-      actorName: 'momo-return'
-    });
 
     return { redirect: `/orders/${idDon}`, flash: { type: 'success', message: 'Thanh toan MoMo thanh cong!' } };
   }
@@ -266,10 +210,6 @@ async function handleMoMoIpn({ body }) {
         });
       }
 
-      await tuDongXacNhanDonThanhToanOnline({
-        orderId: idDon,
-        actorName: 'momo-ipn'
-      });
     } else if (!orderDoc.dathanhtoan) {
       await capNhatGiaoDichThanhToan({
         donhangId: orderDoc._id,
@@ -332,11 +272,6 @@ async function handleVnpayReturn({ query }) {
         // best-effort
       }
     }
-
-    await tuDongXacNhanDonThanhToanOnline({
-      orderId: idDon,
-      actorName: 'vnpay-return'
-    });
 
     return { redirect: `/orders/${idDon}`, flash: { type: 'success', message: 'Thanh toan VNPAY thanh cong!' } };
   }
@@ -402,10 +337,6 @@ async function handleVnpayIpn({ query, body }) {
             ghichu: 'VNPAY IPN: success'
           });
 
-          await tuDongXacNhanDonThanhToanOnline({
-            orderId: idDon,
-            actorName: 'vnpay-ipn'
-          });
         } else {
           await capNhatGiaoDichThanhToan({
             donhangId: orderDoc._id,

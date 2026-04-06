@@ -583,7 +583,8 @@ async function taoPhieuXuatTuDonHang({ orderId, adminUser, note = '', skipInvent
           lotId: a?.lotId || null,
           soLuong: toNumber(a?.soLuong, 0),
           giaNhap: toNumber(a?.giaNhap, 0),
-          giaBanDeXuat: toNumber(a?.giaBanDeXuat, 0)
+          // Keep lot linkage/cost, but revenue must follow the sold price stored on the order item.
+          giaBanDeXuat: toNumber(item.giagoc, toNumber(a?.giaBanDeXuat, 0))
         }))
         .filter((a) => a.soLuong > 0)
       : [];
@@ -619,9 +620,15 @@ async function taoPhieuXuatTuDonHang({ orderId, adminUser, note = '', skipInvent
       };
     }
 
-    const fallbackAllocations = fifoCost.allocations && fifoCost.allocations.length
+    const fallbackAllocationsRaw = fifoCost.allocations && fifoCost.allocations.length
       ? fifoCost.allocations
       : [{ soLuong: qty, giaNhap: fifoCost.giaNhapBinhQuan, giaBanDeXuat: giaBanGoc }];
+    const fallbackAllocations = fallbackAllocationsRaw.map((alloc) => ({
+      ...alloc,
+      giaBanDeXuat: giaBanGoc > 0
+        ? giaBanGoc
+        : toNumber(alloc?.giaBanDeXuat, 0)
+    }));
 
     const allocationFinance = tinhTaiChinhTheoPhanBo({
       allocations: fallbackAllocations,

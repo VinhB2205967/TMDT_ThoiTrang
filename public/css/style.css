@@ -5,6 +5,23 @@
     box-sizing: border-box;
 }
 
+:root {
+    --app-font-family: "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+body,
+button,
+input,
+select,
+textarea {
+    font-family: var(--app-font-family);
+}
+
 /* ==================== HEADER REDESIGN ==================== */
 /* SOLID COLOR BACKGROUND #5f76f2 */
 

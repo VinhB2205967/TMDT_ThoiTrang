@@ -2,21 +2,21 @@ const mongoose = require('mongoose');
 
 const refundItemSchema = new mongoose.Schema(
   {
-    orderItemId: {
+    madongdonhang: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Chitietdonhang',
       default: null,
-      alias: 'madongdonhang'
+      alias: 'orderItemId'
     },
-    qty: {
+    soluongyeucauhoan: {
       type: Number,
       default: 0,
-      alias: 'soluongyeucauhoan'
+      alias: 'qty'
     },
-    boughtQty: {
+    soluongdamua: {
       type: Number,
       default: 0,
-      alias: 'soluongdamua'
+      alias: 'boughtQty'
     },
     tensanpham: { type: String, default: '' },
     hinhanh: { type: String, default: '' },
@@ -52,132 +52,132 @@ const orderRefundSchema = new mongoose.Schema({
     default: '',
     index: true
   },
-  requestedAt: {
+  thoigianguiyeucau: {
     type: Date,
-    alias: 'thoigianguiyeucau'
+    alias: 'requestedAt'
   },
-  reason: {
+  lydo: {
     type: String,
-    alias: 'lydo'
+    alias: 'reason'
   },
-  reasonLabel: {
+  nhanlydo: {
     type: String,
-    alias: 'nhanlydo'
+    alias: 'reasonLabel'
   },
-  detail: {
+  motachitiet: {
     type: String,
     default: '',
-    alias: 'motachitiet'
+    alias: 'detail'
   },
-  requestedItems: {
+  danhsachsanphamyeucauhoan: {
     type: [refundItemSchema],
     default: [],
-    alias: 'danhsachsanphamyeucauhoan'
+    alias: 'requestedItems'
   },
-  receivedItems: {
+  danhsachsanphamdanhanhoan: {
     type: [refundItemSchema],
     default: [],
-    alias: 'danhsachsanphamdanhanhoan'
+    alias: 'receivedItems'
   },
-  proofMedias: {
+  danhsachminhchung: {
     type: [String],
     default: [],
-    alias: 'danhsachminhchung'
+    alias: 'proofMedias'
   },
-  proofMedia: {
+  minhchung: {
     type: String,
     default: '',
-    alias: 'minhchung'
+    alias: 'proofMedia'
   },
-  proofImage: {
+  hinhanhminhchung: {
     type: String,
     default: '',
-    alias: 'hinhanhminhchung'
+    alias: 'proofImage'
   },
-  refundMethod: {
+  phuongthuchoantien: {
     type: String,
     default: '',
-    alias: 'phuongthuchoantien'
+    alias: 'refundMethod'
   },
-  refundWallet: {
+  vihoantien: {
     type: String,
     default: '',
-    alias: 'vihoantien'
+    alias: 'refundWallet'
   },
-  refundBankName: {
+  tennganhanghoantien: {
     type: String,
     default: '',
-    alias: 'tennganhanghoantien'
+    alias: 'refundBankName'
   },
-  refundBankAccountName: {
+  tenchutaikhoanhoantien: {
     type: String,
     default: '',
-    alias: 'tenchutaikhoanhoantien'
+    alias: 'refundBankAccountName'
   },
-  refundBankAccountNumber: {
+  sotaikhoanhoantien: {
     type: String,
     default: '',
-    alias: 'sotaikhoanhoantien'
+    alias: 'refundBankAccountNumber'
   },
-  refundAmount: {
+  sotienhoan: {
     type: Number,
     default: 0,
-    alias: 'sotienhoan'
+    alias: 'refundAmount'
   },
-  adminNote: {
+  ghichuadmin: {
     type: String,
     default: '',
-    alias: 'ghichuadmin'
+    alias: 'adminNote'
   },
-  reviewedAt: {
+  thoigianduyet: {
     type: Date,
-    alias: 'thoigianduyet'
+    alias: 'reviewedAt'
   },
-  approvedAt: {
+  thoigianduyetchapnhan: {
     type: Date,
-    alias: 'thoigianduyetchapnhan'
+    alias: 'approvedAt'
   },
-  rejectedAt: {
+  thoigiantuchoi: {
     type: Date,
-    alias: 'thoigiantuchoi'
+    alias: 'rejectedAt'
   },
-  returnedAt: {
+  thoigiannhanhanghoan: {
     type: Date,
-    alias: 'thoigiannhanhanghoan'
+    alias: 'returnedAt'
   },
-  refundedAt: {
+  thoigianhoantien: {
     type: Date,
-    alias: 'thoigianhoantien'
+    alias: 'refundedAt'
   },
-  canceledByUser: {
+  dahuyboibannguoidung: {
     type: Boolean,
     default: false,
-    alias: 'dahuyboibannguoidung'
+    alias: 'canceledByUser'
   },
-  canceledByUserAt: {
+  thoigianhuyboibannguoidung: {
     type: Date,
-    alias: 'thoigianhuyboibannguoidung'
+    alias: 'canceledByUserAt'
   },
-  lastAction: {
+  hanhdongcuoi: {
     type: String,
     default: '',
-    alias: 'hanhdongcuoi'
+    alias: 'lastAction'
   },
-  lastActorId: {
+  nguoithuchiencuoi_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Nguoidung',
     default: null,
-    alias: 'nguoithuchiencuoi_id'
+    alias: 'lastActorId'
   },
-  lastActorRole: {
+  vaitronguoithuchiencuoi: {
     type: String,
     default: '',
-    alias: 'vaitronguoithuchiencuoi'
+    alias: 'lastActorRole'
   },
-  lastActorName: {
+  tennguoithuchiencuoi: {
     type: String,
     default: '',
-    alias: 'tennguoithuchiencuoi'
+    alias: 'lastActorName'
   },
   ngaytao: {
     type: Date,

@@ -17,47 +17,47 @@ Tài liệu này tóm tắt các collection MongoDB đang được khai báo tro
 ## 2. Các collection chính
 
 ### `users` (`Nguoidung`)
-- `_id`: ObjectId
-- `hoten`: String
-- `email`: String, required, unique
-- `sodienthoai`: String
-- `diachi`: String
-- `diachiList[]`: subdocument gồm `label`, `tennguoinhan`, `sodienthoai`, `diachi`
-- `gioitinh`: String
-- `ngaysinh`: Date
-- `avatar`: String
-- `chukyso`: String
-- `daxoa`: Boolean
-- `ngaytao`: Date
-- `ngaycapnhat`: Date
-- `lastSeenAt`: Date
-- `lastLoginAt`: Date
-- `lastLoginProvider`: String
-- `lastLoginIp`: String
-- `lastLoginUserAgent`: String
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `hoten`: String, ghi chú: tên hiển thị
+- `email`: String, required, unique, ghi chú: thông tin liên hệ/định tuyến
+- `sodienthoai`: String, ghi chú: thông tin liên hệ/định tuyến
+- `diachi`: String, ghi chú: thông tin liên hệ/định tuyến
+- `diachiList[]`: subdocument gồm `label`, `tennguoinhan`, `sodienthoai`, `diachi`, ghi chú: thông tin liên hệ/định tuyến
+- `gioitinh`: String, ghi chú: thuộc tính nghiệp vụ
+- `ngaysinh`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `avatar`: String, ghi chú: thuộc tính nghiệp vụ
+- `chukyso`: String, ghi chú: thuộc tính nghiệp vụ
+- `daxoa`: Boolean, ghi chú: cờ/trạng thái xử lý
+- `ngaytao`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngaycapnhat`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `lastSeenAt`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `lastLoginAt`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `lastLoginProvider`: String, ghi chú: thuộc tính nghiệp vụ
+- `lastLoginIp`: String, ghi chú: thuộc tính nghiệp vụ
+- `lastLoginUserAgent`: String, ghi chú: thuộc tính nghiệp vụ
 
 ### `accounts` (`Taikhoan`)
-- `_id`: ObjectId
-- `nguoidung_id`: ObjectId, ref `users`, required, unique
-- `email`: String, required, unique
-- `matkhau`: String, có thể null nếu đăng nhập Google
-- `provider`: String
-- `vaitro`: String
-- `trangthai`: String
-- `xacthuc`: Boolean
-- `tokenxacthuc`: String
-- `tokenquenmatkhau`: String
-- `thoigianhethan`: Date
-- `ngaytao`: Date
-- `ngaycapnhat`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `nguoidung_id`: ObjectId, ref `users`, required, unique, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `email`: String, required, unique, ghi chú: thông tin liên hệ/định tuyến
+- `matkhau`: String, có thể null nếu đăng nhập Google, ghi chú: mã nhận diện/tìm kiếm
+- `provider`: String, ghi chú: thuộc tính nghiệp vụ
+- `vaitro`: String, ghi chú: thuộc tính nghiệp vụ
+- `trangthai`: String, ghi chú: cờ/trạng thái xử lý
+- `xacthuc`: Boolean, ghi chú: thuộc tính nghiệp vụ
+- `tokenxacthuc`: String, ghi chú: thuộc tính nghiệp vụ
+- `tokenquenmatkhau`: String, ghi chú: thuộc tính nghiệp vụ
+- `thoigianhethan`: Date, ghi chú: giá trị số phục vụ tính toán
+- `ngaytao`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngaycapnhat`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 ### `carts` (`Giohang`)
-- `_id`: ObjectId
-- `nguoidung_id`: ObjectId, ref `users`, required
-- `sanpham[]`: subdocument gồm `sanpham_id`, `bienthe_id`, `tensanpham`, `hinhanh`, `mausac`, `kichco`, `gia`, `giagiam`, `thanhtien`, `soluong`
-- `tongtien`: Number
-- `ngaytao`: Date
-- `ngaycapnhat`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `nguoidung_id`: ObjectId, ref `users`, required, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `sanpham[]`: subdocument gồm `sanpham_id`, `bienthe_id`, `tensanpham`, `hinhanh`, `mausac`, `kichco`, `gia`, `giagiam`, `thanhtien`, `soluong`, ghi chú: danh sách dữ liệu dạng mảng
+- `tongtien`: Number, ghi chú: giá trị số phục vụ tính toán
+- `ngaytao`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngaycapnhat`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 Ghi chú quan hệ:
 - Theo nghiệp vụ mong muốn: `users` - `carts` là `1-1`.
@@ -65,468 +65,468 @@ Ghi chú quan hệ:
 - Nếu muốn enforce chặt ở DB, có thể thêm unique index cho `carts.nguoidung_id`.
 
 ### `orders` (`Donhang`)
-- `_id`: ObjectId
-- `madonhang`: String, unique
-- `nguoidung_id`: ObjectId, ref `users`, required
-- `tennguoinhan`: String
-- `sodienthoai`: String
-- `email`: String
-- `diachigiao`: String
-- `tinh`: String
-- `quan`: String
-- `phuong`: String
-- `ghichu`: String
-- `phuongthucthanhtoan`: String
-- `dathanhtoan`: Boolean
-- `ngaythanhtoan`: Date
-- `vnpayTransId`: String
-- `vnpayBankCode`: String
-- `vnpayTxnRef`: String
-- `momoTransId`: String
-- `momoOrderId`: String
-- `momoRequestId`: String
-- `momoPayUrl`: String
-- `momoRefunded`: Boolean
-- `momoRefundAt`: Date
-- `phuongthucvanchuyen`: String
-- `phivanchuyen`: Number
-- `mavanchuyen`: String
-- `tamtinh`: Number
-- `giamgia`: Number
-- `tongtien`: Number
-- `voucher_id`: ObjectId, ref `coupons`
-- `voucher_code`: String
-- `voucher_type`: String
-- `voucher_value`: Number
-- `voucher_discount`: Number
-- `trangthai`: String
-- `lydohuy`: String
-- `ngaygiaohang`: Date
-- `tonggiamdoanhthu_hoantra`: Number
-- `tonggiamloinhuan_hoantra`: Number
-- `tongsoluong_hoantra`: Number
-- `daxoa`: Boolean
-- `ngaytao`: Date
-- `ngaycapnhat`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `madonhang`: String, unique, ghi chú: mã nhận diện/tìm kiếm
+- `nguoidung_id`: ObjectId, ref `users`, required, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `tennguoinhan`: String, ghi chú: tên hiển thị
+- `sodienthoai`: String, ghi chú: thông tin liên hệ/định tuyến
+- `email`: String, ghi chú: thông tin liên hệ/định tuyến
+- `diachigiao`: String, ghi chú: giá trị số phục vụ tính toán
+- `tinh`: String, ghi chú: thuộc tính nghiệp vụ
+- `quan`: String, ghi chú: thuộc tính nghiệp vụ
+- `phuong`: String, ghi chú: thuộc tính nghiệp vụ
+- `ghichu`: String, ghi chú: thông tin mô tả/bổ sung
+- `phuongthucthanhtoan`: String, ghi chú: thuộc tính nghiệp vụ
+- `dathanhtoan`: Boolean, ghi chú: cờ/trạng thái xử lý
+- `ngaythanhtoan`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `vnpayTransId`: String, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `vnpayBankCode`: String, ghi chú: mã nhận diện/tìm kiếm
+- `vnpayTxnRef`: String, ghi chú: thuộc tính nghiệp vụ
+- `momoTransId`: String, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `momoOrderId`: String, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `momoRequestId`: String, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `momoPayUrl`: String, ghi chú: thuộc tính nghiệp vụ
+- `momoRefunded`: Boolean, ghi chú: thuộc tính nghiệp vụ
+- `momoRefundAt`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `phuongthucvanchuyen`: String, ghi chú: thuộc tính nghiệp vụ
+- `phivanchuyen`: Number, ghi chú: thuộc tính nghiệp vụ
+- `mavanchuyen`: String, ghi chú: mã nhận diện/tìm kiếm
+- `tamtinh`: Number, ghi chú: thuộc tính nghiệp vụ
+- `giamgia`: Number, ghi chú: giá trị số phục vụ tính toán
+- `tongtien`: Number, ghi chú: giá trị số phục vụ tính toán
+- `voucher_id`: ObjectId, ref `coupons`, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `voucher_code`: String, ghi chú: mã nhận diện/tìm kiếm
+- `voucher_type`: String, ghi chú: thuộc tính nghiệp vụ
+- `voucher_value`: Number, ghi chú: thuộc tính nghiệp vụ
+- `voucher_discount`: Number, ghi chú: thuộc tính nghiệp vụ
+- `trangthai`: String, ghi chú: cờ/trạng thái xử lý
+- `lydohuy`: String, ghi chú: thuộc tính nghiệp vụ
+- `ngaygiaohang`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `tonggiamdoanhthu_hoantra`: Number, ghi chú: giá trị số phục vụ tính toán
+- `tonggiamloinhuan_hoantra`: Number, ghi chú: giá trị số phục vụ tính toán
+- `tongsoluong_hoantra`: Number, ghi chú: giá trị số phục vụ tính toán
+- `daxoa`: Boolean, ghi chú: cờ/trạng thái xử lý
+- `ngaytao`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngaycapnhat`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 ### `order_items` (`Chitietdonhang`)
-- `_id`: ObjectId
-- `donhang_id`: ObjectId, ref `orders`, required
-- `sanpham_id`: ObjectId, ref `products`, required
-- `bienthe_id`: ObjectId, tham chiếu logic tới `products.bienthe._id`
-- `tensanpham`: String
-- `hinhanh`: String
-- `mausac`: String
-- `kichco`: String
-- `giagoc`: Number
-- `giaban`: Number
-- `soluong`: Number
-- `thanhtien`: Number
-- `fifoAllocations[]`: subdocument gồm `lotId`, `soLuong`, `giaNhap`, `giaBanDeXuat`
-- `trangthai`: String
-- `danhgia`: Boolean
-- `ngaytao`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `donhang_id`: ObjectId, ref `orders`, required, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `sanpham_id`: ObjectId, ref `products`, required, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `bienthe_id`: ObjectId, tham chiếu logic tới `products.bienthe._id`, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `tensanpham`: String, ghi chú: tên hiển thị
+- `hinhanh`: String, ghi chú: thuộc tính nghiệp vụ
+- `mausac`: String, ghi chú: mã nhận diện/tìm kiếm
+- `kichco`: String, ghi chú: thuộc tính nghiệp vụ
+- `giagoc`: Number, ghi chú: giá trị số phục vụ tính toán
+- `giaban`: Number, ghi chú: giá trị số phục vụ tính toán
+- `soluong`: Number, ghi chú: giá trị số phục vụ tính toán
+- `thanhtien`: Number, ghi chú: thuộc tính nghiệp vụ
+- `fifoAllocations[]`: subdocument gồm `lotId`, `soLuong`, `giaNhap`, `giaBanDeXuat`, ghi chú: danh sách dữ liệu dạng mảng
+- `trangthai`: String, ghi chú: cờ/trạng thái xử lý
+- `danhgia`: Boolean, ghi chú: cờ/trạng thái xử lý
+- `ngaytao`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 ### `order_refunds` (`OrderRefund`)
-- `_id`: ObjectId
-- `donhang_id`: ObjectId, ref `orders`, required, unique
-- `nguoidung_id`: ObjectId, ref `users`
-- `madonhang`: String
-- `trangthai_donhang`: String
-- `requestedAt`: Date
-- `reason`: String
-- `reasonLabel`: String
-- `detail`: String
-- `requestedItems[]`: subdocument gồm `orderItemId`, `qty`, `boughtQty`, `tensanpham`, `hinhanh`, `kichco`, `mausac`, `gianhap`, `giabandexuat`
-- `receivedItems[]`: subdocument cùng cấu trúc `requestedItems[]`
-- `proofMedias[]`: String
-- `proofMedia`: String
-- `proofImage`: String
-- `refundMethod`: String
-- `refundWallet`: String
-- `refundBankName`: String
-- `refundBankAccountName`: String
-- `refundBankAccountNumber`: String
-- `refundAmount`: Number
-- `adminNote`: String
-- `reviewedAt`: Date
-- `approvedAt`: Date
-- `rejectedAt`: Date
-- `returnedAt`: Date
-- `refundedAt`: Date
-- `canceledByUser`: Boolean
-- `canceledByUserAt`: Date
-- `lastAction`: String
-- `lastActorId`: ObjectId, ref `users`, có thể null
-- `lastActorRole`: String
-- `lastActorName`: String
-- `ngaytao`: Date
-- `ngaycapnhat`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `donhang_id`: ObjectId, ref `orders`, required, unique, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `nguoidung_id`: ObjectId, ref `users`, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `madonhang`: String, ghi chú: mã nhận diện/tìm kiếm
+- `trangthai_donhang`: String, ghi chú: cờ/trạng thái xử lý
+- `requestedAt`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `reason`: String, ghi chú: thuộc tính nghiệp vụ
+- `reasonLabel`: String, ghi chú: thuộc tính nghiệp vụ
+- `detail`: String, ghi chú: thông tin mô tả/bổ sung
+- `requestedItems[]`: subdocument gồm `orderItemId`, `qty`, `boughtQty`, `tensanpham`, `hinhanh`, `kichco`, `mausac`, `gianhap`, `giabandexuat`, ghi chú: danh sách dữ liệu dạng mảng
+- `receivedItems[]`: subdocument cùng cấu trúc `requestedItems[]`, ghi chú: danh sách dữ liệu dạng mảng
+- `proofMedias[]`: String, ghi chú: danh sách dữ liệu dạng mảng
+- `proofMedia`: String, ghi chú: thuộc tính nghiệp vụ
+- `proofImage`: String, ghi chú: thuộc tính nghiệp vụ
+- `refundMethod`: String, ghi chú: thuộc tính nghiệp vụ
+- `refundWallet`: String, ghi chú: thuộc tính nghiệp vụ
+- `refundBankName`: String, ghi chú: tên hiển thị
+- `refundBankAccountName`: String, ghi chú: tên hiển thị
+- `refundBankAccountNumber`: String, ghi chú: thuộc tính nghiệp vụ
+- `refundAmount`: Number, ghi chú: thuộc tính nghiệp vụ
+- `adminNote`: String, ghi chú: thuộc tính nghiệp vụ
+- `reviewedAt`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `approvedAt`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `rejectedAt`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `returnedAt`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `refundedAt`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `canceledByUser`: Boolean, ghi chú: thuộc tính nghiệp vụ
+- `canceledByUserAt`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `lastAction`: String, ghi chú: thuộc tính nghiệp vụ
+- `lastActorId`: ObjectId, ref `users`, có thể null, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `lastActorRole`: String, ghi chú: thuộc tính nghiệp vụ
+- `lastActorName`: String, ghi chú: tên hiển thị
+- `ngaytao`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngaycapnhat`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 ### `order_status_logs` (`OrderStatusLog`)
-- `_id`: ObjectId
-- `donhang_id`: ObjectId, ref `orders`, required
-- `nguoidung_id`: ObjectId, ref `users`
-- `madonhang`: String
-- `trangthai_cu`: String
-- `trangthai_moi`: String
-- `hanhdong`: String
-- `ghichu`: String
-- `actorId`: ObjectId, ref `users`, có thể null
-- `actorRole`: String
-- `actorName`: String
-- `uniqueKey`: String
-- `metadata`: Mixed
-- `ngaytao`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `donhang_id`: ObjectId, ref `orders`, required, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `nguoidung_id`: ObjectId, ref `users`, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `madonhang`: String, ghi chú: mã nhận diện/tìm kiếm
+- `trangthai_cu`: String, ghi chú: cờ/trạng thái xử lý
+- `trangthai_moi`: String, ghi chú: cờ/trạng thái xử lý
+- `hanhdong`: String, ghi chú: thuộc tính nghiệp vụ
+- `ghichu`: String, ghi chú: thông tin mô tả/bổ sung
+- `actorId`: ObjectId, ref `users`, có thể null, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `actorRole`: String, ghi chú: thuộc tính nghiệp vụ
+- `actorName`: String, ghi chú: tên hiển thị
+- `uniqueKey`: String, ghi chú: thuộc tính nghiệp vụ
+- `metadata`: Mixed, ghi chú: thuộc tính nghiệp vụ
+- `ngaytao`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 ### `pays` (`Thanhtoan`)
-- `_id`: ObjectId
-- `donhang_id`: ObjectId, ref `orders`, required
-- `nguoidung_id`: ObjectId, ref `users`, required
-- `magiaodich`: String
-- `phuongthuc`: String
-- `sotien`: Number
-- `trangthai`: String
-- `chitiet`: Object gồm `nganhang`, `sotaikhoan`, `tennguoichuyen`, `noidung`, `anhchungtu`
-- `response`: Mixed
-- `ghichu`: String
-- `ngaytao`: Date
-- `ngaycapnhat`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `donhang_id`: ObjectId, ref `orders`, required, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `nguoidung_id`: ObjectId, ref `users`, required, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `magiaodich`: String, ghi chú: giá trị số phục vụ tính toán
+- `phuongthuc`: String, ghi chú: thuộc tính nghiệp vụ
+- `sotien`: Number, ghi chú: thuộc tính nghiệp vụ
+- `trangthai`: String, ghi chú: cờ/trạng thái xử lý
+- `chitiet`: Object gồm `nganhang`, `sotaikhoan`, `tennguoichuyen`, `noidung`, `anhchungtu`, ghi chú: thuộc tính nghiệp vụ
+- `response`: Mixed, ghi chú: thuộc tính nghiệp vụ
+- `ghichu`: String, ghi chú: thông tin mô tả/bổ sung
+- `ngaytao`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngaycapnhat`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 ### `products` (`Sanpham`)
-- `_id`: ObjectId
-- `tensanpham`: String
-- `mota`: String
-- `mota_hinhanh`: String
-- `gia`: Number
-- `phantramgiamgia`: Number
-- `category`: ObjectId, ref `categories`
-- `danhmuc_id`: ObjectId, ref `categories`
-- `sizeguide_id`: ObjectId, ref `size_guides`
-- `bangsize_id`: ObjectId, ref `size_guides`
-- `occasions[]`: ObjectId, ref `categories`
-- `occasion`: ObjectId, ref `categories`
-- `dip_sudung_id`: ObjectId, ref `categories`
-- `ageGroup`: ObjectId, ref `categories`
-- `nhomtuoi_id`: ObjectId, ref `categories`
-- `thuonghieu_id`: ObjectId, ref `brands`
-- `brand`: ObjectId, ref `brands`
-- `thuonghieu`: ObjectId, ref `brands`
-- `luotmua`: Number
-- `mausac_chinh`: String
-- `sizes[]`: subdocument gồm `size`, `soluong`
-- `soluong_chinh`: Number
-- `soluongton`: Number
-- `gioitinh`: String
-- `loaisanpham`: String
-- `bienthe[]`: subdocument gồm `_id`, `mausac`, `hinhanh`, `gia`, `phantramgiamgia`, `soluong`, `sizes[]`
-- `hinhanh`: String
-- `trangthai`: String
-- `daxoa`: Boolean
-- `ngaytao`: Date
-- `ngaycapnhat`: Date
-- `giaMoi`: virtual, không lưu DB
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `tensanpham`: String, ghi chú: tên hiển thị
+- `mota`: String, ghi chú: thông tin mô tả/bổ sung
+- `mota_hinhanh`: String, ghi chú: thông tin mô tả/bổ sung
+- `gia`: Number, ghi chú: giá trị số phục vụ tính toán
+- `phantramgiamgia`: Number, ghi chú: giá trị số phục vụ tính toán
+- `category`: ObjectId, ref `categories`, ghi chú: thuộc tính nghiệp vụ
+- `danhmuc_id`: ObjectId, ref `categories`, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `sizeguide_id`: ObjectId, ref `size_guides`, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `bangsize_id`: ObjectId, ref `size_guides`, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `occasions[]`: ObjectId, ref `categories`, ghi chú: danh sách dữ liệu dạng mảng
+- `occasion`: ObjectId, ref `categories`, ghi chú: thuộc tính nghiệp vụ
+- `dip_sudung_id`: ObjectId, ref `categories`, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `ageGroup`: ObjectId, ref `categories`, ghi chú: thuộc tính nghiệp vụ
+- `nhomtuoi_id`: ObjectId, ref `categories`, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `thuonghieu_id`: ObjectId, ref `brands`, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `brand`: ObjectId, ref `brands`, ghi chú: thuộc tính nghiệp vụ
+- `thuonghieu`: ObjectId, ref `brands`, ghi chú: thuộc tính nghiệp vụ
+- `luotmua`: Number, ghi chú: thuộc tính nghiệp vụ
+- `mausac_chinh`: String, ghi chú: mã nhận diện/tìm kiếm
+- `sizes[]`: subdocument gồm `size`, `soluong`, ghi chú: danh sách dữ liệu dạng mảng
+- `soluong_chinh`: Number, ghi chú: giá trị số phục vụ tính toán
+- `soluongton`: Number, ghi chú: giá trị số phục vụ tính toán
+- `gioitinh`: String, ghi chú: thuộc tính nghiệp vụ
+- `loaisanpham`: String, ghi chú: thuộc tính nghiệp vụ
+- `bienthe[]`: subdocument gồm `_id`, `mausac`, `hinhanh`, `gia`, `phantramgiamgia`, `soluong`, `sizes[]`, ghi chú: danh sách dữ liệu dạng mảng
+- `hinhanh`: String, ghi chú: thuộc tính nghiệp vụ
+- `trangthai`: String, ghi chú: cờ/trạng thái xử lý
+- `daxoa`: Boolean, ghi chú: cờ/trạng thái xử lý
+- `ngaytao`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngaycapnhat`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `giaMoi`: virtual, không lưu DB, ghi chú: giá trị số phục vụ tính toán
 
 ### `categories` (`Danhmuc`)
-- `_id`: ObjectId
-- `name`: String
-- `tendanhmuc`: String
-- `slug`: String, unique
-- `mota`: String
-- `hinhanh`: String
-- `parent_id`: ObjectId, ref `categories`
-- `danhmuccha`: ObjectId, ref `categories`
-- `level`: Number
-- `ancestors[]`: ObjectId, ref `categories`
-- `path`: String
-- `order`: Number
-- `thutu`: Number
-- `isActive`: Boolean
-- `trangthai`: String
-- `type`: String
-- `daxoa`: Boolean
-- `ngaytao`: Date
-- `createdAt`: Date
-- `updatedAt`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `name`: String, ghi chú: tên hiển thị
+- `tendanhmuc`: String, ghi chú: tên hiển thị
+- `slug`: String, unique, ghi chú: mã nhận diện/tìm kiếm
+- `mota`: String, ghi chú: thông tin mô tả/bổ sung
+- `hinhanh`: String, ghi chú: thuộc tính nghiệp vụ
+- `parent_id`: ObjectId, ref `categories`, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `danhmuccha`: ObjectId, ref `categories`, ghi chú: cờ/trạng thái xử lý
+- `level`: Number, ghi chú: thuộc tính nghiệp vụ
+- `ancestors[]`: ObjectId, ref `categories`, ghi chú: danh sách dữ liệu dạng mảng
+- `path`: String, ghi chú: thuộc tính nghiệp vụ
+- `order`: Number, ghi chú: thuộc tính nghiệp vụ
+- `thutu`: Number, ghi chú: thuộc tính nghiệp vụ
+- `isActive`: Boolean, ghi chú: cờ/trạng thái xử lý
+- `trangthai`: String, ghi chú: cờ/trạng thái xử lý
+- `type`: String, ghi chú: thuộc tính nghiệp vụ
+- `daxoa`: Boolean, ghi chú: cờ/trạng thái xử lý
+- `ngaytao`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `createdAt`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `updatedAt`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 ### `brands` (`Brand`)
-- `_id`: ObjectId
-- `name`: String
-- `ten`: String
-- `slug`: String, unique có điều kiện
-- `normalizedName`: String, unique có điều kiện
-- `logo`: String
-- `description`: String
-- `moTa`: String
-- `isFeatured`: Boolean
-- `noiBat`: Boolean
-- `isActive`: Boolean
-- `hienthi`: Boolean
-- `order`: Number
-- `thuTu`: Number
-- `daXoa`: Boolean
-- `deletedAt`: Date
-- `ngaytao`: Date
-- `ngaycapnhat`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `name`: String, ghi chú: tên hiển thị
+- `ten`: String, ghi chú: tên hiển thị
+- `slug`: String, unique có điều kiện, ghi chú: mã nhận diện/tìm kiếm
+- `normalizedName`: String, unique có điều kiện, ghi chú: tên hiển thị
+- `logo`: String, ghi chú: thuộc tính nghiệp vụ
+- `description`: String, ghi chú: thuộc tính nghiệp vụ
+- `moTa`: String, ghi chú: thông tin mô tả/bổ sung
+- `isFeatured`: Boolean, ghi chú: cờ/trạng thái xử lý
+- `noiBat`: Boolean, ghi chú: mốc thời gian nghiệp vụ
+- `isActive`: Boolean, ghi chú: cờ/trạng thái xử lý
+- `hienthi`: Boolean, ghi chú: cờ/trạng thái xử lý
+- `order`: Number, ghi chú: thuộc tính nghiệp vụ
+- `thuTu`: Number, ghi chú: thuộc tính nghiệp vụ
+- `daXoa`: Boolean, ghi chú: cờ/trạng thái xử lý
+- `deletedAt`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngaytao`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngaycapnhat`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 ### `size_guides` (`SizeGuide`)
-- `_id`: ObjectId
-- `tenbang`: String
-- `slug`: String, unique
-- `loaisanpham`: String
-- `cot[]`: String
-- `dong[]`: subdocument gồm `size`, `giatri[]`
-- `goiy`: String
-- `daxoa`: Boolean
-- `ngaytao`: Date
-- `ngaycapnhat`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `tenbang`: String, ghi chú: tên hiển thị
+- `slug`: String, unique, ghi chú: mã nhận diện/tìm kiếm
+- `loaisanpham`: String, ghi chú: thuộc tính nghiệp vụ
+- `cot[]`: String, ghi chú: danh sách dữ liệu dạng mảng
+- `dong[]`: subdocument gồm `size`, `giatri[]`, ghi chú: danh sách dữ liệu dạng mảng
+- `goiy`: String, ghi chú: thuộc tính nghiệp vụ
+- `daxoa`: Boolean, ghi chú: cờ/trạng thái xử lý
+- `ngaytao`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngaycapnhat`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 ### `reviews` (`Danhgia`)
-- `_id`: ObjectId
-- `sanpham_id`: ObjectId, ref `products`, required
-- `nguoidung_id`: ObjectId, ref `users`, required
-- `donhang_id`: ObjectId, ref `orders`
-- `chitietdonhang_id`: ObjectId, ref `order_items`
-- `diem`: Number
-- `tieude`: String
-- `noidung`: String
-- `hinhanh[]`: String
-- `videos[]`: String
-- `tags[]`: String
-- `mausac`: String
-- `kichco`: String
-- `phanhoi`: subdocument gồm `noidung`, `nguoiphanhoi`, `ngayphanhoi`
-- `thich`: Number
-- `trangthai`: String
-- `hienthi`: Boolean
-- `lydoan`: String
-- `anboi`: ObjectId, ref `users`
-- `ngayan`: Date
-- `xoaBoi`: ObjectId, ref `users`
-- `ngayxoa`: Date
-- `biBaoCao`: Boolean
-- `soBaoCao`: Number
-- `daxoa`: Boolean
-- `ngaytao`: Date
-- `ngaycapnhat`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `sanpham_id`: ObjectId, ref `products`, required, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `nguoidung_id`: ObjectId, ref `users`, required, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `donhang_id`: ObjectId, ref `orders`, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `chitietdonhang_id`: ObjectId, ref `order_items`, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `diem`: Number, ghi chú: giá trị số phục vụ tính toán
+- `tieude`: String, ghi chú: thuộc tính nghiệp vụ
+- `noidung`: String, ghi chú: thông tin mô tả/bổ sung
+- `hinhanh[]`: String, ghi chú: danh sách dữ liệu dạng mảng
+- `videos[]`: String, ghi chú: danh sách dữ liệu dạng mảng
+- `tags[]`: String, ghi chú: danh sách dữ liệu dạng mảng
+- `mausac`: String, ghi chú: mã nhận diện/tìm kiếm
+- `kichco`: String, ghi chú: thuộc tính nghiệp vụ
+- `phanhoi`: subdocument gồm `noidung`, `nguoiphanhoi`, `ngayphanhoi`, ghi chú: thuộc tính nghiệp vụ
+- `thich`: Number, ghi chú: thuộc tính nghiệp vụ
+- `trangthai`: String, ghi chú: cờ/trạng thái xử lý
+- `hienthi`: Boolean, ghi chú: cờ/trạng thái xử lý
+- `lydoan`: String, ghi chú: thuộc tính nghiệp vụ
+- `anboi`: ObjectId, ref `users`, ghi chú: thuộc tính nghiệp vụ
+- `ngayan`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `xoaBoi`: ObjectId, ref `users`, ghi chú: thuộc tính nghiệp vụ
+- `ngayxoa`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `biBaoCao`: Boolean, ghi chú: thuộc tính nghiệp vụ
+- `soBaoCao`: Number, ghi chú: thuộc tính nghiệp vụ
+- `daxoa`: Boolean, ghi chú: cờ/trạng thái xử lý
+- `ngaytao`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngaycapnhat`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 ### `favorites` (`Yeuthich`)
-- `_id`: ObjectId
-- `nguoidung_id`: ObjectId, ref `users`, required
-- `sanpham_id`: ObjectId, ref `products`, required
-- `ngaythem`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `nguoidung_id`: ObjectId, ref `users`, required, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `sanpham_id`: ObjectId, ref `products`, required, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `ngaythem`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 ### `coupons` (`Coupon`)
-- `_id`: ObjectId
-- `code`: String, required, unique
-- `ten`: String
-- `mota`: String
-- `banner`: String
-- `loai`: String
-- `giatri`: Number
-- `don_toithieu`: Number
-- `giam_toida`: Number
-- `ngay_batdau`: Date
-- `ngay_ketthuc`: Date
-- `soluong_toida`: Number
-- `soluong_dasudung`: Number
-- `trangthai`: String
-- `daxoa`: Boolean
-- `ngaytao`: Date
-- `ngaycapnhat`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `code`: String, required, unique, ghi chú: mã nhận diện/tìm kiếm
+- `ten`: String, ghi chú: tên hiển thị
+- `mota`: String, ghi chú: thông tin mô tả/bổ sung
+- `banner`: String, ghi chú: thuộc tính nghiệp vụ
+- `loai`: String, ghi chú: thuộc tính nghiệp vụ
+- `giatri`: Number, ghi chú: giá trị số phục vụ tính toán
+- `don_toithieu`: Number, ghi chú: thuộc tính nghiệp vụ
+- `giam_toida`: Number, ghi chú: giá trị số phục vụ tính toán
+- `ngay_batdau`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngay_ketthuc`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `soluong_toida`: Number, ghi chú: giá trị số phục vụ tính toán
+- `soluong_dasudung`: Number, ghi chú: giá trị số phục vụ tính toán
+- `trangthai`: String, ghi chú: cờ/trạng thái xử lý
+- `daxoa`: Boolean, ghi chú: cờ/trạng thái xử lý
+- `ngaytao`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngaycapnhat`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 ### `user_vouchers` (`UserVoucher`)
-- `_id`: ObjectId
-- `nguoidung_id`: ObjectId, ref `users`, required
-- `voucher_id`: ObjectId, ref `coupons`, required
-- `isUsed`: Boolean
-- `savedAt`: Date
-- `usedAt`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `nguoidung_id`: ObjectId, ref `users`, required, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `voucher_id`: ObjectId, ref `coupons`, required, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `isUsed`: Boolean, ghi chú: cờ/trạng thái xử lý
+- `savedAt`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `usedAt`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 ### `import_receipts` (`PhieuNhapKho`)
-- `_id`: ObjectId
-- `code`: String
-- `maphieu`: String, unique
-- `ma_phieu`: String
-- `loaiphieu`: String
-- `tenloaiphieu`: String
-- `nguonnhap`: String
-- `donhang_id`: ObjectId, ref `orders`
-- `madonhang`: String
-- `phieuxuat_id`: ObjectId, ref `export_receipts`
-- `maphieuxuat`: String
-- `ngaynhap`: Date
-- `nhacungcap`: String
-- `ghichu`: String
-- `tongtiennhap`: Number
-- `chitiet[]`: subdocument gồm `chisoblock`, `sanphamid`, `orderitemid`, `tensanpham`, `masku`, `danhmuc`, `chatlieu`, `hinhanh`, `bientheid`, `kichco`, `mausac`, `soluong`, `gianhap`, `giabandexuat`
-- `daxuatkho`: Boolean
-- `ngayxuatkho`: Date
-- `nguoixuatkho`: ObjectId, ref `users`
-- `nhanvienky`: subdocument gồm `tennhanvien`, `idnhanvien`, `anhchuky`, `thoigianky`
-- `nguoitao`: ObjectId, ref `users`
-- `ngaytao`: Date
-- `ngaycapnhat`: Date
+- `_id`: ObjectId, định danh phiếu nhập, ghi chú: khóa định danh bản ghi
+- `code`: String, mã hiển thị phụ của phiếu, ghi chú: mã nhận diện/tìm kiếm
+- `maphieu`: String, unique, mã phiếu nhập chính, ghi chú: mã nhận diện/tìm kiếm
+- `ma_phieu`: String, mã phiếu theo format cũ/legacy, ghi chú: mã nhận diện/tìm kiếm
+- `loaiphieu`: String, loại phiếu (`standard` hoặc `return`), ghi chú: thuộc tính nghiệp vụ
+- `tenloaiphieu`: String, tên hiển thị loại phiếu, ghi chú: tên hiển thị
+- `nguonnhap`: String, người nhập kho, ghi chú: thuộc tính nghiệp vụ
+- `donhang_id`: ObjectId, ref `orders`, đơn hàng liên quan (nếu có), ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `madonhang`: String, mã đơn hàng liên quan, ghi chú: mã nhận diện/tìm kiếm
+- `phieuxuat_id`: ObjectId, ref `export_receipts`, phiếu xuất gốc khi nhập hoàn, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `maphieuxuat`: String, mã phiếu xuất gốc, ghi chú: mốc thời gian nghiệp vụ
+- `ngaynhap`: Date, ngày thực hiện nhập kho, ghi chú: mốc thời gian nghiệp vụ
+- `nhacungcap`: String, tên nhà cung cấp/nguồn hàng, ghi chú: thuộc tính nghiệp vụ
+- `ghichu`: String, ghi chú nghiệp vụ, ghi chú: thông tin mô tả/bổ sung
+- `tongtiennhap`: Number, tổng giá trị nhập của phiếu, ghi chú: giá trị số phục vụ tính toán
+- `chitiet[]`: subdocument, danh sách dòng hàng nhập gồm `chisoblock`, `sanphamid`, `orderitemid`, `tensanpham`, `masku`, `danhmuc`, `chatlieu`, `hinhanh`, `bientheid`, `kichco`, `mausac`, `soluong`, `gianhap`, `giabandexuat`, ghi chú: danh sách dữ liệu dạng mảng
+- `daxuatkho`: Boolean, trạng thái đã xuất kho lại hay chưa, ghi chú: cờ/trạng thái xử lý
+- `ngayxuatkho`: Date, thời điểm xuất kho từ phiếu nhập này, ghi chú: mốc thời gian nghiệp vụ
+- `nguoixuatkho`: ObjectId, ref `users`, người xác nhận/thực hiện xuất kho, ghi chú: thuộc tính nghiệp vụ
+- `nhanvienky`: subdocument, thông tin ký xác nhận gồm `tennhanvien`, `idnhanvien`, `anhchuky`, `thoigianky`, ghi chú: thuộc tính nghiệp vụ
+- `nguoitao`: ObjectId, ref `users`, người tạo phiếu, ghi chú: thuộc tính nghiệp vụ
+- `ngaytao`: Date, thời điểm tạo phiếu, ghi chú: mốc thời gian nghiệp vụ
+- `ngaycapnhat`: Date, thời điểm cập nhật gần nhất, ghi chú: mốc thời gian nghiệp vụ
 
 ### `export_receipts` (`PhieuXuatKho`)
-- `_id`: ObjectId
-- `maphieu`: String, required, unique
-- `donhang_id`: ObjectId, ref `orders`, unique sparse
-- `madonhang`: String
-- `ngayxuat`: Date
-- `noinhan`: String
-- `lydo`: String
-- `tongsoluong`: Number
-- `tongdoanhthu`: Number
-- `tonggiavon`: Number
-- `tongloinhuan`: Number
-- `tongdoanhthuhoan`: Number
-- `tonggiavonhoan`: Number
-- `tongloinhuanhoan`: Number
-- `tysuatloinhuan`: Number
-- `nguoitaophieu`: String
-- `chitiet[]`: subdocument gồm `sanphamid`, `tensanpham`, `bientheid`, `kichco`, `mausac`, `soluong`, `gianhap`, `giaban`, `phantramgiam`, `giasaugiam`, `doanhthu`, `giavon`, `loinhuan`, `soluonghoan`, `doanhthuhoan`, `giavonhoan`, `loinhuanhoan`, `allocations[]`, `hinhanh`, `ghichudong`
-- `allocations[]`: subdocument con của `chitiet[]`, gồm `lotId`, `soLuong`, `soluonghoan`, `giaNhap`, `giaBanDeXuat`, `giaban`, `phantramgiam`, `giasaugiam`, `doanhthu`, `giavon`, `loinhuan`
-- `nhanvienky`: subdocument gồm `tennhanvien`, `idnhanvien`, `anhchuky`, `thoigianky`
-- `nguoitao`: ObjectId, ref `users`
-- `ngaytao`: Date
-- `ngaycapnhat`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `maphieu`: String, required, unique, ghi chú: mã nhận diện/tìm kiếm
+- `donhang_id`: ObjectId, ref `orders`, unique sparse, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `madonhang`: String, ghi chú: mã nhận diện/tìm kiếm
+- `ngayxuat`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `noinhan`: String, ghi chú: thuộc tính nghiệp vụ
+- `lydo`: String, ghi chú: thuộc tính nghiệp vụ
+- `tongsoluong`: Number, ghi chú: giá trị số phục vụ tính toán
+- `tongdoanhthu`: Number, ghi chú: giá trị số phục vụ tính toán
+- `tonggiavon`: Number, ghi chú: giá trị số phục vụ tính toán
+- `tongloinhuan`: Number, ghi chú: giá trị số phục vụ tính toán
+- `tongdoanhthuhoan`: Number, ghi chú: giá trị số phục vụ tính toán
+- `tonggiavonhoan`: Number, ghi chú: giá trị số phục vụ tính toán
+- `tongloinhuanhoan`: Number, ghi chú: giá trị số phục vụ tính toán
+- `tysuatloinhuan`: Number, ghi chú: giá trị số phục vụ tính toán
+- `nguoitaophieu`: String, ghi chú: thuộc tính nghiệp vụ
+- `chitiet[]`: subdocument gồm `sanphamid`, `tensanpham`, `bientheid`, `kichco`, `mausac`, `soluong`, `gianhap`, `giaban`, `phantramgiam`, `giasaugiam`, `doanhthu`, `giavon`, `loinhuan`, `soluonghoan`, `doanhthuhoan`, `giavonhoan`, `loinhuanhoan`, `allocations[]`, `hinhanh`, `ghichudong`, ghi chú: danh sách dữ liệu dạng mảng
+- `allocations[]`: subdocument con của `chitiet[]`, gồm `lotId`, `soLuong`, `soluonghoan`, `giaNhap`, `giaBanDeXuat`, `giaban`, `phantramgiam`, `giasaugiam`, `doanhthu`, `giavon`, `loinhuan`, ghi chú: danh sách dữ liệu dạng mảng
+- `nhanvienky`: subdocument gồm `tennhanvien`, `idnhanvien`, `anhchuky`, `thoigianky`, ghi chú: thuộc tính nghiệp vụ
+- `nguoitao`: ObjectId, ref `users`, ghi chú: thuộc tính nghiệp vụ
+- `ngaytao`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngaycapnhat`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 ### `inventory_lots` (`TonKhoLo`)
-- `_id`: ObjectId
-- `phieunhap_id`: ObjectId, ref `import_receipts`, required
-- `maphieunhap`: String
-- `ngaynhap`: Date
-- `nhacungcap`: String
-- `sanphamid`: ObjectId, ref `products`, required
-- `bientheid`: ObjectId, tham chiếu logic tới `products.bienthe._id`
-- `kichco`: String
-- `mausac`: String
-- `gianhap`: Number
-- `giabandexuat`: Number
-- `soluongnhap`: Number
-- `soluongconlai`: Number
-- `ngaytao`: Date
-- `ngaycapnhat`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `phieunhap_id`: ObjectId, ref `import_receipts`, required, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `maphieunhap`: String, ghi chú: mã nhận diện/tìm kiếm
+- `ngaynhap`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `nhacungcap`: String, ghi chú: thuộc tính nghiệp vụ
+- `sanphamid`: ObjectId, ref `products`, required, ghi chú: thuộc tính nghiệp vụ
+- `bientheid`: ObjectId, tham chiếu logic tới `products.bienthe._id`, ghi chú: thuộc tính nghiệp vụ
+- `kichco`: String, ghi chú: thuộc tính nghiệp vụ
+- `mausac`: String, ghi chú: mã nhận diện/tìm kiếm
+- `gianhap`: Number, ghi chú: giá trị số phục vụ tính toán
+- `giabandexuat`: Number, ghi chú: mốc thời gian nghiệp vụ
+- `soluongnhap`: Number, ghi chú: giá trị số phục vụ tính toán
+- `soluongconlai`: Number, ghi chú: giá trị số phục vụ tính toán
+- `ngaytao`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngaycapnhat`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 ### `inventory_adjustments` (`PhieuDieuChinhKho`)
-- `_id`: ObjectId
-- `maphieu`: String, unique
-- `loaiphieu`: String
-- `lydo`: String
-- `daxacnhan`: Boolean
-- `ngayxacnhan`: Date
-- `nguoixacnhan`: ObjectId, ref `users`
-- `chitiet[]`: subdocument gồm `sanphamid`, `tensanpham`, `bientheid`, `kichco`, `mausac`, `soluongdieuchinh`, `tontruoc`, `tonsau`
-- `nguoitao`: ObjectId, ref `users`
-- `ngaytao`: Date
-- `ngaycapnhat`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `maphieu`: String, unique, ghi chú: mã nhận diện/tìm kiếm
+- `loaiphieu`: String, ghi chú: thuộc tính nghiệp vụ
+- `lydo`: String, ghi chú: thuộc tính nghiệp vụ
+- `daxacnhan`: Boolean, ghi chú: cờ/trạng thái xử lý
+- `ngayxacnhan`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `nguoixacnhan`: ObjectId, ref `users`, ghi chú: thuộc tính nghiệp vụ
+- `chitiet[]`: subdocument gồm `sanphamid`, `tensanpham`, `bientheid`, `kichco`, `mausac`, `soluongdieuchinh`, `tontruoc`, `tonsau`, ghi chú: danh sách dữ liệu dạng mảng
+- `nguoitao`: ObjectId, ref `users`, ghi chú: thuộc tính nghiệp vụ
+- `ngaytao`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngaycapnhat`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 ### `chat_messages` (`ChatMessage`)
-- `_id`: ObjectId
-- `clientId`: ObjectId, ref `users`, required
-- `senderId`: ObjectId, ref `users`, required
-- `senderRole`: String
-- `receiverId`: ObjectId, ref `users`, có thể null
-- `receiverRole`: String
-- `content`: String
-- `mediaUrl`: String
-- `mediaType`: String
-- `mediaMime`: String
-- `mediaName`: String
-- `mediaSize`: Number
-- `isRead`: Boolean
-- `readAt`: Date
-- `sentAt`: Date
-- `daxoa`: Boolean
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `clientId`: ObjectId, ref `users`, required, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `senderId`: ObjectId, ref `users`, required, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `senderRole`: String, ghi chú: thuộc tính nghiệp vụ
+- `receiverId`: ObjectId, ref `users`, có thể null, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `receiverRole`: String, ghi chú: thuộc tính nghiệp vụ
+- `content`: String, ghi chú: tên hiển thị
+- `mediaUrl`: String, ghi chú: thuộc tính nghiệp vụ
+- `mediaType`: String, ghi chú: thuộc tính nghiệp vụ
+- `mediaMime`: String, ghi chú: thuộc tính nghiệp vụ
+- `mediaName`: String, ghi chú: tên hiển thị
+- `mediaSize`: Number, ghi chú: thuộc tính nghiệp vụ
+- `isRead`: Boolean, ghi chú: cờ/trạng thái xử lý
+- `readAt`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `sentAt`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `daxoa`: Boolean, ghi chú: cờ/trạng thái xử lý
 
 ### `login_logs` (`LoginLog`)
-- `_id`: ObjectId
-- `userId`: ObjectId, ref `users`, có thể null
-- `email`: String
-- `role`: String
-- `provider`: String
-- `status`: String
-- `ip`: String
-- `userAgent`: String
-- `message`: String
-- `createdAt`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `userId`: ObjectId, ref `users`, có thể null, ghi chú: khóa tham chiếu/liên kết dữ liệu
+- `email`: String, ghi chú: thông tin liên hệ/định tuyến
+- `role`: String, ghi chú: thuộc tính nghiệp vụ
+- `provider`: String, ghi chú: thuộc tính nghiệp vụ
+- `status`: String, ghi chú: thuộc tính nghiệp vụ
+- `ip`: String, ghi chú: thông tin liên hệ/định tuyến
+- `userAgent`: String, ghi chú: thuộc tính nghiệp vụ
+- `message`: String, ghi chú: thuộc tính nghiệp vụ
+- `createdAt`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 ### `banners` (`Banner`)
-- `_id`: ObjectId
-- `tieude`: String
-- `mota`: String
-- `hinhanh`: String, required
-- `nut_text`: String
-- `nut_link`: String
-- `loai`: String
-- `hienthi`: Boolean
-- `thuTu`: Number
-- `ngaytao`: Date
-- `ngaycapnhat`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `tieude`: String, ghi chú: thuộc tính nghiệp vụ
+- `mota`: String, ghi chú: thông tin mô tả/bổ sung
+- `hinhanh`: String, required, ghi chú: thuộc tính nghiệp vụ
+- `nut_text`: String, ghi chú: thuộc tính nghiệp vụ
+- `nut_link`: String, ghi chú: thuộc tính nghiệp vụ
+- `loai`: String, ghi chú: thuộc tính nghiệp vụ
+- `hienthi`: Boolean, ghi chú: cờ/trạng thái xử lý
+- `thuTu`: Number, ghi chú: thuộc tính nghiệp vụ
+- `ngaytao`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngaycapnhat`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 ### `blog_posts` (`BlogPost`)
-- `_id`: ObjectId
-- `tieude`: String, required
-- `slug`: String, required, unique
-- `tomtat`: String
-- `noidung`: String
-- `hinhanh`: String
-- `xuatban`: Boolean
-- `ngayxuatban`: Date
-- `ngaytao`: Date
-- `ngaycapnhat`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `tieude`: String, required, ghi chú: thuộc tính nghiệp vụ
+- `slug`: String, required, unique, ghi chú: mã nhận diện/tìm kiếm
+- `tomtat`: String, ghi chú: mốc thời gian nghiệp vụ
+- `noidung`: String, ghi chú: thông tin mô tả/bổ sung
+- `hinhanh`: String, ghi chú: thuộc tính nghiệp vụ
+- `xuatban`: Boolean, ghi chú: thuộc tính nghiệp vụ
+- `ngayxuatban`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngaytao`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngaycapnhat`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 ### `lookbooks` (`Lookbook`)
-- `_id`: ObjectId
-- `title`: String
-- `slug`: String, unique
-- `image`: String
-- `description`: String
-- `products[]`: ObjectId, ref `products`
-- `order`: Number
-- `isActive`: Boolean
-- `startDate`: Date
-- `endDate`: Date
-- `deletedAt`: Date
-- `tenmua`: String
-- `hinhanh`: String
-- `mota`: String
-- `sanpham_ids[]`: ObjectId, ref `products`
-- `thuTu`: Number
-- `hienthi`: Boolean
-- `createdAt`: Date
-- `updatedAt`: Date
-- `ngaytao`: virtual từ `createdAt`
-- `ngaycapnhat`: virtual từ `updatedAt`
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `title`: String, required, ghi chú: tên hiển thị
+- `slug`: String, unique, ghi chú: mã nhận diện/tìm kiếm
+- `image`: String, required, ghi chú: thuộc tính nghiệp vụ
+- `description`: String, ghi chú: thuộc tính nghiệp vụ
+- `products[]`: ObjectId, ref `products`, required (ít nhất 1 phần tử), ghi chú: danh sách dữ liệu dạng mảng
+- `order`: Number, default `0`, ghi chú: thuộc tính nghiệp vụ
+- `isActive`: Boolean, default `true`, ghi chú: cờ/trạng thái xử lý
+- `startDate`: Date, default `null`, ghi chú: thuộc tính nghiệp vụ
+- `endDate`: Date, default `null`, ghi chú: thuộc tính nghiệp vụ
+- `deletedAt`: Date, default `null`, ghi chú: mốc thời gian nghiệp vụ
+- `tenmua`: String, ghi chú: tên hiển thị
+- `hinhanh`: String, ghi chú: thuộc tính nghiệp vụ
+- `mota`: String, ghi chú: thông tin mô tả/bổ sung
+- `sanpham_ids[]`: ObjectId, ref `products`, ghi chú: danh sách dữ liệu dạng mảng
+- `thuTu`: Number, ghi chú: thuộc tính nghiệp vụ
+- `hienthi`: Boolean, ghi chú: cờ/trạng thái xử lý
+- `createdAt`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `updatedAt`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngaytao`: virtual từ `createdAt`, ghi chú: mốc thời gian nghiệp vụ
+- `ngaycapnhat`: virtual từ `updatedAt`, ghi chú: mốc thời gian nghiệp vụ
 
 ### `flash_sales` (`FlashSale`)
-- `_id`: ObjectId
-- `ten`: String
-- `batdau`: Date
-- `ketthuc`: Date
-- `hienthi`: Boolean
-- `phantramgiamgia`: Number
-- `sanpham[]`: subdocument gồm `sanpham_id`, `giagiam`, `gioihan`
-- `ngaytao`: Date
-- `ngaycapnhat`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `ten`: String, required, ghi chú: tên hiển thị
+- `batdau`: Date, required, ghi chú: thuộc tính nghiệp vụ
+- `ketthuc`: Date, required, ghi chú: thuộc tính nghiệp vụ
+- `hienthi`: Boolean, default `true`, ghi chú: cờ/trạng thái xử lý
+- `phantramgiamgia`: Number, required, min `1`, max `90`, ghi chú: giá trị số phục vụ tính toán
+- `sanpham[]`: subdocument gồm `sanpham_id`, `giagiam`, `gioihan`, ghi chú: danh sách dữ liệu dạng mảng
+- `ngaytao`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngaycapnhat`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 ### `home_sections` (`HomeSection`)
-- `_id`: ObjectId
-- `key`: String, required, unique
-- `tieuDe`: String
-- `hienthi`: Boolean
-- `thuTu`: Number
-- `config`: Object
-- `ngaytao`: Date
-- `ngaycapnhat`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `key`: String, required, unique, ghi chú: thuộc tính nghiệp vụ
+- `tieuDe`: String, ghi chú: thuộc tính nghiệp vụ
+- `hienthi`: Boolean, default `true`, ghi chú: cờ/trạng thái xử lý
+- `thuTu`: Number, default `0`, ghi chú: thuộc tính nghiệp vụ
+- `config`: Object, default `{}`, ghi chú: thuộc tính nghiệp vụ
+- `ngaytao`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngaycapnhat`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 ### `settings` (`Setting`)
-- `_id`: ObjectId
-- `key`: String, required, unique
-- `value`: Mixed
-- `ngaytao`: Date
-- `ngaycapnhat`: Date
+- `_id`: ObjectId, ghi chú: khóa định danh bản ghi
+- `key`: String, required, unique, ghi chú: thuộc tính nghiệp vụ
+- `value`: Mixed, ghi chú: thuộc tính nghiệp vụ
+- `ngaytao`: Date, ghi chú: mốc thời gian nghiệp vụ
+- `ngaycapnhat`: Date, ghi chú: mốc thời gian nghiệp vụ
 
 ## 3. Mối quan hệ chính qua `ref`
 

@@ -12,7 +12,7 @@ module.exports.danhSach = async (req, res) => {
 
 module.exports.taoMoi = async (req, res) => {
   try {
-    const result = await blogService.taoBaiViet({ body: req.body || {}, file: req.file });
+    const result = await blogService.taoBaiViet({ body: req.body || {}, files: req.files || {} });
     if (!result.ok) return traJsonThatBai(res, { status: result.status, code: result.code, message: result.message });
     return traJsonThanhCong(res, { status: result.status || 201, message: result.message, data: result.data });
   } catch (error) {
@@ -22,7 +22,7 @@ module.exports.taoMoi = async (req, res) => {
 
 module.exports.capNhat = async (req, res) => {
   try {
-    const result = await blogService.capNhatBaiViet({ id: req.params.id, body: req.body || {}, file: req.file });
+    const result = await blogService.capNhatBaiViet({ id: req.params.id, body: req.body || {}, files: req.files || {} });
     if (!result.ok) return traJsonThatBai(res, { status: result.status, code: result.code, message: result.message });
     return traJsonThanhCong(res, { status: result.status || 200, message: result.message, data: result.data });
   } catch (error) {

@@ -98,7 +98,8 @@ html(lang="vi")
     script(src="/js/script.js")
     script.
       window.AIChatRuntime = {
-        isAuthenticated: !{JSON.stringify(Boolean(isAuthenticated))}
+        isAuthenticated: !{JSON.stringify(Boolean(isAuthenticated))},
+        userId: !{JSON.stringify(user && user._id ? String(user._id) : '')}
       };
     script(src="/js/chat-ai.js")
     if isAuthenticated && !isAdmin

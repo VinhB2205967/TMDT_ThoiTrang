@@ -23,10 +23,13 @@ Ngoài các chức năng TMĐT cơ bản, dự án còn tích hợp:
 - `Node.js`
 - `Express 5`
 - `CommonJS`
+- `http` native server để bọc Express và gắn `Socket.IO`
 - `Mongoose` để làm việc với MongoDB
 - `Socket.IO` cho chat realtime
 - `Passport` + `passport-google-oauth20` cho xác thực Google
 - `express-session` + `connect-mongo` để lưu session trong MongoDB
+- `cookie-parser` để đọc cookie
+- `express-flash` để hiển thị flash message theo session
 - `csurf` để chống CSRF
 - `helmet` để tăng cường HTTP security headers
 - `cors` để kiểm soát truy cập cross-origin
@@ -38,14 +41,26 @@ Ngoài các chức năng TMĐT cơ bản, dự án còn tích hợp:
 - `exceljs` để xuất Excel
 - `bcryptjs` để băm mật khẩu
 - `express-validator`, `validator` để validate dữ liệu
+- `qs` để build/serialize query string ở một số luồng thanh toán như `VNPAY`
+- `fetch` native của Node.js để gọi HTTP API ra ngoài, chủ yếu cho AI providers (`Ollama`, `Gemini`, `OpenRouter`)
 
 ### 2.2. Frontend
 
 - `Pug` làm view engine phía server
 - `Bootstrap 5`
 - `Bootstrap Icons`
+- `Font Awesome 6.5.1` tải qua CDN ở client layout
 - `JavaScript` thuần phía client
+- `jQuery 3.7.1` chỉ dùng cục bộ ở một số màn admin, hiện thấy rõ ở form `lookbook` và `flash sales`
+- `Select2` dùng trên các màn admin cần chọn nhiều/tra cứu sản phẩm
+- `Socket.IO client` được nạp ở layout client/admin cho chat realtime
+- `AJAX` chủ yếu qua `Fetch API`
+- có wrapper `window.App.apiFetch` trong `public/js/shared/utils.js`
+- có patch global trong `public/js/shared/csrf.js` để tự gắn `X-CSRF-Token` vào `fetch` cùng origin
+- có dùng header `X-Requested-With: XMLHttpRequest` ở một số luồng để phân biệt request async
+- hiện không thấy sử dụng `axios` hoặc `$.ajax` trong codebase
 - CSS tĩnh trong thư mục `public/`
+- vendor assets nội bộ hiện có `Bootstrap` và `Bootstrap Icons` trong `public/vendor/`
 
 ### 2.3. Database
 
@@ -196,6 +211,13 @@ Chứa tài nguyên tĩnh:
 - ảnh
 - uploads
 - vendor assets
+
+Ghi chú frontend runtime:
+
+- Script client/admin chủ yếu đặt trong `public/js` và `public/admin/js`
+- Có tải thư viện ngoài qua CDN ở một số view admin (ví dụ `jQuery`, `Select2`)
+- Client layout cũng tải `Font Awesome` qua CDN
+- Form POST truyền thống dùng hidden `_csrf`, còn các request async chủ yếu đi qua `fetch`
 
 ### `socketio/`
 

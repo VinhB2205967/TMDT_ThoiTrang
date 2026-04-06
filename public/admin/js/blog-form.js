@@ -1,12 +1,46 @@
 (() => {
   const App = window.App || {};
-  const form = document.getElementById('blogCreate');
+  function notify(message, type = 'success') {
+    if (!message) return;
+
+    let wrap = document.getElementById('adminBlogNotifyStack');
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.id = 'adminBlogNotifyStack';
+      wrap.className = 'admin-notify-stack';
+      document.body.appendChild(wrap);
+    }
+
+    const isError = type === 'error';
+    const item = document.createElement('div');
+    item.className = `admin-notify-item ${isError ? 'error' : 'success'}`;
+    item.innerHTML = `
+      <div class="admin-notify-inner">
+        <span class="admin-notify-icon"><i class="bi ${isError ? 'bi-exclamation-triangle-fill' : 'bi-check-circle-fill'}"></i></span>
+        <div>
+          <div class="admin-notify-title">${isError ? 'Thao tác thất bại' : 'Thao tác thành công'}</div>
+          <div class="admin-notify-message"></div>
+        </div>
+        <button type="button" class="admin-notify-close" aria-label="Đóng">×</button>
+      </div>
+    `;
+    item.querySelector('.admin-notify-message').textContent = message;
+    wrap.appendChild(item);
+
+    const close = () => item.remove();
+    item.querySelector('.admin-notify-close').addEventListener('click', close);
+    setTimeout(close, 3200);
+  }
+
+  const runtime = window.BlogFormRuntime || {};
+  const form = document.getElementById('blogForm');
   const titleInput = document.getElementById('blogTitle');
   const summaryInput = document.getElementById('blogSummary');
   const contentInput = document.getElementById('blogContent');
   const publishInput = document.getElementById('blogPublish');
   const imageInput = document.getElementById('blogImageInput');
   const resetBtn = document.getElementById('blogResetBtn');
+  const richEditorRoot = document.getElementById('blogContentEditor');
 
   const previewImage = document.getElementById('blogPreviewImage');
   const previewEmpty = document.getElementById('blogPreviewEmpty');
@@ -21,12 +55,27 @@
 
   function alertMessage(res, fallback) {
     const message = (res && res.data && res.data.message) || fallback || 'Có lỗi xảy ra';
-    window.alert(message);
+    notify(message, 'error');
   }
 
   function alertSuccess(res, fallback) {
     const message = (res && res.data && res.data.message) || fallback || 'Thao tác thành công';
-    window.alert(message);
+    notify(message, 'success');
+  }
+
+  function getPreviewContentHtml() {
+    const richHtml = String(contentInput?.dataset?.previewHtml || '').trim();
+    if (richHtml) return richHtml;
+
+    const plainText = String(contentInput?.value || '').trim();
+    if (!plainText) return '';
+
+    return plainText
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => `<p>${line}</p>`)
+      .join('');
   }
 
   function updatePreview() {
@@ -37,8 +86,12 @@
       previewSummary.textContent = (summaryInput && summaryInput.value.trim()) || DEFAULT_SUMMARY;
     }
     if (previewContent) {
-      const text = (contentInput && contentInput.value.trim()) || DEFAULT_CONTENT;
-      previewContent.textContent = text;
+      const previewHtml = getPreviewContentHtml();
+      if (previewHtml) {
+        previewContent.innerHTML = previewHtml;
+      } else {
+        previewContent.textContent = DEFAULT_CONTENT;
+      }
     }
     if (previewStatus) {
       const isPublished = Boolean(publishInput && publishInput.checked);
@@ -104,26 +157,38 @@
     return form.checkValidity();
   }
 
+  function getSubmitConfig() {
+    const mode = runtime.mode === 'edit' ? 'edit' : 'create';
+    return {
+      mode,
+      submitUrl: runtime.submitUrl || '/admin/api/blog',
+      submitMethod: String(runtime.submitMethod || (mode === 'edit' ? 'PUT' : 'POST')).toUpperCase(),
+      redirectUrl: runtime.redirectUrl || '/admin/blog'
+    };
+  }
+
   if (form) {
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (!validateCreateForm()) return;
 
+      const submitConfig = getSubmitConfig();
+
       const fd = new FormData(form);
       fd.set('xuatban', String(Boolean(fd.get('xuatban'))));
 
-      const res = await App.apiFetch('/admin/api/blog', {
-        method: 'POST',
+      const res = await App.apiFetch(submitConfig.submitUrl, {
+        method: submitConfig.submitMethod,
         body: fd
       });
 
       if (res.ok) {
-        alertSuccess(res, 'Tạo bài viết thành công');
-        window.location.reload();
+        alertSuccess(res, submitConfig.mode === 'edit' ? 'Cập nhật bài viết thành công' : 'Tạo bài viết thành công');
+        window.location.href = submitConfig.redirectUrl;
         return;
       }
 
-      alertMessage(res, 'Không thể tạo bài viết');
+      alertMessage(res, submitConfig.mode === 'edit' ? 'Không thể cập nhật bài viết' : 'Không thể tạo bài viết');
     });
   }
 
@@ -131,6 +196,9 @@
     resetBtn.addEventListener('click', () => {
       form.reset();
       form.classList.remove('was-validated');
+      if (window.blogContentEditorApi && typeof window.blogContentEditorApi.reset === 'function') {
+        window.blogContentEditorApi.reset();
+      }
       clearPreviewImage();
       updatePreview();
     });
@@ -142,22 +210,15 @@
     element.addEventListener('change', updatePreview);
   });
 
+  if (contentInput && richEditorRoot) {
+    contentInput.addEventListener('richtext:change', updatePreview);
+  }
+
   if (imageInput) {
     imageInput.addEventListener('change', () => {
       updatePreviewImage(imageInput);
       showInlinePreview(imageInput);
     });
-  }
-
-  if (contentInput && typeof window.Quill !== 'undefined' && contentInput.dataset.richtext === 'quill') {
-    const editorRoot = document.getElementById('blogContentEditor');
-    if (editorRoot) {
-      const quill = new window.Quill(editorRoot, { theme: 'snow' });
-      quill.on('text-change', () => {
-        contentInput.value = quill.root.innerHTML;
-        updatePreview();
-      });
-    }
   }
 
   document.addEventListener('change', (event) => {
@@ -167,78 +228,11 @@
     showInlinePreview(fileInput);
   });
 
-  document.addEventListener('click', async (event) => {
-    const btn = event.target.closest('[data-action]');
-    if (!btn) return;
-
-    const row = btn.closest('tr');
-    if (!row) return;
-
-    const id = row.getAttribute('data-id');
-    const action = btn.getAttribute('data-action');
-
-    if (action === 'delete') {
-      if (!App.confirmDelete()) return;
-      const res = await App.apiFetch(`/admin/api/blog/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        row.remove();
-        alertSuccess(res, 'Đã xóa bài viết');
-      } else {
-        alertMessage(res, 'Không thể xóa bài viết');
-      }
-      return;
-    }
-
-    if (action === 'publish') {
-      const xuatban = Boolean(row.querySelector('input[name="xuatban"]')?.checked);
-      const res = await App.apiFetch(`/admin/api/blog/${id}/publish`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ xuatban })
-      });
-
-      if (res.ok && res.data && res.data.data) {
-        const checkbox = row.querySelector('input[name="xuatban"]');
-        if (checkbox) checkbox.checked = Boolean(res.data.data.xuatban);
-        alertSuccess(res, checkbox && checkbox.checked ? 'Đã xuất bản bài viết' : 'Đã hủy xuất bản bài viết');
-      } else if (!res.ok) {
-        alertMessage(res, 'Không thể cập nhật xuất bản');
-      }
-      return;
-    }
-
-    if (action === 'save') {
-      const title = row.querySelector('input[name="tieude"]')?.value?.trim() || '';
-      const content = row.querySelector('textarea[name="noidung"]')?.value?.trim() || '';
-      if (!title || !content) {
-        window.alert('Tiêu đề và nội dung không được để trống.');
-        return;
-      }
-
-      const fd = new FormData();
-      fd.set('tieude', title);
-      fd.set('tomtat', row.querySelector('textarea[name="tomtat"]')?.value || '');
-      fd.set('noidung', content);
-      fd.set('xuatban', String(Boolean(row.querySelector('input[name="xuatban"]')?.checked)));
-
-      const fileInput = row.querySelector('input[name="image"]');
-      if (fileInput && fileInput.files && fileInput.files[0]) {
-        fd.set('image', fileInput.files[0]);
-      }
-
-      const res = await App.apiFetch(`/admin/api/blog/${id}`, {
-        method: 'PUT',
-        body: fd
-      });
-
-      if (res.ok) {
-        alertSuccess(res, 'Lưu bài viết thành công');
-        return;
-      }
-
-      alertMessage(res, 'Không thể lưu bài viết');
-    }
-  });
+  if (runtime.initialImage && previewImage && !previewImage.getAttribute('src')) {
+    previewImage.src = runtime.initialImage;
+    previewImage.classList.remove('d-none');
+    if (previewEmpty) previewEmpty.classList.add('d-none');
+  }
 
   updatePreview();
 })();

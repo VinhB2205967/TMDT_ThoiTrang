@@ -39,8 +39,9 @@ block main
 
               .d-flex.align-items-center.gap-2
                 - const isChoThanhToan = o.trangthai === 'choxacnhan' && (o.phuongthucthanhtoan === 'momo' || o.phuongthucthanhtoan === 'vnpay') && !o.dathanhtoan
+                - const isDaThanhToanChoXacNhan = o.trangthai === 'choxacnhan' && (o.phuongthucthanhtoan === 'momo' || o.phuongthucthanhtoan === 'vnpay') && o.dathanhtoan
                 - const coTheDoiThanhToan = o.trangthai === 'choxacnhan' && !o.dathanhtoan
-                - const label = isChoThanhToan ? 'Chờ thanh toán' : (statusLabels[o.trangthai] || o.trangthai)
+                - const label = isChoThanhToan ? 'Chờ thanh toán' : (isDaThanhToanChoXacNhan ? 'Đã thanh toán' : (statusLabels[o.trangthai] || o.trangthai))
                 span.badge.order-status(data-status=o.trangthai) #{label}
                 if isChoThanhToan && o.phuongthucthanhtoan === 'momo'
                   span.text-muted.small(data-payment-pending='1' data-order-id=`${o._id}` data-payment-method='momo')

@@ -32,13 +32,89 @@ block main
         font-size: 0.72rem;
         vertical-align: middle;
       }
+      .order-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .header-action-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 46px;
+        padding: 0 18px;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        box-shadow: 0 12px 26px rgba(23, 43, 77, 0.14);
+        transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+      }
+      .header-action-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 16px 30px rgba(23, 43, 77, 0.18);
+        filter: saturate(1.05);
+      }
+      .header-action-btn i {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.2);
+      }
+      .header-action-btn--receive {
+        color: #fff;
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      }
+      .header-action-btn--refund {
+        color: #fff;
+        background: linear-gradient(135deg, #111827, #0f172a);
+      }
+      .header-action-btn--import {
+        color: #1d4ed8;
+        background: #eff6ff;
+        border-color: #bfdbfe;
+        box-shadow: 0 12px 26px rgba(29, 78, 216, 0.14);
+      }
+      .header-action-btn--import i {
+        background: rgba(37, 99, 235, 0.12);
+      }
+      .header-status-badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 42px;
+        padding: 0 16px;
+        border-radius: 999px;
+        font-size: 0.92rem;
+        font-weight: 700;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+      }
+      .header-back-btn {
+        min-height: 42px;
+        padding: 0 16px;
+        border-radius: 999px;
+        font-weight: 600;
+      }
+      @media (max-width: 768px) {
+        .header-action-btn,
+        .header-back-btn,
+        .header-status-badge {
+          width: 100%;
+          justify-content: center;
+        }
+      }
 
     if !order
       .d-flex.justify-content-between.align-items-center.mb-3.page-header-section.orders-header.admin-page-header
         h1.page-title.mb-0 Không tìm thấy đơn hàng
         a.btn.btn-outline-secondary(href=`${admin}/orders`) Quay lại danh sách
     else
-      - const label = (statusLabels && statusLabels[order.trangthai]) || order.trangthai || '-'
+      - const isOnlinePayment = ['momo', 'vnpay'].includes(String(order.phuongthucthanhtoan || '').toLowerCase())
+      - const isPaidWaitingConfirm = order.trangthai === 'choxacnhan' && isOnlinePayment && order.dathanhtoan
+      - const label = isPaidWaitingConfirm ? 'Đã thanh toán' : ((statusLabels && statusLabels[order.trangthai]) || order.trangthai || '-')
       - const badge = (badgeClass && typeof badgeClass === 'function') ? badgeClass(order.trangthai) : 'bg-secondary'
       - const flowList = (locals.flow && locals.flow.length) ? locals.flow : ['choxacnhan','daxacnhan','dangchuanbi','danggiao','dagiao','requested_return','approved_return','returned','refunded']
       - const currentIndex = flowList.indexOf(order.trangthai)
@@ -62,21 +138,21 @@ block main
         div
           h1.page-title.mb-1 Chi tiết đơn hàng
           .text-muted.small #{order.madonhang || order._id}
-        .d-flex.align-items-center.gap-2
+        .order-header-actions
           if ['approved_return', 'return_shipping'].includes(String(order.trangthai || ''))
-            a.btn.btn-sm.btn-primary(href='#return-workflow')
+            a.btn.header-action-btn.header-action-btn--receive(href='#return-workflow')
               i.bi.bi-box-arrow-in-down.me-1
               | Nhận hàng hoàn
           else if ['returned', 'returned_full', 'returned_partial'].includes(String(order.trangthai || ''))
-            a.btn.btn-sm.btn-dark(href='#return-workflow')
+            a.btn.header-action-btn.header-action-btn--refund(href='#return-workflow')
               i.bi.bi-cash-coin.me-1
               | Hoàn tiền
           else if String(order.trangthai || '') === 'refunded' && !hasConfirmedReturnImport
-            a.btn.btn-sm.btn-outline-primary(href='#return-workflow')
+            a.btn.header-action-btn.header-action-btn--import(href='#return-workflow')
               i.bi.bi-box-seam.me-1
               | Tạo phiếu nhập
-          span.badge(class=badge) #{label}
-          a.btn.btn-sm.btn-outline-secondary(href=`${admin}/orders`) Quay lại
+          span.badge.header-status-badge(class=badge) #{label}
+          a.btn.btn-sm.btn-outline-secondary.header-back-btn(href=`${admin}/orders`) Quay lại
 
       .row.g-3
         .col-lg-7
@@ -278,9 +354,8 @@ block main
           .card.border-0.shadow-sm.mb-3
             .card-body
               .fw-semibold.mb-2 Trạng thái & thao tác
-              - const isPaidOnlineOrder = ['momo', 'vnpay'].includes(String(order.phuongthucthanhtoan || '').toLowerCase()) && order.dathanhtoan
               - const actionNext = (allowedNext || []).filter((st) => !(order.trangthai === 'choxacnhan' && st === 'daxacnhan'))
-              if order.trangthai === 'choxacnhan' && !isPaidOnlineOrder
+              if order.trangthai === 'choxacnhan'
                 form.mb-2(method='POST', action=`${admin}/orders/${order._id}/status`)
                   input(type='hidden' name='status' value='daxacnhan')
                   button.btn.btn-success(type='submit' onclick="return confirm('Xác nhận đơn hàng này?')")
@@ -362,6 +437,7 @@ block main
                             - const priceRows = Array.isArray(row.priceBreakdown) ? row.priceBreakdown : []
                             - const refundVariantKey = `${String(row.tensanpham || '').trim()}|${String(row.mausac || '').trim()}|${String(row.kichco || '').trim()}`
                             - const displayRefundAmount = Number((rfRefundByVariant && rfRefundByVariant[refundVariantKey]) || row.refundAmount || 0)
+                            - const displayUnitRefundPrice = Number(row.returnedQty || 0) > 0 ? Math.round(displayRefundAmount / Number(row.returnedQty || 1)) : 0
                             tr
                               td
                                 .d-flex.align-items-center.gap-2
@@ -372,7 +448,9 @@ block main
                                       .small.text-muted #{returnRowDesc}
                               td.text-nowrap #{Number(row.returnedQty || 0).toLocaleString('vi-VN')} cái
                               td.text-nowrap
-                                if priceRows.length > 1
+                                if displayUnitRefundPrice > 0
+                                  | #{Number(displayUnitRefundPrice || 0).toLocaleString('vi-VN')}₫
+                                else if priceRows.length > 1
                                   each p in priceRows
                                     div #{Number(p.qty || 0).toLocaleString('vi-VN')} x #{Number(p.unitPrice || 0).toLocaleString('vi-VN')}₫
                                 else if priceRows.length === 1

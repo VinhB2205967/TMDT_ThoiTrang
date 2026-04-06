@@ -104,7 +104,7 @@ const orderSchema = new mongoose.Schema({
       'dangchuanbi',
       'danggiao',
       'dagiao',
-      // Tên trạng thái tiếng Việt (ưu tiên dùng cho model)
+
       'yeucau_hoanhang',
       'daduyet_hoanhang',
       'tuchoi_hoanhang',

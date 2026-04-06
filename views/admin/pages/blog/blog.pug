@@ -1,6 +1,8 @@
 extends ../../layouts/default.pug
 
 block styles
+  link(rel='stylesheet', href='https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css')
+  link(rel='stylesheet', href='/admin/css/product-editor.css')
   link(rel='stylesheet', href='/admin/css/blog.css')
 
 block main
@@ -8,29 +10,12 @@ block main
     .d-flex.flex-wrap.justify-content-between.align-items-center.gap-2.mb-3.page-header-section.orders-header.admin-page-header
       div
         h1.h3.mb-1 Quản lý Blog
-        p.text-muted.mb-0 Quản lý nội dung bài viết, hình ảnh và trạng thái xuất bản.
+        p.text-muted.mb-0 Danh sách bài viết hiện có.
+      a.btn.btn-primary.btn-add-blog(href='/admin/blog/create')
+        i.bi.bi-plus-circle.me-1
+        | Tạo bài viết
 
-    .row.g-3
-      .col-12.col-xl-8
-        include ./partials/form-blog.pug
-
-      .col-12.col-xl-4
-        .card.blog-preview-card
-          .card-header.bg-white
-            h6.mb-0 Xem trước bài viết
-          .card-body
-            .blog-preview-media-wrap.mb-3
-              img#blogPreviewImage.blog-preview-media.d-none(src='' alt='Ảnh xem trước')
-              .blog-preview-media-empty#blogPreviewEmpty
-                i.bi.bi-image
-                span Chưa chọn ảnh đại diện
-            h5#blogPreviewTitle.blog-preview-title Chưa có tiêu đề
-            p#blogPreviewSummary.blog-preview-summary Chưa có tóm tắt.
-            .blog-preview-content#blogPreviewContent Nội dung bài viết sẽ hiển thị tại đây.
-            .mt-3
-              span.badge.text-bg-secondary#blogPreviewStatus Nháp
-
-    .card.mt-4
+    .card.mt-2
       .card-header.bg-white
         h6.mb-0 Danh sách bài viết
       .card-body
@@ -38,7 +23,7 @@ block main
           table.table.table-hover.align-middle.blog-table
             thead
               tr
-                th(style='min-width: 360px') Nội dung
+                th(style='min-width: 420px') Nội dung
                 th.text-center(style='width: 140px') Xuất bản
                 th.text-end(style='width: 220px') Hành động
             tbody
@@ -50,20 +35,26 @@ block main
                         if item.hinhanh
                           img.blog-row-thumb(src=item.hinhanh alt=item.tieude)
                         .flex-grow-1
-                          input.form-control.form-control-sm.mb-2(type='text' name='tieude' value=item.tieude placeholder='Tiêu đề')
-                          textarea.form-control.form-control-sm.mb-2(name='tomtat' rows='2' placeholder='Tóm tắt') #{item.tomtat}
-                          textarea.form-control.form-control-sm(name='noidung' rows='4' placeholder='Nội dung') #{item.noidung}
-                          input.form-control.form-control-sm.mt-2(type='file' name='image' accept='image/*')
+                          .fw-semibold.mb-1 #{item.tieude || 'Không có tiêu đề'}
+                          .small.text-muted.mb-2 #{item.tomtat || 'Chưa có tóm tắt'}
+                          .small.text-muted
+                            if item.ngaycapnhat
+                              | Cập nhật: #{new Date(item.ngaycapnhat).toLocaleString('vi-VN')}
+                            else
+                              | Chưa có thời gian cập nhật
                     td.text-center
-                      input.form-check-input(type='checkbox' name='xuatban' checked=item.xuatban)
+                      if item.xuatban
+                        span.badge.text-bg-success Đã xuất bản
+                      else
+                        span.badge.text-bg-secondary Nháp
                     td.text-end
                       .d-flex.justify-content-end.flex-wrap.gap-2
-                        button.btn.btn-sm.btn-outline-primary(type='button' data-action='save') Lưu
-                        button.btn.btn-sm.btn-outline-secondary(type='button' data-action='publish') Xuất bản
+                        a.btn.btn-sm.btn-outline-primary(href=`/admin/blog/${item._id}/edit`) Sửa
+                        button.btn.btn-sm.btn-outline-secondary(type='button' data-action='publish' data-published=(item.xuatban ? '1' : '0')) #{item.xuatban ? 'Hủy xuất bản' : 'Xuất bản'}
                         button.btn.btn-sm.btn-outline-danger(type='button' data-action='delete') Xóa
               else
                 tr
                   td(colspan='3').text-center.text-muted.py-4 Chưa có bài viết nào.
 
 block scripts
-  script(src='/admin/js/blog-form.js')
+  script(src='/admin/js/blog-list.js?v=20260403-2')

@@ -10,6 +10,39 @@ block styles
       display: block;
     }
 
+    .blog-content {
+      line-height: 1.8;
+      color: #25324a;
+    }
+
+    .blog-content p,
+    .blog-content ul,
+    .blog-content ol,
+    .blog-content blockquote,
+    .blog-content h1,
+    .blog-content h2,
+    .blog-content h3,
+    .blog-content h4 {
+      margin-bottom: 1rem;
+    }
+
+    .blog-content img,
+    .blog-content video {
+      display: block;
+      width: auto;
+      max-width: 100%;
+      height: auto;
+      border-radius: 16px;
+      margin: 1.25rem auto;
+    }
+
+    .blog-content video {
+      width: 100%;
+      max-width: 720px;
+      max-height: 420px;
+      background: #111827;
+    }
+
 block main
   .container.py-4
     h1.mb-3 #{post.tieude}
@@ -18,4 +51,4 @@ block main
     if post.tomtat
       p.text-muted #{post.tomtat}
     if post.noidung
-      .blog-content(style='white-space: pre-line; line-height: 1.7;') #{post.noidung}
+      .blog-content!= post.noidung

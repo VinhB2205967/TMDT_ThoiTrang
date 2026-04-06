@@ -15,13 +15,38 @@
 	const modelToggleEl = document.getElementById('aiChatModelToggle');
 	if (!toggleBtn || !panel || !form || !input || !list || !sendBtn || !statusEl) return;
 
-	const STORAGE_KEY = 'fashion_ai_chat_history_v1';
+	const runtime = window.AIChatRuntime || {};
+	const storageScope = runtime && runtime.isAuthenticated && runtime.userId
+		? `user:${String(runtime.userId)}`
+		: 'guest';
+	const LEGACY_STORAGE_KEY = 'fashion_ai_chat_history_v1';
+	const STORAGE_KEY = `fashion_ai_chat_history_v1:${storageScope}`;
 	const PROVIDER_STORAGE_KEY = 'fashion_ai_provider_v1';
 	const MODEL_STORAGE_KEY = 'fashion_ai_gemini_model_v1';
 	const MODEL_VISIBLE_STORAGE_KEY = 'fashion_ai_model_visible_v1';
 	const EXPANDED_STORAGE_KEY = 'fashion_ai_chat_expanded_v1';
+	const ALLOWED_PRODUCT_QUERY_KEYS = new Set([
+		'loaisanpham',
+		'gioitinh',
+		'brand',
+		'occasion',
+		'agegroup',
+		'pricemin',
+		'pricemax',
+		'sort',
+		'keyword'
+	]);
 	const history = [];
 	let manualModelVisible = localStorage.getItem(MODEL_VISIBLE_STORAGE_KEY) !== '0';
+
+	function clearScopedHistoryStorage() {
+		try {
+			localStorage.removeItem(STORAGE_KEY);
+			localStorage.removeItem(LEGACY_STORAGE_KEY);
+		} catch {
+			// Ignore storage errors in private mode.
+		}
+	}
 
 	function setExpanded(expanded) {
 		panel.classList.toggle('expanded', Boolean(expanded));
@@ -80,12 +105,63 @@
 			.replace(/'/g, '&#39;');
 	}
 
+	function normalizeInternalUrl(url) {
+		const cleaned = sanitizeLinkCandidate(url);
+		if (!cleaned) return '';
+
+		const normalizePathOnly = (pathValue, searchParams) => {
+			const decodedPath = String(pathValue || '')
+				.replace(/\\/g, '/')
+				.replace(/\/{2,}/g, '/')
+				.trim();
+			const lower = decodedPath
+				.toLowerCase()
+				.normalize('NFD')
+				.replace(/[\u0300-\u036f]/g, '');
+
+			const idMatch = decodedPath.match(/([a-f0-9]{24})/i);
+			if (idMatch && /\/(?:san[-_\s]*pham|products?)\b/i.test(lower)) {
+				return `/products/${idMatch[1]}`;
+			}
+
+			if (/^\/products\/[a-f0-9]{24}$/i.test(decodedPath)) {
+				return decodedPath;
+			}
+
+			if (
+				/^\/products$/i.test(decodedPath)
+				|| /\/san[-_\s]*pham$/i.test(lower)
+				|| /\/products?$/i.test(lower)
+			) {
+				const params = new URLSearchParams();
+				if (searchParams && typeof searchParams.forEach === 'function') {
+					searchParams.forEach((value, key) => {
+						const normalizedKey = String(key || '').trim().toLowerCase();
+						if (!ALLOWED_PRODUCT_QUERY_KEYS.has(normalizedKey)) return;
+						params.set(normalizedKey === 'agegroup' ? 'ageGroup' : key, String(value || '').trim());
+					});
+				}
+				const query = params.toString();
+				return query ? `/products?${query}` : '/products';
+			}
+
+			if (/^\/orders$/i.test(decodedPath) || /\/don[-_\s]*hang$/i.test(lower)) return '/orders';
+			if (/^\/vouchers?$/i.test(decodedPath) || /voucher/.test(lower)) return '/vouchers';
+			if (/^\/size-guide$/i.test(decodedPath) || /bang\s*size|size[-_\s]*guide/.test(lower)) return '/size-guide';
+			if (/^\/cart$/i.test(decodedPath) || /gio\s*hang/.test(lower)) return '/cart';
+			return '';
+		};
+
+		try {
+			const parsed = new URL(cleaned, window.location.origin);
+			return normalizePathOnly(parsed.pathname, parsed.searchParams);
+		} catch {
+			return normalizePathOnly(cleaned, null);
+		}
+	}
+
 	function isSafeUrl(url) {
-		const value = String(url || '').trim();
-		if (!value) return false;
-		if (value.startsWith('http://') || value.startsWith('https://')) return true;
-		if (value.startsWith('/')) return true;
-		return false;
+		return Boolean(normalizeInternalUrl(url));
 	}
 
 	function isImageUrl(url) {
@@ -200,11 +276,11 @@
 
 			const toAnchor = (label, url) => {
 				const cleanUrl = sanitizeLinkCandidate(url).replace(/\bnoreferrer\b/gi, '').trim();
-				const normUrl = normalizeProductUrl(cleanUrl);
+				const normUrl = normalizeProductUrl(cleanUrl) || normalizeInternalUrl(cleanUrl);
 				if (!normUrl || !isSafeUrl(normUrl)) return escapeHtml(label || 'tại đây');
 				const safeLabel = escapeHtml(label || 'tại đây');
 				const safeUrl = escapeHtml(normUrl);
-				return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeLabel}</a>`;
+				return `<a class="ai-chat-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeLabel}</a>`;
 			};
 
 			let textWork = cleanedLine;
@@ -361,6 +437,39 @@
 		return row;
 	}
 
+	function renderSuggestedActions(actions) {
+		const items = Array.isArray(actions)
+			? actions
+				.map((item) => ({
+					label: String(item && item.label ? item.label : '').trim(),
+					url: normalizeInternalUrl(item && item.url ? String(item.url) : ''),
+					kind: String(item && item.kind ? item.kind : 'link').trim().toLowerCase()
+				}))
+				.filter((item) => item.label && item.url)
+				.slice(0, 5)
+			: [];
+		if (items.length === 0) return;
+
+		const row = document.createElement('div');
+		row.className = 'ai-chat-row assistant';
+		const wrap = document.createElement('div');
+		wrap.className = 'ai-chat-actions';
+
+		items.forEach((item) => {
+			const link = document.createElement('a');
+			link.className = `ai-chat-action ${item.kind === 'primary' ? 'primary' : ''}`;
+			link.href = item.url;
+			link.target = '_blank';
+			link.rel = 'noopener noreferrer';
+			link.textContent = item.label;
+			wrap.appendChild(link);
+		});
+
+		row.appendChild(wrap);
+		list.appendChild(row);
+		scrollToBottom();
+	}
+
 	function renderProductCards(products) {
 		const items = Array.isArray(products)
 			? products.filter((item) => item && /^\/products\/[a-f0-9]{24}$/i.test(String(item.url || ''))).slice(0, 4)
@@ -373,9 +482,11 @@
 		wrap.className = 'ai-product-suggest-list';
 
 		items.forEach((item) => {
+			const safeUrl = normalizeInternalUrl(item && item.url ? String(item.url) : '');
+			if (!safeUrl) return;
 			const card = document.createElement('a');
 			card.className = 'ai-product-card';
-			card.href = item.url;
+			card.href = safeUrl;
 			card.target = '_blank';
 			card.rel = 'noopener noreferrer';
 			const originalPriceHtml = item.hasDiscount && item.originalPriceText
@@ -411,7 +522,7 @@
 		items.forEach((item) => {
 			const card = document.createElement('a');
 			card.className = 'ai-product-card';
-			const safeUrl = item && item.url && isSafeUrl(String(item.url)) ? String(item.url) : '/products';
+			const safeUrl = normalizeInternalUrl(item && item.url ? String(item.url) : '') || '/products';
 			card.href = safeUrl;
 			card.target = '_blank';
 			card.rel = 'noopener noreferrer';
@@ -470,10 +581,14 @@
 			const content = String(item && item.content ? item.content : '').trim();
 			if (!content) return;
 			const suggestedProducts = Array.isArray(item && item.suggestedProducts) ? item.suggestedProducts : [];
-			history.push({ role, content, suggestedProducts });
+			const suggestedActions = Array.isArray(item && item.suggestedActions) ? item.suggestedActions : [];
+			history.push({ role, content, suggestedProducts, suggestedActions });
 			renderMessage(role, content);
 			if (role === 'assistant' && suggestedProducts.length > 0) {
 				renderProductCards(suggestedProducts);
+			}
+			if (role === 'assistant' && suggestedActions.length > 0) {
+				renderSuggestedActions(suggestedActions);
 			}
 		});
 	}
@@ -507,7 +622,8 @@
 			answer: String(data.data.answer || '').trim(),
 			model: String(data.data.model || ''),
 			provider: String(data.data.provider || provider),
-			suggestedProducts: Array.isArray(data.data.suggestedProducts) ? data.data.suggestedProducts : []
+			suggestedProducts: Array.isArray(data.data.suggestedProducts) ? data.data.suggestedProducts : [],
+			suggestedActions: Array.isArray(data.data.suggestedActions) ? data.data.suggestedActions : []
 		};
 	}
 
@@ -552,6 +668,11 @@
 	toggleBtn.addEventListener('click', () => togglePanel());
 	closeBtn.addEventListener('click', () => togglePanel(false));
 	clearBtn.addEventListener('click', () => resetHistory());
+	document.querySelectorAll('form[action="/auth/logout"]').forEach((logoutForm) => {
+		logoutForm.addEventListener('submit', () => {
+			clearScopedHistoryStorage();
+		});
+	});
 	if (expandBtn) {
 		const savedExpanded = localStorage.getItem(EXPANDED_STORAGE_KEY) === '1';
 		setExpanded(savedExpanded);
@@ -630,7 +751,13 @@
 			const answerWithLinks = injectSuggestedLinks(ai.answer, ai.suggestedProducts);
 			renderMessage('assistant', answerWithLinks);
 			renderProductCards(ai.suggestedProducts);
-			history.push({ role: 'assistant', content: answerWithLinks, suggestedProducts: ai.suggestedProducts });
+			renderSuggestedActions(ai.suggestedActions);
+			history.push({
+				role: 'assistant',
+				content: answerWithLinks,
+				suggestedProducts: ai.suggestedProducts,
+				suggestedActions: ai.suggestedActions
+			});
 			saveHistory();
 			const providerName = ai.provider === 'gemini'
 				? 'Gemini'
