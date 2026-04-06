@@ -8,6 +8,9 @@ const MOMO_MACDINH = {
   partnerName: 'Test',
   storeId: 'MomoTestStore'
 };
+
+const MOMO_HOSTNAME = String(process.env.MOMO_HOSTNAME || 'test-payment.momo.vn').trim();
+const MOMO_TIMEOUT_MS = Number(process.env.MOMO_TIMEOUT_MS || 15000);
 // Lấy giá trị môi trường với tên biến và giá trị mặc định nếu không tồn tại
 function layGiaTriMoiTruong(name, fallback = '') {
   const value = String(process.env[name] || '').trim();
@@ -27,6 +30,10 @@ function layThongTinXacThucMoMo() {
 function stringifyMoMoValue(value) {
   if (value == null) return '';
   return String(value);
+}
+
+function rutGonNoiDungPhanHoi(raw = '') {
+  return String(raw || '').replace(/\s+/g, ' ').trim().slice(0, 240);
 }
 // Tạo chữ ký HMAC SHA256 cho yêu cầu MoMo
 function taoSignature({ accessKey, amount, extraData, ipnUrl, orderId, orderInfo, partnerCode, redirectUrl, requestId, requestType }, secretKey) {
@@ -108,7 +115,7 @@ function guiYeuCauMoMo(requestBody) {
   const payload = JSON.stringify(requestBody);
 
   const options = {
-    hostname: 'test-payment.momo.vn',
+    hostname: MOMO_HOSTNAME,
     port: 443,
     path: '/v2/gateway/api/create',
     method: 'POST',
@@ -140,6 +147,10 @@ function guiYeuCauMoMo(requestBody) {
       });
     });
 
+    req.setTimeout(MOMO_TIMEOUT_MS, () => {
+      req.destroy(new Error('MOMO_REQUEST_TIMEOUT'));
+    });
+
     req.on('error', reject);
     req.write(payload);
     req.end();
@@ -150,7 +161,7 @@ function guiYeuCauHoanTien(requestBody) {
   const payload = JSON.stringify(requestBody);
 
   const options = {
-    hostname: 'test-payment.momo.vn',
+    hostname: MOMO_HOSTNAME,
     port: 443,
     path: '/v2/gateway/api/refund',
     method: 'POST',
@@ -170,9 +181,18 @@ function guiYeuCauHoanTien(requestBody) {
           const json = JSON.parse(data || '{}');
           resolve({ status: res.statusCode, data: json });
         } catch (err) {
-          reject(err);
+          resolve({
+            status: res.statusCode,
+            data: null,
+            raw: data,
+            contentType: String(res.headers['content-type'] || '')
+          });
         }
       });
+    });
+
+    req.setTimeout(MOMO_TIMEOUT_MS, () => {
+      req.destroy(new Error('MOMO_REQUEST_TIMEOUT'));
     });
 
     req.on('error', reject);
@@ -185,7 +205,7 @@ function guiYeuCauTruyVan(requestBody) {
   const payload = JSON.stringify(requestBody);
 
   const options = {
-    hostname: 'test-payment.momo.vn',
+    hostname: MOMO_HOSTNAME,
     port: 443,
     path: '/v2/gateway/api/query',
     method: 'POST',
@@ -205,9 +225,18 @@ function guiYeuCauTruyVan(requestBody) {
           const json = JSON.parse(data || '{}');
           resolve({ status: res.statusCode, data: json });
         } catch (err) {
-          reject(err);
+          resolve({
+            status: res.statusCode,
+            data: null,
+            raw: data,
+            contentType: String(res.headers['content-type'] || '')
+          });
         }
       });
+    });
+
+    req.setTimeout(MOMO_TIMEOUT_MS, () => {
+      req.destroy(new Error('MOMO_REQUEST_TIMEOUT'));
     });
 
     req.on('error', reject);
@@ -252,14 +281,46 @@ async function taoThanhToanMoMo({ orderId, requestId, amount, orderInfo, redirec
     lang
   };
 
-  const { data, raw, status, contentType } = await guiYeuCauMoMo(requestBody);
-  if (!data || typeof data !== 'object') {
-    const snippet = String(raw || '').replace(/\s+/g, ' ').trim().slice(0, 180);
+  let response;
+  try {
+    response = await guiYeuCauMoMo(requestBody);
+  } catch (error) {
+    if (error && error.message === 'MOMO_REQUEST_TIMEOUT') {
+      return {
+        resultCode: -1,
+        message: 'MoMo đang phản hồi chậm. Vui lòng thử lại sau ít phút.'
+      };
+    }
+
     return {
       resultCode: -1,
-      message: `MoMo khong tra ve JSON hop le (HTTP ${status || 0}${contentType ? `, ${contentType}` : ''}). Vui long kiem tra requestType, redirectUrl/ipnUrl va tai khoan sandbox.${snippet ? ` Phan hoi: ${snippet}` : ''}`
+      message: 'Không thể kết nối MoMo. Vui lòng thử lại sau.'
     };
   }
+
+  const { data, raw, status, contentType } = response;
+  if (!data || typeof data !== 'object') {
+    const snippet = rutGonNoiDungPhanHoi(raw);
+    console.error('[MoMo] Non-JSON response', {
+      status: status || 0,
+      contentType: contentType || '',
+      snippet
+    });
+
+    const statusText = status ? ` (HTTP ${status})` : '';
+    return {
+      resultCode: -1,
+      message: `MoMo tạm thời không phản hồi hợp lệ${statusText}. Vui lòng thử lại sau.`
+    };
+  }
+
+  if (Number(status) >= 500) {
+    return {
+      resultCode: -1,
+      message: `MoMo đang bảo trì hoặc quá tải (HTTP ${status}). Vui lòng thử lại sau.`
+    };
+  }
+
   return data;
 }
 
@@ -282,7 +343,45 @@ async function taoHoanTienMoMo({ orderId, requestId, amount, transId, descriptio
     signature
   };
 
-  const { data } = await guiYeuCauHoanTien(requestBody);
+  let response;
+  try {
+    response = await guiYeuCauHoanTien(requestBody);
+  } catch (error) {
+    if (error && error.message === 'MOMO_REQUEST_TIMEOUT') {
+      return {
+        resultCode: -1,
+        message: 'MoMo đang phản hồi chậm. Vui lòng thử lại sau ít phút.'
+      };
+    }
+
+    return {
+      resultCode: -1,
+      message: 'Không thể kết nối MoMo khi hoàn tiền. Vui lòng thử lại sau.'
+    };
+  }
+
+  const { data, raw, status, contentType } = response;
+  if (!data || typeof data !== 'object') {
+    const snippet = rutGonNoiDungPhanHoi(raw);
+    console.error('[MoMo] Refund non-JSON response', {
+      status: status || 0,
+      contentType: contentType || '',
+      snippet
+    });
+
+    return {
+      resultCode: -1,
+      message: `MoMo hoàn tiền phản hồi không hợp lệ${status ? ` (HTTP ${status})` : ''}. Vui lòng thử lại sau.`
+    };
+  }
+
+  if (Number(status) >= 500) {
+    return {
+      resultCode: -1,
+      message: `MoMo hoàn tiền đang bảo trì hoặc quá tải (HTTP ${status}). Vui lòng thử lại sau.`
+    };
+  }
+
   return data;
 }
 
@@ -304,7 +403,45 @@ async function truyVanGiaoDichMoMo({ orderId, requestId }) {
     lang
   };
 
-  const { data } = await guiYeuCauTruyVan(requestBody);
+  let response;
+  try {
+    response = await guiYeuCauTruyVan(requestBody);
+  } catch (error) {
+    if (error && error.message === 'MOMO_REQUEST_TIMEOUT') {
+      return {
+        resultCode: -1,
+        message: 'MoMo đang phản hồi chậm. Vui lòng thử lại sau ít phút.'
+      };
+    }
+
+    return {
+      resultCode: -1,
+      message: 'Không thể kết nối MoMo khi truy vấn giao dịch. Vui lòng thử lại sau.'
+    };
+  }
+
+  const { data, raw, status, contentType } = response;
+  if (!data || typeof data !== 'object') {
+    const snippet = rutGonNoiDungPhanHoi(raw);
+    console.error('[MoMo] Query non-JSON response', {
+      status: status || 0,
+      contentType: contentType || '',
+      snippet
+    });
+
+    return {
+      resultCode: -1,
+      message: `MoMo truy vấn phản hồi không hợp lệ${status ? ` (HTTP ${status})` : ''}. Vui lòng thử lại sau.`
+    };
+  }
+
+  if (Number(status) >= 500) {
+    return {
+      resultCode: -1,
+      message: `MoMo truy vấn đang bảo trì hoặc quá tải (HTTP ${status}). Vui lòng thử lại sau.`
+    };
+  }
+
   return data;
 }
 
