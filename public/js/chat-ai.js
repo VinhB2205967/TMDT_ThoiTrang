@@ -12,7 +12,11 @@
 	const providerEl = document.getElementById('aiChatProvider');
 	const modelRowEl = document.getElementById('aiChatModelRow');
 	const modelEl = document.getElementById('aiChatModel');
-	const modelToggleEl = document.getElementById('aiChatModelToggle');
+	const imageInputEl = document.getElementById('aiChatImage');
+	const imageBtnEl = document.getElementById('aiChatImageBtn');
+	const imagePreviewEl = document.getElementById('aiChatImagePreview');
+	const imagePreviewImgEl = document.getElementById('aiChatImagePreviewImage');
+	const imageRemoveBtnEl = document.getElementById('aiChatImageRemove');
 	if (!toggleBtn || !panel || !form || !input || !list || !sendBtn || !statusEl) return;
 
 	const runtime = window.AIChatRuntime || {};
@@ -23,7 +27,6 @@
 	const STORAGE_KEY = `fashion_ai_chat_history_v1:${storageScope}`;
 	const PROVIDER_STORAGE_KEY = 'fashion_ai_provider_v1';
 	const MODEL_STORAGE_KEY = 'fashion_ai_gemini_model_v1';
-	const MODEL_VISIBLE_STORAGE_KEY = 'fashion_ai_model_visible_v1';
 	const EXPANDED_STORAGE_KEY = 'fashion_ai_chat_expanded_v1';
 	const ALLOWED_PRODUCT_QUERY_KEYS = new Set([
 		'loaisanpham',
@@ -37,7 +40,9 @@
 		'keyword'
 	]);
 	const history = [];
-	let manualModelVisible = localStorage.getItem(MODEL_VISIBLE_STORAGE_KEY) !== '0';
+	let pendingImageFile = null;
+	let pendingImagePreviewUrl = '';
+	const submittedImagePreviewUrls = [];
 
 	function clearScopedHistoryStorage() {
 		try {
@@ -58,17 +63,47 @@
 		expandBtn.setAttribute('aria-label', expanded ? 'Thu nhỏ chat' : 'Phóng to chat');
 	}
 
-	function syncModelVisibility() {
-		if (!modelRowEl || !providerEl) return;
-		const provider = String(providerEl.value || 'ollama').toLowerCase();
-		const shouldShow = provider === 'gemini' && manualModelVisible;
-		modelRowEl.style.display = shouldShow ? '' : 'none';
-		if (modelToggleEl) {
-			modelToggleEl.textContent = shouldShow ? 'Ẩn model' : 'Hiện model';
-			modelToggleEl.classList.toggle('active', shouldShow);
+function getProviderValue() {
+		return providerEl ? String(providerEl.value || 'ollama').toLowerCase() : 'ollama';
+	}
+
+	function getProviderDisplayName(provider) {
+		switch (String(provider || '').toLowerCase()) {
+			case 'gemini':
+				return 'Gemini';
+			case 'openrouter':
+				return 'OpenRouter';
+			case 'openclip':
+				return 'OpenCLIP';
+			case 'system':
+				return 'He thong';
+			default:
+				return 'Ollama';
 		}
 	}
 
+	function getProviderReadyText(provider) {
+		switch (String(provider || '').toLowerCase()) {
+			case 'gemini':
+				return 'Da chuyen sang Gemini. Ban co the chon model ben duoi.';
+			case 'openrouter':
+				return 'Da chuyen sang OpenRouter. Model dang dung cau hinh co dinh cua he thong.';
+			default:
+				return 'Da chuyen sang Ollama. Model dang dung cau hinh co dinh cua he thong.';
+		}
+	}
+
+	function buildResponseStatus(ai) {
+		const providerName = getProviderDisplayName(ai && ai.provider);
+		const modelName = String(ai && ai.model ? ai.model : '').trim();
+		return modelName ? `${providerName} - ${modelName}` : `Hoan tat (${providerName})`;
+	}
+
+	function syncModelVisibility() {
+		if (!modelRowEl || !providerEl) return;
+		const shouldShow = getProviderValue() === 'gemini';
+		modelRowEl.style.display = shouldShow ? '' : 'none';
+	}
 	function mapOpenClipProducts(products) {
 		return Array.isArray(products)
 			? products.map((item) => {
@@ -425,18 +460,99 @@
 		list.scrollTop = list.scrollHeight;
 	}
 
-	function renderMessage(role, content) {
+function setInputHeight() {
+		input.style.height = 'auto';
+		input.style.height = `${Math.min(input.scrollHeight, 96)}px`;
+	}
+
+	function revokePendingImagePreview() {
+		if (pendingImagePreviewUrl) {
+			URL.revokeObjectURL(pendingImagePreviewUrl);
+			pendingImagePreviewUrl = '';
+		}
+	}
+
+	function revokeSubmittedImagePreviews() {
+		while (submittedImagePreviewUrls.length > 0) {
+			const previewUrl = submittedImagePreviewUrls.pop();
+			if (!previewUrl) continue;
+			URL.revokeObjectURL(previewUrl);
+		}
+	}
+
+	function clearPendingImage(options = {}) {
+		const keepStatus = Boolean(options.keepStatus);
+		pendingImageFile = null;
+		revokePendingImagePreview();
+		if (imageInputEl) imageInputEl.value = '';
+		if (imagePreviewImgEl) {
+			imagePreviewImgEl.src = '';
+			imagePreviewImgEl.classList.add('d-none');
+		}
+		if (imagePreviewEl) imagePreviewEl.classList.add('d-none');
+		if (!keepStatus && !statusEl.classList.contains('loading')) {
+			setStatus('');
+		}
+	}
+
+	function detachPendingImageForSubmit() {
+		const file = pendingImageFile;
+		const previewSrc = pendingImagePreviewUrl;
+		pendingImageFile = null;
+		pendingImagePreviewUrl = '';
+		if (imageInputEl) imageInputEl.value = '';
+		if (imagePreviewImgEl) {
+			imagePreviewImgEl.src = '';
+			imagePreviewImgEl.classList.add('d-none');
+		}
+		if (imagePreviewEl) imagePreviewEl.classList.add('d-none');
+		if (previewSrc) {
+			submittedImagePreviewUrls.push(previewSrc);
+		}
+		return { file, previewSrc };
+	}
+
+	function setPendingImage(file) {
+		if (!file) {
+			clearPendingImage();
+			return;
+		}
+
+		pendingImageFile = file;
+		revokePendingImagePreview();
+		pendingImagePreviewUrl = URL.createObjectURL(file);
+		if (imagePreviewImgEl) {
+			imagePreviewImgEl.src = pendingImagePreviewUrl;
+			imagePreviewImgEl.classList.remove('d-none');
+		}
+		if (imagePreviewEl) imagePreviewEl.classList.remove('d-none');
+		setStatus('Đã đính kèm 1 ảnh. Khi gửi, hệ thống sẽ tìm sản phẩm tương tự bằng OpenCLIP.');
+	}
+
+	function renderMessage(role, content, options = {}) {
 		const row = document.createElement('div');
 		row.className = `ai-chat-row ${role}`;
 		const bubble = document.createElement('div');
 		bubble.className = 'ai-chat-bubble';
-		bubble.innerHTML = formatMessageContent(content);
+		const imageSrc = String(options.imageSrc || '').trim();
+		if (imageSrc) {
+			const image = document.createElement('img');
+			image.className = 'ai-query-image';
+			image.src = imageSrc;
+			image.alt = 'query image';
+			bubble.appendChild(image);
+		}
+		const formatted = formatMessageContent(content);
+		if (formatted) {
+			const textWrap = document.createElement('div');
+			textWrap.innerHTML = formatted;
+			bubble.appendChild(textWrap);
+		}
 		row.appendChild(bubble);
 		list.appendChild(row);
 		scrollToBottom();
 		return row;
 	}
-
 	function renderSuggestedActions(actions) {
 		const items = Array.isArray(actions)
 			? actions
@@ -547,6 +663,28 @@
 		scrollToBottom();
 	}
 
+	function mergeSuggestedProducts(primaryProducts, fallbackProducts) {
+		const merged = [];
+		const seen = new Set();
+
+		[primaryProducts, fallbackProducts].forEach((group) => {
+			if (!Array.isArray(group)) return;
+			group.forEach((item) => {
+				if (!item) return;
+				const key = [
+					String(item.id || '').trim().toLowerCase(),
+					String(item.url || '').trim().toLowerCase(),
+					String(item.name || item.tensanpham || '').trim().toLowerCase()
+				].find(Boolean);
+				if (!key || seen.has(key)) return;
+				seen.add(key);
+				merged.push(item);
+			});
+		});
+
+		return merged.slice(0, 6);
+	}
+
 	function saveHistory() {
 		try {
 			localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(-30)));
@@ -557,6 +695,7 @@
 
 	function resetHistory() {
 		history.length = 0;
+		revokeSubmittedImagePreviews();
 		list.innerHTML = '';
 		renderMessage('system', 'Xin chào, tôi có thể giúp bạn tìm sản phẩm và thông tin đơn hàng.');
 		saveHistory();
@@ -593,14 +732,16 @@
 		});
 	}
 
-	async function askAI(question) {
-		const provider = providerEl ? String(providerEl.value || 'ollama').toLowerCase() : 'ollama';
+async function askAI(question, options = {}) {
+		const provider = getProviderValue();
 		const model = modelEl ? String(modelEl.value || '').trim() : '';
 		const payload = {
 			message: question,
 			history: history.slice(-10),
 			provider,
-			model: provider === 'gemini' ? model : ''
+			model: provider === 'gemini' ? model : '',
+			imageProducts: Array.isArray(options.imageProducts) ? options.imageProducts : [],
+			imageMeta: options.imageMeta && typeof options.imageMeta === 'object' ? options.imageMeta : null
 		};
 
 		const res = await fetch('/api/ai-chat/message', {
@@ -615,7 +756,7 @@
 
 		const data = await res.json().catch(() => ({}));
 		if (!res.ok || !data || !data.success || !data.data || !data.data.answer) {
-			throw new Error((data && data.message) || 'Không thể kết nối AI');
+			throw new Error((data && data.message) || 'Khong the ket noi AI');
 		}
 
 		return {
@@ -627,9 +768,12 @@
 		};
 	}
 
-	async function askOpenClipByImage(file) {
+	async function askOpenClipByImage(file, question = '') {
 		const fd = new FormData();
 		fd.append('image', file);
+		if (String(question || '').trim()) {
+			fd.append('query', String(question || '').trim());
+		}
 
 		const res = await fetch('/api/openclip/search-by-image', {
 			method: 'POST',
@@ -639,7 +783,7 @@
 
 		const data = await res.json().catch(() => ({}));
 		if (!res.ok || !data || data.success !== true || !data.data) {
-			throw new Error((data && data.message) || 'Không thể tìm theo ảnh lúc này');
+			throw new Error((data && data.message) || 'Khong the tim theo anh luc nay');
 		}
 
 		const productsRaw = Array.isArray(data.data.products) ? data.data.products : [];
@@ -652,10 +796,10 @@
 			answer: buildOpenClipImageAnswer(productsRaw),
 			model: modelName,
 			provider: 'openclip',
-			suggestedProducts
+			suggestedProducts,
+			suggestedActions: []
 		};
 	}
-
 	function togglePanel(forceOpen) {
 		const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : !panel.classList.contains('open');
 		panel.classList.toggle('open', shouldOpen);
@@ -667,11 +811,18 @@
 
 	toggleBtn.addEventListener('click', () => togglePanel());
 	closeBtn.addEventListener('click', () => togglePanel(false));
-	clearBtn.addEventListener('click', () => resetHistory());
-	document.querySelectorAll('form[action="/auth/logout"]').forEach((logoutForm) => {
+	clearBtn.addEventListener('click', () => {
+		resetHistory();
+		clearPendingImage();
+	});
+	document.querySelectorAll("form[action='/auth/logout']").forEach((logoutForm) => {
 		logoutForm.addEventListener('submit', () => {
 			clearScopedHistoryStorage();
 		});
+	});
+	window.addEventListener('beforeunload', () => {
+		revokePendingImagePreview();
+		revokeSubmittedImagePreviews();
 	});
 	if (expandBtn) {
 		const savedExpanded = localStorage.getItem(EXPANDED_STORAGE_KEY) === '1';
@@ -683,7 +834,7 @@
 		});
 	}
 
-	if (providerEl) {
+if (providerEl) {
 		const savedProvider = localStorage.getItem(PROVIDER_STORAGE_KEY);
 		if (savedProvider && (savedProvider === 'ollama' || savedProvider === 'gemini' || savedProvider === 'openrouter')) {
 			providerEl.value = savedProvider;
@@ -699,31 +850,38 @@
 
 			modelEl.addEventListener('change', () => {
 				localStorage.setItem(MODEL_STORAGE_KEY, String(modelEl.value || ''));
-				setStatus(`Model Gemini: ${String(modelEl.value || '')}`);
+				if (getProviderValue() === 'gemini') {
+					setStatus(`Model Gemini: ${String(modelEl.value || '')}`);
+				}
 			});
 		}
 
 		syncModelVisibility();
-
-		if (modelToggleEl) {
-			modelToggleEl.addEventListener('click', () => {
-				manualModelVisible = !manualModelVisible;
-				localStorage.setItem(MODEL_VISIBLE_STORAGE_KEY, manualModelVisible ? '1' : '0');
-				syncModelVisibility();
-			});
-		}
-
 		providerEl.addEventListener('change', () => {
-			const selected = String(providerEl.value || 'ollama').toLowerCase();
+			const selected = getProviderValue();
 			localStorage.setItem(PROVIDER_STORAGE_KEY, selected);
 			syncModelVisibility();
-			const providerName = selected === 'gemini'
-				? 'Gemini'
-				: (selected === 'openrouter' ? 'OpenRouter' : 'Ollama');
-			setStatus(`Đã chuyển sang ${providerName}`);
+			setStatus(getProviderReadyText(selected));
 		});
 	}
 
+	if (imageBtnEl && imageInputEl) {
+		imageBtnEl.addEventListener('click', () => {
+			imageInputEl.click();
+		});
+
+		imageInputEl.addEventListener('change', () => {
+			const file = imageInputEl.files && imageInputEl.files[0] ? imageInputEl.files[0] : null;
+			if (!file) return;
+			setPendingImage(file);
+		});
+	}
+
+	if (imageRemoveBtnEl) {
+		imageRemoveBtnEl.addEventListener('click', () => {
+			clearPendingImage();
+		});
+	}
 	input.addEventListener('keydown', (event) => {
 		if (event.key === 'Enter' && !event.shiftKey) {
 			event.preventDefault();
@@ -731,51 +889,92 @@
 		}
 	});
 
-	form.addEventListener('submit', async (event) => {
+form.addEventListener('submit', async (event) => {
 		event.preventDefault();
 		const question = String(input.value || '').trim();
-		const currentProvider = providerEl ? String(providerEl.value || 'ollama').toLowerCase() : 'ollama';
-		if (!question) return;
+		const hasImage = Boolean(pendingImageFile);
+		if (!question && !hasImage) return;
 
-		const userMessage = question;
-		renderMessage('user', userMessage);
-		history.push({ role: 'user', content: userMessage });
+		const userMessage = question || 'Da gui anh de tim san pham tuong tu.';
+		const imageSubmission = hasImage ? detachPendingImageForSubmit() : null;
+		const requestImageFile = imageSubmission && imageSubmission.file ? imageSubmission.file : null;
+		const previewSrc = imageSubmission && imageSubmission.previewSrc ? imageSubmission.previewSrc : '';
+		const previousInputValue = input.value;
+		renderMessage('user', userMessage, { imageSrc: previewSrc });
 		input.value = '';
-		input.style.height = 'auto';
-		setStatus('Đang trả lời...', true);
+		setInputHeight();
+		setStatus(
+			hasImage && question
+				? 'Dang phan tich anh va suy luan...'
+				: (hasImage ? 'Dang phan tich anh...' : 'Dang tra loi...'),
+			true
+		);
 		sendBtn.disabled = true;
+		if (imageBtnEl) imageBtnEl.disabled = true;
 
 		try {
-			const ai = await askAI(question);
-			if (!ai.answer) throw new Error('AI chưa có câu trả lời');
-			const answerWithLinks = injectSuggestedLinks(ai.answer, ai.suggestedProducts);
+			let ai;
+			let imageSearchResult = null;
+
+			if (requestImageFile && question) {
+				imageSearchResult = await askOpenClipByImage(requestImageFile, question);
+				ai = await askAI(question, {
+					imageProducts: imageSearchResult.suggestedProducts,
+					imageMeta: {
+						provider: imageSearchResult.provider,
+						model: imageSearchResult.model,
+						answer: imageSearchResult.answer
+					}
+				});
+				ai = {
+					...ai,
+					suggestedProducts: mergeSuggestedProducts(ai && ai.suggestedProducts, imageSearchResult.suggestedProducts)
+				};
+			} else if (requestImageFile) {
+				ai = await askOpenClipByImage(requestImageFile, question);
+			} else {
+				ai = await askAI(question);
+			}
+
+			if (!ai.answer) throw new Error('AI chua co cau tra loi');
+			const answerWithLinks = ai.provider === 'openclip'
+				? ai.answer
+				: injectSuggestedLinks(ai.answer, ai.suggestedProducts);
 			renderMessage('assistant', answerWithLinks);
-			renderProductCards(ai.suggestedProducts);
+			if (ai.provider === 'openclip') {
+				renderOpenClipImageCards(ai.suggestedProducts);
+			} else {
+				renderProductCards(ai.suggestedProducts);
+			}
 			renderSuggestedActions(ai.suggestedActions);
+			history.push({ role: 'user', content: userMessage });
 			history.push({
 				role: 'assistant',
 				content: answerWithLinks,
 				suggestedProducts: ai.suggestedProducts,
-				suggestedActions: ai.suggestedActions
+				suggestedActions: ai.suggestedActions,
+				provider: ai.provider,
+				model: ai.model
 			});
 			saveHistory();
-			const providerName = ai.provider === 'gemini'
-				? 'Gemini'
-				: (ai.provider === 'openrouter' ? 'OpenRouter' : 'Ollama');
-			setStatus(ai.model ? `${providerName} - ${ai.model}` : `Hoàn tất (${providerName})`, false);
+			setStatus(buildResponseStatus(ai), false);
 		} catch (error) {
-			const message = error && error.message ? error.message : 'Không thể trả lời lúc này';
+			const message = error && error.message ? error.message : 'Khong the tra loi luc nay';
 			renderMessage('system', message);
-			setStatus('Lỗi kết nối', false);
+			input.value = previousInputValue;
+			setInputHeight();
+			setStatus('Loi ket noi', false);
 		} finally {
 			sendBtn.disabled = false;
+			if (imageBtnEl) imageBtnEl.disabled = false;
 		}
 	});
 
 	input.addEventListener('input', () => {
-		input.style.height = 'auto';
-		input.style.height = `${Math.min(input.scrollHeight, 96)}px`;
+		setInputHeight();
 	});
 
 	loadHistory();
 })();
+
+

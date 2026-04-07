@@ -43,6 +43,77 @@ function normalizeMessage(input) {
   return String(input || '').trim();
 }
 
+function normalizeClientImageProducts(rawProducts) {
+  if (!Array.isArray(rawProducts)) return [];
+
+  return rawProducts
+    .map((item) => {
+      const source = item && typeof item === 'object' ? item : {};
+      const id = normalizeMessage(source.id || source._id);
+      const name = normalizeMessage(source.tensanpham || source.name);
+      const url = normalizeMessage(source.url);
+      const imageUrl = normalizeMessage(source.imageUrl || source.image);
+      const salePrice = Number(source.giaSauGiam || source.price || source.gia || 0);
+      const originalPrice = Number(source.gia || source.originalPrice || salePrice || 0);
+      const availableSizes = Array.isArray(source.sizeCoSan)
+        ? source.sizeCoSan.map((value) => normalizeMessage(value)).filter(Boolean).slice(0, 12)
+        : [];
+
+      if (!name && !url && !id) return null;
+
+      return {
+        id,
+        tensanpham: name || 'San pham',
+        url,
+        imageUrl,
+        gia: originalPrice > 0 ? originalPrice : salePrice,
+        giaSauGiam: salePrice > 0 ? salePrice : originalPrice,
+        sizeCoSan: availableSizes,
+        openClipScore: Number(source.openClipScore || source.score || 0)
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+}
+
+function mergeImageProductsIntoContext(context, imageProducts, imageMeta, question) {
+  if (!context || !Array.isArray(imageProducts) || imageProducts.length === 0) return context;
+
+  const existingProducts = Array.isArray(context.products) ? context.products : [];
+  const mergedProducts = [];
+  const seen = new Set();
+
+  const pushUnique = (item) => {
+    if (!item || typeof item !== 'object') return;
+    const key = [
+      normalizeMessage(item.id || item._id).toLowerCase(),
+      normalizeMessage(item.url).toLowerCase(),
+      normalizeMessage(item.tensanpham || item.name).toLowerCase()
+    ].find(Boolean);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    mergedProducts.push(item);
+  };
+
+  imageProducts.forEach(pushUnique);
+  existingProducts.forEach(pushUnique);
+
+  context.products = mergedProducts.slice(0, 8);
+  context.openClip = {
+    ...(context.openClip && typeof context.openClip === 'object' ? context.openClip : {}),
+    enabled: true,
+    used: true,
+    source: 'client_image_upload',
+    provider: normalizeMessage(imageMeta && imageMeta.provider) || 'openclip',
+    model: normalizeMessage(imageMeta && imageMeta.model),
+    answerSummary: normalizeMessage(imageMeta && imageMeta.answer).slice(0, 280),
+    query: normalizeMessage(question),
+    candidates: imageProducts.length
+  };
+
+  return context;
+}
+
 function normalizeForCompare(input) {
   return String(input || '')
     .toLowerCase()
@@ -955,6 +1026,8 @@ module.exports.sendMessage = async (req, res) => {
     const history = Array.isArray(req.body && req.body.history) ? req.body.history : [];
     const provider = normalizeMessage(req.body && req.body.provider).toLowerCase() || 'ollama';
     const model = normalizeMessage(req.body && req.body.model);
+    const imageProducts = normalizeClientImageProducts(req.body && req.body.imageProducts);
+    const imageMeta = req.body && typeof req.body.imageMeta === 'object' ? req.body.imageMeta : null;
 
     if (!question) {
       return res.status(400).json({ success: false, message: 'Vui lòng nhập câu hỏi' });
@@ -996,6 +1069,8 @@ module.exports.sendMessage = async (req, res) => {
       userId: req.user && req.user._id ? req.user._id : null,
       useOpenClip: provider === 'openclip'
     });
+
+    mergeImageProductsIntoContext(context, imageProducts, imageMeta, question);
 
     const priceConstraint = extractPriceConstraint(question);
     if (priceConstraint) {
