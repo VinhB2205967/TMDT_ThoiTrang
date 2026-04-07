@@ -14,7 +14,7 @@ const {
   danhDauThatBaiTatCaPendingTheoDonHang,
   capNhatGiaoDichThanhToan
 } = require('../payment/payment.service.js');
-const { taoHoanTienMoMo } = require('../payment/momo.service.js');
+const { taoHoanTienMoMo, taoThongTinYeuCauHoanTienMoMo } = require('../payment/momo.service.js');
 const { restoreVoucherUsageForUser } = require('../payment/voucher.service.js');
 const {
   sendOrderConfirmedEmail,
@@ -1774,11 +1774,12 @@ async function hoanTienDon(id, actor = null) {
     }
 
     if (!order.momoRefunded) {
+      const refundRefs = taoThongTinYeuCauHoanTienMoMo(String(order._id));
       const ketqua = await taoHoanTienMoMo({
-        orderId: String(order._id),
-        requestId: `${String(order._id)}-refund-admin-${Date.now()}`,
-        amount: String(Math.max(0, Math.round(soTienHoan))),
-        transId: String(order.momoTransId),
+        orderId: refundRefs.orderId,
+        requestId: refundRefs.requestId,
+        amount: Math.max(0, Math.round(soTienHoan)),
+        transId: Number(order.momoTransId),
         description: `Hoàn tiền đơn hàng ${order.madonhang || String(order._id)}`
       });
 
@@ -1997,11 +1998,12 @@ async function huyDon({ id, reason, actor = null }) {
       if (!order.momoRefunded) {
         let ketquaHoan;
         try {
+          const refundRefs = taoThongTinYeuCauHoanTienMoMo(String(order._id));
           ketquaHoan = await taoHoanTienMoMo({
-            orderId: String(order._id),
-            requestId: `${String(order._id)}-cancel-refund-${Date.now()}`,
-            amount: String(refundAmount),
-            transId: String(order.momoTransId),
+            orderId: refundRefs.orderId,
+            requestId: refundRefs.requestId,
+            amount: refundAmount,
+            transId: Number(order.momoTransId),
             description: `Hoàn tiền đơn hàng ${order.madonhang || String(order._id)} do không xác nhận`
           });
         } catch (error) {

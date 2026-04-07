@@ -10,7 +10,7 @@ const MOMO_MACDINH = {
 };
 
 const MOMO_HOSTNAME = String(process.env.MOMO_HOSTNAME || 'test-payment.momo.vn').trim();
-const MOMO_TIMEOUT_MS = Number(process.env.MOMO_TIMEOUT_MS || 15000);
+const MOMO_TIMEOUT_MS = Math.max(30000, Number(process.env.MOMO_TIMEOUT_MS || 30000) || 30000);
 // Lấy giá trị môi trường với tên biến và giá trị mặc định nếu không tồn tại
 function layGiaTriMoiTruong(name, fallback = '') {
   const value = String(process.env[name] || '').trim();
@@ -32,8 +32,56 @@ function stringifyMoMoValue(value) {
   return String(value);
 }
 
+function toMoMoLong(value, fallback = 0) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  return Math.round(n);
+}
+
+function normalizeMoMoRefundId(value, fallbackPrefix = 'RF') {
+  const raw = String(value || '').trim().replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
+  if (raw) return raw.slice(0, 50);
+
+  const now = Date.now().toString();
+  return `${fallbackPrefix}${now}`.slice(0, 50);
+}
+
+function taoMaHoanTienMoMo(seed = '', prefix = 'RF') {
+  const safePrefix = String(prefix || 'RF').replace(/[^0-9a-zA-Z]/g, '').toUpperCase().slice(0, 8) || 'RF';
+  const compactSeed = String(seed || '').replace(/[^0-9a-zA-Z]/g, '').toUpperCase();
+  const tail = compactSeed ? compactSeed.slice(-10) : '';
+  const now = Date.now().toString();
+  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  return `${safePrefix}${now}${tail}${random}`.slice(0, 50);
+}
+
+function taoThongTinYeuCauHoanTienMoMo(seed = '') {
+  return {
+    orderId: taoMaHoanTienMoMo(seed, 'RF'),
+    requestId: taoMaHoanTienMoMo(seed, 'RQ')
+  };
+}
+
 function rutGonNoiDungPhanHoi(raw = '') {
   return String(raw || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+}
+
+function chuanHoaThongDiepHoanTienMoMo(data) {
+  if (!data || typeof data !== 'object') return data;
+
+  const resultCode = Number(data.resultCode);
+  const rawMessage = String(data.message || '').trim();
+  if (resultCode === 0 || !rawMessage) return data;
+
+  if (rawMessage === 'Declined due to general reasons. Please contact MoMo for more details.') {
+    return {
+      ...data,
+      gatewayMessage: rawMessage,
+      message: `MoMo từ chối yêu cầu hoàn tiền (mã ${resultCode}). Vui lòng thử lại sau ít phút hoặc kiểm tra cấu hình tài khoản hoàn tiền trên MoMo sandbox.`
+    };
+  }
+
+  return data;
 }
 // Tạo chữ ký HMAC SHA256 cho yêu cầu MoMo
 function taoSignature({ accessKey, amount, extraData, ipnUrl, orderId, orderInfo, partnerCode, redirectUrl, requestId, requestType }, secretKey) {
@@ -326,8 +374,14 @@ async function taoThanhToanMoMo({ orderId, requestId, amount, orderInfo, redirec
 
 async function taoHoanTienMoMo({ orderId, requestId, amount, transId, description = '' }) {
   const { partnerCode, accessKey, secretKey } = layThongTinXacThucMoMo();
+  const lang = String(process.env.MOMO_LANG || 'vi');
+  const normalizedOrderId = normalizeMoMoRefundId(orderId, 'RF');
+  const normalizedRequestId = normalizeMoMoRefundId(requestId, 'RQ');
+  const normalizedAmount = toMoMoLong(amount, 0);
+  const normalizedTransId = toMoMoLong(transId, 0);
+  const normalizedDescription = String(description || '').trim().slice(0, 255);
 
-  const rawSignature = `accessKey=${accessKey}&amount=${amount}&description=${description}&orderId=${orderId}&partnerCode=${partnerCode}&requestId=${requestId}&transId=${transId}`;
+  const rawSignature = `accessKey=${accessKey}&amount=${normalizedAmount}&description=${normalizedDescription}&orderId=${normalizedOrderId}&partnerCode=${partnerCode}&requestId=${normalizedRequestId}&transId=${normalizedTransId}`;
   const signature = crypto.createHmac('sha256', secretKey)
     .update(rawSignature)
     .digest('hex');
@@ -335,11 +389,12 @@ async function taoHoanTienMoMo({ orderId, requestId, amount, transId, descriptio
   const requestBody = {
     partnerCode,
     accessKey,
-    requestId,
-    amount,
-    orderId,
-    transId,
-    description,
+    requestId: normalizedRequestId,
+    amount: normalizedAmount,
+    orderId: normalizedOrderId,
+    transId: normalizedTransId,
+    description: normalizedDescription,
+    lang,
     signature
   };
 
@@ -382,7 +437,7 @@ async function taoHoanTienMoMo({ orderId, requestId, amount, transId, descriptio
     };
   }
 
-  return data;
+  return chuanHoaThongDiepHoanTienMoMo(data);
 }
 
 async function truyVanGiaoDichMoMo({ orderId, requestId }) {
@@ -450,6 +505,7 @@ module.exports = {
   kiemTraChuKyKetQuaMoMo,
   taoThanhToanMoMo,
   taoHoanTienMoMo,
+  taoThongTinYeuCauHoanTienMoMo,
   truyVanGiaoDichMoMo
 };
 

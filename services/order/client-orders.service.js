@@ -7,7 +7,12 @@ const danhgia = require('../../models/review_model');
 const sanpham = require('../../models/product_model');
 const { getOrCreateCart, normalizeImage } = require('../cart.service');
 const { laLoaiKhongSize, tinhTongTon } = require('../catalog/productStock.service.js');
-const { taoHoanTienMoMo, taoThanhToanMoMo, truyVanGiaoDichMoMo } = require('../payment/momo.service.js');
+const {
+  taoHoanTienMoMo,
+  taoThanhToanMoMo,
+  taoThongTinYeuCauHoanTienMoMo,
+  truyVanGiaoDichMoMo
+} = require('../payment/momo.service.js');
 const { taoThanhToanVnpay } = require('../payment/vnpay.service.js');
 const {
   taoGiaoDichThanhToan,
@@ -1035,11 +1040,12 @@ async function cancelOrderByUser({ userId, orderId, reason }) {
 
   if (donhangdoc.phuongthucthanhtoan === 'momo' && donhangdoc.dathanhtoan && donhangdoc.momoTransId && !donhangdoc.momoRefunded) {
     try {
+      const refundRefs = taoThongTinYeuCauHoanTienMoMo(String(donhangdoc._id));
       const ketqua = await taoHoanTienMoMo({
-        orderId: String(donhangdoc._id),
-        requestId: String(donhangdoc._id) + '-refund',
-        amount: String(Math.max(0, Math.round(donhangdoc.tongtien || donhangdoc.tamtinh || 0))),
-        transId: String(donhangdoc.momoTransId),
+        orderId: refundRefs.orderId,
+        requestId: refundRefs.requestId,
+        amount: Math.max(0, Math.round(donhangdoc.tongtien || donhangdoc.tamtinh || 0)),
+        transId: Number(donhangdoc.momoTransId),
         description: 'Hoan tien don hang ' + (donhangdoc.madonhang || String(donhangdoc._id))
       });
 
@@ -1053,22 +1059,22 @@ async function cancelOrderByUser({ userId, orderId, reason }) {
             sotien: Math.max(0, Math.round(donhangdoc.tongtien || donhangdoc.tamtinh || 0)),
             magiaodich: donhangdoc.momoOrderId || undefined,
             refundResponse: ketqua,
-            ghichu: 'Hoan tien MoMo thanh cong'
+            ghichu: 'Hoàn tiền MoMo thành công'
           });
         } catch {
           // best-effort
         }
 
-        return { ok: true, redirect: '/orders', flash: { type: 'success', message: 'Da huy don hang, hoan tien MoMo thanh cong.' } };
+        return { ok: true, redirect: '/orders', flash: { type: 'success', message: 'Đã hủy đơn hàng, hoàn tiền MoMo thành công.' } };
       }
 
-      return { ok: false, redirect: "/orders/" + donhangdoc._id, flash: { type: 'error', message: ketqua?.message || 'Da huy don nhung hoan tien MoMo that bai.' } };
+      return { ok: false, redirect: "/orders/" + donhangdoc._id, flash: { type: 'error', message: ketqua?.message || 'Đã hủy đơn nhưng hoàn tiền MoMo thất bại.' } };
     } catch {
-      return { ok: false, redirect: "/orders/" + donhangdoc._id, flash: { type: 'error', message: 'Da huy don nhung hoan tien MoMo loi.' } };
+      return { ok: false, redirect: "/orders/" + donhangdoc._id, flash: { type: 'error', message: 'Đã hủy đơn nhưng hoàn tiền MoMo lỗi.' } };
     }
   }
 
-  return { ok: true, redirect: '/orders', flash: { type: 'success', message: 'Da huy don hang va hoan lai so luong san pham.' } };
+  return { ok: true, redirect: '/orders', flash: { type: 'success', message: 'Đã hủy đơn hàng và hoàn lại số lượng sản phẩm.' } };
 }
 
 async function reorderFromOldOrder({ userId, orderId }) {
