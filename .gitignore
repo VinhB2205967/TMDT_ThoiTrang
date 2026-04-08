@@ -25,6 +25,7 @@ build/
 
 # Misc
 *.log
+docs/
 
 # AI Model files (too large for GitHub)
 AI/huggingface_cache/

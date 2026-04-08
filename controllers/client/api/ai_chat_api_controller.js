@@ -902,6 +902,9 @@ function toSuggestedProducts(context, answerText, questionText) {
   // Suggest from both contextual search results and top-selling products.
   (Array.isArray(context.products) ? context.products : []).forEach(push);
   (Array.isArray(context.topSelling) ? context.topSelling : []).forEach(push);
+  (Array.isArray(context.lookbooks) ? context.lookbooks : []).forEach((lookbook) => {
+    (Array.isArray(lookbook && lookbook.products) ? lookbook.products : []).forEach(push);
+  });
   const priceConstraint = extractPriceConstraint(questionText);
   const candidates = Array.from(byId.values()).filter((item) => matchPriceConstraint(item.price, priceConstraint));
   if (candidates.length === 0) return [];
@@ -1135,7 +1138,9 @@ module.exports.sendMessage = async (req, res) => {
       if (corrected) answer = corrected;
     }
 
-    const shouldShowCards = provider === 'openclip' || shouldSuggestProducts(question);
+    const hasLookbookProducts = Array.isArray(context.lookbooks)
+      && context.lookbooks.some((lookbook) => Array.isArray(lookbook && lookbook.products) && lookbook.products.length > 0);
+    const shouldShowCards = provider === 'openclip' || shouldSuggestProducts(question) || hasLookbookProducts;
     const suggestedProducts = shouldShowCards
       ? toSuggestedProducts(context, answer, question)
       : [];

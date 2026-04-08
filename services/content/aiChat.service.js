@@ -17,11 +17,13 @@ const {
   TonKhoLo,
   SizeGuide,
   Lookbook,
+  BlogPost,
   HomeSection,
   Setting
 } = require('../../models');
 const ImportReceipt = require('../../models/import_receipt_model');
 const { rankProductsByQuery } = require('../catalog/openClip.service.js');
+const { buildProductStats, applyProductStats } = require('../../helpers/productStats');
 
 const OLLAMA_URL = process.env.OLLAMA_API_URL || 'http://127.0.0.1:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'gemma3:4b';
@@ -68,6 +70,51 @@ function toSafeRegex(text) {
 
 function compactWhitespace(text) {
   return String(text || '').replace(/\s+/g, ' ').trim();
+}
+
+function normalizeVietnameseForSearch(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9\s/-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function stripHtmlTags(value) {
+  return compactWhitespace(
+    String(value || '')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+  );
+}
+
+function matchesSearchText(fields, question, terms) {
+  const corpus = normalizeVietnameseForSearch(Array.isArray(fields) ? fields.join(' ') : fields);
+  if (!corpus) return false;
+
+  const normalizedQuestion = normalizeVietnameseForSearch(question);
+  if (normalizedQuestion && corpus.includes(normalizedQuestion)) return true;
+
+  return (Array.isArray(terms) ? terms : [])
+    .map((term) => normalizeVietnameseForSearch(term))
+    .filter(Boolean)
+    .some((term) => corpus.includes(term));
+}
+
+function detectKnowledgeIntent(question) {
+  const q = normalizeVietnameseForSearch(question);
+  return {
+    lookbook: /\blookbook\b|\bbo suu tap\b/.test(q),
+    brand: /\bthuong hieu\b|\bbrand\b/.test(q),
+    voucher: /\bvoucher\b|\bma giam\b|\bkhuyen mai\b|\buu dai\b/.test(q),
+    blog: /\bblog\b|\bbai viet\b|\btin tuc\b|\bphoi do\b/.test(q)
+  };
 }
 
 function isGeminiTransientError(message) {
@@ -288,6 +335,9 @@ function normalizeInternalPath(pathValue) {
 
   if (norm.includes('/orders') || norm.includes('don hang') || norm.includes('/don-hang')) return '/orders';
   if (norm.includes('/vouchers') || norm.includes('/voucher')) return '/vouchers';
+  if (norm.includes('/lookbook') || norm.includes('lookbook') || norm.includes('bo suu tap')) return '/lookbook';
+  if (norm.includes('/brands') || norm.includes('/brand') || norm.includes('thuong hieu')) return '/brands';
+  if (norm.includes('/blog') || norm.includes('bai viet') || norm.includes('tin tuc')) return '/blog';
   if (norm.includes('/size-guide') || norm.includes('bang size') || norm.includes('/size')) return '/size-guide';
   if (norm.includes('/cart') || norm.includes('gio hang') || norm.includes('/gio-hang')) return '/cart';
 
@@ -697,6 +747,55 @@ async function getTopSellingProducts() {
       imageUrl: normalizeImageUrl(item.hinhanh),
       url: item.sanpham_id ? `/products/${item.sanpham_id}` : '',
       totalSold: Number(item.totalSold || 0),
+      gia,
+      giaSauGiam,
+      phantramgiamgia: percent
+    };
+  });
+}
+
+async function getTopSellingProductsAccurate() {
+  const products = await Sanpham.find({
+    daxoa: { $ne: true },
+    trangthai: { $in: ['active', 'dangban'] }
+  })
+    .select('_id tensanpham hinhanh gia phantramgiamgia luotmua ngaytao')
+    .lean({ virtuals: true });
+
+  const ids = (products || []).map((item) => item && item._id).filter(Boolean);
+  const { soldMap } = await buildProductStats(ids);
+  const withStats = applyProductStats(products || [], new Map(), soldMap);
+
+  const top = withStats
+    .sort((a, b) => {
+      const soldDiff = Number(b && b.soldCount || 0) - Number(a && a.soldCount || 0);
+      if (soldDiff !== 0) return soldDiff;
+
+      const fallbackDiff = Number(b && b.luotmua || 0) - Number(a && a.luotmua || 0);
+      if (fallbackDiff !== 0) return fallbackDiff;
+
+      return new Date(b && b.ngaytao ? b.ngaytao : 0).getTime() - new Date(a && a.ngaytao ? a.ngaytao : 0).getTime();
+    })
+    .slice(0, 8);
+
+  const flashMap = await getActiveFlashSalePriceMap((top || []).map((item) => item && item._id));
+
+  return (top || []).map((item) => {
+    const gia = Number(item.gia || 0);
+    const percent = Number(item.phantramgiamgia || 0);
+    const baseCurrent = getCurrentPriceFromRecord(item);
+    const giaSauGiam = applyFlashSaleToCurrentPrice({
+      record: item,
+      currentPrice: baseCurrent,
+      flashEntry: flashMap.get(String(item && item._id || ''))
+    });
+
+    return {
+      id: item && item._id ? String(item._id) : '',
+      tensanpham: item.tensanpham || 'San pham',
+      imageUrl: normalizeImageUrl(item.hinhanh),
+      url: item && item._id ? `/products/${item._id}` : '',
+      totalSold: Number(item.soldCount || 0),
       gia,
       giaSauGiam,
       phantramgiamgia: percent
@@ -1179,7 +1278,136 @@ function formatVoucherValue(voucher) {
   return `${value.toLocaleString('vi-VN')}đ`;
 }
 
-async function getVoucherContext() {
+async function getLookbookContext(question) {
+  const terms = buildSearchTerms(question);
+  const intent = detectKnowledgeIntent(question);
+
+  const rows = await Lookbook.find({
+    deletedAt: null,
+    $or: [{ isActive: true }, { hienthi: true }]
+  })
+    .select('title tenmua slug description mota image hinhanh products sanpham_ids order thuTu startDate endDate')
+    .populate({ path: 'products', select: 'tensanpham hinhanh gia phantramgiamgia bienthe giaSauGiam giaMoi' })
+    .sort({ order: 1, thuTu: 1, createdAt: -1 })
+    .limit(12)
+    .lean();
+
+  const mapped = (rows || []).map((item) => {
+    const products = Array.isArray(item.products) ? item.products : [];
+    const productNames = products
+      .map((product) => String(product && product.tensanpham || '').trim())
+      .filter(Boolean);
+    const productItems = products
+      .map((product) => {
+        const id = String(product && product._id || '').trim();
+        if (!id) return null;
+
+        const originalPrice = Number(product && product.gia || 0);
+        const currentPrice = getCurrentPriceFromRecord(product);
+
+        return {
+          id,
+          tensanpham: String(product && product.tensanpham || '').trim(),
+          imageUrl: normalizeImageUrl(product && product.hinhanh),
+          url: `/products/${id}`,
+          gia: originalPrice,
+          giaSauGiam: currentPrice > 0 ? currentPrice : originalPrice,
+          phantramgiamgia: Number(product && product.phantramgiamgia || 0)
+        };
+      })
+      .filter((product) => product && product.tensanpham);
+
+    return {
+      title: item.title || item.tenmua || '',
+      description: item.description || item.mota || '',
+      slug: item.slug || '',
+      imageUrl: normalizeImageUrl(item.image || item.hinhanh),
+      url: item.slug ? `/lookbook/${item.slug}` : '/lookbook',
+      productCount: products.length > 0 ? products.length : (Array.isArray(item.sanpham_ids) ? item.sanpham_ids.length : 0),
+      productNames: productNames.slice(0, 4),
+      products: productItems.slice(0, 4),
+      startDate: item.startDate || null,
+      endDate: item.endDate || null
+    };
+  });
+
+  const matched = mapped.filter((item) => matchesSearchText(
+    [item.title, item.description, item.slug, ...(item.productNames || [])],
+    question,
+    terms
+  ));
+
+  if (matched.length > 0) return matched.slice(0, 4);
+  if (intent.lookbook) return mapped.slice(0, 4);
+  return [];
+}
+
+async function getBrandContext(question) {
+  const terms = buildSearchTerms(question);
+  const intent = detectKnowledgeIntent(question);
+
+  const rows = await Brand.find({
+    daXoa: { $ne: true },
+    $or: [{ isActive: true }, { hienthi: true }]
+  })
+    .select('name ten slug description moTa isFeatured noiBat isActive hienthi order thuTu')
+    .sort({ order: 1, thuTu: 1, ten: 1, name: 1 })
+    .limit(20)
+    .lean();
+
+  const mapped = (rows || []).map((item) => ({
+    ten: item.ten || item.name || '',
+    slug: item.slug || '',
+    moTa: item.description || item.moTa || '',
+    noiBat: Boolean(item.isFeatured || item.noiBat),
+    url: item.slug ? `/brands/${item.slug}` : '/brands'
+  }));
+
+  const matched = mapped.filter((item) => matchesSearchText(
+    [item.ten, item.moTa, item.slug],
+    question,
+    terms
+  ));
+
+  if (matched.length > 0) return matched.slice(0, 6);
+  if (intent.brand) return mapped.slice(0, 6);
+  return [];
+}
+
+async function getBlogContext(question) {
+  const terms = buildSearchTerms(question);
+  const intent = detectKnowledgeIntent(question);
+
+  const rows = await BlogPost.find({ xuatban: true })
+    .select('tieude slug tomtat noidung hinhanh ngayxuatban ngaytao')
+    .sort({ ngayxuatban: -1, ngaytao: -1 })
+    .limit(12)
+    .lean();
+
+  const mapped = (rows || []).map((item) => {
+    const summary = item.tomtat || stripHtmlTags(item.noidung).slice(0, 220);
+    return {
+      tieude: item.tieude || '',
+      slug: item.slug || '',
+      tomtat: summary,
+      url: item.slug ? `/blog/${item.slug}` : '/blog',
+      imageUrl: normalizeImageUrl(item.hinhanh),
+      ngayXuatBan: item.ngayxuatban || item.ngaytao || null
+    };
+  });
+
+  const matched = mapped.filter((item) => matchesSearchText(
+    [item.tieude, item.tomtat, item.slug],
+    question,
+    terms
+  ));
+
+  if (matched.length > 0) return matched.slice(0, 5);
+  if (intent.blog) return mapped.slice(0, 5);
+  return [];
+}
+
+async function getVoucherContext(question) {
   const now = new Date();
   const vouchers = await Coupon.find({
     daxoa: { $ne: true },
@@ -1190,10 +1418,10 @@ async function getVoucherContext() {
   })
     .select('code ten mota loai giatri don_toithieu giam_toida ngay_ketthuc soluong_toida soluong_dasudung')
     .sort({ ngay_ketthuc: 1, giatri: -1 })
-    .limit(8)
+    .limit(16)
     .lean();
 
-  return vouchers.map((voucher) => ({
+  const mapped = vouchers.map((voucher) => ({
     code: voucher.code,
     ten: voucher.ten || '',
     mota: voucher.mota || '',
@@ -1204,6 +1432,15 @@ async function getVoucherContext() {
     conLai: Math.max(0, Number(voucher.soluong_toida || 0) - Number(voucher.soluong_dasudung || 0)),
     ngayKetThuc: voucher.ngay_ketthuc
   }));
+
+  const terms = buildSearchTerms(question);
+  const matched = mapped.filter((voucher) => matchesSearchText(
+    [voucher.code, voucher.ten, voucher.mota, voucher.giaTriHienThi],
+    question,
+    terms
+  ));
+
+  return (matched.length > 0 ? matched : mapped).slice(0, 8);
 }
 
 async function getMyVoucherSummary(userId) {
@@ -1335,6 +1572,9 @@ async function buildDataContext({ question, userId, useOpenClip = false }) {
     stats,
     opsStats,
     products,
+    lookbooks,
+    brands,
+    blogs,
     flashSale,
     myOrders,
     vouchers,
@@ -1348,12 +1588,15 @@ async function buildDataContext({ question, userId, useOpenClip = false }) {
     getStoreStats(),
     getOpsStats(),
     getProductContext(question),
+    getLookbookContext(question),
+    getBrandContext(question),
+    getBlogContext(question),
     getActiveFlashSaleContext(),
     getMyOrderSummary(userId, question),
-    getVoucherContext(),
+    getVoucherContext(question),
     getMyVoucherSummary(userId),
     getSizeGuideContext(question),
-    getTopSellingProducts(),
+    getTopSellingProductsAccurate(),
     getRatingSummary(),
     getSettingsSnapshot(),
     getReviewContext(question, userId)
@@ -1365,6 +1608,9 @@ async function buildDataContext({ question, userId, useOpenClip = false }) {
     opsStats,
     flashSale,
     products,
+    lookbooks,
+    brands,
+    blogs,
     vouchers,
     sizeGuides,
     myOrders,

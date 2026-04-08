@@ -184,6 +184,12 @@ function getProviderValue() {
 			if (/^\/vouchers?$/i.test(decodedPath) || /voucher/.test(lower)) return '/vouchers';
 			if (/^\/size-guide$/i.test(decodedPath) || /bang\s*size|size[-_\s]*guide/.test(lower)) return '/size-guide';
 			if (/^\/cart$/i.test(decodedPath) || /gio\s*hang/.test(lower)) return '/cart';
+			if (/^\/lookbooks?$/i.test(decodedPath) || /\/lookbooks?$/.test(lower) || /lookbook/.test(lower)) return '/lookbook';
+			if (/^\/lookbooks?\/[a-z0-9-]+$/i.test(decodedPath)) return decodedPath.replace(/^\/lookbooks\//i, '/lookbook/');
+			if (/^\/brands?$/i.test(decodedPath) || /\/brands?$/.test(lower) || /thuong\s*hieu|brand/.test(lower)) return '/brands';
+			if (/^\/brands?\/[a-z0-9-]+$/i.test(decodedPath)) return decodedPath;
+			if (/^\/blog$/i.test(decodedPath) || /\/blog$/.test(lower) || /bai\s*viet|tin\s*tuc/.test(lower)) return '/blog';
+			if (/^\/blog\/[a-z0-9-]+$/i.test(decodedPath)) return decodedPath;
 			return '';
 		};
 
@@ -213,6 +219,7 @@ function getProviderValue() {
 		url = url.split(/\s+(?:target|rel|class|id|style)\s*=|\s+on\w+\s*=|\s+data-[\w-]+\s*=/i)[0];
 		url = url.replace(/\bnoopener\b|\bnoreferrer\b/gi, '');
 		url = url.replace(/["'`]+$/g, '');
+		url = url.replace(/[.,;:!?]+$/g, '');
 		return url.replace(/\s{2,}/g, ' ').trim();
 	}
 
@@ -339,6 +346,14 @@ function getProviderValue() {
 				return putToken(toAnchor('tại đây', rawPath));
 			});
 
+			textWork = textWork.replace(/(\/(?:lookbooks?|brands?|blog)(?:\/[a-z0-9-]+)?(?:\?[^\s<]+)?)/gi, (rawPath) => {
+				return putToken(toAnchor('tại đây', rawPath));
+			});
+
+			textWork = textWork.replace(/(tai\s+day|tại\s+đây)\s*:\s*(\/(?:lookbooks?|brands?|blog)(?:\/[a-z0-9-]+)?)/gi, (_, label, rawUrl) => {
+				return putToken(toAnchor(String(label || 'tại đây').trim(), rawUrl));
+			});
+
 			let output = escapeHtml(textWork);
 			tokens.forEach((token) => {
 				output = output.replace(token.key, token.html);
@@ -398,6 +413,12 @@ function getProviderValue() {
 			.trim();
 
 		const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+		const buildProductLinkLabel = (item) => {
+			const name = String(item && item.name ? item.name : '').trim();
+			if (!name) return 'Xem sản phẩm';
+			return name.length > 48 ? `Xem ${name.slice(0, 45).trim()}...` : `Xem ${name}`;
+		};
+
 		// If answer is numbered list, keep exactly one link per item based on product name mention.
 		const blocks = output.match(/\d+\.[\s\S]*?(?=\n\d+\.|$)/g);
 		if (blocks && blocks.length > 0) {
@@ -427,7 +448,7 @@ function getProviderValue() {
 				if (!picked || !picked.url) return cleanBlock;
 				const detailUrl = normalizeProductUrl(String(picked.url));
 				if (!detailUrl) return cleanBlock;
-				return `${cleanBlock} Xem thêm: [tại đây](${detailUrl})`;
+				return `${cleanBlock} Xem thêm: [${buildProductLinkLabel(picked)}](${detailUrl})`;
 			});
 
 			const prefix = output.split(/\d+\./)[0] || '';
@@ -444,7 +465,7 @@ function getProviderValue() {
 			if (nameRegex.test(output)) {
 				const detailUrl = normalizeProductUrl(url);
 				if (!detailUrl) return;
-				output = output.replace(nameRegex, `$1 - Xem thêm: [tại đây](${detailUrl})`);
+				output = output.replace(nameRegex, `$1 - Xem thêm: [${buildProductLinkLabel(item)}](${detailUrl})`);
 			}
 		});
 
