@@ -16,6 +16,8 @@ block main
       - const rsRefund = rs.refund || {}
       - const rsRemain = rs.remaining || {}
       - const cancelInfoData = cancelInfo || {}
+      - const paymentMethod = String(order.phuongthucthanhtoan || '').toLowerCase()
+      - const paymentMethodLabel = paymentMethod === 'momo' ? 'MoMo' : (paymentMethod === 'vnpay' ? 'Thanh toán online' : (paymentMethod === 'cod' ? 'COD' : (order.phuongthucthanhtoan || '—')))
 
       .d-flex.flex-wrap.justify-content-between.align-items-center.gap-2.mb-3
         div
@@ -107,7 +109,7 @@ block main
               .fw-semibold.mb-2 Thanh toán
               .d-flex.justify-content-between
                 span.text-muted Phương thức
-                span.fw-semibold #{order.phuongthucthanhtoan || '—'}
+                span.fw-semibold #{paymentMethodLabel}
               if order.trangthai === 'choxacnhan' && !order.dathanhtoan
                 .mt-2
                   form.order-payment-form(method='POST', action=`/orders/${order._id}/change-payment` data-auto-submit='payment-method')
@@ -116,7 +118,6 @@ block main
                       select.form-select.form-select-sm.order-payment-select(name='phuongthucthanhtoan')
                         option(value='cod' selected=(order.phuongthucthanhtoan === 'cod')) COD
                         option(value='momo' selected=(order.phuongthucthanhtoan === 'momo')) MoMo
-                        option(value='vnpay' selected=(order.phuongthucthanhtoan === 'vnpay')) VNPAY
               if isChoThanhToan || isDaThanhToanChoXacNhan
                 .d-flex.justify-content-between
                   span.text-muted Trạng thái thanh toán
@@ -298,7 +299,7 @@ block main
                     if _onlineWalletPaid
                       .form-check
                         input#refundWallet.form-check-input(type='radio' name='refundMethod' value='wallet' checked)
-                        label.form-check-label(for='refundWallet') Hoàn tiền về ví đã thanh toán (#{_paidMethod.toUpperCase()})
+                        label.form-check-label(for='refundWallet') Hoàn tiền về phương thức thanh toán ban đầu
                       .form-check
                         input#refundBank.form-check-input(type='radio' name='refundMethod' value='bank')
                         label.form-check-label(for='refundBank') Chuyển khoản ngân hàng
@@ -364,7 +365,7 @@ block main
               .mb-3
                 h6.fw-bold 6. Phương thức hoàn tiền
                 ul.mb-0
-                  li Thanh toán qua ví điện tử (MoMo, VNPAY...): hoàn về phương thức ban đầu hoặc theo thông tin khách cung cấp
+                  li Thanh toán trực tuyến như MoMo: hoàn về phương thức ban đầu hoặc theo thông tin khách cung cấp
                   li Thanh toán COD: hoàn tiền qua chuyển khoản ngân hàng theo thông tin khách hàng cung cấp
               .mb-3
                 h6.fw-bold 7. Thời gian xử lý hoàn tiền

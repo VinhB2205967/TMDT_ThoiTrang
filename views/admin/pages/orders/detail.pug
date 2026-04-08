@@ -112,7 +112,9 @@ block main
         h1.page-title.mb-0 Không tìm thấy đơn hàng
         a.btn.btn-outline-secondary(href=`${admin}/orders`) Quay lại danh sách
     else
-      - const isOnlinePayment = ['momo', 'vnpay'].includes(String(order.phuongthucthanhtoan || '').toLowerCase())
+      - const paymentMethod = String(order.phuongthucthanhtoan || '').toLowerCase()
+      - const paymentMethodLabel = paymentMethod === 'momo' ? 'MoMo' : (paymentMethod === 'vnpay' ? 'Thanh toán online' : (paymentMethod === 'cod' ? 'COD' : (order.phuongthucthanhtoan || '-')))
+      - const isOnlinePayment = ['momo', 'vnpay'].includes(paymentMethod)
       - const isPaidWaitingConfirm = order.trangthai === 'choxacnhan' && isOnlinePayment && order.dathanhtoan
       - const label = isPaidWaitingConfirm ? 'Đã thanh toán' : ((statusLabels && statusLabels[order.trangthai]) || order.trangthai || '-')
       - const badge = (badgeClass && typeof badgeClass === 'function') ? badgeClass(order.trangthai) : 'bg-secondary'
@@ -186,7 +188,7 @@ block main
               .fw-semibold.mb-2 Thanh toán
               .d-flex.justify-content-between
                 span.text-muted Phương thức
-                span.fw-semibold #{order.phuongthucthanhtoan || '-'}
+                span.fw-semibold #{paymentMethodLabel}
               if order.ngaytao
                 .d-flex.justify-content-between
                   span.text-muted Ngày tạo

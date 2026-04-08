@@ -3636,11 +3636,6 @@ body.openclip-loading {
     color: #d8008d;
 }
 
-.payment-badge--vnpay {
-    background: rgba(0, 88, 255, 0.12);
-    color: #0058ff;
-}
-
 .payment-badge--zalopay {
     background: rgba(0, 88, 255, 0.12);
     color: #0058ff;

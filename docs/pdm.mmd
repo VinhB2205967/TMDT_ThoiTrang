@@ -60,27 +60,27 @@ class user_vouchers {
   +nguoidung_id: ObjectId
   +voucher_id: ObjectId
   +isUsed: Boolean
-  +savedAt: Date
-  +usedAt: Date
+  +ngaytao: Date
+  +ngaycapnhat: Date
 }
 
 class chat_messages {
   +_id: ObjectId
-  +clientId: ObjectId
-  +senderId: ObjectId
-  +senderRole: String
-  +receiverId: ObjectId
-  +receiverRole: String
-  +content: String
+  +khachhangId: ObjectId
+  +nguoiguiId: ObjectId
+  +vaitro_nguoigui: String
+  +nguoinhanId: ObjectId
+  +vaitronguoinhan: String
+  +noidung: String
   +mediaUrl: String
   +mediaType: String
   +mediaMime: String
   +mediaName: String
   +mediaSize: Number
-  +isRead: Boolean
-  +readAt: Date
-  +sentAt: Date
-  +daxoa: Boolean
+  +dadoc: Boolean
+  +thoigiandoc: Date
+  +ngaygui: Date
+  
 }
 
 class login_logs {
@@ -110,10 +110,9 @@ class categories {
   +order: Number
   +isActive: Boolean
   +type: String
-  +daxoa: Boolean
   +ngaytao: Date
-  +createdAt: Date
-  +updatedAt: Date
+  +ngaytao: Date
+  +ngaycapnhat: Date
 }
 
 class brands {
@@ -235,12 +234,10 @@ class orders {
   +quan: String
   +phuong: String
   +ghichu: String
+  %% UI hiện tại chỉ dùng COD và MoMo; các trường VNPay bên dưới giữ lại cho dữ liệu cũ.
   +phuongthucthanhtoan: String
   +dathanhtoan: Boolean
   +ngaythanhtoan: Date
-  +vnpayTransId: String
-  +vnpayBankCode: String
-  +vnpayTxnRef: String
   +momoTransId: String
   +momoOrderId: String
   +momoRequestId: String
@@ -389,17 +386,17 @@ class lookbooks {
   +_id: ObjectId
   +title: String
   +slug: String
-  +image: String
-  +description: String
-  +products: Array[]
-  +order: Number
-  +isActive: Boolean
-  +startDate: Date
-  +endDate: Date
-  +deletedAt: Date
-  +createdAt: Date
-  +updatedAt: Date
+  +hinhanh: String
+  +mota: String
+  +sanpham: Array[]
+  +thutu: Number
+  +hienthi: Boolean
+  +ngabatdau: Date
+  +ngayketthuc: Date
+  +ngaytao: Date
+  +ngaycapnhat: Date
 }
+  
 
 class flash_sales {
   +_id: ObjectId
@@ -518,11 +515,11 @@ users "1" --> "0..1" accounts : nguoidung_id
 users "1" --> "0..*" carts : nguoidung_id
 users "1" --> "0..*" orders : nguoidung_id
 users "1" --> "0..*" pays : nguoidung_id
-users "1" --> "0..*" reviews : nguoidung_id/anboi/xoaBoi
+users "1" --> "0..*" reviews : nguoidung_id
 users "1" --> "0..*" favorites : nguoidung_id
 users "1" --> "0..*" user_vouchers : nguoidung_id
 users "1" --> "0..*" order_refunds : nguoidung_id/nguoithuchiencuoi_id
-users "1" --> "0..*" order_status_logs : nguoidung_id/actorId
+users "1" --> "0..*" order_status_logs : nguoidung_id
 users "1" --> "0..*" import_receipts : nguoixuatkho/nguoitao
 users "1" --> "0..*" export_receipts : nguoitao
 users "1" --> "0..*" inventory_adjustments : nguoixacnhan/nguoitao

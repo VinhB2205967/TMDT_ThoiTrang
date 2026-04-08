@@ -1288,7 +1288,7 @@ async function checkOrderPaymentStatus({ userId, orderId }) {
 
 async function changePaymentMethod({ userId, orderId, newMethod }) {
   const phuongthucMoi = String(newMethod || '').trim();
-  const hopLe = ['cod', 'momo', 'vnpay'];
+  const hopLe = ['cod', 'momo'];
   if (!hopLe.includes(phuongthucMoi)) return { ok: false, redirect: `/orders/${orderId}`, flash: { type: 'error', message: 'Phương thức thanh toán không hợp lệ.' } };
 
   const donhangdoc = await donhang.findOne({ _id: orderId, nguoidung_id: userId, daxoa: { $ne: true } });

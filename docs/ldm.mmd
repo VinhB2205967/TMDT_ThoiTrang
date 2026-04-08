@@ -1,0 +1,69 @@
+erDiagram
+
+%% LDM - Muc logic, chi tiet hon CDM va gan PDM hon
+%% Giup di tu mo hinh khai niem xuong mo hinh vat ly
+
+USER ||--o| ACCOUNT : has
+USER ||--o| CART : has
+USER ||--o{ ORDER : places
+USER ||--o{ PAYMENT : makes
+USER ||--o{ REVIEW : writes
+USER ||--o{ FAVORITE : creates
+USER ||--o{ USER_VOUCHER : owns
+USER ||--o{ ORDER_REFUND : requests
+USER ||--o{ ORDER_STATUS_LOG : updates
+USER ||--o{ CHAT_MESSAGE : sends_receives
+USER ||--o{ LOGIN_LOG : generates
+USER ||--o{ IMPORT_RECEIPT : processes
+USER ||--o{ EXPORT_RECEIPT : processes
+USER ||--o{ INVENTORY_ADJUSTMENT : processes
+
+CATEGORY o|--o{ CATEGORY : parent_of
+CATEGORY ||--o{ PRODUCT : classifies
+BRAND ||--o{ PRODUCT : brands
+SIZE_GUIDE ||--o{ PRODUCT : guides
+PRODUCT ||--o{ CART_ITEM : appears_in
+PRODUCT ||--o{ ORDER_ITEM : sold_as
+PRODUCT ||--o{ REVIEW : reviewed_in
+PRODUCT ||--o{ FAVORITE : favorited_in
+PRODUCT }o--o{ LOOKBOOK : showcased_in
+PRODUCT }o--o{ FLASH_SALE : discounted_in
+PRODUCT ||--o{ INVENTORY_LOT : stocked_as
+
+CART ||--|{ CART_ITEM : contains
+ORDER ||--|{ ORDER_ITEM : contains
+ORDER o|--o{ PAYMENT : paid_by
+ORDER o|--o| ORDER_REFUND : refunded_by
+ORDER ||--o{ ORDER_STATUS_LOG : tracked_by
+ORDER ||--o{ REVIEW : referenced_by
+ORDER o|--o| EXPORT_RECEIPT : exported_by
+ORDER o|--o{ IMPORT_RECEIPT : imported_back_by
+
+ORDER_ITEM ||--o{ REVIEW : reviewed_by
+ORDER_ITEM ||--o{ IMPORT_RECEIPT : reimported_by
+
+VOUCHER ||--o{ USER_VOUCHER : assigned_to
+VOUCHER o|--o{ ORDER : applied_to
+
+EXPORT_RECEIPT ||--o{ IMPORT_RECEIPT : linked_to
+EXPORT_RECEIPT ||--|{ EXPORT_RECEIPT_ITEM : contains
+EXPORT_RECEIPT_ITEM ||--|{ EXPORT_RECEIPT_ALLOCATION : allocated_by
+
+IMPORT_RECEIPT ||--|{ IMPORT_RECEIPT_ITEM : contains
+IMPORT_RECEIPT ||--o{ INVENTORY_LOT : creates
+
+ORDER_ITEM ||--o{ ORDER_ITEM_ALLOCATION : allocated_by
+
+ORDER_REFUND ||--|{ ORDER_REFUND_REQUEST_ITEM : requests
+ORDER_REFUND ||--|{ ORDER_REFUND_RECEIVED_ITEM : receives
+ORDER_REFUND ||--o{ ORDER_REFUND_EVIDENCE : proves
+
+REVIEW ||--o{ REVIEW_IMAGE : has
+REVIEW ||--o{ REVIEW_VIDEO : has
+REVIEW ||--o{ REVIEW_TAG : labels
+
+LOOKBOOK ||--|{ LOOKBOOK_PRODUCT : contains
+FLASH_SALE ||--|{ FLASH_SALE_PRODUCT : contains
+HOME_SECTION ||--o{ BANNER : arranges
+
+INVENTORY_ADJUSTMENT ||--|{ INVENTORY_ADJUSTMENT_ITEM : contains

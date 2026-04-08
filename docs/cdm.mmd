@@ -1,0 +1,284 @@
+erDiagram
+
+%% CDM chi tiet hon de lam nen cho LDM/PDM
+%% Van giu muc khai niem: ten nghiep vu, bo FK ky thuat
+
+USER {
+  string hoTen
+  string email
+  string soDienThoai
+  string diaChi
+  string gioiTinh
+  string ngaySinh
+  string avatar
+  string chuKySo
+  string trangThai
+}
+
+ACCOUNT {
+  string emailDangNhap
+  string matKhau
+  string nhaCungCap
+  string vaiTro
+  string trangThai
+  string xacThuc
+}
+
+CART {
+  string tongTien
+  string ngayCapNhat
+}
+
+PRODUCT {
+  string tenSanPham
+  string moTa
+  string moTaHinhAnh
+  string gia
+  string phanTramGiamGia
+  string mauSacChinh
+  string soLuongTon
+  string gioiTinh
+  string loaiSanPham
+  string trangThai
+}
+
+CATEGORY {
+  string tenDanhMuc
+  string slug
+  string moTa
+  string hinhAnh
+  string capDanhMuc
+  string loaiDanhMuc
+  string thuTu
+  string kichHoat
+}
+
+BRAND {
+  string tenThuongHieu
+  string slug
+  string logo
+  string moTa
+  string noiBat
+  string hienThi
+}
+
+SIZE_GUIDE {
+  string tenBang
+  string loaiSanPham
+  string cotDo
+  string dongDo
+  string goiY
+}
+
+VOUCHER {
+  string maVoucher
+  string tenVoucher
+  string loaiGiamGia
+  string giaTri
+  string donToiThieu
+  string giamToiDa
+  string ngayBatDau
+  string ngayKetThuc
+  string trangThai
+}
+
+ORDER {
+  string maDonHang
+  string tenNguoiNhan
+  string soDienThoai
+  string email
+  string diaChiGiao
+  string phuongThucThanhToan
+  string phuongThucVanChuyen
+  string phiVanChuyen
+  string giamGia
+  string trangThai
+  string tamTinh
+  string tongTien
+}
+
+ORDER_ITEM {
+  string tenSanPham
+  string mauSac
+  string kichCo
+  string giaGoc
+  string giaBan
+  string soLuong
+  string thanhTien
+  string trangThai
+}
+
+PAYMENT {
+  string maGiaoDich
+  string phuongThuc
+  string soTien
+  string trangThai
+  string ghiChu
+}
+
+REVIEW {
+  string diem
+  string tieuDe
+  string noiDung
+  string hinhAnh
+  string video
+  string theNoiDung
+  string mauSac
+  string kichCo
+  string luotThich
+  string trangThai
+}
+
+FAVORITE {
+  string ngayThem
+}
+
+USER_VOUCHER {
+  string daSuDung
+  string ngayCapNhat
+}
+
+REFUND {
+  string lyDo
+  string moTaChiTiet
+  string phuongThucHoanTien
+  string soTienHoan
+  string trangThai
+  string hanhDongCuoi
+}
+
+LOOKBOOK {
+  string tieuDe
+  string moTa
+  string hinhAnh
+  string thuTu
+  string hienThi
+  string ngayBatDau
+  string ngayKetThuc
+}
+
+FLASH_SALE {
+  string tenChuongTrinh
+  string batDau
+  string ketThuc
+  string phanTramGiamGia
+  string hienThi
+}
+
+EXPORT_RECEIPT {
+  string maPhieuXuat
+  string ngayXuat
+  string noiNhan
+  string lyDo
+  string tongSoLuong
+  string tongDoanhThu
+  string tongGiaVon
+  string tongLoiNhuan
+}
+
+IMPORT_RECEIPT {
+  string maPhieuNhap
+  string loaiPhieu
+  string nguonNhap
+  string ngayNhap
+  string nhaCungCap
+  string tongTienNhap
+  string daXuatKho
+}
+
+INVENTORY_LOT {
+  string maPhieuNhap
+  string ngayNhap
+  string kichCo
+  string mauSac
+  string giaNhap
+  string giaBanDeXuat
+  string soLuongNhap
+  string soLuongConLai
+}
+
+INVENTORY_ADJUSTMENT {
+  string maPhieuDieuChinh
+  string loaiPhieu
+  string lyDo
+  string daXacNhan
+  string ngayXacNhan
+}
+
+BANNER {
+  string tieuDe
+  string moTa
+  string hinhAnh
+  string nutText
+  string nutLink
+  string loai
+  string hienThi
+}
+
+BLOG_POST {
+  string tieuDe
+  string slug
+  string tomTat
+  string noiDung
+  string hinhAnh
+  string xuatBan
+}
+
+HOME_SECTION {
+  string maMuc
+  string tieuDe
+  string hienThi
+  string thuTu
+}
+
+SETTING {
+  string khoa
+  string giaTri
+}
+
+CHAT_MESSAGE {
+  string vaiTroNguoiGui
+  string vaiTroNguoiNhan
+  string noiDung
+  string tepDinhKem
+  string daDoc
+  string ngayGui
+}
+
+USER ||--o| ACCOUNT : so_huu
+USER ||--o| CART : co
+USER ||--o{ ORDER : dat
+USER ||--o{ PAYMENT : thanh_toan
+USER ||--o{ REVIEW : viet
+USER ||--o{ FAVORITE : danh_dau
+USER ||--o{ USER_VOUCHER : nhan
+USER ||--o{ REFUND : yeu_cau
+USER ||--o{ CHAT_MESSAGE : gui_nhan
+
+CATEGORY o|--o{ CATEGORY : phan_cap
+CATEGORY ||--o{ PRODUCT : phan_loai
+BRAND ||--o{ PRODUCT : gan_nhan
+SIZE_GUIDE ||--o{ PRODUCT : huong_dan_size
+PRODUCT ||--o{ ORDER_ITEM : duoc_mua
+PRODUCT ||--o{ REVIEW : duoc_danh_gia
+PRODUCT ||--o{ FAVORITE : duoc_yeu_thich
+PRODUCT }o--o{ LOOKBOOK : trung_bay
+PRODUCT }o--o{ FLASH_SALE : khuyen_mai
+PRODUCT ||--o{ INVENTORY_LOT : ton_kho
+PRODUCT ||--o{ INVENTORY_ADJUSTMENT : dieu_chinh
+
+VOUCHER ||--o{ USER_VOUCHER : cap_cho
+VOUCHER o|--o{ ORDER : ap_dung
+
+ORDER ||--|{ ORDER_ITEM : bao_gom
+ORDER o|--o{ PAYMENT : phat_sinh
+ORDER o|--o| REFUND : hoan_tra
+ORDER ||--o{ REVIEW : xac_thuc_mua
+ORDER o|--o| EXPORT_RECEIPT : xuat_kho
+ORDER o|--o{ IMPORT_RECEIPT : nhap_lai
+
+EXPORT_RECEIPT ||--o{ IMPORT_RECEIPT : doi_ung
+IMPORT_RECEIPT ||--o{ INVENTORY_LOT : tao_lo
+
+HOME_SECTION ||--o{ BANNER : sap_xep
+SETTING ||--o{ HOME_SECTION : cau_hinh

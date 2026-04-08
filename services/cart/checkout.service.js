@@ -20,7 +20,6 @@ const {
   unmarkVoucherUsed
 } = require('../payment/voucher.service.js');
 const { taoThanhToanMoMo } = require('../payment/momo.service.js');
-const { taoThanhToanVnpay } = require('../payment/vnpay.service.js');
 const {
   taoGiaoDichThanhToan
 } = require('../payment/payment.service.js');
@@ -154,6 +153,11 @@ async function processCheckout({ userId, body, protocol, host, headers, socketRe
     const emaillienhe = String(body.email || taikhoan?.email || '').trim();
     const ghichu = String(body.ghichu || '').trim();
     const phuongthucthanhtoan = String(body.phuongthucthanhtoan || 'cod');
+    const phuongThucHopLe = new Set(['cod', 'momo']);
+
+    if (!phuongThucHopLe.has(phuongthucthanhtoan)) {
+      return { redirect: '/cart/checkout', flash: { type: 'error', message: 'Phương thức thanh toán không hợp lệ' } };
+    }
 
     let shouldSaveProfile = false;
 
@@ -373,46 +377,6 @@ async function processCheckout({ userId, body, protocol, host, headers, socketRe
 
       if (ketqua && ketqua.payUrl) return { redirect: ketqua.payUrl };
       return { redirect: `/orders/${donhangdoc._id}`, flash: { type: 'error', message: ketqua?.message || 'Không thể tạo thanh toán MoMo' } };
-    }
-
-    if (phuongthucthanhtoan === 'vnpay') {
-      const returnUrl = String(process.env.VNPAY_RETURN_URL || `${protocol}://${host}/cart/vnpay/return`);
-      const ipnUrl = String(process.env.VNPAY_IPN_URL || `${protocol}://${host}/cart/vnpay/ipn`);
-      const now = new Date();
-      const txnRef = `${now.getDate().toString().padStart(2, '0')}${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}${now.getSeconds().toString().padStart(2, '0')}`;
-      const orderInfo = `Thanh toan cho ma GD:${txnRef}`;
-      const ipAddr = String(headers['x-forwarded-for'] || socketRemoteAddress || ip || '127.0.0.1').split(',')[0].trim();
-
-      await donhang.updateOne({ _id: donhangdoc._id }, { $set: { vnpayTxnRef: txnRef } });
-
-      const soTienThanhToan = Math.max(0, Math.round(tongtien));
-      const payUrl = taoThanhToanVnpay({
-        orderId: txnRef,
-        amount: soTienThanhToan,
-        orderInfo,
-        returnUrl,
-        ipnUrl,
-        ipAddr,
-        locale: 'vn',
-        orderType: 'other'
-      });
-
-      try {
-        await taoGiaoDichThanhToan({
-          donhangId: donhangdoc._id,
-          nguoidungId: userId,
-          phuongthuc: 'vnpay',
-          sotien: soTienThanhToan,
-          magiaodich: txnRef,
-          trangthai: 'choduyet',
-          response: { txnRef, payUrl },
-          ghichu: 'Tạo thanh toán VNPAY'
-        });
-      } catch {
-        // best-effort
-      }
-
-      return { redirect: payUrl };
     }
 
     if (phuongthucthanhtoan === 'cod') {

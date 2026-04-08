@@ -28,12 +28,14 @@ block main
                     i.bi.bi-box-seam
 
                 .flex-grow-1
+                  - const paymentMethod = String(o.phuongthucthanhtoan || '').toLowerCase()
+                  - const paymentLabel = paymentMethod === 'momo' ? 'MoMo' : (paymentMethod === 'vnpay' ? 'Thanh toán online' : String(o.phuongthucthanhtoan || '').toUpperCase())
                   .fw-semibold.order-title #{(preview && preview.name) ? preview.name : (o.madonhang || 'Đơn hàng')}
                   .small.text-muted.d-block
                     | #{o.madonhang || ''}#{o.ngaytao ? (' • ' + new Date(o.ngaytao).toLocaleString('vi-VN')) : ''}
-                  if o.phuongthucthanhtoan === 'momo' || o.phuongthucthanhtoan === 'vnpay'
+                  if paymentMethod === 'momo' || paymentMethod === 'vnpay'
                     .small.text-muted.d-block
-                      | #{(o.tongtien || o.tamtinh || 0).toLocaleString('vi-VN')}₫ • #{String(o.phuongthucthanhtoan).toUpperCase()}
+                      | #{(o.tongtien || o.tamtinh || 0).toLocaleString('vi-VN')}₫ • #{paymentLabel}
                   if preview && preview.count && preview.count > 1
                     .small.text-muted +#{preview.count - 1} sản phẩm khác
 
@@ -55,7 +57,6 @@ block main
                       select.form-select.form-select-sm.order-payment-select(name='phuongthucthanhtoan')
                         option(value='cod' selected=(o.phuongthucthanhtoan === 'cod')) COD
                         option(value='momo' selected=(o.phuongthucthanhtoan === 'momo')) MoMo
-                        option(value='vnpay' selected=(o.phuongthucthanhtoan === 'vnpay')) VNPAY
                 if isChoThanhToan
                   form(method='POST', action=`/orders/${o._id}/pay`)
                     button.btn.btn-sm.btn-outline-primary(type='submit') Thanh toán
