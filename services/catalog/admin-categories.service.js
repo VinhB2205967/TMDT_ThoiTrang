@@ -160,10 +160,54 @@ async function layHoacTaoNhomGoc(type) {
   });
 }
 
+async function damBaoDanhMucConMacDinh() {
+  const categoryRoot = await layHoacTaoNhomGoc('category');
+  if (!categoryRoot?._id) return;
+
+  const defaultChildren = [
+    { name: 'Áo', slug: 'ao', order: 1 },
+    { name: 'Quần', slug: 'quan', order: 2 },
+    { name: 'Váy', slug: 'vay', order: 3 },
+    { name: 'Giày', slug: 'giay', order: 4 },
+    { name: 'Túi', slug: 'tui', order: 5 },
+    { name: 'Phụ kiện', slug: 'phukien', order: 6 }
+  ];
+
+  for (const item of defaultChildren) {
+    const existed = await Danhmuc.findOne({
+      daxoa: { $ne: true },
+      type: 'category',
+      parent_id: categoryRoot._id,
+      $or: [
+        { slug: item.slug },
+        { name: item.name },
+        { tendanhmuc: item.name }
+      ]
+    }).select('_id').lean();
+
+    if (existed?._id) continue;
+
+    await Danhmuc.create({
+      name: item.name,
+      tendanhmuc: item.name,
+      slug: item.slug,
+      type: 'category',
+      parent_id: categoryRoot._id,
+      danhmuccha: categoryRoot._id,
+      order: item.order,
+      thutu: item.order,
+      isActive: true,
+      trangthai: 'active',
+      daxoa: false
+    });
+  }
+}
+
 async function damBaoNhomGoc() {
   for (const type of Object.keys(TYPE_ROOT_META)) {
     await layHoacTaoNhomGoc(type);
   }
+  await damBaoDanhMucConMacDinh();
 }
 
 function slugTHTheoId(id) {

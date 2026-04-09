@@ -5,13 +5,6 @@
   const refreshBtn = document.getElementById('categoryTreeRefresh');
   if (!treeRoot || !createForm || !runtime.adminPath) return;
 
-  const TYPE_LABELS = {
-    category: 'Loai san pham',
-    occasion: 'Dip dung',
-    age_group: 'Nhom tuoi',
-    brand: 'Thuong hieu'
-  };
-
   function escapeHtml(value) {
     return String(value == null ? '' : value)
       .replace(/&/g, '&amp;')
@@ -74,7 +67,6 @@
     const id = String(item && item._id || '');
     const name = String(item && item.name || '');
     const type = String(item && item.type || 'category');
-    const typeText = TYPE_LABELS[type] || type;
     const order = Number(item && item.order || 0);
     const isActive = !!(item && item.isActive);
     const children = Array.isArray(item && item.children) ? item.children : [];
@@ -94,7 +86,9 @@
       : `
         <button class="btn btn-sm ${isActive ? 'btn-outline-warning' : 'btn-outline-success'} js-category-toggle" type="button" data-id="${id}">${isActive ? 'An' : 'Hien'}</button>
         <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#${editCollapseId}" aria-expanded="${editExpanded ? 'true' : 'false'}" aria-controls="${editCollapseId}">Sua</button>
-        ${children.length ? '' : `<button class="btn btn-sm btn-outline-danger js-category-delete" type="button" data-id="${id}">Xoa</button>`}
+        ${children.length
+          ? '<button class="btn btn-sm btn-outline-secondary" type="button" disabled title="Xoa danh muc con truoc">Xoa</button>'
+          : `<button class="btn btn-sm btn-outline-danger js-category-delete" type="button" data-id="${id}">Xoa</button>`}
       `;
 
     const editBoxHtml = isRootNode
@@ -137,7 +131,6 @@
           <div class="d-flex align-items-center gap-2 category-tree-label" style="padding-left:${indent}px">
             ${toggleNodeHtml}
             <div class="fw-semibold">${escapeHtml(name)}</div>
-            <span class="badge bg-light text-dark">${escapeHtml(typeText)}</span>
             ${isActive ? '' : '<span class="badge bg-secondary">An</span>'}
           </div>
           <div class="category-tree-actions">${actionsHtml}</div>

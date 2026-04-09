@@ -1067,10 +1067,12 @@ module.exports.sendMessage = async (req, res) => {
       });
     }
 
+    const shouldUseSemanticProductSearch = provider === 'openclip' || shouldSuggestProducts(question);
+
     const context = await buildDataContext({
       question,
       userId: req.user && req.user._id ? req.user._id : null,
-      useOpenClip: provider === 'openclip'
+      useOpenClip: shouldUseSemanticProductSearch
     });
 
     mergeImageProductsIntoContext(context, imageProducts, imageMeta, question);
@@ -1140,7 +1142,7 @@ module.exports.sendMessage = async (req, res) => {
 
     const hasLookbookProducts = Array.isArray(context.lookbooks)
       && context.lookbooks.some((lookbook) => Array.isArray(lookbook && lookbook.products) && lookbook.products.length > 0);
-    const shouldShowCards = provider === 'openclip' || shouldSuggestProducts(question) || hasLookbookProducts;
+    const shouldShowCards = shouldUseSemanticProductSearch || hasLookbookProducts;
     const suggestedProducts = shouldShowCards
       ? toSuggestedProducts(context, answer, question)
       : [];

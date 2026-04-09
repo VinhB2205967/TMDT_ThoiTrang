@@ -722,6 +722,15 @@ function setInputHeight() {
 		saveHistory();
 	}
 
+	function sanitizeAssistantContentForHistory(value) {
+		return String(value || '')
+			.replace(/\s*-\s*Xem th[aâ]m:\s*\[[^\]]+\]\(\/products\/[a-f0-9]{24}\)/gi, '')
+			.replace(/\s*Xem th[aâ]m:\s*\[[^\]]+\]\(\/products\/[a-f0-9]{24}\)/gi, '')
+			.replace(/\s{2,}/g, ' ')
+			.replace(/\s+([.,!?;:])/g, '$1')
+			.trim();
+	}
+
 	function loadHistory() {
 		let stored = [];
 		try {
@@ -738,7 +747,10 @@ function setInputHeight() {
 		list.innerHTML = '';
 		stored.slice(-30).forEach((item) => {
 			const role = item && item.role === 'assistant' ? 'assistant' : 'user';
-			const content = String(item && item.content ? item.content : '').trim();
+			const rawContent = String(item && item.content ? item.content : '').trim();
+			const content = role === 'assistant'
+				? sanitizeAssistantContentForHistory(rawContent)
+				: rawContent;
 			if (!content) return;
 			const suggestedProducts = Array.isArray(item && item.suggestedProducts) ? item.suggestedProducts : [];
 			const suggestedActions = Array.isArray(item && item.suggestedActions) ? item.suggestedActions : [];
@@ -758,7 +770,12 @@ async function askAI(question, options = {}) {
 		const model = modelEl ? String(modelEl.value || '').trim() : '';
 		const payload = {
 			message: question,
-			history: history.slice(-10),
+			history: history.slice(-10).map((item) => ({
+				...item,
+				content: item && item.role === 'assistant'
+					? sanitizeAssistantContentForHistory(item.content)
+					: String(item && item.content ? item.content : '').trim()
+			})),
 			provider,
 			model: provider === 'gemini' ? model : '',
 			imageProducts: Array.isArray(options.imageProducts) ? options.imageProducts : [],
@@ -960,7 +977,7 @@ form.addEventListener('submit', async (event) => {
 			if (!ai.answer) throw new Error('AI chua co cau tra loi');
 			const answerWithLinks = ai.provider === 'openclip'
 				? ai.answer
-				: injectSuggestedLinks(ai.answer, ai.suggestedProducts);
+				: sanitizeAssistantContentForHistory(ai.answer);
 			renderMessage('assistant', answerWithLinks);
 			if (ai.provider === 'openclip') {
 				renderOpenClipImageCards(ai.suggestedProducts);
@@ -971,7 +988,7 @@ form.addEventListener('submit', async (event) => {
 			history.push({ role: 'user', content: userMessage });
 			history.push({
 				role: 'assistant',
-				content: answerWithLinks,
+				content: sanitizeAssistantContentForHistory(ai.answer),
 				suggestedProducts: ai.suggestedProducts,
 				suggestedActions: ai.suggestedActions,
 				provider: ai.provider,

@@ -48,7 +48,7 @@ block main
                             .row.g-3
                                 .col-md-6
                                     label.form-label.fw-bold Giá gốc (₫)
-                                    input.form-control(type="number" name="gia" min="0" placeholder="Để trống, sẽ cập nhật từ phiếu nhập")
+                                    input.form-control(type="number" name="gia" min="0" placeholder="Nhâp giá gốc..." oninput="capNhatGiaBan()" required)
 
                                 .col-md-6
                                     label.form-label.fw-bold Giảm giá (%)

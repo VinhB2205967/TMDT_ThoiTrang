@@ -74,7 +74,6 @@ async function chayVoiTransactionNeuHoTro(work, label = 'mongo transaction') {
     return result;
   } catch (error) {
     if (!laLoiMongoKhongHoTroTransaction(error)) throw error;
-    console.warn(`${label} fallback without transaction:`, error.message || error);
     return work(null);
   } finally {
     await session.endSession();
@@ -182,6 +181,16 @@ function buildRefundSummary(order, items, statusLabels = {}) {
     requestedMap.set(itemId, (requestedMap.get(itemId) || 0) + qty);
   }
 
+  const receivedRows = Array.isArray(returnInfo.receivedItems) ? returnInfo.receivedItems : [];
+  const receivedMap = new Map();
+  for (const row of receivedRows) {
+    const itemId = String(row && row.orderItemId ? row.orderItemId : '').trim();
+    if (!itemId) continue;
+    const qty = Math.max(0, toPositiveInt(row.qty, 0));
+    if (qty <= 0) continue;
+    receivedMap.set(itemId, (receivedMap.get(itemId) || 0) + qty);
+  }
+
   const lines = itemRows.map((raw, index) => {
     const id = String(raw && raw._id ? raw._id : `item-${index}`).trim();
     const boughtQty = Math.max(0, toPositiveInt(raw && raw.soluong, 0));
@@ -238,9 +247,10 @@ function buildRefundSummary(order, items, statusLabels = {}) {
 
   const normalizedLines = lines.map((line) => {
     const requestedQty = Math.min(line.boughtQty, Math.max(0, toPositiveInt(requestedMap.get(line.id), 0)));
+    const receivedQty = Math.min(line.boughtQty, Math.max(0, toPositiveInt(receivedMap.get(line.id), 0)));
     const storedReturnedQty = Math.min(line.boughtQty, Math.max(0, toPositiveInt(line.raw.soluonghoan, 0)));
 
-    let returnedQty = storedReturnedQty;
+    let returnedQty = Math.max(storedReturnedQty, receivedQty);
     if (returnedQty <= 0 && useRequestedAsReturned) returnedQty = requestedQty;
     returnedQty = Math.min(line.boughtQty, Math.max(0, returnedQty));
 

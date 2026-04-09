@@ -45,8 +45,6 @@ block styles
 mixin nodeRow(item, depth)
   - const indent = (depth || 0) * 20;
   - const isRootNode = !item.parent_id;
-  - const typeMap = { category: 'Loại sản phẩm', brand: 'Thương hiệu', occasion: 'Dịp dùng', age_group: 'Nhóm tuổi' };
-  - const typeText = typeMap[item.type] || item.type;
   li.list-group-item.category-tree-item
     .d-flex.flex-column.flex-lg-row.align-items-lg-center.justify-content-between.category-tree-row
       .d-flex.align-items-center.gap-2.category-tree-label(style=`padding-left:${indent}px`)
@@ -57,7 +55,6 @@ mixin nodeRow(item, depth)
           span.text-muted
             i.bi.bi-dot
         .fw-semibold #{item.name}
-        span.badge.bg-light.text-dark #{typeText}
         if !item.isActive
           span.badge.bg-secondary Ẩn
       .category-tree-actions
@@ -70,6 +67,8 @@ mixin nodeRow(item, depth)
           form.category-action-form(method='POST' action=`${admin}/categories/${item._id}/delete` onsubmit='return confirm("Xóa danh mục này?")')
             input(type='hidden' name='_csrf' value=csrfToken)
             button.btn.btn-sm.btn-outline-danger(type='submit') Xóa
+        else
+          button.btn.btn-sm.btn-outline-secondary(type='button' disabled title='Xoa danh muc con truoc') Xóa
     if !isRootNode
       .collapse.mt-2.category-edit-box(id=`edit-${item._id}`)
         form.row.g-2(method='POST' action=`${admin}/categories/${item._id}/edit`)

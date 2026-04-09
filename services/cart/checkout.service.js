@@ -195,7 +195,7 @@ async function processCheckout({ userId, body, protocol, host, headers, socketRe
     if (!stockCheck.ok) {
       return {
         redirect: '/cart/checkout',
-        flash: { type: 'error', message: stockCheck.message || 'San pham khong du hang de thanh toan.' }
+        flash: { type: 'error', message: stockCheck.message || 'Sản phẩm không đủ hàng để thanh toán.' }
       };
     }
 
@@ -290,7 +290,7 @@ async function processCheckout({ userId, body, protocol, host, headers, socketRe
           redirect: '/cart/checkout',
           flash: {
             type: 'error',
-            message: inventoryError && inventoryError.message ? inventoryError.message : 'San pham khong du hang de thanh toan.'
+            message: inventoryError && inventoryError.message ? inventoryError.message : 'Sản phẩm không đủ hàng để thanh toán.'
           }
         };
       }
@@ -340,7 +340,7 @@ async function processCheckout({ userId, body, protocol, host, headers, socketRe
     if (phuongthucthanhtoan === 'momo') {
       const redirectUrl = String(process.env.MOMO_REDIRECT_URL || `${protocol}://${host}/cart/momo/return`);
       const ipnUrl = String(process.env.MOMO_IPN_URL || `${protocol}://${host}/cart/momo/ipn`);
-      const orderInfo = `Thanh toan don hang ${donhangdoc.madonhang || String(donhangdoc._id)}`;
+      const orderInfo = `Thanh toán đơn hàng ${donhangdoc.madonhang || String(donhangdoc._id)}`;
       const maMoMo = `${donhangdoc._id}-${Date.now()}`;
       const extraData = Buffer.from(JSON.stringify({ orderId: String(donhangdoc._id) })).toString('base64');
       const soTienThanhToan = Math.max(0, Math.round(tongtien));

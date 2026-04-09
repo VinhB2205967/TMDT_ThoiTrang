@@ -90,6 +90,26 @@ Ngoài các chức năng TMĐT cơ bản, dự án còn tích hợp:
 - `Google OAuth`
 - `SMTP` qua `nodemailer`
 
+### 2.6. Bảng các phần mềm/công cụ sử dụng
+
+| STT | Phần mềm / công cụ | Chức năng | Giai đoạn sử dụng |
+| --- | --- | --- | --- |
+| 1 | `Visual Studio Code` | Soạn thảo mã nguồn, quản lý dự án và chỉnh sửa tài liệu | Phân tích, thiết kế, lập trình |
+| 2 | `Node.js` | Môi trường chạy ứng dụng backend và các script của dự án | Lập trình, chạy ứng dụng |
+| 3 | `MongoDB Server` | Hệ quản trị cơ sở dữ liệu dùng để lưu trữ dữ liệu hệ thống | Thiết kế CSDL, chạy ứng dụng |
+| 4 | `MongoDB Compass` | Công cụ trực quan để xem, kiểm tra và thao tác dữ liệu MongoDB | Thiết kế CSDL, kiểm thử dữ liệu |
+| 5 | `Google Chrome` | Truy cập, kiểm thử giao diện client/admin và các chức năng web | Kiểm thử, chạy ứng dụng |
+| 6 | `Postman` | Kiểm thử API, gửi request và kiểm tra response | Kiểm thử chức năng |
+| 7 | `Mermaid Live Editor` | Vẽ sơ đồ kiến trúc hệ thống, sơ đồ xử lý và mô hình dữ liệu | Phân tích hệ thống, thiết kế |
+| 8 | `PlantUML` | Vẽ sơ đồ use case và một số sơ đồ phục vụ tài liệu phân tích thiết kế | Phân tích hệ thống, thiết kế |
+| 9 | `Python` | Chạy các script hỗ trợ `OpenCLIP` trong chức năng tìm kiếm thông minh | Tích hợp AI, chạy ứng dụng |
+| 10 | `Ollama` | Chạy mô hình AI local phục vụ chatbot khi bật cấu hình AI cục bộ | Tích hợp AI, chạy ứng dụng |
+
+Gợi ý trình bày trong báo cáo:
+
+- Nếu giảng viên hỏi theo hướng “phần mềm cài trên máy”, bảng này là cách trình bày phù hợp hơn so với liệt kê thư viện như `Express`, `Bootstrap`, `Mongoose`.
+- Dự án này dùng `Node.js + MongoDB`, vì vậy thông thường sẽ dùng `MongoDB Compass` để quản lý dữ liệu, không dùng `XAMPP` như các dự án `PHP + MySQL`.
+
 ## 3. Mô hình kiến trúc hệ thống
 
 ## 3.1. Kiểu kiến trúc

@@ -558,10 +558,16 @@ function buildReturnedItemSummary({ exportReceipt, orderItems = [] } = {}) {
 
   const returnedQtyByItemId = {};
   for (const row of rows) {
-    let remaining = toPositiveInt(row?.returnedQty, 0);
+    const refs = orderItemsByKey.get(row.key) || [];
+    const preAssignedQty = refs.reduce((sum, ref) => {
+      const itemId = String(ref?._id || '').trim();
+      if (!itemId) return sum;
+      return sum + Math.max(0, toPositiveInt(returnedQtyByItemId[itemId], 0));
+    }, 0);
+
+    let remaining = Math.max(0, toPositiveInt(row?.returnedQty, 0) - preAssignedQty);
     if (remaining <= 0) continue;
 
-    const refs = orderItemsByKey.get(row.key) || [];
     for (const ref of refs) {
       if (remaining <= 0) break;
       const itemId = String(ref?._id || '').trim();
@@ -695,10 +701,16 @@ function buildReturnedItemSummaryFromImportReceipt({ importReceipt, orderItems =
   }
 
   for (const row of rows) {
-    let remaining = toPositiveInt(row?.returnedQty, 0);
+    const refs = orderItemsByKey.get(row.key) || [];
+    const preAssignedQty = refs.reduce((sum, ref) => {
+      const itemId = String(ref?._id || '').trim();
+      if (!itemId) return sum;
+      return sum + Math.max(0, toPositiveInt(returnedQtyByItemId[itemId], 0));
+    }, 0);
+
+    let remaining = Math.max(0, toPositiveInt(row?.returnedQty, 0) - preAssignedQty);
     if (remaining <= 0) continue;
 
-    const refs = orderItemsByKey.get(row.key) || [];
     for (const ref of refs) {
       if (remaining <= 0) break;
       const itemId = String(ref?._id || '').trim();

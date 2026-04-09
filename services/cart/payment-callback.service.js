@@ -126,7 +126,7 @@ async function handleMoMoReturn({ query }) {
       }
     }
 
-    return { redirect: `/orders/${idDon}`, flash: { type: 'success', message: 'Thanh toan MoMo thanh cong!' } };
+    return { redirect: `/orders/${idDon}`, flash: { type: 'success', message: 'Thanh toán MoMo thành công!' } };
   }
 
   await donhang.updateOne(
@@ -273,7 +273,7 @@ async function handleVnpayReturn({ query }) {
       }
     }
 
-    return { redirect: `/orders/${idDon}`, flash: { type: 'success', message: 'Thanh toan VNPAY thanh cong!' } };
+    return { redirect: `/orders/${idDon}`, flash: { type: 'success', message: 'Thanh toán VNPAY thành công!' } };
   }
 
   if (orderDoc) {
