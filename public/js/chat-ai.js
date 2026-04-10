@@ -39,6 +39,11 @@
 		'sort',
 		'keyword'
 	]);
+	const DEFAULT_SUGGEST_LIMIT = 6;
+	const IMAGE_SEARCH_SUGGEST_LIMIT = Math.max(
+		1,
+		Number(runtime.openClipUiMaxResults || window.OPENCLIP_UI_MAX_RESULTS || 48)
+	);
 	const history = [];
 	let pendingImageFile = null;
 	let pendingImagePreviewUrl = '';
@@ -607,9 +612,12 @@ function setInputHeight() {
 		scrollToBottom();
 	}
 
-	function renderProductCards(products) {
+	function renderProductCards(products, options = {}) {
+		const maxItems = Number.isFinite(Number(options && options.maxItems))
+			? Math.max(1, Number(options.maxItems))
+			: DEFAULT_SUGGEST_LIMIT;
 		const items = Array.isArray(products)
-			? products.filter((item) => item && /^\/products\/[a-f0-9]{24}$/i.test(String(item.url || ''))).slice(0, 4)
+			? products.filter((item) => item && /^\/products\/[a-f0-9]{24}$/i.test(String(item.url || ''))).slice(0, maxItems)
 			: [];
 		if (items.length === 0) return;
 
@@ -648,7 +656,7 @@ function setInputHeight() {
 	}
 
 	function renderOpenClipImageCards(products) {
-		const items = Array.isArray(products) ? products.slice(0, 6) : [];
+		const items = Array.isArray(products) ? products.slice(0, IMAGE_SEARCH_SUGGEST_LIMIT) : [];
 		if (items.length === 0) return;
 
 		const row = document.createElement('div');
@@ -703,7 +711,7 @@ function setInputHeight() {
 			});
 		});
 
-		return merged.slice(0, 6);
+		return merged.slice(0, IMAGE_SEARCH_SUGGEST_LIMIT);
 	}
 
 	function saveHistory() {
@@ -825,13 +833,13 @@ async function askAI(question, options = {}) {
 		}
 
 		const productsRaw = Array.isArray(data.data.products) ? data.data.products : [];
-		const suggestedProducts = mapOpenClipProducts(productsRaw).slice(0, 6);
+		const suggestedProducts = mapOpenClipProducts(productsRaw).slice(0, IMAGE_SEARCH_SUGGEST_LIMIT);
 		const modelName = data.data && data.data.openClipMeta && data.data.openClipMeta.model
 			? String(data.data.openClipMeta.model)
 			: 'ViT-B-32';
 
 		return {
-			answer: buildOpenClipImageAnswer(productsRaw),
+			answer: buildOpenClipImageAnswer(suggestedProducts),
 			model: modelName,
 			provider: 'openclip',
 			suggestedProducts,
@@ -943,8 +951,8 @@ form.addEventListener('submit', async (event) => {
 		setInputHeight();
 		setStatus(
 			hasImage && question
-				? 'Dang phan tich anh va suy luan...'
-				: (hasImage ? 'Dang phan tich anh...' : 'Dang tra loi...'),
+				? 'Đang phân tích ảnh và suy luận...'
+				: (hasImage ? 'Đang phân tích ảnh...' : 'Đang trả lời...'),
 			true
 		);
 		sendBtn.disabled = true;
@@ -982,7 +990,9 @@ form.addEventListener('submit', async (event) => {
 			if (ai.provider === 'openclip') {
 				renderOpenClipImageCards(ai.suggestedProducts);
 			} else {
-				renderProductCards(ai.suggestedProducts);
+				renderProductCards(ai.suggestedProducts, {
+					maxItems: requestImageFile ? IMAGE_SEARCH_SUGGEST_LIMIT : DEFAULT_SUGGEST_LIMIT
+				});
 			}
 			renderSuggestedActions(ai.suggestedActions);
 			history.push({ role: 'user', content: userMessage });
@@ -997,11 +1007,11 @@ form.addEventListener('submit', async (event) => {
 			saveHistory();
 			setStatus(buildResponseStatus(ai), false);
 		} catch (error) {
-			const message = error && error.message ? error.message : 'Khong the tra loi luc nay';
+			const message = error && error.message ? error.message : 'Không thể trả lời lúc này';
 			renderMessage('system', message);
 			input.value = previousInputValue;
 			setInputHeight();
-			setStatus('Loi ket noi', false);
+			setStatus('Lỗi kết nối', false);
 		} finally {
 			sendBtn.disabled = false;
 			if (imageBtnEl) imageBtnEl.disabled = false;

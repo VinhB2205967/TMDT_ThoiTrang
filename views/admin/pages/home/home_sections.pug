@@ -99,19 +99,21 @@ block main
   .container-fluid.py-4.home-sections-page
     .card.home-sections-card
       .card-body.p-4
-        .header-config-box.mb-4
+        - const headerAction = `/admin/home-sections/client-header?_csrf=${encodeURIComponent(csrfToken || '')}`
+        form.header-config-box.mb-4(method='POST' action=headerAction enctype='multipart/form-data')
+          input(type='hidden' name='_csrf' value=csrfToken)
           .header-config-title Cấu hình Header
           .row.g-3.align-items-end
             .col-12.col-lg-5
               label.form-label(for='clientHeaderName') Tên Shop
-              input#clientHeaderName.form-control(type='text' maxlength='80' value=(headerSettings && headerSettings.name ? headerSettings.name : 'Fashion Store') placeholder='Nhập tên cửa hàng...')
+              input#clientHeaderName.form-control(type='text' name='client_header_name' maxlength='80' value=(headerSettings && headerSettings.name ? headerSettings.name : 'Fashion Store') placeholder='Nhập tên cửa hàng...')
             .col-12.col-lg-4
               label.form-label(for='clientHeaderLogo') Logo
-              input#clientHeaderLogo.form-control(type='file' accept='image/*' data-current=(headerSettings && headerSettings.logo ? headerSettings.logo : ''))
+              input#clientHeaderLogo.form-control(type='file' name='client_header_logo' accept='image/*' data-current=(headerSettings && headerSettings.logo ? headerSettings.logo : ''))
             .col-12.col-lg-3
               .header-preview-wrap
                 img#clientHeaderLogoPreview.header-preview-img(src=(headerSettings && headerSettings.logo ? headerSettings.logo : '/images/logo.png') alt='Logo header client')
-                button.btn.btn-outline-primary(type='button' data-action='save-client-header') Cập nhật Header
+                button.btn.btn-outline-primary(type='submit') Cập nhật Header
 
         .actions-row
           p.actions-note Banner Slider là block mặc định nên không chỉnh ở đây.

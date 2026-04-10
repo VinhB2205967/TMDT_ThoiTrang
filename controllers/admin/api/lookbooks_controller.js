@@ -62,3 +62,12 @@ module.exports.batTat = async (req, res) => {
     return traJsonThatBai(res, { status: 500, code: 'LOOKBOOK_TOGGLE_FAILED', message: error.message });
   }
 };
+
+module.exports.capNhatNoiBat = async (req, res) => {
+  try {
+    const result = await lookbooksService.capNhatNoiBatLookbook(req.params.id, req.body || {});
+    return traKetQua(res, result, 'LOOKBOOK_FEATURED_FAILED');
+  } catch (error) {
+    return traJsonThatBai(res, { status: 500, code: 'LOOKBOOK_FEATURED_FAILED', message: error.message });
+  }
+};

@@ -86,7 +86,7 @@ function toCandidates(products, limit) {
   return rows;
 }
 
-function computeImageCacheKey(imagePath, products, topK) {
+function computeImageCacheKey(imagePath, products, topK, candidateLimit) {
   try {
     const stat = fs.statSync(imagePath);
     const data = fs.readFileSync(imagePath);
@@ -95,7 +95,7 @@ function computeImageCacheKey(imagePath, products, topK) {
       .slice(0, 40)
       .map((p) => String(p && p.id ? p.id : ''))
       .join(',');
-    return `${imageHash}:${Number(stat.size || 0)}:${Number(topK || 0)}:${productSample}`;
+    return `${imageHash}:${Number(stat.size || 0)}:${Number(topK || 0)}:${Number(candidateLimit || 0)}:${productSample}`;
   } catch {
     return '';
   }
@@ -497,7 +497,7 @@ async function rankProductsByQuery({ query, products, topK = OPENCLIP_TOP_K }) {
   };
 }
 
-async function rankProductsByImage({ imagePath, products, topK = OPENCLIP_TOP_K }) {
+async function rankProductsByImage({ imagePath, products, topK = OPENCLIP_TOP_K, candidateLimit }) {
   if (!isEnabled()) {
     return { used: false, reason: 'OPENCLIP_DISABLED', matches: [], meta: {} };
   }
@@ -506,7 +506,11 @@ async function rankProductsByImage({ imagePath, products, topK = OPENCLIP_TOP_K 
     return { used: false, reason: 'QUERY_IMAGE_NOT_FOUND', matches: [], meta: {} };
   }
 
-  const cacheKey = computeImageCacheKey(imagePath, products, topK);
+  const resolvedCandidateLimit = Number.isFinite(Number(candidateLimit))
+    ? Math.max(24, Number(candidateLimit))
+    : OPENCLIP_IMAGE_CANDIDATE_LIMIT;
+
+  const cacheKey = computeImageCacheKey(imagePath, products, topK, resolvedCandidateLimit);
   const cached = getCachedImageRank(cacheKey);
   if (cached) {
     return {
@@ -518,14 +522,14 @@ async function rankProductsByImage({ imagePath, products, topK = OPENCLIP_TOP_K 
     };
   }
 
-  const candidates = toCandidates(products, OPENCLIP_IMAGE_CANDIDATE_LIMIT);
+  const candidates = toCandidates(products, resolvedCandidateLimit);
   if (candidates.length === 0) {
     return { used: false, reason: 'NO_VALID_CANDIDATES', matches: [], meta: {} };
   }
 
   const workerTopK = Math.min(
     Math.max(1, candidates.length),
-    Math.max(80, Number(topK || 1) * 3)
+    Math.max(30, Number(topK || 1) * 2)
   );
 
   const result = await runPythonRank({ imageQueryPath: imagePath, candidates, topK: workerTopK });
@@ -541,6 +545,7 @@ async function rankProductsByImage({ imagePath, products, topK = OPENCLIP_TOP_K 
       mode: String(result.mode || 'image'),
       pythonBin: String(result.pythonBin || ''),
       candidates: candidates.length,
+      candidateLimit: resolvedCandidateLimit,
       workerTopK,
       cacheHit: false
     }

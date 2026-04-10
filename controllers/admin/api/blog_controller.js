@@ -49,3 +49,13 @@ module.exports.capNhatXuatBan = async (req, res) => {
     return traJsonThatBai(res, { status: 500, code: 'BLOG_PUBLISH_UPDATE_FAILED', message: error.message });
   }
 };
+
+module.exports.capNhatNoiBat = async (req, res) => {
+  try {
+    const result = await blogService.capNhatNoiBat({ id: req.params.id, body: req.body || {} });
+    if (!result.ok) return traJsonThatBai(res, { status: result.status, code: result.code, message: result.message });
+    return traJsonThanhCong(res, { status: result.status || 200, message: result.message, data: result.data });
+  } catch (error) {
+    return traJsonThatBai(res, { status: 500, code: 'BLOG_FEATURED_UPDATE_FAILED', message: error.message });
+  }
+};

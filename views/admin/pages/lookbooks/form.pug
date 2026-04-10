@@ -79,6 +79,11 @@ block main
                   input.form-check-input(type="checkbox" role="switch" name="isActive" checked=(lookbook.isActive !== false))
                   label.form-check-label Hiển thị trên client
 
+              .col-12
+                .form-check.form-switch
+                  input.form-check-input(type="checkbox" role="switch" name="noiBat" checked=Boolean(lookbook.noiBat))
+                  label.form-check-label Hiển thị lookbook này ở trang chủ
+
           .col-12.col-lg-4
             label.form-label Ảnh đại diện
             input#lookbookImage.form-control(type="file" name="image" accept="image/*")

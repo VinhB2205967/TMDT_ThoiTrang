@@ -1,46 +1,33 @@
 (() => {
   const form = document.getElementById('blogCreate');
   const App = window.App || {};
-
-  function hienToast(message, type = 'success') {
-    if (!message) return;
-    let wrap = document.getElementById('adminBlogNotifyStack');
-    if (!wrap) {
-      wrap = document.createElement('div');
-      wrap.id = 'adminBlogNotifyStack';
-      wrap.className = 'admin-notify-stack';
-      document.body.appendChild(wrap);
-    }
-
-    const isError = type === 'error';
-    const item = document.createElement('div');
-    item.className = `admin-notify-item ${isError ? 'error' : 'success'}`;
-    item.innerHTML = `
-      <div class="admin-notify-inner">
-        <span class="admin-notify-icon"><i class="bi ${isError ? 'bi-exclamation-triangle-fill' : 'bi-check-circle-fill'}"></i></span>
-        <div>
-          <div class="admin-notify-title">${isError ? 'Thao tác thất bại' : 'Thao tác thành công'}</div>
-          <div class="admin-notify-message"></div>
-        </div>
-        <button type="button" class="admin-notify-close" aria-label="Đóng">×</button>
-      </div>
-    `;
-    item.querySelector('.admin-notify-message').textContent = message;
-    wrap.appendChild(item);
-
-    const close = () => item.remove();
-    item.querySelector('.admin-notify-close').addEventListener('click', close);
-    setTimeout(close, 3200);
-  }
+  const pageRoot = document.querySelector('.container-fluid.py-4');
 
   const thongBao = (res, fallback) => {
     const message = (res && res.data && res.data.message) || fallback || 'Có lỗi xảy ra';
-    hienToast(message, 'error');
+    if (App.showAdminPageFlash) {
+      App.showAdminPageFlash('error', message, { anchor: pageRoot });
+      return;
+    }
+    window.alert(message);
   };
 
   const thongBaoThanhCong = (res, fallback) => {
     const message = (res && res.data && res.data.message) || fallback || 'Thao tác thành công';
-    hienToast(message, 'success');
+    if (App.showAdminPageFlash) {
+      App.showAdminPageFlash('success', message, { anchor: pageRoot });
+      return;
+    }
+    window.alert(message);
+  };
+
+  const thongBaoLoiMang = () => {
+    const message = 'Không thể kết nối máy chủ. Vui lòng thử lại.';
+    if (App.showAdminPageFlash) {
+      App.showAdminPageFlash('error', message, { anchor: pageRoot });
+      return;
+    }
+    window.alert(message);
   };
 
   function hienThiXemTruocAnh(fileInput) {
@@ -85,7 +72,7 @@
           thongBao(res, 'Không thể tạo bài viết');
         }
       } catch (_error) {
-        hienToast('Không thể kết nối máy chủ. Vui lòng thử lại.', 'error');
+        thongBaoLoiMang();
       }
     });
   }
@@ -105,7 +92,7 @@
     const action = btn.getAttribute('data-action');
 
     if (action === 'delete') {
-      if (!App.confirmDelete()) return;
+      if (!App.confirmDelete || !App.confirmDelete()) return;
       try {
         const res = await App.apiFetch(`/admin/api/blog/${id}`, { method: 'DELETE' });
         if (res.ok) {
@@ -115,7 +102,7 @@
           thongBao(res, 'Không thể xóa bài viết');
         }
       } catch (_error) {
-        hienToast('Không thể kết nối máy chủ. Vui lòng thử lại.', 'error');
+        thongBaoLoiMang();
       }
       return;
     }
@@ -131,12 +118,15 @@
         if (res.ok && res.data && res.data.data) {
           const checkbox = row.querySelector('input[name="xuatban"]');
           if (checkbox) checkbox.checked = Boolean(res.data.data.xuatban);
-          thongBaoThanhCong(res, checkbox && checkbox.checked ? 'Đã xuất bản bài viết' : 'Đã hủy xuất bản bài viết');
+          thongBaoThanhCong(
+            res,
+            checkbox && checkbox.checked ? 'Đã xuất bản bài viết' : 'Đã hủy xuất bản bài viết'
+          );
         } else if (!res.ok) {
           thongBao(res, 'Không thể cập nhật xuất bản');
         }
       } catch (_error) {
-        hienToast('Không thể kết nối máy chủ. Vui lòng thử lại.', 'error');
+        thongBaoLoiMang();
       }
       return;
     }
@@ -166,7 +156,7 @@
 
         thongBao(res, 'Không thể lưu bài viết');
       } catch (_error) {
-        hienToast('Không thể kết nối máy chủ. Vui lòng thử lại.', 'error');
+        thongBaoLoiMang();
       }
     }
   });

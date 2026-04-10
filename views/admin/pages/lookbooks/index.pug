@@ -19,6 +19,7 @@ block main
                 th.text-center Thứ tự
                 th.text-center Số sản phẩm
                 th.text-center Trạng thái
+                th.text-center Nổi bật
                 th.text-end.pe-3 Hành động
             tbody
               if lookbooks && lookbooks.length
@@ -39,6 +40,8 @@ block main
                       button.btn.btn-sm(type="button" class=item.isActive ? 'btn-success js-toggle' : 'btn-outline-secondary js-toggle' data-active=item.isActive)
                         i.bi(class=item.isActive ? 'bi-eye-fill' : 'bi-eye-slash-fill')
                         span.ms-1 #{item.isActive ? 'Hiển thị' : 'Ẩn'}
+                    td.text-center
+                      input.form-check-input(type="checkbox" name="noiBat" checked=Boolean(item.noiBat))
                     td.text-end.pe-3
                       .btn-group.btn-group-sm(role="group")
                         a.btn.btn-outline-primary(href=`/admin/lookbook/edit/${item._id}`)
@@ -49,7 +52,7 @@ block main
                           | Xóa
               else
                 tr
-                  td.text-center.text-muted.py-4(colspan="6") Chưa có lookbook nào.
+                  td.text-center.text-muted.py-4(colspan="7") Chưa có lookbook nào.
 
 block scripts
-  script(src="/admin/js/lookbook-index.js")
+  script(src="/admin/js/lookbook-index.js?v=20260410-2")

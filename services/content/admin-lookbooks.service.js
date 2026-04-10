@@ -61,6 +61,7 @@ function buildPayload({ body = {}, file = null, isCreate = false }) {
     products: productIds,
     order: Number(body.order ?? body.thuTu ?? 0),
     isActive: toBoolean(body.isActive ?? body.hienthi, true),
+    noiBat: toBoolean(body.noiBat ?? body.isFeatured, false),
     startDate,
     endDate
   };
@@ -86,6 +87,7 @@ async function layDanhSachLookbookData() {
     image: item.image || item.hinhanh || '',
     order: item.order ?? item.thuTu ?? 0,
     isActive: item.isActive ?? item.hienthi ?? true,
+    noiBat: item.noiBat ?? item.isFeatured ?? false,
     productCount: Array.isArray(item.products)
       ? item.products.length
       : (Array.isArray(item.sanpham_ids) ? item.sanpham_ids.length : 0)
@@ -107,6 +109,7 @@ async function getTrangTaoData() {
         products: [],
         order: 0,
         isActive: true,
+        noiBat: false,
         startDate: '',
         endDate: ''
       },
@@ -136,7 +139,7 @@ async function getTrangChinhSuaData(id) {
     getProductsForPicker()
   ]);
 
-  if (!lookbook) return { ok: false, status: 404, code: 'NOT_FOUND', message: 'Không tìm thấy Lookbook' };
+  if (!lookbook) return { ok: false, status: 404, code: 'NOT_FOUND', message: 'Không tìm thấy lookbook' };
 
   return {
     ok: true,
@@ -149,6 +152,7 @@ async function getTrangChinhSuaData(id) {
         description: lookbook.description || lookbook.mota || '',
         order: lookbook.order ?? lookbook.thuTu ?? 0,
         isActive: lookbook.isActive ?? lookbook.hienthi ?? true,
+        noiBat: lookbook.noiBat ?? lookbook.isFeatured ?? false,
         products: Array.isArray(lookbook.products)
           ? lookbook.products.map((item) => String(item._id || item))
           : (Array.isArray(lookbook.sanpham_ids) ? lookbook.sanpham_ids.map((item) => String(item)) : [])
@@ -161,7 +165,7 @@ async function getTrangChinhSuaData(id) {
 
 async function capNhatLookbook({ id, body = {}, file = null }) {
   const current = await Lookbook.findOne({ _id: id, deletedAt: null });
-  if (!current) return { ok: false, status: 404, code: 'NOT_FOUND', message: 'Không tìm thấy Lookbook' };
+  if (!current) return { ok: false, status: 404, code: 'NOT_FOUND', message: 'Không tìm thấy lookbook' };
 
   const rawPayload = buildPayload({ body, file, isCreate: false });
   const payload = { ...rawPayload, image: rawPayload.image || current.image };
@@ -180,6 +184,8 @@ async function capNhatLookbook({ id, body = {}, file = null }) {
   current.products = payload.products;
   current.order = payload.order;
   current.isActive = payload.isActive;
+  current.noiBat = payload.noiBat;
+  current.isFeatured = payload.noiBat;
   current.startDate = payload.startDate;
   current.endDate = payload.endDate;
   await current.save();
@@ -222,6 +228,26 @@ async function batTatLookbook(id) {
   return { ok: true, status: 200, message: 'Cập nhật trạng thái lookbook thành công', data: { isActive: nextState } };
 }
 
+async function capNhatNoiBatLookbook(id, body = {}) {
+  const lookbook = await Lookbook.findOne({ _id: id, deletedAt: null })
+    .select('_id noiBat isFeatured')
+    .lean();
+
+  if (!lookbook) return { ok: false, status: 404, code: 'NOT_FOUND', message: 'Không tìm thấy lookbook' };
+
+  const current = lookbook.noiBat !== undefined ? Boolean(lookbook.noiBat) : Boolean(lookbook.isFeatured);
+  const nextState = body.noiBat !== undefined
+    ? toBoolean(body.noiBat, current)
+    : !current;
+
+  await Lookbook.updateOne(
+    { _id: id, deletedAt: null },
+    { $set: { noiBat: nextState, isFeatured: nextState } }
+  );
+
+  return { ok: true, status: 200, message: 'Cập nhật nổi bật lookbook thành công', data: { noiBat: nextState } };
+}
+
 module.exports = {
   getProductsForPicker,
   layDanhSachLookbookData,
@@ -230,5 +256,6 @@ module.exports = {
   getTrangChinhSuaData,
   capNhatLookbook,
   xoaLookbook,
-  batTatLookbook
+  batTatLookbook,
+  capNhatNoiBatLookbook
 };

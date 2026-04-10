@@ -1,5 +1,12 @@
 # TMDT_THOITRANG
 explorer decorations badges
+
+## Tai lieu nhanh
+
+- Cong nghe su dung: `docs/cong-nghe-su-dung.md`
+- Quy uoc viet API: `docs/quy-uoc-viet-api.md`
+- Danh sach API hien tai: `docs/api-routes.md`
+
 ## Chạy dự án
 
 1) Cài dependency:

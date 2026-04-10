@@ -38,6 +38,7 @@
   const summaryInput = document.getElementById('blogSummary');
   const contentInput = document.getElementById('blogContent');
   const publishInput = document.getElementById('blogPublish');
+  const featuredInput = document.getElementById('blogFeatured');
   const imageInput = document.getElementById('blogImageInput');
   const resetBtn = document.getElementById('blogResetBtn');
   const richEditorRoot = document.getElementById('blogContentEditor');
@@ -176,6 +177,7 @@
 
       const fd = new FormData(form);
       fd.set('xuatban', String(Boolean(fd.get('xuatban'))));
+      fd.set('noiBat', String(Boolean(fd.get('noiBat'))));
 
       const res = await App.apiFetch(submitConfig.submitUrl, {
         method: submitConfig.submitMethod,
@@ -204,7 +206,7 @@
     });
   }
 
-  [titleInput, summaryInput, contentInput, publishInput].forEach((element) => {
+  [titleInput, summaryInput, contentInput, publishInput, featuredInput].forEach((element) => {
     if (!element) return;
     element.addEventListener('input', updatePreview);
     element.addEventListener('change', updatePreview);

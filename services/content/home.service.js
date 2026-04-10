@@ -100,6 +100,12 @@ async function getHomeData() {
         $and: [
           {
             $or: [
+              { noiBat: true },
+              { isFeatured: true }
+            ]
+          },
+          {
+            $or: [
               { startDate: null },
               { startDate: { $exists: false } },
               { startDate: { $lte: now } }
@@ -124,7 +130,9 @@ async function getHomeData() {
         ]
       }).sort({ order: 1, thuTu: 1, ten: 1 }).lean()
       : Promise.resolve([]),
-    isActive('blog') ? BlogPost.find({ xuatban: true }).sort({ ngayxuatban: -1, ngaytao: -1 }).limit(blogLimit).lean() : Promise.resolve([])
+    isActive('blog')
+      ? BlogPost.find({ xuatban: true, noiBat: true }).sort({ ngayxuatban: -1, ngaytao: -1 }).limit(blogLimit).lean()
+      : Promise.resolve([])
   ]);
 
   return {

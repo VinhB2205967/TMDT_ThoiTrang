@@ -94,7 +94,7 @@ async function getCheckoutPageData({ userId, itemIdsQuery }) {
     addresses: danhsachdiachihienthi
   };
 }
-
+// hàm xử lý checkout, tạo đơn hàng, trừ tồn kho, áp dụng voucher, v.v.
 async function processCheckout({ userId, body, protocol, host, headers, socketRemoteAddress, ip }) {
   let voucherDoc = null;
   let reservedVoucher = false;

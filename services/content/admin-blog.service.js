@@ -129,6 +129,7 @@ function buildBlogPayload({ body, files, existingTitle }) {
     tomtat: body.tomtat,
     noidung: sanitizeBlogContent(rawContent),
     hinhanh: buildBlogImage({ body, files }),
+    noiBat: parseBoolean(body.noiBat, false),
     xuatban,
     ngayxuatban: parsePublishDate(body.ngayxuatban, xuatban ? new Date() : null)
   };
@@ -166,6 +167,7 @@ async function capNhatBaiViet({ id, body, files }) {
     const rawContent = replaceBlogMediaTokens(body.noidung, files, mediaTokens);
     payload.noidung = sanitizeBlogContent(rawContent);
   }
+  if (body.noiBat !== undefined) payload.noiBat = parseBoolean(body.noiBat, false);
   if (body.xuatban !== undefined) payload.xuatban = parseBoolean(body.xuatban, false);
   if (body.ngayxuatban !== undefined) payload.ngayxuatban = parsePublishDate(body.ngayxuatban, null);
 
@@ -195,6 +197,18 @@ async function capNhatXuatBan({ id, body }) {
   return { ok: true, status: 200, message: 'Cap nhat xuat ban thanh cong', data };
 }
 
+async function capNhatNoiBat({ id, body }) {
+  const data = await BlogPost.findById(id);
+  if (!data) return { ok: false, status: 404, code: 'NOT_FOUND', message: 'Not found' };
+
+  const hasExplicit = body.noiBat !== undefined;
+  const next = hasExplicit ? parseBoolean(body.noiBat, false) : !data.noiBat;
+  data.noiBat = next;
+  await data.save();
+
+  return { ok: true, status: 200, message: 'Cap nhat noi bat thanh cong', data };
+}
+
 module.exports = {
   slugify,
   layDanhSachBaiViet,
@@ -202,5 +216,6 @@ module.exports = {
   taoBaiViet,
   capNhatBaiViet,
   xoaBaiViet,
-  capNhatXuatBan
+  capNhatXuatBan,
+  capNhatNoiBat
 };

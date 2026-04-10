@@ -25,6 +25,7 @@ block main
               tr
                 th(style='min-width: 420px') Nội dung
                 th.text-center(style='width: 140px') Xuất bản
+                th.text-center(style='width: 120px') Nổi bật
                 th.text-end(style='width: 220px') Hành động
             tbody
               if posts && posts.length
@@ -47,6 +48,8 @@ block main
                         span.badge.text-bg-success Đã xuất bản
                       else
                         span.badge.text-bg-secondary Nháp
+                    td.text-center
+                      input.form-check-input(type='checkbox' name='noiBat' checked=Boolean(item.noiBat))
                     td.text-end
                       .d-flex.justify-content-end.flex-wrap.gap-2
                         a.btn.btn-sm.btn-outline-primary(href=`/admin/blog/${item._id}/edit`) Sửa
@@ -54,7 +57,7 @@ block main
                         button.btn.btn-sm.btn-outline-danger(type='button' data-action='delete') Xóa
               else
                 tr
-                  td(colspan='3').text-center.text-muted.py-4 Chưa có bài viết nào.
+                  td(colspan='4').text-center.text-muted.py-4 Chưa có bài viết nào.
 
 block scripts
-  script(src='/admin/js/blog-list.js?v=20260403-2')
+  script(src='/admin/js/blog-list.js?v=20260410-2')

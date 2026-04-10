@@ -36,6 +36,11 @@
             input#blogPublish.form-check-input(type='checkbox' name='xuatban' checked=Boolean(blogPost && blogPost.xuatban))
             label.form-check-label(for='blogPublish') #{isEditMode ? 'Xuất bản bài viết' : 'Xuất bản ngay sau khi tạo'}
 
+        .col-12
+          .form-check
+            input#blogFeatured.form-check-input(type='checkbox' name='noiBat' checked=Boolean(blogPost && blogPost.noiBat))
+            label.form-check-label(for='blogFeatured') Hiển thị bài viết này ở trang chủ
+
       .d-flex.flex-wrap.gap-2.mt-4
         button.btn.btn-primary(type='submit')
           i.bi(class=isEditMode ? 'bi-check2-circle me-1' : 'bi-plus-circle me-1')

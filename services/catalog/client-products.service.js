@@ -12,6 +12,15 @@ const { getCategoryTree, flattenTreeOptions } = require('../catalog/category.ser
 const { getFlashSalePercentMap, tinhGiaFlash } = require('../catalog/flashSale.service.js');
 const { chuanLoaiBangSize, damBaoBangSizeMacDinh } = require('../catalog/sizeGuide.service.js');
 const { rankProductsByImage } = require('../catalog/openClip.service.js');
+const OPENCLIP_PRODUCTS_MAX_RESULTS = Math.max(
+  1,
+  Number(process.env.OPENCLIP_PRODUCTS_MAX_RESULTS || process.env.OPENCLIP_UI_MAX_RESULTS || 48)
+);
+const OPENCLIP_PRODUCTS_DB_LIMIT = Math.max(60, Number(process.env.OPENCLIP_PRODUCTS_DB_LIMIT || 160));
+const OPENCLIP_PRODUCTS_RANK_CANDIDATE_LIMIT = Math.max(
+  OPENCLIP_PRODUCTS_MAX_RESULTS,
+  Number(process.env.OPENCLIP_PRODUCTS_RANK_CANDIDATE_LIMIT || 120)
+);
 
 async function timHoacTaoDanhMuc({ name, slug, type, parentId = null, order = 0 }) {
   const existed = await Danhmuc.findOne({ slug, daxoa: { $ne: true } }).select('_id').lean();
@@ -206,7 +215,7 @@ function parseOpenclipIds(raw) {
     .split(',')
     .map((item) => String(item || '').trim())
     .filter((item) => mongoose.Types.ObjectId.isValid(item));
-  return Array.from(new Set(ids)).slice(0, 80);
+  return Array.from(new Set(ids)).slice(0, OPENCLIP_PRODUCTS_MAX_RESULTS);
 }
 
 function buildOpenclipPreviewUrl(filePath) {
@@ -665,7 +674,7 @@ async function timBangAnhData(uploadedPath) {
   })
     .select('_id tensanpham hinhanh bienthe.hinhanh gia phantramgiamgia soluongton gioitinh loaisanpham')
     .sort({ ngaycapnhat: -1, ngaytao: -1 })
-    .limit(240)
+    .limit(OPENCLIP_PRODUCTS_DB_LIMIT)
     .lean();
 
   const products = (rows || []).map((item) => {
@@ -691,19 +700,25 @@ async function timBangAnhData(uploadedPath) {
     };
   });
 
-  const ranked = await rankProductsByImage({ imagePath, products, topK: 60 });
+  const ranked = await rankProductsByImage({
+    imagePath,
+    products,
+    topK: Math.max(8, OPENCLIP_PRODUCTS_MAX_RESULTS),
+    candidateLimit: OPENCLIP_PRODUCTS_RANK_CANDIDATE_LIMIT
+  });
   const ids = Array.isArray(ranked.matches)
     ? ranked.matches.map((item) => String(item && item.id ? item.id : '')).filter(Boolean)
     : [];
+  const limitedIds = ids.slice(0, OPENCLIP_PRODUCTS_MAX_RESULTS);
 
-  if (ids.length === 0) {
+  if (limitedIds.length === 0) {
     return { status: 'empty', redirectUrl: '/products?openclip_status=empty' };
   }
 
   const previewUrl = buildOpenclipPreviewUrl(imagePath);
   return {
     status: 'ok',
-    redirectUrl: `/products?openclip_ids=${encodeURIComponent(ids.join(','))}&openclip_preview=${encodeURIComponent(previewUrl)}`
+    redirectUrl: `/products?openclip_ids=${encodeURIComponent(limitedIds.join(','))}&openclip_preview=${encodeURIComponent(previewUrl)}`
   };
 }
 

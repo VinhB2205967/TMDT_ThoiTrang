@@ -10,5 +10,6 @@ router.post('/', uploadLookbook.single('image'), controller.taoMoi);
 router.put('/:id', uploadLookbook.single('image'), controller.capNhat);
 router.delete('/:id', controller.xoa);
 router.patch('/:id/toggle', controller.batTat);
+router.patch('/:id/featured', controller.capNhatNoiBat);
 
 module.exports = router;

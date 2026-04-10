@@ -71,5 +71,6 @@ router.post('/', uploadFields, controller.taoMoi);
 router.put('/:id', uploadFields, controller.capNhat);
 router.delete('/:id', controller.xoa);
 router.patch('/:id/publish', controller.capNhatXuatBan);
+router.patch('/:id/featured', controller.capNhatNoiBat);
 
 module.exports = router;

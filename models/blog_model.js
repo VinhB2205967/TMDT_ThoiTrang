@@ -6,6 +6,7 @@ const blogSchema = new mongoose.Schema({
   tomtat: { type: String, trim: true },
   noidung: { type: String },
   hinhanh: { type: String, trim: true },
+  noiBat: { type: Boolean, default: false },
   xuatban: { type: Boolean, default: false },
   ngayxuatban: { type: Date }
 }, {

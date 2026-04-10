@@ -27,6 +27,7 @@ const routeAdmin = require('./routes/admin/index_route')
 const systemConfig = require('./config/system')
 const { setupChatSocket } = require('./socketio/chat.socket')
 const { prewarmOpenClipWorker } = require('./services/catalog/openClip.service.js')
+const { ganCauHinhHeaderClient } = require('./middlewares/client-header-settings')
 const port = process.env.PORT
 database.connect();
 const httpServer = http.createServer(app)
@@ -169,6 +170,7 @@ app.use(attachUserToLocals)
 app.use(attachCartCount)
 app.use(attachFavoriteCount)
 app.use(attachCategoryMenu)
+app.use(ganCauHinhHeaderClient)
 app.use(trackOnline)
 
 app.locals.prefigAdmin = systemConfig.prefigAdmin;

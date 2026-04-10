@@ -19,6 +19,8 @@ const lookbookSchema = new mongoose.Schema({
   products: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Sanpham', required: true }],
   order: { type: Number, default: 0 },
   isActive: { type: Boolean, default: true },
+  noiBat: { type: Boolean, default: false },
+  isFeatured: { type: Boolean, default: false },
   startDate: { type: Date, alias: 'ngaybatdau', default: null },
   endDate: { type: Date, alias: 'ngayketthuc', default: null },
   deletedAt: { type: Date, alias: 'ngayxoa', default: null },
@@ -71,6 +73,11 @@ lookbookSchema.pre('validate', async function autoSlug() {
   if (this.hienthi === undefined || this.hienthi === null) this.hienthi = Boolean(this.isActive);
   this.isActive = Boolean(this.isActive);
   this.hienthi = Boolean(this.isActive);
+
+  if (this.noiBat === undefined || this.noiBat === null) this.noiBat = Boolean(this.isFeatured);
+  if (this.isFeatured === undefined || this.isFeatured === null) this.isFeatured = Boolean(this.noiBat);
+  this.noiBat = Boolean(this.noiBat);
+  this.isFeatured = Boolean(this.noiBat);
 
   if (!this.isModified('title') && this.slug) return;
 
