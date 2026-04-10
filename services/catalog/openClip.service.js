@@ -529,7 +529,7 @@ async function rankProductsByImage({ imagePath, products, topK = OPENCLIP_TOP_K,
 
   const workerTopK = Math.min(
     Math.max(1, candidates.length),
-    Math.max(30, Number(topK || 1) * 2)
+    Math.max(80, Number(topK || 1) * 10)
   );
 
   const result = await runPythonRank({ imageQueryPath: imagePath, candidates, topK: workerTopK });
