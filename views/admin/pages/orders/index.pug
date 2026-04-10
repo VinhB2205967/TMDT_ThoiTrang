@@ -84,11 +84,12 @@ block main
                   - const paymentMethod = String(o.phuongthucthanhtoan || 'cod').toLowerCase()
                   - const paymentLabel = paymentMethod === 'momo' ? 'MoMo' : (paymentMethod === 'vnpay' ? 'Thanh toán online' : String(o.phuongthucthanhtoan || 'cod').toUpperCase())
                   - const isOnlinePayment = ['momo', 'vnpay'].includes(paymentMethod)
+                  - const isMomoPendingPayment = o.trangthai === 'choxacnhan' && paymentMethod === 'momo' && !o.dathanhtoan
                   - const isPaidWaitingConfirm = o.trangthai === 'choxacnhan' && isOnlinePayment && o.dathanhtoan
                   - const badge = (badgeClass && typeof badgeClass === 'function') ? badgeClass(o.trangthai) : 'bg-secondary'
-                  - const label = isPaidWaitingConfirm ? 'Đã thanh toán' : ((statusLabels && statusLabels[o.trangthai]) || o.trangthai || '—')
+                  - const label = isMomoPendingPayment ? 'Chờ thanh toán' : (isPaidWaitingConfirm ? 'Đã thanh toán' : ((statusLabels && statusLabels[o.trangthai]) || o.trangthai || '—'))
                   - const currentStatus = String(o.trangthai || '')
-                  - const needsReturnAction = ['requested_return', 'approved_return', 'return_shipping', 'returned', 'returned_full', 'returned_partial'].includes(currentStatus) || (currentStatus === 'refunded' && !o.hasConfirmedReturnImport)
+                  - const needsReturnAction = ['requested_return', 'approved_return', 'return_shipping', 'returned', 'returned_full', 'returned_partial', 'refunded'].includes(currentStatus)
                   - const actionNext = (o.allowedNext || []).filter((st) => !(o.trangthai === 'choxacnhan' && st === 'daxacnhan')).filter((st) => !['requested_return', 'approved_return', 'rejected_return', 'return_shipping', 'returned', 'returned_full', 'returned_partial', 'refunded'].includes(String(st || '')))
                   tr
                     td
@@ -109,12 +110,13 @@ block main
                         i.bi.bi-eye
                         |  Xem
                       if o.trangthai === 'choxacnhan'
-                        form.d-inline(method='POST', action=`${admin}/orders/${o._id}/status`)
-                          input(type='hidden' name='status' value='daxacnhan')
-                          input(type='hidden' name='returnTo' value=(currentListUrl || `${admin}/orders`))
-                          button.btn.btn-sm.btn-success.me-1(type='submit' onclick="return confirm('Xác nhận đơn hàng này?')")
-                            i.bi.bi-check2-circle
-                            |  Xác nhận
+                        if !isMomoPendingPayment
+                          form.d-inline(method='POST', action=`${admin}/orders/${o._id}/status`)
+                            input(type='hidden' name='status' value='daxacnhan')
+                            input(type='hidden' name='returnTo' value=(currentListUrl || `${admin}/orders`))
+                            button.btn.btn-sm.btn-success.me-1(type='submit' onclick="return confirm('Xác nhận đơn hàng này?')")
+                              i.bi.bi-check2-circle
+                              |  Xác nhận
                         form.d-inline(id=`reject-order-form-${o._id}` method='POST' action=`${admin}/orders/${o._id}/cancel`)
                           input(type='hidden' name='returnTo' value=(currentListUrl || `${admin}/orders`))
                           input(type='hidden' name='reason' value='')
@@ -134,10 +136,10 @@ block main
                             |  Nhận hàng hoàn
                           else if ['returned', 'returned_full', 'returned_partial'].includes(currentStatus)
                             |  Hoàn tiền
-                          else if currentStatus === 'refunded' && !o.hasConfirmedReturnImport
-                            |  #{o.returnImportReceipt ? 'Xem phiếu nhập' : 'Tạo phiếu nhập'}
+                          else if currentStatus === 'refunded'
+                            |  Đã nhập lại kho
                           else
-                            |  Xem phiếu nhập
+                            |  Xem chi tiết hoàn hàng
                       if actionNext && actionNext.length
                         if actionNext.length === 1
                           - const st = actionNext[0]

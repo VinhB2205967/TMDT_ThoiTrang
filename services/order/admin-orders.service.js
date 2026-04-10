@@ -22,8 +22,7 @@ const {
 } = require('../communication/orderEmail.service.js');
 const { taoPhieuXuatTuDonHang } = require('../inventory/exportReceipt.service.js');
 const {
-  dongBoNhapKhoHoanTra,
-  taoPhieuNhapHoanTraSauHoanTien
+  dongBoNhapKhoHoanTra
 } = require('./order-return.service.js');
 const {
   dongBoYeuCauHoanHangTuDon,
@@ -1656,16 +1655,6 @@ async function xacNhanDaNhanHangHoan({ id, payload = {}, actor = null }) {
     return { ok: false, message: 'ID không hợp lệ' };
   }
 
-  const order = await Donhang.findOne({ _id: orderId, daxoa: { $ne: true } }).select('_id trangthai').lean();
-  if (!order) return { ok: false, message: 'Không tìm thấy đơn hàng' };
-
-  if (String(order.trangthai || '') === 'refunded') {
-    return taoPhieuNhapHoanTraSauHoanTien({
-      id: orderId,
-      actor
-    });
-  }
-
   return dongBoNhapKhoHoanTra({
     id: orderId,
     payload,
@@ -1850,7 +1839,7 @@ async function hoanTienDon(id, actor = null) {
     });
   });
 
-  return { ok: true, message: 'Đã hoàn tiền thành công. Bây giờ bạn có thể tạo phiếu nhập hoàn trả.' };
+  return { ok: true, message: 'Đã hoàn tiền thành công.' };
 }
 
 async function capNhatTrangThaiHangLoat({ orderIds, nextStatus, actor }) {

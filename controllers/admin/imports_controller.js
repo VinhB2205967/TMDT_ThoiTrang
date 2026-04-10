@@ -5,6 +5,14 @@ function importsPath(req, subPath = '') {
   return importsService.layDuongDanImports({ adminPrefix: adminControllerService.layAdminBase(req), subPath });
 }
 
+function layDuongDanQuayLaiHopLe(req) {
+  const candidate = String(req?.body?.returnTo || req?.query?.returnTo || '').trim();
+  if (!candidate) return '';
+  const baseImportsPath = importsPath(req);
+  if (candidate.startsWith(`${baseImportsPath}?`) || candidate === baseImportsPath) return candidate;
+  return '';
+}
+
 const danhSach = async (req, res) => {
   try {
     const viewData = await importsService.getDanhSachData(req.query || {});
@@ -130,6 +138,7 @@ const xoaPhieu = async (req, res) => {
 };
 
 const xuatKhoPhieuPost = async (req, res) => {
+  const returnTo = layDuongDanQuayLaiHopLe(req);
   try {
     const result = await importsService.xuatKhoPhieuNhap({
       id: req.params.id,
@@ -138,14 +147,14 @@ const xuatKhoPhieuPost = async (req, res) => {
     });
 
     return adminControllerService.xuLyKetQuaSSR(req, res, result, {
-      successPath: importsPath(req, `${result.receiptId}`),
-      errorPath: result.receiptId ? importsPath(req, `${result.receiptId}`) : importsPath(req),
+      successPath: returnTo || importsPath(req),
+      errorPath: returnTo || importsPath(req),
       resolveFlashType: importsService.xacDinhLoaiFlashKetQua
     });
   } catch (error) {
     console.error('Export import receipt error:', error);
     req.flash('error', `Không thể xuất kho phiếu nhập: ${error.message}`);
-    return adminControllerService.redirectVe(req, res, importsPath(req));
+    return adminControllerService.redirectVe(req, res, returnTo || importsPath(req));
   }
 };
 

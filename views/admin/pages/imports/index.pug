@@ -44,6 +44,10 @@ block main
               - function __toNum(v) { const n = Number(v); return Number.isFinite(n) ? n : 0; }
               - function __calcTong(items) { return (items || []).reduce(function (sum, it) { const qty = __toNum(it && (it.soluong || it.so_luong || it.quantity || 0)); const price = __toNum(it && (it.gianhap != null ? it.gianhap : (it.gia_nhap != null ? it.gia_nhap : (it.import_price || 0)))); return sum + (qty * price); }, 0); }
               each r in receipts
+                - const __supplierQRow = encodeURIComponent((filters && filters.supplier) || '')
+                - const __limitQRow = encodeURIComponent(String((filters && filters.limit) || 10))
+                - const __pageRow = Number((pagination && pagination.currentPage) || 1)
+                - const __returnTo = `${admin}/imports?page=${__pageRow}&supplier=${__supplierQRow}&limit=${__limitQRow}`
                 tr
                   td
                     a(href=`${admin}/imports/${r._id}`) #{r.maphieu || r.ma_phieu || r.code}
@@ -62,6 +66,7 @@ block main
                     if !r.daxuatkho
                       form.d-inline.me-1(method='POST' action=`${admin}/imports/${r._id}/export` onsubmit='return confirm("Xác nhận nhập kho phiếu này? Sau khi xác nhận sẽ không thể chỉnh sửa.")')
                         input(type='hidden' name='_csrf' value=_csrf)
+                        input(type='hidden' name='returnTo' value=__returnTo)
                         button.btn.btn-sm.btn-success(type='submit')
                           i.bi.bi-check2-circle
                           |  Xác nhận nhập kho

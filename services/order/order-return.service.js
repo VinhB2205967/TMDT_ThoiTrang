@@ -138,6 +138,8 @@ function laLoiMongoKhongHoTroTransaction(error) {
     || (message.includes('transaction') && message.includes('mongos'));
 }
 
+let daThongBaoFallbackTransaction = false;
+
 async function chayVoiTransactionNeuHoTro(work, label = 'mongo transaction') {
   const session = await mongoose.startSession();
   try {
@@ -148,7 +150,12 @@ async function chayVoiTransactionNeuHoTro(work, label = 'mongo transaction') {
     return result;
   } catch (error) {
     if (!laLoiMongoKhongHoTroTransaction(error)) throw error;
-    console.warn(`${label} fallback without transaction:`, error.message || error);
+    if (!daThongBaoFallbackTransaction) {
+      daThongBaoFallbackTransaction = true;
+      console.info(
+        `[mongo] ${label}: fallback sang che do khong transaction (MongoDB standalone, khong phai replica set).`
+      );
+    }
     return work(null);
   } finally {
     await session.endSession();
@@ -818,6 +825,7 @@ async function dongBoNhapKhoHoanTra({ id, payload = {}, actor = null }) {
       let tongGiamGiaVon = 0;
       let tongGiamLoiNhuan = 0;
       let tongSoLuongTra = 0;
+      const restoreQtyByLotId = new Map();
 
       for (const allocation of plan.allocations) {
         const line = allocation.exportLine;
@@ -830,9 +838,13 @@ async function dongBoNhapKhoHoanTra({ id, payload = {}, actor = null }) {
         targetLine.loinhuanhoan = toNumber(targetLine.loinhuanhoan, 0) + allocation.returnLoiNhuan;
 
         if (allocation.exportAllocation && Array.isArray(targetLine.allocations)) {
-          const targetAlloc = targetLine.allocations.find((alloc) => String(alloc?._id || '') === String(allocation.exportAllocation?._id || ''));
-          if (targetAlloc) {
-            targetAlloc.soluonghoan = toNumber(targetAlloc.soluonghoan, 0) + allocation.qty;
+          const lotIdKey = String(allocation.exportAllocation?.lotId || '').trim();
+          if (lotIdKey) {
+            const targetAlloc = targetLine.allocations.find((alloc) => String(alloc?.lotId || '') === lotIdKey);
+            if (targetAlloc) {
+              targetAlloc.soluonghoan = toNumber(targetAlloc.soluonghoan, 0) + allocation.qty;
+            }
+            restoreQtyByLotId.set(lotIdKey, toPositiveInt(restoreQtyByLotId.get(lotIdKey), 0) + allocation.qty);
           }
         }
 
@@ -854,6 +866,47 @@ async function dongBoNhapKhoHoanTra({ id, payload = {}, actor = null }) {
       });
       exportReceiptDoc.ngaycapnhat = new Date();
       await exportReceiptDoc.save(taoSessionOptions(session));
+
+      // Hoàn tồn đúng lô đã xuất bán (FIFO) để giữ chuẩn giá vốn/lãi-lỗ theo từng kho lô.
+      for (const [lotId, qtyRestore] of restoreQtyByLotId.entries()) {
+        if (!mongoose.Types.ObjectId.isValid(String(lotId)) || qtyRestore <= 0) continue;
+        await TonKhoLo.updateOne(
+          { _id: new mongoose.Types.ObjectId(String(lotId)) },
+          {
+            $inc: { soluongconlai: qtyRestore },
+            $set: { ngaycapnhat: new Date() }
+          },
+          taoSessionOptions(session)
+        );
+      }
+
+      // Cộng trả hàng hoàn về kho ngay tại bước xác nhận đã nhận hàng hoàn.
+      const stockProductIds = Array.from(new Set(
+        (Array.isArray(plan.importDetails) ? plan.importDetails : [])
+          .map((item) => String(item && item.sanphamid ? item.sanphamid : ''))
+          .filter((itemId) => mongoose.Types.ObjectId.isValid(itemId))
+      ));
+      const stockProductDocs = await ganSessionNeuCo(Sanpham.find({ _id: { $in: stockProductIds } }), session);
+      const stockProductMap = new Map(stockProductDocs.map((productDoc) => [String(productDoc._id), productDoc]));
+
+      for (const detail of (Array.isArray(plan.importDetails) ? plan.importDetails : [])) {
+        const productDoc = stockProductMap.get(String(detail && detail.sanphamid ? detail.sanphamid : ''));
+        if (!productDoc) continue;
+
+        congTonChoDongTraHang(productDoc, {
+          variantId: detail.bientheid,
+          size: detail.kichco,
+          qty: detail.soluong,
+          mausac: detail.mausac
+        });
+      }
+
+      const nowStockSync = new Date();
+      for (const productDoc of stockProductDocs) {
+        productDoc.soluongton = tinhTongTon(productDoc);
+        productDoc.ngaycapnhat = nowStockSync;
+        await productDoc.save(taoSessionOptions(session));
+      }
 
       const allReturned = (exportReceiptDoc.chitiet || []).every((line) => {
         const exportedQty = toPositiveInt(line.soluong, 0);

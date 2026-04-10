@@ -130,8 +130,9 @@ block main
       - const paymentMethod = String(order.phuongthucthanhtoan || '').toLowerCase()
       - const paymentMethodLabel = paymentMethod === 'momo' ? 'MoMo' : (paymentMethod === 'vnpay' ? 'Thanh toán online' : (paymentMethod === 'cod' ? 'COD' : (order.phuongthucthanhtoan || '-')))
       - const isOnlinePayment = ['momo', 'vnpay'].includes(paymentMethod)
+      - const isMomoPendingPayment = order.trangthai === 'choxacnhan' && paymentMethod === 'momo' && !order.dathanhtoan
       - const isPaidWaitingConfirm = order.trangthai === 'choxacnhan' && isOnlinePayment && order.dathanhtoan
-      - const label = isPaidWaitingConfirm ? 'Đã thanh toán' : ((statusLabels && statusLabels[order.trangthai]) || order.trangthai || '-')
+      - const label = isMomoPendingPayment ? 'Chờ thanh toán' : (isPaidWaitingConfirm ? 'Đã thanh toán' : ((statusLabels && statusLabels[order.trangthai]) || order.trangthai || '-'))
       - const badge = (badgeClass && typeof badgeClass === 'function') ? badgeClass(order.trangthai) : 'bg-secondary'
       - const flowList = (locals.flow && locals.flow.length) ? locals.flow : ['choxacnhan','daxacnhan','dangchuanbi','danggiao','dagiao','requested_return','approved_return','returned','refunded']
       - const currentIndex = flowList.indexOf(order.trangthai)
@@ -164,10 +165,10 @@ block main
             a.btn.header-action-btn.header-action-btn--refund(href='#return-workflow')
               i.bi.bi-cash-coin.me-1
               | Hoàn tiền
-          else if String(order.trangthai || '') === 'refunded' && !hasConfirmedReturnImport
+          else if String(order.trangthai || '') === 'refunded'
             a.btn.header-action-btn.header-action-btn--import(href='#return-workflow')
               i.bi.bi-box-seam.me-1
-              | Tạo phiếu nhập
+              | Đã nhập lại kho
           span.badge.header-status-badge(class=badge) #{label}
           a.btn.btn-sm.btn-outline-secondary.header-back-btn(href=`${admin}/orders`) Quay lại
 
@@ -372,12 +373,14 @@ block main
             .card-body
               .fw-semibold.mb-2 Trạng thái & thao tác
               - const actionNext = (allowedNext || []).filter((st) => !(order.trangthai === 'choxacnhan' && st === 'daxacnhan'))
-              if order.trangthai === 'choxacnhan'
+              if order.trangthai === 'choxacnhan' && !isMomoPendingPayment
                 form.mb-2(method='POST', action=`${admin}/orders/${order._id}/status`)
                   input(type='hidden' name='status' value='daxacnhan')
                   button.btn.btn-success(type='submit' onclick="return confirm('Xác nhận đơn hàng này?')")
                     i.bi.bi-check2-circle.me-1
                     | Xác nhận đơn
+              else if isMomoPendingPayment
+                .small.text-warning.mb-2 Đơn MoMo chưa thanh toán, chưa thể xác nhận.
               if actionNext && actionNext.length
                 .d-flex.flex-wrap.gap-2
                   each st in actionNext
@@ -538,23 +541,16 @@ block main
                       button.btn.btn-sm.btn-secondary(type='button' disabled) Không có sản phẩm để xác nhận
 
                 if ['returned', 'returned_full', 'returned_partial'].includes(order.trangthai) && canRefundNow
-                  .small.text-muted.mb-2 Đã nhận hàng hoàn thực tế. Hoàn tiền xong mới tạo phiếu nhập hoàn trả.
+                  .small.text-muted.mb-2 Đã nhận hàng hoàn thực tế. Sau khi hoàn tiền, trạng thái nhập lại kho vẫn được giữ nguyên.
                   form(method='POST', action=`${admin}/orders/${order._id}/return/refund`)
-                    button.btn.btn-sm.btn-dark(type='submit' onclick="return confirm('Xác nhận hoàn tiền đơn hàng này? Sau khi hoàn tiền, bạn mới có thể tạo phiếu nhập hoàn trả.')") Hoàn tiền
+                    button.btn.btn-sm.btn-dark(type='submit' onclick="return confirm('Xác nhận hoàn tiền đơn hàng này?')") Hoàn tiền
 
                 if ['returned', 'returned_full', 'returned_partial'].includes(order.trangthai) && !canRefundNow
                   button.btn.btn-sm.btn-secondary(type='button' disabled title='Cần xác nhận đã nhận hàng hoàn thực tế trước khi hoàn tiền') Hoàn tiền
 
                 if order.trangthai === 'refunded'
-                  .small.text-muted.mb-2 Đơn đã hoàn tiền. Bây giờ bạn có thể tạo phiếu nhập hoàn trả để kho xác nhận nhập lại hàng.
-                  if hasConfirmedReturnImport
-                    button.btn.btn-sm.btn-success(type='button' disabled) Đã xác nhận nhập kho hàng hoàn
-                  else if returnImportReceipt
-                    a.btn.btn-sm.btn-outline-primary(href=`${admin}/imports/${returnImportReceipt._id}`) Xem phiếu nhập hoàn trả
-                  else
-                    form.mt-2(method='POST', action=`${admin}/orders/${order._id}/return/received`)
-                      button.btn.btn-sm.btn-outline-primary(type='submit' onclick="return confirm('Tạo phiếu nhập hoàn trả cho đơn đã hoàn tiền này?')")
-                        | Tạo phiếu nhập hoàn trả
+                  .small.text-muted.mb-2 Đơn đã hoàn tiền. Hàng hoàn đã được nhập lại kho ở bước xác nhận nhận hàng hoàn.
+                  button.btn.btn-sm.btn-success(type='button' disabled) Đã nhập lại kho
 
               hr
               .fw-semibold.mb-2 Timeline trạng thái
