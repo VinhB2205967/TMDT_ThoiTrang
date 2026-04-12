@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const exportAllocationSchema = new mongoose.Schema(
   {
-    lotId: { type: mongoose.Schema.Types.ObjectId, required: false },
+    lotId: { type: mongoose.Schema.Types.ObjectId, required: false, alias: 'lohang_id' },
     soLuong: { type: Number, required: true, min: 1 },
     soluonghoan: { type: Number, default: 0, min: 0 },
     giaNhap: { type: Number, default: 0, min: 0 },
@@ -36,7 +36,7 @@ const exportItemSchema = new mongoose.Schema(
     doanhthuhoan: { type: Number, default: 0 },
     giavonhoan: { type: Number, default: 0 },
     loinhuanhoan: { type: Number, default: 0 },
-    allocations: { type: [exportAllocationSchema], default: [] },
+    allocations: { type: [exportAllocationSchema], default: [], alias: 'phanbo_lo' },
     hinhanh: { type: String, default: '' },
     ghichudong: { type: String, default: '' }
   },

@@ -26,7 +26,7 @@ const importItemSchema = new mongoose.Schema(
 );
 
 const importReceiptSchema = new mongoose.Schema({
-  code: { type: String },
+  code: { type: String, alias: 'ma' },
   maphieu: { type: String, required: true, unique: true, index: true },
   ma_phieu: { type: String },
   loaiphieu: { type: String, enum: ['standard', 'return'], default: 'standard' },

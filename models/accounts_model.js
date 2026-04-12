@@ -10,6 +10,7 @@ const accountSchema = new mongoose.Schema({
 	},
 	email: {
 		type: String,
+		alias: 'thu_dien_tu',
 		required: true,
 		unique: true,
 		index: true

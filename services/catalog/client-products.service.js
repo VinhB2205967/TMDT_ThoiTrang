@@ -21,12 +21,19 @@ const OPENCLIP_PRODUCTS_RANK_CANDIDATE_LIMIT = Math.max(
   OPENCLIP_PRODUCTS_MAX_RESULTS,
   Number(process.env.OPENCLIP_PRODUCTS_RANK_CANDIDATE_LIMIT || 120)
 );
+const OPENCLIP_PRODUCTS_RANK_CANDIDATE_LIMIT_TYPED = Math.max(
+  OPENCLIP_PRODUCTS_MAX_RESULTS,
+  Number(process.env.OPENCLIP_PRODUCTS_RANK_CANDIDATE_LIMIT_TYPED || 72)
+);
+const OPENCLIP_PRODUCTS_RANK_CANDIDATE_LIMIT_UNTYPED = Math.max(
+  OPENCLIP_PRODUCTS_MAX_RESULTS,
+  Number(process.env.OPENCLIP_PRODUCTS_RANK_CANDIDATE_LIMIT_UNTYPED || OPENCLIP_PRODUCTS_RANK_CANDIDATE_LIMIT)
+);
 const OPENCLIP_PRODUCTS_IMAGE_TYPE_MIN_SCORE = Number(process.env.OPENCLIP_PRODUCTS_IMAGE_TYPE_MIN_SCORE || 0.23);
 const OPENCLIP_PRODUCTS_IMAGE_TYPE_MIN_MARGIN = Number(process.env.OPENCLIP_PRODUCTS_IMAGE_TYPE_MIN_MARGIN || 0.03);
 const OPENCLIP_PRODUCTS_STRONG_SCORE = Number(process.env.OPENCLIP_PRODUCTS_STRONG_SCORE || 0.35);
 const OPENCLIP_PRODUCTS_TYPED_DB_LIMIT = Math.max(60, Number(process.env.OPENCLIP_PRODUCTS_TYPED_DB_LIMIT || 140));
 const OPENCLIP_PRODUCTS_TYPED_MIN_RESULTS = Math.max(8, Number(process.env.OPENCLIP_PRODUCTS_TYPED_MIN_RESULTS || 18));
-const OPENCLIP_PRODUCTS_MIN_DISPLAY_RESULTS = Math.max(1, Number(process.env.OPENCLIP_PRODUCTS_MIN_DISPLAY_RESULTS || 12));
 const OPENCLIP_ALLOWED_PRODUCT_TYPES = new Set(['ao', 'quan', 'vay', 'phukien', 'giay', 'tui', 'aokhoac']);
 const OPENCLIP_PRODUCTS_CATEGORY_LABELS = [
   { key: 'ao', prompts: ['áo', 'áo thun', 'áo sơ mi', 'shirt', 't-shirt', 'fashion top'] },
@@ -768,7 +775,9 @@ async function timBangAnhData(uploadedPath) {
     imagePath,
     products,
     topK: Math.max(8, OPENCLIP_PRODUCTS_MAX_RESULTS),
-    candidateLimit: OPENCLIP_PRODUCTS_RANK_CANDIDATE_LIMIT
+    candidateLimit: selectedType
+      ? OPENCLIP_PRODUCTS_RANK_CANDIDATE_LIMIT_TYPED
+      : OPENCLIP_PRODUCTS_RANK_CANDIDATE_LIMIT_UNTYPED
   });
   const rankedMatches = Array.isArray(ranked.matches) ? ranked.matches : [];
   const sortedByType = selectedType
@@ -786,21 +795,6 @@ async function timBangAnhData(uploadedPath) {
     .map((item) => String(item && item.id ? item.id : ''))
     .filter(Boolean)));
   const limitedIds = ids.slice(0, OPENCLIP_PRODUCTS_MAX_RESULTS);
-
-  const fillTarget = Math.min(OPENCLIP_PRODUCTS_MAX_RESULTS, OPENCLIP_PRODUCTS_MIN_DISPLAY_RESULTS);
-  if (limitedIds.length < fillTarget) {
-    const backupRows = (rows || []).filter((item) => {
-      if (!selectedType) return true;
-      return String(item && item.loaisanpham ? item.loaisanpham : '').trim().toLowerCase() === selectedType;
-    });
-
-    for (const row of backupRows) {
-      if (limitedIds.length >= OPENCLIP_PRODUCTS_MAX_RESULTS) break;
-      const id = String(row && row._id ? row._id : '').trim();
-      if (!id || limitedIds.includes(id)) continue;
-      limitedIds.push(id);
-    }
-  }
 
   if (limitedIds.length === 0) {
     return { status: 'empty', redirectUrl: '/products?openclip_status=empty' };

@@ -13,7 +13,7 @@ const orderSchema = new mongoose.Schema({
   // Thông tin người nhận
   tennguoinhan: String,
   sodienthoai: String,
-  email: String,
+  email: { type: String, alias: 'thu_dien_tu' },
   diachigiao: String,               
   tinh: String,
   quan: String,

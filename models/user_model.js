@@ -11,6 +11,7 @@ const userSchema = new mongoose.Schema({
   hoten: String,                    
   email: {
     type: String,
+    alias: 'thu_dien_tu',
     required: true,
     unique: true
   },
@@ -25,6 +26,7 @@ const userSchema = new mongoose.Schema({
   ngaysinh: Date,
   avatar: {
     type: String,
+    alias: 'anhdaidien',
     default: '/images/avatar/avatar.png'
   },
   chukyso: {

@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const fifoAllocationSchema = new mongoose.Schema({
   lotId: {
     type: mongoose.Schema.Types.ObjectId,
+    alias: 'lohang_id',
     required: false
   },
   soLuong: {
@@ -50,6 +51,7 @@ const orderItemSchema = new mongoose.Schema({
   thanhtien: Number,               
   fifoAllocations: {
     type: [fifoAllocationSchema],
+    alias: 'phanbo_fifo',
     default: []
   },
 

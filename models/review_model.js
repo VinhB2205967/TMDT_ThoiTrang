@@ -29,8 +29,8 @@ const reviewSchema = new mongoose.Schema({
   tieude: String,                   // Tiêu đề đánh giá
   noidung: String,                  // Nội dung đánh giá chi tiết
   hinhanh: [String],                // Danh sách ảnh đánh giá
-  videos: [String],                 // Danh sách video đánh giá
-  tags: [String],                   // Tag nhanh
+  videos: { type: [String], alias: 'video_danhgia' },                 // Danh sách video đánh giá
+  tags: { type: [String], alias: 'the' },                   // Tag nhanh
   
   // Thông tin sản phẩm đã mua
   mausac: String,
@@ -94,3 +94,4 @@ reviewSchema.index({ diem: 1 });
 
 const Danhgia = mongoose.model("Danhgia", reviewSchema, "reviews");
 module.exports = Danhgia;
+

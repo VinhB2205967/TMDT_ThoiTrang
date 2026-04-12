@@ -13,13 +13,15 @@ const userVoucherSchema = new mongoose.Schema({
   },
   isUsed: {
     type: Boolean,
+    alias: 'dasudung',
     default: false
   },
   savedAt: {
     type: Date,
+    alias: 'thoigianluu',
     default: Date.now
   },
-  usedAt: Date
+  usedAt: { type: Date, alias: 'thoigiansudung' }
 });
 
 userVoucherSchema.index({ nguoidung_id: 1, voucher_id: 1 }, { unique: true });

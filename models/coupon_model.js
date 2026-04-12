@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const couponSchema = new mongoose.Schema({
   code: {
     type: String,
+    alias: 'ma_giamgia',
     required: true,
     unique: true,
     uppercase: true,
@@ -10,7 +11,7 @@ const couponSchema = new mongoose.Schema({
   },
   ten: String,
   mota: String, 
-  banner: String,
+  banner: { type: String, alias: 'anh_banner' },
   
   loai: {
     type: String,

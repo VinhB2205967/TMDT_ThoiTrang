@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const blogSchema = new mongoose.Schema({
   tieude: { type: String, trim: true, required: true },
-  slug: { type: String, trim: true, required: true, unique: true },
+  slug: { type: String, trim: true, required: true, unique: true, alias: 'duongdan' },
   tomtat: { type: String, trim: true },
   noidung: { type: String },
   hinhanh: { type: String, trim: true },

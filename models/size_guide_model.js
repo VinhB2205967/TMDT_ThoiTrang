@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const sizeGuideRowSchema = new mongoose.Schema(
   {
-    size: { type: String, required: true, trim: true },
+    size: { type: String, required: true, trim: true, alias: 'kichco' },
     giatri: { type: [String], default: [] }
   },
   { _id: false }
@@ -10,7 +10,7 @@ const sizeGuideRowSchema = new mongoose.Schema(
 
 const sizeGuideSchema = new mongoose.Schema({
   tenbang: { type: String, required: true, trim: true },
-  slug: { type: String, required: true, trim: true, unique: true, index: true },
+  slug: { type: String, required: true, trim: true, unique: true, index: true, alias: 'duongdan' },
   loaisanpham: { type: String, required: true, trim: true, index: true },
   cot: { type: [String], default: [] },
   dong: { type: [sizeGuideRowSchema], default: [] },

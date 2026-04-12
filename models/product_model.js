@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 // Schema cho size với số lượng
 const sizeSchema = new mongoose.Schema({
-  size: String,
+  size: { type: String, alias: 'kichco' },
   soluong: Number           
 }, { _id: false });
 
@@ -13,7 +13,7 @@ const bienTheSchema = new mongoose.Schema({
   gia: Number,              
   phantramgiamgia: Number,  
   soluong: Number,          
-  sizes: [sizeSchema]       
+  sizes: { type: [sizeSchema], alias: 'danhsach_kichco' }       
 }, { _id: true });
 
 const productSchema = new mongoose.Schema({
@@ -22,21 +22,21 @@ const productSchema = new mongoose.Schema({
   mota_hinhanh: String,
   gia: Number,              
   phantramgiamgia: Number,  
-  category: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null },
+  category: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null, alias: 'danhmuc_chinh' },
   danhmuc_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null },
-  sizeguide_id: { type: mongoose.Schema.Types.ObjectId, ref: 'SizeGuide', default: null },
+  sizeguide_id: { type: mongoose.Schema.Types.ObjectId, ref: 'SizeGuide', default: null, alias: 'banghuongdansize_id' },
   bangsize_id: { type: mongoose.Schema.Types.ObjectId, ref: 'SizeGuide', default: null },
-  occasions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc' }],
-  occasion: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null },
+  occasions: { type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc' }], alias: 'cacdip_sudung' },
+  occasion: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null, alias: 'dip_sudung_chinh' },
   dip_sudung_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null },
-  ageGroup: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null },
+  ageGroup: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null, alias: 'nhomtuoi_chinh' },
   nhomtuoi_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Danhmuc', default: null },
   thuonghieu_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand' },
-  brand: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand', default: null },
+  brand: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand', default: null, alias: 'thuonghieu_chinh' },
   thuonghieu: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand', default: null },
   luotmua: { type: Number, default: 0 },
   mausac_chinh: String,    
-  sizes: [sizeSchema],
+  sizes: { type: [sizeSchema], alias: 'ds_kichco' },
   soluong_chinh: Number,    // Số lượng chính (cho sản phẩm không có size như túi, phụ kiện)
   soluongton: Number,      
   gioitinh: String,

@@ -12,15 +12,18 @@ function toSlug(input) {
 }
 
 const lookbookSchema = new mongoose.Schema({
-  title: { type: String, trim: true, required: true },
-  slug: { type: String, trim: true },
-  image: { type: String, trim: true, required: true },
-  description: { type: String, trim: true, default: '' },
-  products: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Sanpham', required: true }],
-  order: { type: Number, default: 0 },
-  isActive: { type: Boolean, default: true },
+  title: { type: String, trim: true, required: true, alias: 'ten' },
+  slug: { type: String, trim: true, alias: 'duongdan' },
+  image: { type: String, trim: true, required: true, alias: 'anhdaidien' },
+  description: { type: String, trim: true, default: '', alias: 'mota_chitiet' },
+  products: {
+    type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Sanpham', required: true }],
+    alias: 'danhsach_sanpham'
+  },
+  order: { type: Number, default: 0, alias: 'thutu_hienthi' },
+  isActive: { type: Boolean, default: true, alias: 'kichhoat' },
   noiBat: { type: Boolean, default: false },
-  isFeatured: { type: Boolean, default: false },
+  isFeatured: { type: Boolean, default: false, alias: 'la_noibat' },
   startDate: { type: Date, alias: 'ngaybatdau', default: null },
   endDate: { type: Date, alias: 'ngayketthuc', default: null },
   deletedAt: { type: Date, alias: 'ngayxoa', default: null },

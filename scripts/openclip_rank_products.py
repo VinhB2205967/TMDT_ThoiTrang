@@ -352,6 +352,19 @@ def _rank_payload(payload):
                         final_score = final_score + (direct_similarity * 0.65)
                     scored.append({"id": row["id"], "score": final_score, "source": row.get("source", "main")})
 
+            collapsed = {}
+            for item in scored:
+                item_id = str((item or {}).get("id") or "").strip()
+                source = str((item or {}).get("source") or "main").strip() or "main"
+                if not item_id:
+                    continue
+                key = f"{item_id}|{source}"
+                current = collapsed.get(key)
+                value = float((item or {}).get("score") or 0.0)
+                if current is None or value > float(current.get("score") or 0.0):
+                    collapsed[key] = {"id": item_id, "score": value, "source": source}
+
+            scored = list(collapsed.values())
             scored.sort(key=lambda x: x["score"], reverse=True)
             return {
                 "success": True,

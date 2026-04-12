@@ -35,7 +35,8 @@ const paySchema = new mongoose.Schema({
   },
   // Response từ cổng thanh toán
   response: {
-    type: mongoose.Schema.Types.Mixed
+    type: mongoose.Schema.Types.Mixed,
+    alias: 'phanhoi_congthanhtoan'
   },
   ghichu: String,
   
