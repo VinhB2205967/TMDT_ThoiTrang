@@ -32,6 +32,8 @@ const OPENCLIP_PRODUCTS_RANK_CANDIDATE_LIMIT_UNTYPED = Math.max(
 const OPENCLIP_PRODUCTS_IMAGE_TYPE_MIN_SCORE = Number(process.env.OPENCLIP_PRODUCTS_IMAGE_TYPE_MIN_SCORE || 0.23);
 const OPENCLIP_PRODUCTS_IMAGE_TYPE_MIN_MARGIN = Number(process.env.OPENCLIP_PRODUCTS_IMAGE_TYPE_MIN_MARGIN || 0.03);
 const OPENCLIP_PRODUCTS_STRONG_SCORE = Number(process.env.OPENCLIP_PRODUCTS_STRONG_SCORE || 0.35);
+const OPENCLIP_PRODUCTS_SHOE_PRIORITY_DELTA = Number(process.env.OPENCLIP_PRODUCTS_SHOE_PRIORITY_DELTA || 0.06);
+const OPENCLIP_PRODUCTS_SHOE_MIN_SCORE = Number(process.env.OPENCLIP_PRODUCTS_SHOE_MIN_SCORE || 0.2);
 const OPENCLIP_PRODUCTS_TYPED_DB_LIMIT = Math.max(60, Number(process.env.OPENCLIP_PRODUCTS_TYPED_DB_LIMIT || 140));
 const OPENCLIP_PRODUCTS_TYPED_MIN_RESULTS = Math.max(8, Number(process.env.OPENCLIP_PRODUCTS_TYPED_MIN_RESULTS || 18));
 const OPENCLIP_ALLOWED_PRODUCT_TYPES = new Set(['ao', 'quan', 'vay', 'phukien', 'giay', 'tui', 'aokhoac']);
@@ -48,8 +50,12 @@ const OPENCLIP_PRODUCTS_CATEGORY_LABELS = [
 function resolveSelectedProductTypeFromClassification(detected) {
   const detectedType = String(detected && detected.predictedKey ? detected.predictedKey : '').trim().toLowerCase();
   const labels = Array.isArray(detected && detected.labels) ? detected.labels : [];
-  const top1 = labels[0] || null;
-  const top2 = labels[1] || null;
+  const normalizedLabels = labels.map((item) => ({
+    key: String(item && item.key ? item.key : '').trim().toLowerCase(),
+    score: Number(item && item.score)
+  }));
+  const top1 = normalizedLabels[0] || null;
+  const top2 = normalizedLabels[1] || null;
   const top1Score = Number(top1 && top1.score);
   const top2Score = Number(top2 && top2.score);
   const scoreMargin = Number.isFinite(top1Score) && Number.isFinite(top2Score)
@@ -64,6 +70,24 @@ function resolveSelectedProductTypeFromClassification(detected) {
   if (OPENCLIP_ALLOWED_PRODUCT_TYPES.has(detectedType) && passMinScore && (passMargin || strongScore)) {
     selectedType = detectedType;
   }
+
+  if (!selectedType) {
+    const shoeLabel = normalizedLabels.find((item) => item && item.key === 'giay');
+    const shoeScore = Number(shoeLabel && shoeLabel.score);
+    const top1Key = String(top1 && top1.key ? top1.key : '');
+    const closeToTop = Number.isFinite(top1Score) && Number.isFinite(shoeScore)
+      && top1Key
+      && top1Key !== 'giay'
+      && (top1Score - shoeScore) <= OPENCLIP_PRODUCTS_SHOE_PRIORITY_DELTA;
+    const shouldPreferShoe = Number.isFinite(shoeScore)
+      && shoeScore >= OPENCLIP_PRODUCTS_SHOE_MIN_SCORE
+      && (top1Key === 'giay' || closeToTop);
+
+    if (shouldPreferShoe) {
+      selectedType = 'giay';
+    }
+  }
+
   return selectedType;
 }
 
@@ -251,6 +275,30 @@ function chuanHoaUrlMedia(rawUrl) {
   if (uploadsNoSlashAt >= 0) return `/${val.slice(uploadsNoSlashAt)}`;
 
   return val.startsWith('/') ? val : `/${val}`;
+}
+
+function chuanHoaAnhChoOpenclip(rawUrl) {
+  const normalized = chuanHoaUrlMedia(rawUrl);
+  if (!normalized) return '';
+  if (/^https?:\/\//i.test(normalized) || normalized.startsWith('//')) return '';
+  if (String(normalized).toLowerCase() === '/images/shopping.png') return '';
+  return normalized;
+}
+
+function tachAnhBienTheChoOpenclip(rawVariants) {
+  const variants = Array.isArray(rawVariants) ? rawVariants : [];
+  const images = [];
+  const seen = new Set();
+
+  for (const variant of variants) {
+    const image = chuanHoaAnhChoOpenclip(variant && variant.hinhanh);
+    if (!image || seen.has(image)) continue;
+    seen.add(image);
+    images.push(image);
+    if (images.length >= 5) break;
+  }
+
+  return images;
 }
 
 function parseOpenclipIds(raw) {
@@ -715,7 +763,10 @@ async function timBangAnhData(uploadedPath) {
   const baseFilter = {
     daxoa: { $ne: true },
     trangthai: 'dangban',
-    hinhanh: { $exists: true, $ne: '' }
+    $or: [
+      { hinhanh: { $exists: true, $ne: '' } },
+      { bienthe: { $elemMatch: { hinhanh: { $exists: true, $ne: '' } } } }
+    ]
   };
 
   let selectedType = '';
@@ -733,14 +784,16 @@ async function timBangAnhData(uploadedPath) {
     ? { ...baseFilter, loaisanpham: selectedType }
     : { ...baseFilter };
 
+  let broadened = false;
   let rows = await sanpham.find(typedFilter)
     .select('_id tensanpham hinhanh bienthe.hinhanh gia phantramgiamgia soluongton gioitinh loaisanpham')
     .sort({ ngaycapnhat: -1, ngaytao: -1 })
     .limit(selectedType ? OPENCLIP_PRODUCTS_TYPED_DB_LIMIT : OPENCLIP_PRODUCTS_DB_LIMIT)
     .lean();
 
-  // If typed result is too small (except giay where we strongly prefer type-safe results), broaden candidates.
-  if (selectedType && selectedType !== 'giay' && rows.length < OPENCLIP_PRODUCTS_TYPED_MIN_RESULTS) {
+  // If typed result is too small, broaden candidates to avoid sparse results.
+  if (selectedType && rows.length < OPENCLIP_PRODUCTS_TYPED_MIN_RESULTS) {
+    broadened = true;
     rows = await sanpham.find(baseFilter)
       .select('_id tensanpham hinhanh bienthe.hinhanh gia phantramgiamgia soluongton gioitinh loaisanpham')
       .sort({ ngaycapnhat: -1, ngaytao: -1 })
@@ -748,49 +801,57 @@ async function timBangAnhData(uploadedPath) {
       .lean();
   }
 
-  const products = (rows || []).map((item) => {
-    const basePrice = Number(item.gia || 0);
-    const percent = Number(item.phantramgiamgia || 0);
-    return {
-      id: String(item._id || ''),
-      tensanpham: String(item.tensanpham || 'Sản phẩm'),
-      imageUrl: String(item.hinhanh || '/images/shopping.png'),
-      url: item._id ? `/products/${item._id}` : '',
-      gia: basePrice,
-      giaSauGiam: percent > 0 ? Math.round(basePrice * (1 - percent / 100)) : basePrice,
-      phantramgiamgia: percent,
-      soluongton: Number(item.soluongton || 0),
-      gioitinh: String(item.gioitinh || ''),
-      loaisanpham: String(item.loaisanpham || ''),
-      variantImages: Array.isArray(item.bienthe)
-        ? item.bienthe
-          .map(bt => String(bt && bt.hinhanh ? bt.hinhanh : ''))
-          .filter(img => img && img !== '' && img !== '/images/shopping.png')
-          .slice(0, 5)
-        : []
-    };
-  });
+  const products = (rows || [])
+    .map((item) => {
+      const basePrice = Number(item.gia || 0);
+      const percent = Number(item.phantramgiamgia || 0);
+      const variantImages = tachAnhBienTheChoOpenclip(item.bienthe);
+      const mainImage = chuanHoaAnhChoOpenclip(item.hinhanh);
+      const imageUrl = mainImage || variantImages[0] || '';
+
+      return {
+        id: String(item._id || ''),
+        tensanpham: String(item.tensanpham || 'Sản phẩm'),
+        imageUrl,
+        url: item._id ? `/products/${item._id}` : '',
+        gia: basePrice,
+        giaSauGiam: percent > 0 ? Math.round(basePrice * (1 - percent / 100)) : basePrice,
+        phantramgiamgia: percent,
+        soluongton: Number(item.soluongton || 0),
+        gioitinh: String(item.gioitinh || ''),
+        loaisanpham: String(item.loaisanpham || ''),
+        variantImages: variantImages.filter((img) => img !== imageUrl)
+      };
+    })
+    .filter((item) => Boolean(item.imageUrl || (Array.isArray(item.variantImages) && item.variantImages.length)));
+
+  if (!products.length) {
+    return { status: 'empty', redirectUrl: '/products?openclip_status=empty' };
+  }
 
   const ranked = await rankProductsByImage({
     imagePath,
     products,
     topK: Math.max(8, OPENCLIP_PRODUCTS_MAX_RESULTS),
-    candidateLimit: selectedType
+    candidateLimit: selectedType && !broadened
       ? OPENCLIP_PRODUCTS_RANK_CANDIDATE_LIMIT_TYPED
       : OPENCLIP_PRODUCTS_RANK_CANDIDATE_LIMIT_UNTYPED
   });
   const rankedMatches = Array.isArray(ranked.matches) ? ranked.matches : [];
-  const sortedByType = selectedType
+  const shouldPrioritizeDetectedType = selectedType === 'giay';
+  const sortedByType = shouldPrioritizeDetectedType
     ? [
       ...rankedMatches.filter((item) => String(item && item.loaisanpham || '').trim().toLowerCase() === selectedType),
       ...rankedMatches.filter((item) => String(item && item.loaisanpham || '').trim().toLowerCase() !== selectedType)
     ]
     : rankedMatches;
 
-  const typeOnlyPool = selectedType
+  const typeOnlyPool = shouldPrioritizeDetectedType
     ? sortedByType.filter((item) => String(item && item.loaisanpham || '').trim().toLowerCase() === selectedType)
     : [];
-  const finalPool = typeOnlyPool.length > 0 ? typeOnlyPool : sortedByType;
+  const shouldKeepTypeOnly = selectedType
+    && typeOnlyPool.length >= Math.min(OPENCLIP_PRODUCTS_MAX_RESULTS, OPENCLIP_PRODUCTS_TYPED_MIN_RESULTS);
+  const finalPool = shouldKeepTypeOnly ? typeOnlyPool : sortedByType;
   const ids = Array.from(new Set(finalPool
     .map((item) => String(item && item.id ? item.id : ''))
     .filter(Boolean)));
@@ -804,7 +865,6 @@ async function timBangAnhData(uploadedPath) {
   const params = new URLSearchParams();
   params.set('openclip_ids', limitedIds.join(','));
   if (previewUrl) params.set('openclip_preview', previewUrl);
-  if (selectedType && typeOnlyPool.length > 0) params.set('loaisanpham', selectedType);
 
   return {
     status: 'ok',

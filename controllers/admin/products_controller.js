@@ -117,6 +117,19 @@ const xoaMem = async (req, res) => {
     }
 };
 
+// Bật/tắt trạng thái bán
+const toggleTrangThai = async (req, res) => {
+    try {
+        const result = await productsAdminService.toggleTrangThaiSanPham(req.params.id);
+        req.flash(result.ok ? 'success' : 'error', result.message || 'Không thể đổi trạng thái sản phẩm');
+        return res.redirect(req.get('Referrer') || (req.app.locals.admin + '/products'));
+    } catch (error) {
+        console.error('Toggle product status error:', error);
+        req.flash('error', 'Không thể đổi trạng thái sản phẩm');
+        return res.redirect(req.get('Referrer') || (req.app.locals.admin + '/products'));
+    }
+};
+
 module.exports = { 
     danhSach,
     taoMoi,
@@ -125,5 +138,6 @@ module.exports = {
     chinhSuaPost,
     xoaMem,
     khoiPhuc,
-    xoaVinhVien
+    xoaVinhVien,
+    toggleTrangThai
 };

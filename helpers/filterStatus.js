@@ -19,15 +19,24 @@ module.exports = (query) => {
             name: "Đã hết",
             status: "dahet",
             class: ""
+        },
+        {
+            name: "Sắp hết",
+            status: "saphethang",
+            class: ""
         }
     ];
 
     if (query.trangthai) {
         const index = loctrangthai.findIndex(item => item.status === query.trangthai);
-        loctrangthai[index].class = "active";
+        if (index >= 0) {
+            loctrangthai[index].class = "active";
+        }
     } else {
         const index = loctrangthai.findIndex(item => item.status === "");
-        loctrangthai[index].class = "active";
+        if (index >= 0) {
+            loctrangthai[index].class = "active";
+        }
     }
 
     return loctrangthai;

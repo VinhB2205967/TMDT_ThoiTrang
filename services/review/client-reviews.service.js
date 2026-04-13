@@ -6,7 +6,7 @@ const Chitietdonhang = require('../../models/order_item_model');
 const TAGS_NHANH = ['Đẹp', 'Đúng mô tả', 'Giao nhanh', 'Vải ok', 'Sai size'];
 const EDIT_WINDOW_DAYS = 7;
 const MAX_REVIEW_IMAGES = 5;
-const MAX_REVIEW_VIDEOS = 1;
+const MAX_REVIEW_VIDEOS = 3;
 const MAX_IMAGE_SIZE_MB = 20;
 const MAX_VIDEO_SIZE_MB = 100;
 

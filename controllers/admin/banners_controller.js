@@ -12,8 +12,8 @@ module.exports.danhSach = async (req, res) => {
     return res.render('admin/pages/home/banners.pug', {
       titlePage: 'Quản lý Banner',
       banners: result.data,
-      bannerTypes: result.meta.bannerTypes,
-      ctaLinkSuggestions: result.meta.ctaLinkSuggestions
+      ctaLinkSuggestions: result.meta.ctaLinkSuggestions,
+      ctaDestinationOptions: result.meta.ctaDestinationOptions
     });
   } catch (error) {
     console.error('banners.danhSach error:', error);

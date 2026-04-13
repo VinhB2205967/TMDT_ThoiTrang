@@ -413,6 +413,19 @@ block main
                         | Quay lại danh sách
 
 block scripts
+    if product
+        script.
+            window.AIChatRuntime = window.AIChatRuntime || {};
+            window.AIChatRuntime.currentProduct = {
+                id: !{JSON.stringify(String(product._id || ''))},
+                name: !{JSON.stringify(String(product.tensanpham || ''))},
+                url: !{JSON.stringify(product._id ? `/products/${product._id}` : '')},
+                imageUrl: !{JSON.stringify(String(product.hinhanh || '/images/shopping.png'))},
+                price: !{JSON.stringify(Number(product.giamoi || product.gia || 0))},
+                originalPrice: !{JSON.stringify(Number(product.gia || 0))},
+                productType: !{JSON.stringify(String(product.loaisanpham || ''))},
+                gender: !{JSON.stringify(String(product.gioitinh || ''))}
+            };
     if product && product.bienthe
         script.
             window.productVariants = !{JSON.stringify(product.bienthe)};

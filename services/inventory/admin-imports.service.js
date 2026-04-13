@@ -747,7 +747,7 @@ async function xoaPhieuNhap(id) {
   if (daPhatSinhXuat) {
     return {
       ok: false,
-      message: 'Không thể xóa phiếu nhập vì đã phát sinh xuất kho theo FIFO',
+      message: 'Không thể xóa phiếu nhập vì đã phát sinh xuất kho',
       receiptId: receiptDoc._id
     };
   }
@@ -856,7 +856,7 @@ async function xuatKhoPhieuNhap({ id, adminUser, user }) {
 
   return {
     ok: true,
-    message: 'Đã xác nhận nhập kho: đã cộng tồn và cập nhật giá theo FIFO',
+    message: 'Đã xác nhận nhập kho: đã cộng tồn',
     receiptId: receiptDoc._id
   };
 }

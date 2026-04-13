@@ -61,9 +61,9 @@ block main
                             span.form-check-label Xóa
 
               .mb-3
-                label.form-label.fw-semibold Video đánh giá (tối đa 1 video)
-                input#reviewVideoInput.form-control(type='file' name='videos' accept='video/*')
-                .form-text Video tối đa 100MB/file. Có thể xóa video cũ rồi chọn video mới.
+                label.form-label.fw-semibold Video đánh giá (tối đa 3 video)
+                input#reviewVideoInput.form-control(type='file' name='videos' accept='video/*' multiple)
+                .form-text Video tối đa 100MB/file. Có thể upload thêm hoặc xóa video cũ khi sửa.
                 if existingVideos.length
                   .mt-2
                     .small.fw-semibold.mb-2 Video hiện có
@@ -77,7 +77,7 @@ block main
               .mb-3
                 .fw-semibold.mb-2 File mới đã chọn
                 #selectedImagesPreview.d-flex.flex-wrap.gap-2
-                #selectedVideoPreview.mt-2
+                #selectedVideoPreview.d-flex.flex-wrap.gap-2.mt-2
 
               .mb-3
                 .card.bg-light.border-0
@@ -143,23 +143,32 @@ block main
 
       function renderSelectedVideo() {
         clearNode(selectedVideoPreview);
-        const file = videoInput && videoInput.files && videoInput.files[0] ? videoInput.files[0] : null;
-        if (!file) return;
-        const wrap = document.createElement('div');
-        wrap.style.maxWidth = '320px';
-        wrap.appendChild(buildVideoPlayer(file, true));
+        const files = Array.from((videoInput && videoInput.files) || []);
+        files.forEach((file, idx) => {
+          const wrap = document.createElement('div');
+          wrap.style.maxWidth = '320px';
+          wrap.appendChild(buildVideoPlayer(file, true));
 
-        const removeBtn = document.createElement('button');
-        removeBtn.type = 'button';
-        removeBtn.className = 'btn btn-sm btn-outline-danger mt-2';
-        removeBtn.textContent = 'Bỏ video đã chọn';
-        removeBtn.addEventListener('click', function () {
-          videoInput.value = '';
-          renderSelectedVideo();
-          renderPreviewBlock();
+          const removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.className = 'btn btn-sm btn-outline-danger mt-2';
+          removeBtn.textContent = 'Bỏ video này';
+          removeBtn.addEventListener('click', function () {
+            if (typeof DataTransfer === 'undefined' || !videoInput || !videoInput.files) {
+              videoInput.value = '';
+            } else {
+              const nextFiles = new DataTransfer();
+              files.forEach((f, fileIdx) => {
+                if (fileIdx !== idx) nextFiles.items.add(f);
+              });
+              videoInput.files = nextFiles.files;
+            }
+            renderSelectedVideo();
+            renderPreviewBlock();
+          });
+          wrap.appendChild(removeBtn);
+          selectedVideoPreview.appendChild(wrap);
         });
-        wrap.appendChild(removeBtn);
-        selectedVideoPreview.appendChild(wrap);
       }
 
       function getSelectedRating() {
@@ -179,13 +188,13 @@ block main
         images.forEach((f) => previewImagesGrid.appendChild(buildImageThumb(f, true)));
 
         clearNode(previewVideoBox);
-        const video = videoInput && videoInput.files && videoInput.files[0] ? videoInput.files[0] : null;
-        if (video) {
+        const videos = Array.from((videoInput && videoInput.files) || []);
+        videos.forEach((video) => {
           const wrap = document.createElement('div');
           wrap.style.maxWidth = '320px';
           wrap.appendChild(buildVideoPlayer(video, true));
           previewVideoBox.appendChild(wrap);
-        }
+        });
       }
 
       if (imageInput) {

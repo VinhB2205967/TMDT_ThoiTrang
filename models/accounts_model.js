@@ -38,7 +38,7 @@ const accountSchema = new mongoose.Schema({
 		type: Boolean,
 		default: false
 	},
-	tokenxacthuc: String,
+	tokenxacthuc: String, 
 	tokenquenmatkhau: String,
 	thoigianhethan: Date,
 	ngaytao: {

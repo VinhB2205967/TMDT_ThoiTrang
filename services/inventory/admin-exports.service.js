@@ -3,7 +3,7 @@ const Chitietdonhang = require('../../models/order_item_model');
 const Sanpham = require('../../models/product_model');
 const PhieuXuatKho = require('../../models/export_receipt_model');
 const { SIZE_LIST } = require('../../config/constants');
-const { tinhTongTon } = require('../../services/catalog/productStock.service.js');
+const { tinhTongTon, layBienTheVaTon } = require('../../services/catalog/productStock.service.js');
 const { chuanIdNhanVienHienThi } = require('../../helpers/user-display-id');
 const {
   tinhTongSoLieu,
@@ -117,6 +117,16 @@ function normalizeBienTheId(raw) {
   return v;
 }
 
+function formatStockErrorMessage({ item, productDoc, stockInfo, requested, lineNo }) {
+  const tenSanPham = String(item?.tensanpham || productDoc?.tensanpham || 'San pham').trim();
+  const coSize = Boolean(stockInfo?.hasSize);
+  const sizeText = coSize && item?.kichco ? ` - size ${item.kichco}` : '';
+  const colorRaw = String(item?.mausac || stockInfo?.mausac || '').trim();
+  const colorText = colorRaw ? ` - mau ${colorRaw}` : '';
+  const ton = Number(stockInfo?.stock || 0);
+  return `Dong ${lineNo}: ${tenSanPham}${colorText}${sizeText} chỉ còn ${ton}, không thể xuất ${requested}.`;
+}
+
 async function findExportByIdOrCode(idOrCode) {
   const raw = String(idOrCode || '').trim();
   if (!raw) return null;
@@ -214,9 +224,60 @@ async function taoPhieuXuat({ body = {}, adminUser = null, user = null }) {
 
   const productIds = Array.from(new Set(normalizedItems.map((it) => String(it.sanphamid)).filter((id) => mongoose.Types.ObjectId.isValid(id))));
   const costMap = await taoBanDoGiaVonTrungBinhTheoSanPham(productIds);
+  const productDocs = await Sanpham.find({ _id: { $in: productIds } });
+  const productMap = new Map(productDocs.map((doc) => [String(doc._id), doc]));
+
+  const requestedQtyMap = new Map();
+  for (let idx = 0; idx < normalizedItems.length; idx += 1) {
+    const it = normalizedItems[idx];
+    const lineNo = idx + 1;
+    const productDoc = productMap.get(String(it.sanphamid));
+    if (!productDoc) {
+      return { ok: false, status: 404, message: 'Sản phẩm không tồn tại', code: 'PRODUCT_NOT_FOUND' };
+    }
+
+    const variantId = it.bientheid ? String(it.bientheid) : null;
+    const stockInfo = layBienTheVaTon(productDoc, variantId || 'main', it.kichco);
+    if (stockInfo?.error) {
+      return {
+        ok: false,
+        status: 400,
+        message: `Dong ${lineNo}: ${stockInfo.error}`,
+        code: 'INVALID_VARIANT'
+      };
+    }
+
+    if (stockInfo?.hasSize && !String(it.kichco || '').trim()) {
+      return {
+        ok: false,
+        status: 400,
+        message: `Dong ${lineNo}: Vui lòng chọn size trước khi xuất kho`,
+        code: 'MISSING_SIZE'
+      };
+    }
+
+    const lineKey = buildLineKey({
+      sanphamid: it.sanphamid,
+      bientheid: variantId,
+      kichco: it.kichco
+    });
+    const daNhap = Number(requestedQtyMap.get(lineKey) || 0);
+    const requested = daNhap + Number(it.soluong || 0);
+    const available = Math.max(0, Number(stockInfo?.stock || 0));
+
+    if (requested > available) {
+      return {
+        ok: false,
+        status: 400,
+        message: formatStockErrorMessage({ item: it, productDoc, stockInfo, requested, lineNo }),
+        code: 'QTY_EXCEED_STOCK'
+      };
+    }
+    requestedQtyMap.set(lineKey, requested);
+  }
 
   for (const it of normalizedItems) {
-    const productDoc = await Sanpham.findById(it.sanphamid);
+    const productDoc = productMap.get(String(it.sanphamid));
     if (!productDoc) return { ok: false, status: 404, message: 'Sản phẩm không tồn tại', code: 'PRODUCT_NOT_FOUND' };
 
     const variantId = it.bientheid ? String(it.bientheid) : null;

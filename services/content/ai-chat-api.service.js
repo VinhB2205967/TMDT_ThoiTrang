@@ -69,6 +69,14 @@ const BRAND_QUERY_NOISE_TERMS = new Set([
   'so', 'mot', 'vai', 'nhieu', 'it', 'cac', 'nhung', 'thuong', 'hieu', 'brand'
 ]);
 
+const SPECIFIC_PRODUCT_QUERY_STOPWORDS = new Set([
+  'tim', 'xem', 'cho', 'toi', 'minh', 'em', 'anh', 'chi', 'goi', 'y',
+  'de', 'xuat', 'mua', 'muon', 'lay', 'can', 'shop', 'san', 'pham',
+  'gia', 'bao', 'nhieu', 'tien', 'la', 'co', 'khong', 'hay', 'nhe',
+  'ao', 'quan', 'vay', 'dam', 'giay', 'tui', 'phukien', 'thoi', 'trang',
+  'nam', 'nu', 'unisex'
+]);
+
 function normalizeMessage(input) {
   return String(input || '').trim();
 }
@@ -104,6 +112,84 @@ function normalizeClientImageProducts(rawProducts) {
     })
     .filter(Boolean)
     .slice(0, 6);
+}
+
+function normalizeClientCurrentProduct(rawProduct) {
+  const source = rawProduct && typeof rawProduct === 'object' ? rawProduct : {};
+  const id = normalizeMessage(source.id || source._id);
+  const name = normalizeMessage(source.tensanpham || source.name);
+  const url = normalizeMessage(source.url || (id ? `/products/${id}` : ''));
+  const imageUrl = normalizeMessage(source.imageUrl || source.image || '/images/shopping.png');
+  const salePrice = Number(source.giaSauGiam || source.price || source.gia || 0);
+  const originalPrice = Number(source.gia || source.originalPrice || salePrice || 0);
+  const productType = normalizeMessage(source.loaisanpham || source.productType);
+  const gender = normalizeMessage(source.gioitinh || source.gender);
+
+  if (!id && !name && !url) return null;
+
+  return {
+    id,
+    tensanpham: name || 'San pham',
+    url,
+    imageUrl,
+    gia: originalPrice > 0 ? originalPrice : salePrice,
+    giaSauGiam: salePrice > 0 ? salePrice : originalPrice,
+    loaisanpham: productType,
+    gioitinh: gender
+  };
+}
+
+function normalizePageContext(rawPageContext) {
+  const source = rawPageContext && typeof rawPageContext === 'object' ? rawPageContext : {};
+  return {
+    path: normalizeMessage(source.path).slice(0, 240),
+    currentProduct: normalizeClientCurrentProduct(source.currentProduct)
+  };
+}
+
+function mergePageProductIntoContext(context, pageContext) {
+  if (!context || !pageContext || !pageContext.currentProduct) return context;
+
+  const pageProduct = pageContext.currentProduct;
+  const existingProducts = Array.isArray(context.products) ? context.products : [];
+  const mergedProducts = [];
+  const seen = new Set();
+
+  const pushUnique = (item) => {
+    if (!item || typeof item !== 'object') return;
+    const key = [
+      normalizeMessage(item.id || item._id).toLowerCase(),
+      normalizeMessage(item.url).toLowerCase(),
+      normalizeMessage(item.tensanpham || item.name).toLowerCase()
+    ].find(Boolean);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    mergedProducts.push(item);
+  };
+
+  pushUnique(pageProduct);
+  existingProducts.forEach(pushUnique);
+
+  context.products = mergedProducts.slice(0, 8);
+  context.pageContext = {
+    path: normalizeMessage(pageContext.path),
+    currentProductId: normalizeMessage(pageProduct.id || pageProduct._id),
+    hasCurrentProduct: true
+  };
+
+  return context;
+}
+
+function isPriceLookupQuestionText(question) {
+  const q = normalizeForCompare(question);
+  if (!q) return false;
+  return /\bgia\b|\bbao nhieu\b|\bmay tien\b|\bmuc gia\b/.test(q);
+}
+
+function isCurrentProductReferenceQuestion(question) {
+  const q = normalizeForCompare(question);
+  if (!q) return false;
+  return /\b(san pham|sp|mau|item|doi|giay|ao|quan|vay|dam|tui)\s+nay\b/.test(q);
 }
 
 function mergeImageProductsIntoContext(context, imageProducts, imageMeta, question) {
@@ -221,6 +307,57 @@ function extractQuickSearchTerms(question) {
     .filter((item) => item.length >= 2 && !QUICK_KNOWLEDGE_STOPWORDS.has(item));
 
   return Array.from(new Set(tokens)).slice(0, 8);
+}
+
+function extractSpecificProductQueryTerms(question) {
+  const normalized = normalizeForCompare(question);
+  if (!normalized) return [];
+
+  return Array.from(new Set(
+    normalized
+      .split(/\s+/)
+      .map((item) => item.trim())
+      .filter((item) => item.length >= 3 && !SPECIFIC_PRODUCT_QUERY_STOPWORDS.has(item))
+  )).slice(0, 6);
+}
+
+function hasSpecificProductNameIntent(question) {
+  const terms = extractSpecificProductQueryTerms(question);
+  return terms.length > 0;
+}
+
+function rankProductsBySpecificTerms(products, question) {
+  const list = Array.isArray(products) ? products : [];
+  if (list.length <= 1) return list;
+
+  const terms = extractSpecificProductQueryTerms(question);
+  if (!terms.length) return list;
+
+  const questionNorm = normalizeForCompare(question);
+  const ranked = list
+    .map((item, index) => {
+      const name = normalizeForCompare(item && (item.tensanpham || item.name));
+      if (!name) {
+        return { item, index, score: -1 };
+      }
+
+      const matchedCount = terms.filter((term) => name.includes(term)).length;
+      const allMatched = matchedCount === terms.length;
+      let score = matchedCount * 20;
+
+      if (allMatched) score += 80;
+      if (questionNorm.includes(name)) score += 120;
+      if (name.includes(questionNorm) && questionNorm.length >= 5) score += 80;
+
+      return { item, index, score };
+    })
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.index - b.index;
+    })
+    .map((entry) => entry.item);
+
+  return ranked;
 }
 
 function hasAnyQuickSearchTerm(text, terms) {
@@ -822,8 +959,10 @@ function isPriceListingQuestion(question, priceConstraint) {
   return shouldSuggestProducts(question);
 }
 
-function buildPriceListUrlFromConstraint(constraint) {
+function buildPriceListUrlFromConstraint(constraint, extraFilters = {}) {
   const filters = {};
+  if (extraFilters && extraFilters.loaisanpham) filters.loaisanpham = String(extraFilters.loaisanpham).trim();
+  if (extraFilters && extraFilters.gioitinh) filters.gioitinh = String(extraFilters.gioitinh).trim();
   if (Number.isFinite(constraint && constraint.min)) filters.priceMin = String(constraint.min);
   if (Number.isFinite(constraint && constraint.max)) filters.priceMax = String(constraint.max);
   return buildProductsUrl(filters);
@@ -846,7 +985,10 @@ function toSuggestedCard(item) {
   };
 }
 
-async function getQuickProductsByPriceConstraint(priceConstraint) {
+async function getQuickProductsByPriceConstraint(question, priceConstraint) {
+  const typeMatch = inferProductType(question);
+  const genderMatch = inferGender(question);
+
   const baseFilter = {
     daxoa: { $ne: true },
     trangthai: { $in: ['active', 'dangban'] }
@@ -882,20 +1024,27 @@ async function getQuickProductsByPriceConstraint(priceConstraint) {
       tensanpham: String(item && item.tensanpham || 'Sản phẩm'),
       imageUrl: String(item && item.hinhanh || '/images/shopping.png'),
       url: item && item._id ? `/products/${item._id}` : '',
+      loaisanpham: String(item && item.loaisanpham || ''),
+      gioitinh: String(item && item.gioitinh || ''),
       gia: basePrice,
       giaSauGiam: finalPrice > 0 ? finalPrice : currentPrice
     };
   });
 
-  const filtered = mapped.filter((item) => matchPriceConstraint(item.giaSauGiam || item.gia, priceConstraint));
+  const filtered = mapped.filter((item) => {
+    if (!matchPriceConstraint(item.giaSauGiam || item.gia, priceConstraint)) return false;
+    if (typeMatch && !productMatchesRequestedType(item, typeMatch.value)) return false;
+    if (genderMatch && !productMatchesRequestedGender(item, genderMatch.value)) return false;
+    return true;
+  });
   return filtered.slice(0, 8);
 }
 
-function buildQuickPriceListingAnswer(products, priceConstraint) {
+function buildQuickPriceListingAnswer(products, priceConstraint, extraFilters = {}) {
   const items = Array.isArray(products) ? products.slice(0, 6) : [];
   if (!items.length) return '';
 
-  const listUrl = buildPriceListUrlFromConstraint(priceConstraint);
+  const listUrl = buildPriceListUrlFromConstraint(priceConstraint, extraFilters);
   const lines = ['Mình tìm nhanh được một số sản phẩm phù hợp tầm giá của bạn:'];
   items.forEach((item, index) => {
     const price = Number(item && (item.giaSauGiam || item.gia) || 0);
@@ -932,6 +1081,7 @@ function isFacetListingQuestion(question) {
   if (/\bdon hang|ma don|voucher|bang size|size guide\b/.test(q)) return false;
   if (/gia cua|gia ban cua|bao nhieu tien cua/.test(q)) return false;
   if (/\blookbook\b|\bblog\b|\bbai viet\b|\btin tuc\b/.test(q)) return false;
+  if (hasSpecificProductNameIntent(question)) return false;
 
   return Boolean(
     inferProductType(question)
@@ -1847,7 +1997,13 @@ function buildAvailableProductsAnswer(context, question) {
     : (Array.isArray(context && context.topSelling) ? context.topSelling : []);
   if (!products.length) return '';
 
-  const picked = products.slice(0, 3);
+  const requestedType = inferProductType(question);
+  const filteredProducts = requestedType
+    ? products.filter((item) => productMatchesRequestedType(item, requestedType.value))
+    : products;
+  if (!filteredProducts.length) return '';
+
+  const picked = rankProductsBySpecificTerms(filteredProducts, question).slice(0, 3);
   const lines = [
     'Shop hiện có sản phẩm phù hợp với nhu cầu bạn hỏi. Bạn tham khảo nhanh:'
   ];
@@ -1877,7 +2033,8 @@ function sanitizeBadLinksInAnswer(answer) {
     .replace(/-?\s*(?:https?:\/\/)?(?:www\.)?(?:website|example\.com|localhost(?::\d+)?)\/(new|best-selling|san-pham|sanpham|products?)\b/gi, '/products')
     .replace(/\((?:https?:\/\/)?(?:www\.)?ban-thoi-trang\.com\/[^\)]*\)/gi, '(/products)')
     .replace(/\b(?:https?:\/\/)?(?:www\.)?ban-thoi-trang\.com\/[^\s)]*/gi, '/products')
-    .replace(/\b(?:https?:\/\/)?(?:www\.)?(?:website|example\.com|localhost(?::\d+)?)\/[^\s)]*/gi, '/products');
+    .replace(/\b(?:https?:\/\/)?(?:www\.)?(?:website|example\.com|localhost(?::\d+)?)\/[^\s)]*/gi, '/products')
+    .replace(/\/(?:top\s*selling|topselling|topseling)\b/gi, '/products');
 
   // Never expose random external links in the client chat bubble.
   text = text.replace(/\bhttps?:\/\/[^\s)]+/gi, '');
@@ -1974,6 +2131,47 @@ function productMatchesGroup(product, group) {
   return false;
 }
 
+function productMatchesRequestedType(product, requestedType) {
+  const type = String(requestedType || '').trim().toLowerCase();
+  if (!type) return true;
+
+  const loai = normalizeForCompare(product && (product.loaisanpham || product.productType || product.type));
+  const text = normalizeForCompare(
+    `${product && (product.tensanpham || product.name) ? (product.tensanpham || product.name) : ''} ${product && product.url ? product.url : ''}`
+  );
+
+  const has = (...patterns) => patterns.some((pattern) => pattern.test(loai) || pattern.test(text));
+
+  if (type === 'aokhoac') return has(/aokhoac/, /ao khoac/, /jacket/, /blazer/, /coat/, /outerwear/);
+  if (type === 'ao') return has(/\bao\b/, /ao thun/, /shirt/, /tee/, /polo/, /hoodie/, /so mi/);
+  if (type === 'quan') return has(/\bquan\b/, /jean/, /short/, /jogger/, /trouser/, /pants?/);
+  if (type === 'vay') return has(/\bvay\b/, /dam/, /dress/, /skirt/);
+  if (type === 'giay') return has(/\bgiay\b/, /sneaker/, /shoe/, /sandal/, /boot/);
+  if (type === 'tui') return has(/\btui\b/, /tui xach/, /bag/, /handbag/);
+  if (type === 'phukien') return has(/phu kien/, /accessor/, /that lung/, /mu/, /non/, /hat/, /cap/, /scarf/);
+
+  return true;
+}
+
+function productMatchesRequestedGender(product, requestedGender) {
+  const gender = String(requestedGender || '').trim().toLowerCase();
+  if (!gender) return true;
+
+  const productGender = normalizeForCompare(product && (product.gioitinh || product.gender));
+  if (!productGender) return false;
+
+  if (gender === 'unisex') return /unisex/.test(productGender);
+  if (gender === 'nam') return /\bnam\b|unisex/.test(productGender);
+  if (gender === 'nu') return /\bnu\b|unisex/.test(productGender);
+  return true;
+}
+
+function shouldBlendTopSellingForQuestion(questionText) {
+  const q = normalizeForCompare(questionText);
+  if (!q) return false;
+  return /\b(goi y|de xuat|tu van|ban chay|noi bat|xu huong|xem san pham|tim san pham|mau nao)\b/.test(q);
+}
+
 function toSuggestedProducts(context, answerText, questionText) {
   const byId = new Map();
 
@@ -1989,6 +2187,7 @@ function toSuggestedProducts(context, answerText, questionText) {
       name: String(item.tensanpham || 'Sản phẩm'),
       url: String(item.url || `/products/${id}`),
       imageUrl: String(item.imageUrl || '/images/shopping.png'),
+      productType: String(item.loaisanpham || '').trim(),
       price: finalPrice,
       originalPrice,
       hasDiscount,
@@ -1997,9 +2196,14 @@ function toSuggestedProducts(context, answerText, questionText) {
     });
   };
 
-  // Suggest from both contextual search results and top-selling products.
-  (Array.isArray(context.products) ? context.products : []).forEach(push);
-  (Array.isArray(context.topSelling) ? context.topSelling : []).forEach(push);
+  const contextProducts = Array.isArray(context && context.products) ? context.products : [];
+  const includeTopSelling = contextProducts.length === 0 || shouldBlendTopSellingForQuestion(questionText);
+
+  // Prefer products already matched by question/context first.
+  contextProducts.forEach(push);
+  if (includeTopSelling) {
+    (Array.isArray(context && context.topSelling) ? context.topSelling : []).forEach(push);
+  }
   (Array.isArray(context.lookbooks) ? context.lookbooks : []).forEach((lookbook) => {
     (Array.isArray(lookbook && lookbook.products) ? lookbook.products : []).forEach(push);
   });
@@ -2025,10 +2229,17 @@ function toSuggestedProducts(context, answerText, questionText) {
   });
 
   const baseList = matched.length > 0 ? matched : candidates;
+  const requestedType = inferProductType(questionText);
+  const typedList = requestedType
+    ? baseList.filter((item) => productMatchesRequestedType(item, requestedType.value))
+    : baseList;
+  const effectiveList = typedList.length > 0 ? typedList : (requestedType ? [] : baseList);
+
+  const rankedEffectiveList = rankProductsBySpecificTerms(effectiveList, questionText);
 
   const requestedGroups = detectRequestedGroups(questionText);
   if (requestedGroups.length === 0) {
-    return baseList.slice(0, 4);
+    return rankedEffectiveList.slice(0, 4);
   }
 
   const selected = [];
@@ -2043,11 +2254,11 @@ function toSuggestedProducts(context, answerText, questionText) {
 
   // Ensure each requested outfit group has at least one representative if available.
   requestedGroups.forEach((group) => {
-    const first = baseList.find((item) => productMatchesGroup(item, group));
+    const first = rankedEffectiveList.find((item) => productMatchesGroup(item, group));
     take(first);
   });
 
-  baseList.forEach(take);
+  rankedEffectiveList.forEach(take);
   return selected.slice(0, 4);
 }
 
@@ -2129,6 +2340,8 @@ module.exports.sendMessage = async (req, res) => {
     const model = normalizeMessage(req.body && req.body.model);
     const imageProducts = normalizeClientImageProducts(req.body && req.body.imageProducts);
     const imageMeta = req.body && typeof req.body.imageMeta === 'object' ? req.body.imageMeta : null;
+    const pageContext = normalizePageContext(req.body && req.body.pageContext);
+    const pageCurrentProduct = pageContext && pageContext.currentProduct ? pageContext.currentProduct : null;
 
     if (!question) {
       return res.status(400).json({ success: false, message: 'Vui lòng nhập câu hỏi' });
@@ -2161,6 +2374,39 @@ module.exports.sendMessage = async (req, res) => {
             myOrders: 0,
             myVouchers: 0
           }
+        }
+      });
+    }
+
+    const hasSpecificLookupTerms = extractSpecificProductQueryTerms(question).length > 0;
+    if (
+      pageCurrentProduct
+      && isPriceLookupQuestionText(question)
+      && (isCurrentProductReferenceQuestion(question) || !hasSpecificLookupTerms)
+    ) {
+      const productUrl = normalizeMessage(
+        pageCurrentProduct.url
+        || (pageCurrentProduct.id ? `/products/${pageCurrentProduct.id}` : '/products')
+      );
+      const hasFlashSale = Number(pageCurrentProduct.giaSauGiam || 0) > 0
+        && Number(pageCurrentProduct.gia || 0) > Number(pageCurrentProduct.giaSauGiam || 0);
+
+      return res.json({
+        success: true,
+        data: {
+          answer: buildDirectPriceAnswer(pageCurrentProduct),
+          model: 'page-context',
+          provider: 'system',
+          suggestedProducts: [toSuggestedCard(pageCurrentProduct)],
+          suggestedActions: [{
+            label: 'Xem san pham',
+            url: productUrl || '/products',
+            kind: 'primary'
+          }],
+          contextMeta: buildQuickContextMeta({
+            products: 1,
+            hasFlashSale
+          })
         }
       });
     }
@@ -2295,13 +2541,19 @@ module.exports.sendMessage = async (req, res) => {
       }
     }
     if (isPriceListingQuestion(question, priceConstraint)) {
-      const quickProducts = await getQuickProductsByPriceConstraint(priceConstraint);
+      const typeMatch = inferProductType(question);
+      const genderMatch = inferGender(question);
+      const priceFilters = {
+        ...(typeMatch && typeMatch.value ? { loaisanpham: typeMatch.value } : {}),
+        ...(genderMatch && genderMatch.value ? { gioitinh: genderMatch.value } : {})
+      };
+      const quickProducts = await getQuickProductsByPriceConstraint(question, priceConstraint);
       if (quickProducts.length > 0) {
-        const listUrl = buildPriceListUrlFromConstraint(priceConstraint);
+        const listUrl = buildPriceListUrlFromConstraint(priceConstraint, priceFilters);
         return res.json({
           success: true,
           data: {
-            answer: buildQuickPriceListingAnswer(quickProducts, priceConstraint),
+            answer: buildQuickPriceListingAnswer(quickProducts, priceConstraint, priceFilters),
             model: 'db-fast-path',
             provider: 'system',
             suggestedProducts: quickProducts.map(toSuggestedCard),
@@ -2338,6 +2590,7 @@ module.exports.sendMessage = async (req, res) => {
     });
 
     mergeImageProductsIntoContext(context, imageProducts, imageMeta, question);
+    mergePageProductIntoContext(context, pageContext);
 
     if (priceConstraint) {
       context.products = applyPriceConstraintToProducts(context.products, priceConstraint).slice(0, 6);
@@ -2568,7 +2821,7 @@ module.exports.sendMessage = async (req, res) => {
     if (msg.toLowerCase().includes('developer instruction is not enabled')) {
       return res.status(503).json({
         success: false,
-        message: 'Model Gemini hiện tại chưa được bật cho API key này. Hệ thống sẽ ưu tiên dùng gemini-2.5-flash nếu có thể.'
+        message: 'Model Gemini hiện tại chưa được bật cho API key này. Hệ thống sẽ ưu tiên dùng gemini-2.0-flash nếu có thể.'
       });
     }
 

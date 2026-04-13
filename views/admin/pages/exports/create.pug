@@ -130,6 +130,25 @@ block scripts
         return t === 'tui' || t === 'phukien';
       }
 
+      function stockAt(product, variantId, size) {
+        if (!product) return 0;
+
+        const noSize = noSizeType(product.loaisanpham);
+        const isMain = !variantId || variantId === 'main';
+
+        if (isMain) {
+          if (noSize) return Math.max(0, Number(product.soluong_chinh || 0));
+          const row = (product.sizes || []).find((s) => String(s?.size || '') === String(size || ''));
+          return Math.max(0, Number(row?.soluong || 0));
+        }
+
+        const variant = (product.bienthe || []).find((v) => String(v._id) === String(variantId));
+        if (!variant) return 0;
+        if (noSize) return Math.max(0, Number(variant.soluong || 0));
+        const row = (variant.sizes || []).find((s) => String(s?.size || '') === String(size || ''));
+        return Math.max(0, Number(row?.soluong || 0));
+      }
+
       function renumber() {
         Array.from(tbody.querySelectorAll('tr')).forEach((tr, idx) => {
           tr.querySelectorAll('[data-field]').forEach((el) => {
@@ -149,7 +168,10 @@ block scripts
           <td style="min-width:170px"><select class="form-select form-select-sm js-variant" data-field="bientheid"><option value="main">Mặc định</option></select></td>
           <td style="min-width:110px"><select class="form-select form-select-sm js-size" data-field="kichco">${optSizes('')}</select></td>
           <td style="min-width:130px"><input class="form-control form-control-sm js-color" data-field="mausac" placeholder="Màu" /></td>
-          <td style="min-width:100px"><input class="form-control form-control-sm" data-field="soluong" type="number" min="1" value="1" required /></td>
+          <td style="min-width:130px">
+            <div class="small fw-semibold text-primary js-stock mb-1">Tồn: --</div>
+            <input class="form-control form-control-sm js-qty" data-field="soluong" type="number" min="1" value="1" required />
+          </td>
           <td style="min-width:90px" class="text-center">
             <img class="js-preview" src="" style="width:44px;height:44px;object-fit:cover;border-radius:6px;display:none" />
             <input type="hidden" class="js-image" data-field="hinhanh" />
@@ -162,9 +184,54 @@ block scripts
         const variantEl = tr.querySelector('.js-variant');
         const sizeEl = tr.querySelector('.js-size');
         const colorEl = tr.querySelector('.js-color');
+        const qtyEl = tr.querySelector('.js-qty');
+        const stockEl = tr.querySelector('.js-stock');
         const nameEl = tr.querySelector('.js-product-name');
         const imageEl = tr.querySelector('.js-image');
         const previewEl = tr.querySelector('.js-preview');
+
+        function clampQtyToStock() {
+          const stock = Math.max(0, Number(qtyEl.dataset.stock || 0));
+          if (stock <= 0) return;
+          let qty = Number(qtyEl.value || 0);
+          if (!Number.isFinite(qty) || qty <= 0) qty = 1;
+          if (qty > stock) qty = stock;
+          qtyEl.value = String(qty);
+          qtyEl.setCustomValidity('');
+        }
+
+        function refreshStock() {
+          const p = map.get(String(productEl.value));
+          const vid = variantEl.value || 'main';
+          const noSize = noSizeType(p?.loaisanpham);
+          const size = String(sizeEl.value || '').trim();
+
+          if (!p) {
+            stockEl.textContent = 'Tồn: --';
+            qtyEl.dataset.stock = '0';
+            qtyEl.setCustomValidity('');
+            return;
+          }
+
+          if (!noSize && !size) {
+            stockEl.textContent = 'Tồn: chọn size';
+            qtyEl.dataset.stock = '0';
+            qtyEl.setCustomValidity('Vui lòng chọn size');
+            return;
+          }
+
+          const stock = stockAt(p, vid, size);
+          stockEl.textContent = `Tồn: ${stock}`;
+          qtyEl.dataset.stock = String(stock);
+          qtyEl.max = String(stock);
+          if (stock <= 0) {
+            qtyEl.value = '0';
+            qtyEl.setCustomValidity('Sản phẩm đã hết tồn kho');
+            return;
+          }
+
+          clampQtyToStock();
+        }
 
         function refreshFromProduct() {
           const p = map.get(String(productEl.value));
@@ -178,6 +245,7 @@ block scripts
           const img = productImage(p, 'main');
           imageEl.value = img;
           setPreview(previewEl, img);
+          refreshStock();
         }
 
         function refreshFromVariant() {
@@ -193,10 +261,13 @@ block scripts
           const img = productImage(p, vid);
           imageEl.value = img;
           setPreview(previewEl, img);
+          refreshStock();
         }
 
         productEl.addEventListener('change', refreshFromProduct);
         variantEl.addEventListener('change', refreshFromVariant);
+        sizeEl.addEventListener('change', refreshStock);
+        qtyEl.addEventListener('input', clampQtyToStock);
         tr.querySelector('.js-remove')?.addEventListener('click', () => {
           tr.remove();
           renumber();

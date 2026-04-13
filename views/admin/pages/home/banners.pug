@@ -23,14 +23,12 @@ block main
               input.form-control(type="text" name="nut_text")
             .col-12.col-md-5
               label.form-label Link CTA
-              input.form-control(type="text" name="nut_link" list="ctaLinkSuggestions" placeholder="Chọn link có sẵn hoặc nhập link tự do")
-              .form-text Có thể chọn nhanh link nội bộ hoặc nhập URL bất kỳ.
-            .col-12.col-md-2
-              label.form-label Loại
-              select.form-select(name="loai")
-                each t in bannerTypes
-                  option(value=t)= t
-            .col-12.col-md-2
+              select.form-select(name="nut_link")
+                option(value="") Chọn nơi chuyển đến
+                each destination in (ctaDestinationOptions || [])
+                  option(value=destination.url)= destination.label
+              .form-text Chọn nhanh trang đích.
+            .col-12.col-md-3
               label.form-label Thứ tự
               input.form-control(type="number" name="thuTu" value="0" min="0")
             .col-12
@@ -47,7 +45,6 @@ block main
             tr
               th Tiêu đề
               th Hình ảnh
-              th Loại
               th Thứ tự
               th Hiển thị
               th Hành động
@@ -59,15 +56,17 @@ block main
                     input.form-control.form-control-sm(type="text" name="tieude" value=banner.tieude)
                     input.form-control.form-control-sm.mt-2(type="text" name="mota" value=banner.mota)
                     input.form-control.form-control-sm.mt-2(type="text" name="nut_text" value=banner.nut_text placeholder="CTA text")
-                    input.form-control.form-control-sm.mt-2(type="text" name="nut_link" value=banner.nut_link placeholder="CTA link" list="ctaLinkSuggestions")
+                    - const hasPresetDestination = (ctaDestinationOptions || []).some((destination) => destination && destination.url === banner.nut_link)
+                    select.form-select.form-select-sm.mt-2(name="nut_link")
+                      option(value="") Chọn nơi chuyển đến
+                      each destination in (ctaDestinationOptions || [])
+                        option(value=destination.url selected=banner.nut_link === destination.url)= destination.label
+                      if banner.nut_link && !hasPresetDestination
+                        option(value=banner.nut_link selected=true)= `Link cũ: ${banner.nut_link}`
                   td
                     if banner.hinhanh
                       img.img-thumbnail.mb-2(style="max-width:120px" src=banner.hinhanh alt=banner.tieude)
                     input.form-control.form-control-sm(type="file" name="image" accept="image/*")
-                  td
-                    select.form-select.form-select-sm(name="loai")
-                      each t in bannerTypes
-                        option(value=t selected=banner.loai === t)= t
                   td
                     input.form-control.form-control-sm(type="number" name="thuTu" value=banner.thuTu min="0")
                   td
@@ -79,11 +78,7 @@ block main
                       button.btn.btn-sm.btn-outline-danger(type="button" data-action="delete") Xóa
             else
               tr
-                td(colspan="6").text-muted Chưa có banner.
-
-    datalist#ctaLinkSuggestions
-      each link in (ctaLinkSuggestions || [])
-        option(value=link)
+                td(colspan="5").text-muted Chưa có banner.
 
 block scripts
   script(src="/admin/js/home-banners.js")

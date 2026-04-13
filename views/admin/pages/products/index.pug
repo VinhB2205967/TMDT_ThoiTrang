@@ -4,6 +4,7 @@ include ../../mixins/search.pug
 include ../../mixins/page.pug
 block main
     - const currentFilter = filterStatus;
+    - const lowStockThresholdVal = Number(lowStockThreshold || 10);
     .page-header-section.orders-header.products-header
         .d-flex.justify-content-between.align-items-center.flex-wrap.gap-2.products-header-row
             h1.page-title.mb-0
@@ -169,6 +170,7 @@ block main
                             - const __noSizeTypes = ['tui','phukien'];
                             - const __isNoSize = __noSizeTypes.includes(String(product.loaisanpham || '').toLowerCase());
                             - const __tonChinh = __isNoSize ? (product.soluong_chinh || 0) : ((product.sizes || []).reduce((sum, s) => sum + Number(s?.soluong || 0), 0));
+                            - const laSapHet = tonKho > 0 && tonKho <= lowStockThresholdVal;
                             tr
                                 td.text-muted #{idx + 1}
                                 td
@@ -190,6 +192,8 @@ block main
                                 td
                                     if tonKho > 0
                                         span.fw-semibold #{tonKho}
+                                        if laSapHet
+                                            span.badge.bg-warning.text-dark.rounded-pill.ms-1 Sắp hết
                                         small.text-muted.d-block Chính: #{__tonChinh}
                                     else
                                         span.badge.bg-secondary.rounded-pill Hết
@@ -206,6 +210,14 @@ block main
                                     .btn-group.btn-group-sm
                                         a.btn.btn-outline-warning(href=`${admin}/products/${product._id}/edit`, title="Sửa")
                                             i.bi.bi-pencil
+                                        if !product.daxoa
+                                            form(method="POST" action=`${admin}/products/${product._id}/toggle-status` onsubmit=isActive ? "return confirm('Chuyển sản phẩm này sang Ngừng bán?')" : "return confirm('Bật bán lại sản phẩm này?')")
+                                                if isActive
+                                                    button.btn.btn-outline-secondary(type="submit" title="Ngừng bán")
+                                                        i.bi.bi-pause-fill
+                                                else
+                                                    button.btn.btn-outline-success(type="submit" title="Bật bán")
+                                                        i.bi.bi-play-fill
                                         if product.daxoa
                                             form(method="POST" action=`${admin}/products/${product._id}/restore` onsubmit="return confirm('Khôi phục sản phẩm này?')")
                                                 button.btn.btn-outline-success(type="submit" title="Khôi phục")
@@ -230,6 +242,7 @@ block main
                                     - const vImg = v.hinhanh || imgSrc;
                                     - const vTon = __isNoSize ? (v.soluong || 0) : ((v.sizes || []).reduce((sum, s) => sum + Number(s.soluong || 0), 0));
                                     - const vTitle = `${product.tensanpham || '—'} - ${v.mausac || 'Biến thể'}`;
+                                    - const vLaSapHet = vTon > 0 && vTon <= lowStockThresholdVal;
                                     tr.table-light
                                         td.text-muted #{idx + 1}.#{vIdx + 1}
                                         td
@@ -251,6 +264,8 @@ block main
                                         td
                                             if vTon > 0
                                                 span.fw-semibold #{vTon}
+                                                if vLaSapHet
+                                                    span.badge.bg-warning.text-dark.rounded-pill.ms-1 Sắp hết
                                             else
                                                 span.badge.bg-secondary.rounded-pill Hết
                                         td
@@ -266,6 +281,14 @@ block main
                                             .btn-group.btn-group-sm
                                                 a.btn.btn-outline-warning(href=`${admin}/products/${product._id}/edit`, title="Sửa")
                                                     i.bi.bi-pencil
+                                                if !product.daxoa
+                                                    form(method="POST" action=`${admin}/products/${product._id}/toggle-status` onsubmit=isActive ? "return confirm('Chuyển sản phẩm này sang Ngừng bán?')" : "return confirm('Bật bán lại sản phẩm này?')")
+                                                        if isActive
+                                                            button.btn.btn-outline-secondary(type="submit" title="Ngừng bán")
+                                                                i.bi.bi-pause-fill
+                                                        else
+                                                            button.btn.btn-outline-success(type="submit" title="Bật bán")
+                                                                i.bi.bi-play-fill
                                                 if product.daxoa
                                                     form(method="POST" action=`${admin}/products/${product._id}/restore` onsubmit="return confirm('Khôi phục sản phẩm này?')")
                                                         button.btn.btn-outline-success(type="submit" title="Khôi phục")
@@ -308,13 +331,26 @@ block main
                                 - const __noSizeTypesMobile = ['tui','phukien'];
                                 - const __isNoSizeMobile = __noSizeTypesMobile.includes(String(product.loaisanpham || '').toLowerCase());
                                 - const __tonChinhMobile = __isNoSizeMobile ? (product.soluong_chinh || 0) : ((product.sizes || []).reduce((sum, s) => sum + Number(s?.soluong || 0), 0));
+                                - const laSapHetMobile = tonKhoMobile > 0 && tonKhoMobile <= lowStockThresholdVal;
                                 small.text-muted.d-block Tồn kho: #{tonKhoMobile}
+                                if laSapHetMobile
+                                    span.badge.bg-warning.text-dark.rounded-pill.mt-1 Sắp hết (≤ #{lowStockThresholdVal})
                                 small.text-muted.d-block Chính: #{__tonChinhMobile}
                             .card-footer.bg-transparent.border-0.pt-0
                                 .d-flex.gap-2
                                     a.btn.btn-sm.btn-warning.flex-fill(href=`${admin}/products/${product._id}/edit`)
                                         i.bi.bi-pencil.me-1
                                         | Sửa
+                                    if !product.daxoa
+                                        form.flex-fill(method="POST" action=`${admin}/products/${product._id}/toggle-status` onsubmit=isActive ? "return confirm('Chuyển sản phẩm này sang Ngừng bán?')" : "return confirm('Bật bán lại sản phẩm này?')")
+                                            if isActive
+                                                button.btn.btn-sm.btn-outline-secondary.w-100(type="submit")
+                                                    i.bi.bi-pause-fill.me-1
+                                                    | Ngừng bán
+                                            else
+                                                button.btn.btn-sm.btn-outline-success.w-100(type="submit")
+                                                    i.bi.bi-play-fill.me-1
+                                                    | Bật bán
                                     if product.daxoa
                                         form.flex-fill(method="POST" action=`${admin}/products/${product._id}/restore` onsubmit="return confirm('Khôi phục sản phẩm này?')")
                                             button.btn.btn-sm.btn-success.w-100(type="submit")
@@ -341,6 +377,7 @@ block main
                             - const vPrice = vGia ? (vGiam > 0 ? Math.round(vGia * (100 - vGiam) / 100).toLocaleString('vi-VN') + '₫' : vGia.toLocaleString('vi-VN') + '₫') : '—';
                             - const vImg = v.hinhanh || imgSrc;
                             - const vTon = __isNoSize ? (v.soluong || 0) : ((v.sizes || []).reduce((sum, s) => sum + Number(s.soluong || 0), 0));
+                            - const vLaSapHetMobile = vTon > 0 && vTon <= lowStockThresholdVal;
                             .col-12.col-sm-6.col-md-4
                                 .card.product-card.h-100.border
                                     img.card-img-top.product-card-img(src=vImg, alt=`${product.tensanpham || '—'} - ${v.mausac || 'Biến thể'}`)
@@ -354,11 +391,23 @@ block main
                                                 span.badge.bg-danger.rounded-pill Ngừng
                                         small.text-muted.d-block Thương hiệu: #{product.tenThuongHieu || '—'}
                                         small.text-muted.d-block Tồn kho: #{vTon}
+                                        if vLaSapHetMobile
+                                            span.badge.bg-warning.text-dark.rounded-pill.mt-1 Sắp hết (≤ #{lowStockThresholdVal})
                                     .card-footer.bg-transparent.border-0.pt-0
                                         .d-flex.gap-2
                                             a.btn.btn-sm.btn-warning.flex-fill(href=`${admin}/products/${product._id}/edit`)
                                                 i.bi.bi-pencil.me-1
                                                 | Sửa
+                                            if !product.daxoa
+                                                form.flex-fill(method="POST" action=`${admin}/products/${product._id}/toggle-status` onsubmit=isActive ? "return confirm('Chuyển sản phẩm này sang Ngừng bán?')" : "return confirm('Bật bán lại sản phẩm này?')")
+                                                    if isActive
+                                                        button.btn.btn-sm.btn-outline-secondary.w-100(type="submit")
+                                                            i.bi.bi-pause-fill.me-1
+                                                            | Ngừng bán
+                                                    else
+                                                        button.btn.btn-sm.btn-outline-success.w-100(type="submit")
+                                                            i.bi.bi-play-fill.me-1
+                                                            | Bật bán
                                             if product.daxoa
                                                 form.flex-fill(method="POST" action=`${admin}/products/${product._id}/restore` onsubmit="return confirm('Khôi phục sản phẩm này?')")
                                                     button.btn.btn-sm.btn-success.w-100(type="submit")

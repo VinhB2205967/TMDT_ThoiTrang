@@ -26,11 +26,11 @@ const upload = multer({
     if (isImage || isVideo) return cb(null, true);
     cb(new Error('Chỉ cho phép upload ảnh/video (jpg/png/webp/mp4/mov/webm/mkv)'));
   },
-  limits: { files: 6, fileSize: 100 * 1024 * 1024 }
+  limits: { files: 8, fileSize: 100 * 1024 * 1024 }
 });
 
 const uploadReviewMedia = (req, res, next) => {
-  const handler = upload.fields([{ name: 'images', maxCount: 5 }, { name: 'videos', maxCount: 1 }]);
+  const handler = upload.fields([{ name: 'images', maxCount: 5 }, { name: 'videos', maxCount: 3 }]);
   handler(req, res, (err) => {
     if (!err) return next();
     const msg = err && err.code === 'LIMIT_FILE_SIZE'

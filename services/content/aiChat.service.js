@@ -32,15 +32,13 @@ const OLLAMA_NUM_PREDICT = Number(process.env.OLLAMA_NUM_PREDICT || 140);
 const OLLAMA_KEEP_ALIVE = process.env.OLLAMA_KEEP_ALIVE || '30m';
 const GEMINI_API_URL = process.env.GEMINI_API_URL || 'https://generativelanguage.googleapis.com/v1beta';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemma-3-12b-it';
-const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-flash';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemma-3-27b-it';
+const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.0-flash';
 const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 30000);
 const GEMINI_MAX_OUTPUT_TOKENS = Number(process.env.GEMINI_MAX_OUTPUT_TOKENS || 512);
 const GEMINI_ALLOWED_MODELS = [
-  'gemma-3-4b-it',
-  'gemma-3-12b-it',
   'gemma-3-27b-it',
-  'gemini-2.5-flash'
+  'gemini-2.0-flash'
 ];
 const OPENROUTER_API_URL = process.env.OPENROUTER_API_URL || 'https://openrouter.ai/api/v1';
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
@@ -340,6 +338,7 @@ function normalizeInternalPath(pathValue) {
   if (norm.includes('/blog') || norm.includes('bai viet') || norm.includes('tin tuc')) return '/blog';
   if (norm.includes('/size-guide') || norm.includes('bang size') || norm.includes('/size')) return '/size-guide';
   if (norm.includes('/cart') || norm.includes('gio hang') || norm.includes('/gio-hang')) return '/cart';
+  if (norm.includes('/topselling') || norm.includes('/top selling') || norm.includes('/topseling') || norm.includes('top selling')) return '/products';
 
   const idMatch = path.match(/([a-f0-9]{24})/i);
   if (idMatch) return `/products/${idMatch[1]}`;
@@ -365,7 +364,8 @@ function humanizeReply(text) {
   output = output
     .replace(/\/\s*(?:bang|bảng)\s*size\b/gi, '/size-guide')
     .replace(/\/size\s*guide\b/gi, '/size-guide')
-    .replace(/\/size\b(?!-guide)/gi, '/size-guide');
+    .replace(/\/size\b(?!-guide)/gi, '/size-guide')
+    .replace(/\/(?:top\s*selling|topselling|topseling)\b/gi, '/products');
 
   return output.replace(/\s{2,}/g, ' ').trim();
 }
@@ -924,6 +924,16 @@ async function getProductContext(question) {
   const terms = buildSearchTerms(question);
   const intent = extractProductIntent(question);
   const priceConstraint = extractPriceConstraint(question);
+  const genericProductTerms = new Set([
+    'ao', 'áo', 'quan', 'quần', 'vay', 'váy', 'dam', 'đầm', 'do', 'đồ',
+    'thoi', 'thời', 'trang', 'fashion', 'mua', 'mac', 'mặc', 'nam', 'nu', 'nữ'
+  ]);
+  const specificTerms = terms.filter((term) => {
+    const normalized = normalizeText(term).toLowerCase().trim();
+    if (!normalized) return false;
+    if (genericProductTerms.has(normalized)) return false;
+    return normalized.length >= 3;
+  });
   const query = { daxoa: { $ne: true }, trangthai: { $in: ['active', 'dangban'] } };
   const andConditions = [];
   const normalizedQuestion = normalizeText(question).toLowerCase();
@@ -941,6 +951,17 @@ async function getProductContext(question) {
       orConditions.push({ mota: toSafeRegex(term) });
       orConditions.push({ loaisanpham: toSafeRegex(term) });
     });
+  }
+
+  // Prefer specific product-name terms (e.g. "alpha") over broad generic terms (e.g. "ao").
+  if (specificTerms.length > 0) {
+    const specificOr = [];
+    specificTerms.forEach((term) => {
+      specificOr.push({ tensanpham: toSafeRegex(term) });
+      specificOr.push({ mota: toSafeRegex(term) });
+      specificOr.push({ loaisanpham: toSafeRegex(term) });
+    });
+    andConditions.push({ $or: specificOr });
   }
 
   if (intent.seasonTerms.length > 0) {
@@ -1856,7 +1877,7 @@ async function askGemini({ question, history, context, model, systemPrompt }) {
           : selectedRaw;
     if (selected && GEMINI_ALLOWED_MODELS.includes(selected)) return selected;
     if (GEMINI_ALLOWED_MODELS.includes(GEMINI_MODEL)) return GEMINI_MODEL;
-    return 'gemma-3-12b-it';
+    return 'gemma-3-27b-it';
   })();
 
   try {

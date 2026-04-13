@@ -12,6 +12,8 @@ const { prepareProductData } = require('./product.service.js');
 const { getCategoryTree, flattenTreeOptions } = require('./category.service.js');
 const { damBaoBangSizeMacDinh } = require('./sizeGuide.service.js');
 
+const LOW_STOCK_THRESHOLD = 10;
+
 async function timHoacTaoDanhMuc({ name, slug, type, parentId = null, order = 0 }) {
   const existed = await Danhmuc.findOne({ slug, daxoa: { $ne: true } }).select('_id').lean();
   if (existed?._id) return existed._id;
@@ -169,6 +171,8 @@ function taoDieuKienLoc(query = {}, keywordRegex) {
 
   if (query.trangthai === 'dahet') {
     dieukien.soluongton = { $lte: 0 };
+  } else if (query.trangthai === 'saphethang') {
+    dieukien.soluongton = { $gt: 0, $lte: LOW_STOCK_THRESHOLD };
   } else if (query.trangthai) {
     dieukien.trangthai = query.trangthai;
   }
@@ -363,6 +367,7 @@ async function getDanhSachData(query = {}) {
     dateTo: query.dateTo,
     currentDeleted: daxoa,
     filterString: chuoiboloc,
+    lowStockThreshold: LOW_STOCK_THRESHOLD,
     ...filterOptions
   };
 }
@@ -503,9 +508,50 @@ async function xoaMemSanPham(id) {
   return { ok: true, message: 'Xóa sản phẩm thành công!' };
 }
 
+function laTrangThaiDangBan(trangthai) {
+  const status = String(trangthai || '').trim().toLowerCase();
+  return status === 'dangban' || status === 'active' || status === 'đang bán';
+}
+
+async function toggleTrangThaiSanPham(id) {
+  const pid = String(id || '');
+  if (!mongoose.Types.ObjectId.isValid(pid)) {
+    return { ok: false, message: 'ID không hợp lệ' };
+  }
+
+  const product = await Sanpham.findById(pid).select('_id tensanpham trangthai daxoa').lean();
+  if (!product) {
+    return { ok: false, message: 'Không tìm thấy sản phẩm' };
+  }
+  if (product.daxoa) {
+    return { ok: false, message: 'Sản phẩm đã xóa mềm, không thể đổi trạng thái bán' };
+  }
+
+  const dangBan = laTrangThaiDangBan(product.trangthai);
+  const trangthaiMoi = dangBan ? 'ngungban' : 'dangban';
+  await Sanpham.findByIdAndUpdate(pid, {
+    trangthai: trangthaiMoi,
+    ngaycapnhat: new Date()
+  });
+
+  return {
+    ok: true,
+    message: dangBan
+      ? `Đã chuyển "${product.tensanpham || 'Sản phẩm'}" sang ngừng bán`
+      : `Đã bật bán "${product.tensanpham || 'Sản phẩm'}"`,
+    data: { trangthai: trangthaiMoi }
+  };
+}
+
 async function doiTrangThaiSanPham(id, status) {
-  await Sanpham.findByIdAndUpdate(id, { trangthai: status, ngaycapnhat: new Date() });
-  return { ok: true };
+  const pid = String(id || '');
+  if (!mongoose.Types.ObjectId.isValid(pid)) {
+    return { ok: false, message: 'ID không hợp lệ' };
+  }
+  const statusText = String(status || '').trim().toLowerCase();
+  const statusHopLe = statusText === 'ngungban' ? 'ngungban' : 'dangban';
+  await Sanpham.findByIdAndUpdate(pid, { trangthai: statusHopLe, ngaycapnhat: new Date() });
+  return { ok: true, data: { trangthai: statusHopLe } };
 }
 
 module.exports = {
@@ -517,6 +563,7 @@ module.exports = {
   getChinhSuaData,
   capNhatSanPham,
   xoaMemSanPham,
+  toggleTrangThaiSanPham,
   doiTrangThaiSanPham
 };
 

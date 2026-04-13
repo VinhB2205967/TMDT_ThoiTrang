@@ -23,11 +23,20 @@
 	const storageScope = runtime && runtime.isAuthenticated && runtime.userId
 		? `user:${String(runtime.userId)}`
 		: 'guest';
+	const currentProductId = runtime && runtime.currentProduct && runtime.currentProduct.id
+		? String(runtime.currentProduct.id).trim()
+		: '';
+	const pageScope = currentProductId ? `product:${currentProductId}` : 'global';
 	const LEGACY_STORAGE_KEY = 'fashion_ai_chat_history_v1';
-	const STORAGE_KEY = `fashion_ai_chat_history_v1:${storageScope}`;
+	const LEGACY_SCOPED_STORAGE_KEY = `${LEGACY_STORAGE_KEY}:${storageScope}`;
+	const STORAGE_KEY = `fashion_ai_chat_history_v2:${storageScope}:${pageScope}`;
+	const GLOBAL_STORAGE_KEY = `fashion_ai_chat_history_v2:${storageScope}:global`;
 	const PROVIDER_STORAGE_KEY = 'fashion_ai_provider_v1';
 	const MODEL_STORAGE_KEY = 'fashion_ai_gemini_model_v1';
 	const EXPANDED_STORAGE_KEY = 'fashion_ai_chat_expanded_v1';
+	const DEFAULT_PROVIDER = 'gemini';
+	const ALLOWED_GEMINI_MODELS = new Set(['gemma-3-27b-it', 'gemini-2.0-flash']);
+	const DEFAULT_GEMINI_MODEL = 'gemma-3-27b-it';
 	const ALLOWED_PRODUCT_QUERY_KEYS = new Set([
 		'loaisanpham',
 		'gioitinh',
@@ -52,7 +61,9 @@
 	function clearScopedHistoryStorage() {
 		try {
 			localStorage.removeItem(STORAGE_KEY);
+			localStorage.removeItem(GLOBAL_STORAGE_KEY);
 			localStorage.removeItem(LEGACY_STORAGE_KEY);
+			localStorage.removeItem(LEGACY_SCOPED_STORAGE_KEY);
 		} catch {
 			// Ignore storage errors in private mode.
 		}
@@ -68,8 +79,12 @@
 		expandBtn.setAttribute('aria-label', expanded ? 'Thu nhỏ chat' : 'Phóng to chat');
 	}
 
-function getProviderValue() {
-		return providerEl ? String(providerEl.value || 'ollama').toLowerCase() : 'ollama';
+	function getProviderValue() {
+		return providerEl ? String(providerEl.value || DEFAULT_PROVIDER).toLowerCase() : DEFAULT_PROVIDER;
+	}
+
+	function normalizeProviderValue(value) {
+		return String(value || '').toLowerCase() === 'gemini' ? 'gemini' : DEFAULT_PROVIDER;
 	}
 
 	function getProviderDisplayName(provider) {
@@ -96,6 +111,12 @@ function getProviderValue() {
 			default:
 				return 'Da chuyen sang Ollama. Model dang dung cau hinh co dinh cua he thong.';
 		}
+	}
+
+	function normalizeGeminiModel(value) {
+		const model = String(value || '').trim();
+		if (ALLOWED_GEMINI_MODELS.has(model)) return model;
+		return DEFAULT_GEMINI_MODEL;
 	}
 
 	function buildResponseStatus(ai) {
@@ -285,6 +306,8 @@ function getProviderValue() {
 			.replace(/\*\*/g, '')
 			.replace(/^\s*#{1,6}\s*/gm, '')
 			.replace(/(?:s[aả]n\s*[-_]?\s*ph[aẩ]m|san\s*[-_]?\s*pham|ph[aẩ]m|pham)\/([a-f0-9]{24})/gi, '/products/$1')
+			.replace(/\/(?:san\s*[-_]?\s*pham|products?)\/([a-f0-9]{24})(?=[\s)\].,;:!?]|$)/gi, '/products')
+			.replace(/https?:\/\/[^\s)]+\/(?:san\s*[-_]?\s*pham|products?)\/([a-f0-9]{24})(?=[\s)\].,;:!?]|$)/gi, '/products')
 			.replace(/:\s*(?=\d+\.\s)/g, ':\n')
 			.replace(/([\p{L}\)])\s(?=\d+\.\s)/gu, '$1\n')
 			.replace(/(tại\s+đây)\s(?=\d+\.)/gi, '$1\n')
@@ -773,6 +796,42 @@ function setInputHeight() {
 		});
 	}
 
+	function normalizeCurrentProductForPayload(rawProduct) {
+		const source = rawProduct && typeof rawProduct === 'object' ? rawProduct : null;
+		if (!source) return null;
+
+		const id = String(source.id || source._id || '').trim();
+		const name = String(source.name || source.tensanpham || '').trim();
+		const url = String(source.url || (id ? `/products/${id}` : '')).trim();
+		const imageUrl = String(source.imageUrl || source.image || '/images/shopping.png').trim();
+		const price = Number(source.price || source.giaSauGiam || source.gia || 0);
+		const originalPrice = Number(source.originalPrice || source.gia || price || 0);
+		const productType = String(source.productType || source.loaisanpham || '').trim();
+		const gender = String(source.gender || source.gioitinh || '').trim();
+
+		if (!id && !name && !url) return null;
+
+		return {
+			id,
+			name,
+			url,
+			imageUrl,
+			price: Number.isFinite(price) && price > 0 ? price : 0,
+			originalPrice: Number.isFinite(originalPrice) && originalPrice > 0 ? originalPrice : 0,
+			productType,
+			gender
+		};
+	}
+
+	function buildPageContextPayload() {
+		const payload = {
+			path: String(window.location.pathname || '').trim() || '/'
+		};
+		const currentProduct = normalizeCurrentProductForPayload(runtime && runtime.currentProduct);
+		if (currentProduct) payload.currentProduct = currentProduct;
+		return payload;
+	}
+
 async function askAI(question, options = {}) {
 		const provider = getProviderValue();
 		const model = modelEl ? String(modelEl.value || '').trim() : '';
@@ -787,7 +846,8 @@ async function askAI(question, options = {}) {
 			provider,
 			model: provider === 'gemini' ? model : '',
 			imageProducts: Array.isArray(options.imageProducts) ? options.imageProducts : [],
-			imageMeta: options.imageMeta && typeof options.imageMeta === 'object' ? options.imageMeta : null
+			imageMeta: options.imageMeta && typeof options.imageMeta === 'object' ? options.imageMeta : null,
+			pageContext: buildPageContextPayload()
 		};
 
 		const res = await fetch('/api/ai-chat/message', {
@@ -882,29 +942,30 @@ async function askAI(question, options = {}) {
 
 if (providerEl) {
 		const savedProvider = localStorage.getItem(PROVIDER_STORAGE_KEY);
-		if (savedProvider && (savedProvider === 'ollama' || savedProvider === 'gemini' || savedProvider === 'openrouter')) {
-			providerEl.value = savedProvider;
-		}
+		const normalizedProvider = normalizeProviderValue(savedProvider || providerEl.value || DEFAULT_PROVIDER);
+		providerEl.value = normalizedProvider;
+		localStorage.setItem(PROVIDER_STORAGE_KEY, normalizedProvider);
 
 		if (modelEl) {
 			const savedModel = localStorage.getItem(MODEL_STORAGE_KEY);
-			if (savedModel) {
-				modelEl.value = savedModel;
-			} else {
-				modelEl.value = 'gemma-3-12b-it';
-			}
+			const normalizedModel = normalizeGeminiModel(savedModel || modelEl.value || DEFAULT_GEMINI_MODEL);
+			modelEl.value = normalizedModel;
+			localStorage.setItem(MODEL_STORAGE_KEY, normalizedModel);
 
 			modelEl.addEventListener('change', () => {
-				localStorage.setItem(MODEL_STORAGE_KEY, String(modelEl.value || ''));
+				const normalized = normalizeGeminiModel(modelEl.value);
+				modelEl.value = normalized;
+				localStorage.setItem(MODEL_STORAGE_KEY, normalized);
 				if (getProviderValue() === 'gemini') {
-					setStatus(`Model Gemini: ${String(modelEl.value || '')}`);
+					setStatus(`Model Gemini: ${normalized}`);
 				}
 			});
 		}
 
 		syncModelVisibility();
 		providerEl.addEventListener('change', () => {
-			const selected = getProviderValue();
+			const selected = normalizeProviderValue(getProviderValue());
+			providerEl.value = selected;
 			localStorage.setItem(PROVIDER_STORAGE_KEY, selected);
 			syncModelVisibility();
 			setStatus(getProviderReadyText(selected));

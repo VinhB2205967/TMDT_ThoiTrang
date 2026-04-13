@@ -74,6 +74,7 @@ router.get('/:id/back', controller.khoiPhuc);
 router.get('/:id/edit', controller.chinhSua);
 router.post('/:id/edit', uploadFields, controller.chinhSuaPost);
 router.get('/:id/delete', controller.xoaMem);
+router.post('/:id/toggle-status', controller.toggleTrangThai);
 router.post('/:id/restore', controller.khoiPhuc);
 router.post('/:id/hard-delete', controller.xoaVinhVien);
 

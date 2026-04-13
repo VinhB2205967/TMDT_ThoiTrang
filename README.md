@@ -213,7 +213,7 @@ Route admin AI:
 ### 3) Upload media (ảnh + video)
 
 - Ảnh: tối đa 5 ảnh/review.
-- Video: tối đa 1 video/review.
+- Video: tối đa 3 video/review.
 - Cho phép giữ media cũ, xóa media cũ hoặc upload thêm media mới khi sửa.
 - Validate dung lượng:
    - Ảnh tối đa 20MB/file.

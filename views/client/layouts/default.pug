@@ -42,31 +42,20 @@ html(lang="vi")
               i.bi.bi-x-lg
         #aiChatList.ai-chatbox-list
         form#aiChatForm.ai-chatbox-form
-          .ai-chatbox-provider-row
-            label.form-label(for="aiChatProvider") AI
-            select#aiChatProvider.form-select.form-select-sm
-              option(value="ollama") Ollama
-              option(value="gemini") Gemini
-              option(value="openrouter") OpenRouter
-          .ai-chatbox-provider-row#aiChatModelRow
-            label.form-label(for="aiChatModel") Model Gemini
-            select#aiChatModel.form-select.form-select-sm
-              option(value="gemma-3-4b-it") Gemma 3 4B
-              option(value="gemma-3-12b-it") Gemma 3 12B
-              option(value="gemma-3-27b-it") Gemma 3 27B
-              option(value="gemini-2.5-flash") Gemini Flash 2.5
-          input#aiChatImage(type="file" accept="image/*" hidden)
-          #aiChatImagePreview.ai-chatbox-preview.d-none
-            button#aiChatImageRemove.ai-chatbox-preview-remove(type="button" aria-label="Bỏ ảnh")
-              i.bi.bi-x-lg
-            img#aiChatImagePreviewImage.ai-chatbox-preview-image.d-none(alt="Ảnh tìm sản phẩm")
+          .ai-chatbox-provider-inline
+            .ai-chatbox-provider-row
+              label.form-label(for="aiChatProvider") AI
+              input#aiChatProvider(type="hidden" value="gemini")
+              .form-control.form-control-sm(disabled) Gemini
+            .ai-chatbox-provider-row#aiChatModelRow
+              label.form-label(for="aiChatModel") Model
+              select#aiChatModel.form-select.form-select-sm
+                option(value="gemma-3-27b-it") Gemma 3 27B
+                option(value="gemini-2.0-flash") Gemini Flash 2.0
           textarea#aiChatInput.form-control(rows="1" placeholder="Nhập câu hỏi... (Shift+Enter xuống dòng)")
           .ai-chatbox-footer
             .ai-chatbox-footer-start
               span#aiChatStatus.ai-chatbox-status
-              button#aiChatImageBtn.btn.btn-outline-secondary(type="button" aria-label="Chọn ảnh để tìm sản phẩm tương tự" title="Chọn ảnh")
-                i.bi.bi-image
-                span Ảnh
             button#aiChatSend.btn.btn-primary(type="submit") Gửi
     if isAuthenticated && !isAdmin
       button#chatWidgetToggle.btn.btn-primary.chat-widget-toggle(type="button" aria-label="Mở chat")

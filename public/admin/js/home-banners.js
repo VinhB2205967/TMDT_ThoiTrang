@@ -2,17 +2,49 @@
   const form = document.getElementById('bannerCreate');
   const App = window.App || {};
 
-  const thongBao = (res, fallback) => {
-    const message = (res && res.data && res.data.message) || fallback || 'Có lỗi xảy ra';
-    window.alert(message);
+  function notify(message, type = 'success') {
+    if (!message) return;
+
+    let wrap = document.getElementById('adminBannerNotifyStack');
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.id = 'adminBannerNotifyStack';
+      wrap.className = 'admin-notify-stack';
+      document.body.appendChild(wrap);
+    }
+
+    const isError = type === 'error';
+    const item = document.createElement('div');
+    item.className = `admin-notify-item ${isError ? 'error' : 'success'}`;
+    item.innerHTML = `
+      <div class="admin-notify-inner">
+        <span class="admin-notify-icon"><i class="bi ${isError ? 'bi-exclamation-triangle-fill' : 'bi-check-circle-fill'}"></i></span>
+        <div>
+          <div class="admin-notify-title">${isError ? 'Thao tac that bai' : 'Thanh cong'}</div>
+          <div class="admin-notify-message"></div>
+        </div>
+        <button type="button" class="admin-notify-close" aria-label="Dong">×</button>
+      </div>
+    `;
+    item.querySelector('.admin-notify-message').textContent = String(message);
+    wrap.appendChild(item);
+
+    const close = () => item.remove();
+    item.querySelector('.admin-notify-close').addEventListener('click', close);
+    setTimeout(close, 3200);
+  }
+
+  const showError = (res, fallback) => {
+    const message = (res && res.data && res.data.message) || fallback || 'Co loi xay ra';
+    notify(message, 'error');
   };
 
-  const thongBaoThanhCong = (res, fallback) => {
-    const message = (res && res.data && res.data.message) || fallback || 'Thao tác thành công';
-    window.alert(message);
+  const showSuccess = (res, fallback) => {
+    const message = (res && res.data && res.data.message) || fallback || 'Thao tac thanh cong';
+    notify(message, 'success');
   };
 
-  function hienThiXemTruocAnh(fileInput) {
+  function showImagePreview(fileInput) {
     if (!fileInput || !fileInput.files || !fileInput.files[0]) return;
     const scope = fileInput.closest('tr, form') || fileInput.parentElement;
     if (!scope) return;
@@ -48,10 +80,12 @@
       });
 
       if (res.ok) {
-        thongBaoThanhCong(res, 'Tạo banner thành công');
-        window.location.reload();
+        showSuccess(res, 'Tao banner thanh cong');
+        setTimeout(() => {
+          window.location.reload();
+        }, 650);
       } else {
-        thongBao(res, 'Không thể tạo banner');
+        showError(res, 'Khong the tao banner');
       }
     });
   }
@@ -59,12 +93,13 @@
   document.addEventListener('change', (e) => {
     const fileInput = e.target.closest('input[name="image"][type="file"]');
     if (!fileInput) return;
-    hienThiXemTruocAnh(fileInput);
+    showImagePreview(fileInput);
   });
 
   document.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
+
     const row = btn.closest('tr');
     if (!row) return;
 
@@ -73,12 +108,13 @@
 
     if (action === 'delete') {
       if (!App.confirmDelete()) return;
+
       const res = await App.apiFetch(`/admin/api/banners/${id}`, { method: 'DELETE' });
       if (res.ok) {
         row.remove();
-        thongBaoThanhCong(res, 'Đã xóa banner');
+        showSuccess(res, 'Da xoa banner');
       } else {
-        thongBao(res, 'Không thể xóa banner');
+        showError(res, 'Khong the xoa banner');
       }
       return;
     }
@@ -88,9 +124,9 @@
       if (res.ok && res.data && res.data.data) {
         const checkbox = row.querySelector('input[name="hienthi"]');
         if (checkbox) checkbox.checked = Boolean(res.data.data.hienthi);
-        thongBaoThanhCong(res, checkbox && checkbox.checked ? 'Đã bật banner' : 'Đã tắt banner');
+        showSuccess(res, checkbox && checkbox.checked ? 'Da bat banner' : 'Da tat banner');
       } else if (!res.ok) {
-        thongBao(res, 'Không thể bật/tắt banner');
+        showError(res, 'Khong the bat/tat banner');
       }
       return;
     }
@@ -100,8 +136,7 @@
       fd.set('tieude', row.querySelector('input[name="tieude"]')?.value || '');
       fd.set('mota', row.querySelector('input[name="mota"]')?.value || '');
       fd.set('nut_text', row.querySelector('input[name="nut_text"]')?.value || '');
-      fd.set('nut_link', row.querySelector('input[name="nut_link"]')?.value || '');
-      fd.set('loai', row.querySelector('select[name="loai"]')?.value || '');
+      fd.set('nut_link', row.querySelector('[name="nut_link"]')?.value || '');
       fd.set('thuTu', String(Number(row.querySelector('input[name="thuTu"]')?.value || 0)));
       fd.set('hienthi', String(Boolean(row.querySelector('input[name="hienthi"]')?.checked)));
 
@@ -116,11 +151,12 @@
       });
 
       if (res.ok) {
-        thongBaoThanhCong(res, 'Lưu banner thành công');
+        showSuccess(res, 'Cap nhat banner thanh cong');
         return;
       }
 
-      thongBao(res, 'Không thể lưu banner');
+      showError(res, 'Khong the cap nhat banner');
     }
   });
 })();
+

@@ -4,6 +4,7 @@ mixin filter_status(filterStatus)
         - if (item.status === '') btnClass = item.class === 'active' ? 'btn-primary' : 'btn-outline-primary';
         - if (item.status === 'dangban') btnClass = item.class === 'active' ? 'btn-success' : 'btn-outline-success';
         - if (item.status === 'ngungban') btnClass = item.class === 'active' ? 'btn-danger' : 'btn-outline-danger';
+        - if (item.status === 'saphethang') btnClass = item.class === 'active' ? 'btn-warning' : 'btn-outline-warning';
         button.btn.btn-sm(
             button-status=item.status 
             class=btnClass

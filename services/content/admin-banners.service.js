@@ -1,23 +1,26 @@
 const Banner = require('../../models/banner_model');
 
-const CTA_LINK_SUGGESTIONS = [
-  '/',
-  '/products',
-  '/products?sort=ngaytao-desc',
-  '/products?sort=gia-asc',
-  '/products?sort=gia-desc',
-  '/products?loaisanpham=ao',
-  '/products?loaisanpham=quan',
-  '/products?loaisanpham=vay',
-  '/products?gioitinh=nu',
-  '/products?gioitinh=nam',
-  '/lookbook',
-  '/blog',
-  '/brands',
-  '/#flash-sale',
-  '/#new-products',
-  '/#best-sellers'
+const CTA_DESTINATION_OPTIONS = [
+  { label: 'Trang chủ', url: '/' },
+  { label: 'Tất cả sản phẩm', url: '/products' },
+  { label: 'Sản phẩm mới', url: '/products?sort=ngaytao-desc' },
+  { label: 'Giá thấp đến cao', url: '/products?sort=gia-asc' },
+  { label: 'Giá cao đến thấp', url: '/products?sort=gia-desc' },
+  { label: 'Sản phẩm áo', url: '/products?loaisanpham=ao' },
+  { label: 'Sản phẩm quần', url: '/products?loaisanpham=quan' },
+  { label: 'Sản phẩm váy', url: '/products?loaisanpham=vay' },
+  { label: 'Sản phẩm giày', url: '/products?loaisanpham=giay' },
+  { label: 'Sản phẩm túi', url: '/products?loaisanpham=tui' },
+  { label: 'Sản phẩm phụ kiện', url: '/products?loaisanpham=phukien' },
+  { label: 'Sản phẩm nam', url: '/products?gioitinh=nam' },
+  { label: 'Sản phẩm nữ', url: '/products?gioitinh=nu' },
+  { label: 'Lookbook', url: '/lookbook' },
+  { label: 'Blog', url: '/blog' },
+  { label: 'Thương hiệu', url: '/brands' },
+
 ];
+
+const CTA_LINK_SUGGESTIONS = CTA_DESTINATION_OPTIONS.map((item) => item.url);
 
 function parseBoolean(value, defaultValue = false) {
   if (value === undefined || value === null || value === '') return defaultValue;
@@ -41,8 +44,8 @@ async function layDanhSachBanner() {
     status: 200,
     data,
     meta: {
-      bannerTypes: ['collection', 'sale', 'lookbook', 'general'],
-      ctaLinkSuggestions: CTA_LINK_SUGGESTIONS
+      ctaLinkSuggestions: CTA_LINK_SUGGESTIONS,
+      ctaDestinationOptions: CTA_DESTINATION_OPTIONS
     }
   };
 }
