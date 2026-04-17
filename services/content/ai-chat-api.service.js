@@ -235,6 +235,7 @@ function normalizeForCompare(input) {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\u0111/g, 'd')
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -1960,13 +1961,156 @@ function extractMentionedProductIds(text) {
   return ids;
 }
 
+const COLOR_ALIAS_MAP = {
+  'xanh la': ['xanh la', 'xanhla', 'green'],
+  xanh: ['xanh duong', 'xanh d\u01b0\u01a1ng', 'xanh', 'blue'],
+  trang: ['trang', 'tr\u1eafng', 'white'],
+  den: ['den', '\u0111en', 'black'],
+  do: ['do', '\u0111\u1ecf', 'red'],
+  vang: ['vang', 'v\u00e0ng', 'yellow'],
+  tim: ['tim', 't\u00edm', 'purple', 'violet'],
+  cam: ['cam', 'orange'],
+  nau: ['nau', 'n\u00e2u', 'brown'],
+  hong: ['hong', 'h\u1ed3ng', 'pink'],
+  be: ['be', 'beige', 'kem', 'cream'],
+  xam: ['xam', 'x\u00e1m', 'ghi', 'gray', 'grey']
+};
+
+const COLOR_DISPLAY_LABEL_MAP = {
+  'xanh la': 'xanh l\u00e1',
+  xanh: 'xanh',
+  trang: 'tr\u1eafng',
+  den: '\u0111en',
+  do: '\u0111\u1ecf',
+  vang: 'v\u00e0ng',
+  tim: 't\u00edm',
+  cam: 'cam',
+  nau: 'n\u00e2u',
+  hong: 'h\u1ed3ng',
+  be: 'be',
+  xam: 'x\u00e1m'
+};
+
+const COLOR_ALIAS_TO_KEY = (() => {
+  const map = new Map();
+  Object.entries(COLOR_ALIAS_MAP).forEach(([key, aliases]) => {
+    const normalizedKey = normalizeForCompare(key);
+    if (normalizedKey) map.set(normalizedKey, key);
+    (Array.isArray(aliases) ? aliases : []).forEach((alias) => {
+      const normalizedAlias = normalizeForCompare(alias);
+      if (normalizedAlias) map.set(normalizedAlias, key);
+    });
+  });
+  return map;
+})();
+
+function extractColorKeysFromText(text) {
+  const source = normalizeForCompare(text);
+  if (!source) return [];
+
+  const aliasEntries = Array.from(COLOR_ALIAS_TO_KEY.entries())
+    .sort((a, b) => b[0].length - a[0].length);
+
+  const keys = [];
+  let cursor = 0;
+  while (cursor < source.length) {
+    if (source[cursor] === ' ') {
+      cursor += 1;
+      continue;
+    }
+
+    let matchedAlias = '';
+    let matchedKey = '';
+    for (let i = 0; i < aliasEntries.length; i += 1) {
+      const [alias, key] = aliasEntries[i];
+      if (!source.startsWith(alias, cursor)) continue;
+      const after = cursor + alias.length;
+      const beforeOk = cursor === 0 || source[cursor - 1] === ' ';
+      const afterOk = after === source.length || source[after] === ' ';
+      if (!beforeOk || !afterOk) continue;
+      matchedAlias = alias;
+      matchedKey = key;
+      break;
+    }
+
+    if (matchedAlias && matchedKey) {
+      if (keys[keys.length - 1] !== matchedKey) keys.push(matchedKey);
+      cursor += matchedAlias.length;
+      continue;
+    }
+
+    while (cursor < source.length && source[cursor] !== ' ') cursor += 1;
+  }
+
+  return keys;
+}
+
+function getColorAliases(requestedColor) {
+  const key = normalizeForCompare(requestedColor);
+  const colorKeys = extractColorKeysFromText(key);
+  let aliases = [];
+
+  if (colorKeys.length >= 2) {
+    const compositeKey = colorKeys.slice(0, 2).join(' ');
+    const compositeDisplay = colorKeys
+      .slice(0, 2)
+      .map((item) => COLOR_DISPLAY_LABEL_MAP[item] || item)
+      .join(' ');
+    aliases = [compositeKey, compositeDisplay];
+  } else if (COLOR_ALIAS_MAP[key]) {
+    aliases = COLOR_ALIAS_MAP[key];
+  } else {
+    aliases = [key];
+  }
+
+  const deduped = new Set();
+  aliases.forEach((item) => {
+    const raw = String(item || '').trim().toLowerCase();
+    if (raw) deduped.add(raw);
+    const normalized = normalizeForCompare(item);
+    if (normalized) deduped.add(normalized);
+  });
+  return Array.from(deduped);
+}
+
+function escapeRegexText(text) {
+  return String(text || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function getColorDisplayLabel(requestedColor) {
+  const key = normalizeForCompare(requestedColor);
+  const colorKeys = extractColorKeysFromText(key);
+  if (colorKeys.length >= 2) {
+    return colorKeys
+      .slice(0, 2)
+      .map((item) => COLOR_DISPLAY_LABEL_MAP[item] || item)
+      .join(' ');
+  }
+  return COLOR_DISPLAY_LABEL_MAP[key] || key || '';
+}
+
 function extractRequestedColor(question) {
   const q = normalizeForCompare(question);
   if (!q) return '';
-  const colors = ['hong', 'xanh', 'xanh la', 'trang', 'den', 'do', 'vang', 'tim', 'cam', 'nau', 'be', 'xam'];
-  for (const color of colors) {
-    if (q.includes(color)) return color;
+
+  const scopedMatch = q.match(/(?:^|\s)(?:mau|color)\s+([a-z0-9\s]{2,60})/);
+  const scopedText = scopedMatch && scopedMatch[1] ? scopedMatch[1] : q;
+  const scopedKeys = extractColorKeysFromText(scopedText);
+  if (scopedKeys.length >= 2) {
+    return scopedKeys.slice(0, 2).join(' ');
   }
+  if (scopedKeys.length === 1) {
+    return scopedKeys[0];
+  }
+
+  const fullKeys = extractColorKeysFromText(q);
+  if (fullKeys.length >= 2) {
+    return fullKeys.slice(0, 2).join(' ');
+  }
+  if (fullKeys.length === 1) {
+    return fullKeys[0];
+  }
+
   return '';
 }
 
@@ -1975,6 +2119,7 @@ function normalizeColor(value) {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\u0111/g, 'd')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -2063,13 +2208,26 @@ function buildAvailableSuggestedAnswer(suggestedProducts) {
 function findProductsByRequestedColor(context, requestedColor) {
   if (!requestedColor) return [];
   const products = Array.isArray(context && context.products) ? context.products : [];
+  const acceptedTerms = new Set(getColorAliases(requestedColor).map(normalizeColor).filter(Boolean));
+  const isColorMatched = (value) => {
+    const normalized = normalizeColor(value);
+    if (!normalized) return false;
+    return Array.from(acceptedTerms).some((term) => {
+      const escaped = escapeRegexText(term);
+      return new RegExp(`(^|\\s)${escaped}(\\s|$)`).test(normalized);
+    });
+  };
 
   return products
     .map((p) => {
       const colorDetails = Array.isArray(p && p.mauSacChiTiet) ? p.mauSacChiTiet : [];
-      const matchedDetails = colorDetails.filter((c) => normalizeColor(c && c.ten).includes(requestedColor));
-      const matchedAny = matchedDetails.length > 0;
-      const hasSizeInMatchedColor = matchedDetails.some((c) => Boolean(c && c.conSize));
+      const matchedDetails = colorDetails.filter((c) => isColorMatched(c && c.ten));
+      const colorNames = Array.isArray(p && p.mauSacCoSan) ? p.mauSacCoSan : [];
+      const matchedByNameOnly = colorNames.some((colorName) => isColorMatched(colorName));
+      const matchedAny = matchedDetails.length > 0 || matchedByNameOnly;
+      const hasSizeInMatchedColor = matchedDetails.length > 0
+        ? matchedDetails.some((c) => Boolean(c && c.conSize))
+        : Number(p && p.soluongton || 0) > 0;
 
       return {
         product: p,
@@ -2107,6 +2265,118 @@ function buildColorAvailabilityAnswer(context, requestedColor) {
 
   lines.push('Bạn muốn mình lọc thêm theo size còn hàng hoặc màu gần giống không?');
   return lines.join('\n');
+}
+
+async function getQuickProductsByColor({ question, requestedColor, limit = 8 }) {
+  if (!requestedColor) return [];
+
+  const typeMatch = inferProductType(question);
+  const genderMatch = inferGender(question);
+  const priceConstraint = extractPriceConstraint(question);
+
+  const aliases = getColorAliases(requestedColor);
+  const escapedAliases = aliases.map((item) => escapeRegexText(item).replace(/\s+/g, '\\s*'));
+  const colorRegex = new RegExp(`(^|\\s)(${escapedAliases.join('|')})(\\s|$)`, 'i');
+
+  const query = {
+    daxoa: { $ne: true },
+    trangthai: { $in: ['active', 'dangban'] },
+    $or: [
+      { mausac_chinh: { $regex: colorRegex } },
+      { 'bienthe.mausac': { $regex: colorRegex } }
+    ]
+  };
+
+  if (typeMatch && typeMatch.value) {
+    query.loaisanpham = typeMatch.value;
+  }
+
+  if (genderMatch && genderMatch.value) {
+    query.gioitinh = genderMatch.value === 'unisex'
+      ? { $in: ['unisex', 'nam', 'nu'] }
+      : genderMatch.value;
+  }
+
+  const rows = await Sanpham.find(query)
+    .select('_id tensanpham hinhanh gia phantramgiamgia soluongton gioitinh loaisanpham mausac_chinh sizes bienthe ngaycapnhat ngaytao')
+    .sort({ ngaycapnhat: -1, ngaytao: -1 })
+    .limit(200)
+    .lean({ virtuals: true });
+
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+
+  const flashMap = await getActiveFlashSalePriceMap(rows.map((item) => item && item._id));
+  const mapped = rows.map((item) => {
+    const basePrice = Number(item && item.gia || 0);
+    const currentPrice = getCurrentPriceFromRecord(item);
+    const finalPrice = applyFlashSaleToCurrentPrice({
+      record: item,
+      currentPrice,
+      flashEntry: flashMap.get(String(item && item._id || ''))
+    });
+
+    const colorSet = new Set();
+    const colorDetailMap = new Map();
+    const upsertColorStatus = (colorName, hasStock) => {
+      const key = String(colorName || '').trim();
+      if (!key) return;
+      colorSet.add(key);
+      const existing = colorDetailMap.get(key);
+      if (existing) {
+        existing.conSize = existing.conSize || Boolean(hasStock);
+      } else {
+        colorDetailMap.set(key, { ten: key, conSize: Boolean(hasStock) });
+      }
+    };
+
+    if (item && item.mausac_chinh) {
+      upsertColorStatus(item.mausac_chinh, Number(item.soluongton || 0) > 0);
+    }
+
+    if (Array.isArray(item && item.bienthe)) {
+      item.bienthe.forEach((variant) => {
+        const variantColor = variant && variant.mausac ? String(variant.mausac).trim() : '';
+        const variantHasStock = Boolean(
+          variant
+          && Array.isArray(variant.sizes)
+          && variant.sizes.some((s) => s && Number(s.soluong || 0) > 0)
+        );
+        if (variantColor) upsertColorStatus(variantColor, variantHasStock);
+      });
+    }
+
+    return {
+      id: String(item && item._id || ''),
+      tensanpham: String(item && item.tensanpham || 'Sản phẩm'),
+      imageUrl: String(item && item.hinhanh || '/images/shopping.png'),
+      url: item && item._id ? `/products/${item._id}` : '',
+      gia: basePrice,
+      giaSauGiam: finalPrice > 0 ? finalPrice : currentPrice,
+      gioitinh: String(item && item.gioitinh || ''),
+      loaisanpham: String(item && item.loaisanpham || ''),
+      soluongton: Number(item && item.soluongton || 0),
+      mauSacCoSan: Array.from(colorSet).slice(0, 12),
+      mauSacChiTiet: Array.from(colorDetailMap.values()).slice(0, 12)
+    };
+  });
+
+  const matched = findProductsByRequestedColor({ products: mapped }, requestedColor)
+    .map((entry) => String(entry && entry.product && entry.product.id || ''));
+  const matchedSet = new Set(matched);
+  const colorFiltered = mapped.filter((item) => matchedSet.has(String(item && item.id || '')));
+
+  const filteredByPrice = colorFiltered.filter((item) =>
+    matchPriceConstraint(Number(item && (item.giaSauGiam || item.gia) || 0), priceConstraint)
+  );
+
+  return filteredByPrice.slice(0, Math.max(1, Number(limit || 8)));
+}
+
+function isColorProductQuestion(question, requestedColor) {
+  const q = normalizeForCompare(question);
+  if (!q || !requestedColor) return false;
+  if (/\bmau\b|\bcolor\b/.test(q)) return true;
+  return /\b(mua|tim|xem|goi y|de xuat|san pham|ao|quan|vay|dam|giay|tui|phu kien)\b/.test(q);
 }
 
 function detectRequestedGroups(question) {
@@ -2188,6 +2458,8 @@ function toSuggestedProducts(context, answerText, questionText) {
       url: String(item.url || `/products/${id}`),
       imageUrl: String(item.imageUrl || '/images/shopping.png'),
       productType: String(item.loaisanpham || '').trim(),
+      mauSacCoSan: Array.isArray(item.mauSacCoSan) ? item.mauSacCoSan.slice(0, 12) : [],
+      mauSacChiTiet: Array.isArray(item.mauSacChiTiet) ? item.mauSacChiTiet.slice(0, 12) : [],
       price: finalPrice,
       originalPrice,
       hasDiscount,
@@ -2212,13 +2484,14 @@ function toSuggestedProducts(context, answerText, questionText) {
   if (candidates.length === 0) return [];
 
   const answerNorm = normalizeForCompare(answerText);
-  if (!answerNorm) return candidates.slice(0, 4);
 
-  const mentionedIds = extractMentionedProductIds(answerText);
-  const byMentionedId = candidates.filter((item) => mentionedIds.has(String(item.id || '').toLowerCase()));
-  if (byMentionedId.length > 0) return byMentionedId.slice(0, 4);
+  if (answerNorm) {
+    const mentionedIds = extractMentionedProductIds(answerText);
+    const byMentionedId = candidates.filter((item) => mentionedIds.has(String(item.id || '').toLowerCase()));
+    if (byMentionedId.length > 0) return byMentionedId.slice(0, 4);
+  }
 
-  const matched = candidates.filter((item) => {
+  const matched = answerNorm ? candidates.filter((item) => {
     const nameNorm = normalizeForCompare(item.name);
     if (!nameNorm) return false;
     if (answerNorm.includes(nameNorm)) return true;
@@ -2226,14 +2499,35 @@ function toSuggestedProducts(context, answerText, questionText) {
     const tokens = nameNorm.split(' ').filter((token) => token.length >= 4);
     if (tokens.length === 0) return false;
     return tokens.some((token) => answerNorm.includes(token));
-  });
+  }) : [];
 
   const baseList = matched.length > 0 ? matched : candidates;
   const requestedType = inferProductType(questionText);
   const typedList = requestedType
     ? baseList.filter((item) => productMatchesRequestedType(item, requestedType.value))
     : baseList;
-  const effectiveList = typedList.length > 0 ? typedList : (requestedType ? [] : baseList);
+  let effectiveList = typedList.length > 0 ? typedList : (requestedType ? [] : baseList);
+
+  const requestedColor = extractRequestedColor(questionText);
+  if (requestedColor) {
+    const matchedByColor = findProductsByRequestedColor(
+      {
+        products: effectiveList.map((item) => ({
+          id: item.id,
+          mauSacCoSan: item.mauSacCoSan,
+          mauSacChiTiet: item.mauSacChiTiet
+        }))
+      },
+      requestedColor
+    );
+    const matchedIds = new Set((matchedByColor || []).map((entry) => String(entry && entry.product && entry.product.id || '')));
+    const colorFilteredList = effectiveList.filter((item) => matchedIds.has(String(item.id || '')));
+    if (colorFilteredList.length > 0) {
+      effectiveList = colorFilteredList;
+    } else if (isColorProductQuestion(questionText, requestedColor)) {
+      return [];
+    }
+  }
 
   const rankedEffectiveList = rankProductsBySpecificTerms(effectiveList, questionText);
 
@@ -2582,6 +2876,7 @@ module.exports.sendMessage = async (req, res) => {
     }
 
     const shouldUseSemanticProductSearch = provider === 'openclip' || shouldSuggestProducts(question);
+    const requestedColorFromQuestion = extractRequestedColor(question);
 
     const context = await buildDataContext({
       question,
@@ -2591,6 +2886,68 @@ module.exports.sendMessage = async (req, res) => {
 
     mergeImageProductsIntoContext(context, imageProducts, imageMeta, question);
     mergePageProductIntoContext(context, pageContext);
+
+    if (isColorProductQuestion(question, requestedColorFromQuestion)) {
+      const colorProducts = await getQuickProductsByColor({
+        question,
+        requestedColor: requestedColorFromQuestion,
+        limit: 8
+      });
+
+      const colorContext = {
+        products: colorProducts,
+        topSelling: []
+      };
+
+      if (colorProducts.length > 0) {
+        const answerByColor = buildColorAvailabilityAnswer(colorContext, requestedColorFromQuestion)
+          || buildAvailableProductsAnswer(colorContext, question)
+          || 'Shop hiện có sản phẩm đúng màu bạn cần.';
+
+        const suggestedActions = await buildSuggestedActions({
+          question,
+          context: {
+            ...(context || {}),
+            products: colorProducts
+          }
+        });
+
+        return res.json({
+          success: true,
+          data: {
+            answer: answerByColor,
+            model: 'db-color-path',
+            provider: 'system',
+            suggestedProducts: toSuggestedProducts(colorContext, answerByColor, question),
+            suggestedActions,
+            contextMeta: buildQuickContextMeta({
+              products: colorProducts.length,
+              hasFlashSale: colorProducts.some((item) => Number(item.giaSauGiam || 0) > 0 && Number(item.gia || 0) > Number(item.giaSauGiam || 0))
+            })
+          }
+        });
+      }
+
+      const requestedColorLabel = getColorDisplayLabel(requestedColorFromQuestion);
+      const noColorAnswer = `Hiện mình chưa tìm thấy sản phẩm đúng màu ${requestedColorLabel} theo bộ lọc hiện tại. Bạn muốn mình mở rộng thêm kiểu dáng hoặc mức giá để tìm lại không?`;
+      return res.json({
+        success: true,
+        data: {
+          answer: noColorAnswer,
+          model: 'db-color-path',
+          provider: 'system',
+          suggestedProducts: [],
+          suggestedActions: [
+            {
+              label: 'Xem sản phẩm',
+              url: buildProductsUrl({ keyword: requestedColorLabel || requestedColorFromQuestion }),
+              kind: 'primary'
+            }
+          ],
+          contextMeta: buildQuickContextMeta({ products: 0, hasFlashSale: false })
+        }
+      });
+    }
 
     if (priceConstraint) {
       context.products = applyPriceConstraintToProducts(context.products, priceConstraint).slice(0, 6);
@@ -2739,8 +3096,16 @@ module.exports.sendMessage = async (req, res) => {
     const ai = await askAI({ question, history, context, provider, model });
 
     let answer = String(ai && ai.content ? ai.content : '').trim();
-    const requestedColor = extractRequestedColor(question);
+    const requestedColor = requestedColorFromQuestion;
     answer = sanitizeBadLinksInAnswer(answer);
+
+    // When user asks by color, prefer deterministic DB-based answer over generative text.
+    if (isColorProductQuestion(question, requestedColor)) {
+      const colorFirstAnswer = buildColorAvailabilityAnswer(context, requestedColor);
+      if (colorFirstAnswer) {
+        answer = colorFirstAnswer;
+      }
+    }
 
     if (requestedColor && answerHasNegativeAvailability(answer)) {
       const corrected = buildColorAvailabilityAnswer(context, requestedColor);
@@ -3113,4 +3478,5 @@ module.exports.searchOpenClipByImage = async (req, res) => {
     }
   }
 };
+
 

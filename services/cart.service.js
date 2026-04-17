@@ -326,23 +326,142 @@ async function dongBoGiaGioHang(giohang, { capNhatTonKho = false } = {}) {
   return changed;
 }
 // hàm tính giá theo phương pháp FIFO và đồng thời trừ tồn kho của sản phẩm dựa trên item trong giỏ hàng, nếu có lỗi hoặc không đủ thông tin thì trả về lỗi, nếu thành công thì trả về đối tượng chứa thông tin phân bổ theo lô và cờ cho biết có áp dụng FIFO hay không
+function ketQuaCapNhatThanhCong(result) {
+  return Number(result?.modifiedCount || result?.nModified || 0) > 0;
+}
+
+async function truTonSanPhamNguyenTu({ productId, variantId, sizeKey, soLuong, coSize }) {
+  const now = new Date();
+
+  if (!variantId) {
+    if (coSize) {
+      if (!sizeKey) throw new Error('Vui lòng chọn size');
+
+      const result = await sanpham.updateOne(
+        {
+          _id: productId,
+          sizes: { $elemMatch: { size: sizeKey, soluong: { $gte: soLuong } } }
+        },
+        {
+          $inc: {
+            'sizes.$.soluong': -soLuong,
+            soluongton: -soLuong
+          },
+          $set: { ngaycapnhat: now }
+        }
+      );
+
+      return ketQuaCapNhatThanhCong(result);
+    }
+
+    const result = await sanpham.updateOne(
+      {
+        _id: productId,
+        soluong_chinh: { $gte: soLuong }
+      },
+      {
+        $inc: {
+          soluong_chinh: -soLuong,
+          soluongton: -soLuong
+        },
+        $set: { ngaycapnhat: now }
+      }
+    );
+
+    return ketQuaCapNhatThanhCong(result);
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(String(variantId))) {
+    throw new Error('Biến thể không tồn tại');
+  }
+  const variantObjectId = new mongoose.Types.ObjectId(String(variantId));
+
+  if (coSize) {
+    if (!sizeKey) throw new Error('Vui lòng chọn size');
+
+    const result = await sanpham.updateOne(
+      {
+        _id: productId,
+        bienthe: {
+          $elemMatch: {
+            _id: variantObjectId,
+            sizes: { $elemMatch: { size: sizeKey, soluong: { $gte: soLuong } } }
+          }
+        }
+      },
+      {
+        $inc: {
+          'bienthe.$[variant].sizes.$[size].soluong': -soLuong,
+          soluongton: -soLuong
+        },
+        $set: { ngaycapnhat: now }
+      },
+      {
+        arrayFilters: [
+          { 'variant._id': variantObjectId },
+          { 'size.size': sizeKey, 'size.soluong': { $gte: soLuong } }
+        ]
+      }
+    );
+
+    return ketQuaCapNhatThanhCong(result);
+  }
+
+  const result = await sanpham.updateOne(
+    {
+      _id: productId,
+      bienthe: { $elemMatch: { _id: variantObjectId, soluong: { $gte: soLuong } } }
+    },
+    {
+      $inc: {
+        'bienthe.$[variant].soluong': -soLuong,
+        soluongton: -soLuong
+      },
+      $set: { ngaycapnhat: now }
+    },
+    {
+      arrayFilters: [
+        { 'variant._id': variantObjectId, 'variant.soluong': { $gte: soLuong } }
+      ]
+    }
+  );
+
+  return ketQuaCapNhatThanhCong(result);
+}
+
 async function truTonTheoItem(item) {
   const idsanpham = item.sanpham_id;
   const idbienthe = item.bienthe_id;
   const kichco = item.kichco;
-  const soluong = item.soluong || 1;
+  const soluong = Math.max(1, Number(item.soluong || 1));
 
-  const sanphamdoc = await sanpham.findById(idsanpham);
-  if (!sanphamdoc) throw new Error('Sản phẩm không tồn tại');
+  if (!mongoose.Types.ObjectId.isValid(String(idsanpham || ''))) {
+    throw new Error('Sản phẩm không tồn tại');
+  }
 
-  const variantId = idbienthe ? String(idbienthe) : null;
+  const sanphamdoc = await sanpham.findById(idsanpham).select('_id loaisanpham').lean();
+  if (!sanphamdoc?._id) throw new Error('Sản phẩm không tồn tại');
+
+  const cosize = !laLoaiKhongSize(sanphamdoc.loaisanpham);
+  const productObjectId = new mongoose.Types.ObjectId(String(idsanpham));
+  const variantId = idbienthe ? String(idbienthe).trim() : '';
   const sizeKey = String(kichco || '').trim();
-  let fifoAllocations = [];
 
+  const daTruTon = await truTonSanPhamNguyenTu({
+    productId: productObjectId,
+    variantId,
+    sizeKey,
+    soLuong: soluong,
+    coSize: cosize
+  });
+
+  if (!daTruTon) throw new Error('Không đủ hàng');
+
+  let fifoAllocations = [];
   try {
     const fifoCost = await xuatTonTheoLoFIFO({
       productId: String(idsanpham),
-      variantId,
+      variantId: variantId || null,
       size: sizeKey,
       qty: soluong
     });
@@ -357,47 +476,9 @@ async function truTonTheoItem(item) {
         }))
         .filter((a) => a.soLuong > 0)
       : [];
-
   } catch {
-    // Compatibility fallback: proceed with product-stock deduction when lots are legacy/incomplete.
+    // Compatibility fallback: order can proceed even if lot-level FIFO is incomplete.
   }
-
-  const tonggoc = (typeof sanphamdoc.soluongton === 'number') ? sanphamdoc.soluongton : tinhTongTon(sanphamdoc);
-
-  const cosize = !laLoaiKhongSize(sanphamdoc.loaisanpham);
-
-  if (!idbienthe) {
-    if (cosize) {
-      const dong = (sanphamdoc.sizes || []).find(s => s.size === kichco);
-      if (!dong || dong.soluong < soluong) throw new Error('Không đủ hàng');
-      dong.soluong -= soluong;
-    } else {
-      if ((sanphamdoc.soluong_chinh || 0) < soluong) throw new Error('Không đủ hàng');
-      sanphamdoc.soluong_chinh = (sanphamdoc.soluong_chinh || 0) - soluong;
-    }
-
-    sanphamdoc.soluongton = Math.max(0, tonggoc - soluong);
-    await sanphamdoc.save();
-    return {
-      fifoAllocations,
-      fifoApplied: fifoAllocations.length > 0
-    };
-  }
-
-  const bienthe = (sanphamdoc.bienthe || []).id(idbienthe);
-  if (!bienthe) throw new Error('Biến thể không tồn tại');
-
-  if (cosize) {
-    const dong = (bienthe.sizes || []).find(s => s.size === kichco);
-    if (!dong || dong.soluong < soluong) throw new Error('Không đủ hàng');
-    dong.soluong -= soluong;
-  } else {
-    if ((bienthe.soluong || 0) < soluong) throw new Error('Không đủ hàng');
-    bienthe.soluong = (bienthe.soluong || 0) - soluong;
-  }
-
-  sanphamdoc.soluongton = Math.max(0, tonggoc - soluong);
-  await sanphamdoc.save();
 
   return {
     fifoAllocations,

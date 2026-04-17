@@ -27,10 +27,7 @@
 		? String(runtime.currentProduct.id).trim()
 		: '';
 	const pageScope = currentProductId ? `product:${currentProductId}` : 'global';
-	const LEGACY_STORAGE_KEY = 'fashion_ai_chat_history_v1';
-	const LEGACY_SCOPED_STORAGE_KEY = `${LEGACY_STORAGE_KEY}:${storageScope}`;
 	const STORAGE_KEY = `fashion_ai_chat_history_v2:${storageScope}:${pageScope}`;
-	const GLOBAL_STORAGE_KEY = `fashion_ai_chat_history_v2:${storageScope}:global`;
 	const PROVIDER_STORAGE_KEY = 'fashion_ai_provider_v1';
 	const MODEL_STORAGE_KEY = 'fashion_ai_gemini_model_v1';
 	const EXPANDED_STORAGE_KEY = 'fashion_ai_chat_expanded_v1';
@@ -57,17 +54,6 @@
 	let pendingImageFile = null;
 	let pendingImagePreviewUrl = '';
 	const submittedImagePreviewUrls = [];
-
-	function clearScopedHistoryStorage() {
-		try {
-			localStorage.removeItem(STORAGE_KEY);
-			localStorage.removeItem(GLOBAL_STORAGE_KEY);
-			localStorage.removeItem(LEGACY_STORAGE_KEY);
-			localStorage.removeItem(LEGACY_SCOPED_STORAGE_KEY);
-		} catch {
-			// Ignore storage errors in private mode.
-		}
-	}
 
 	function setExpanded(expanded) {
 		panel.classList.toggle('expanded', Boolean(expanded));
@@ -920,11 +906,6 @@ async function askAI(question, options = {}) {
 	clearBtn.addEventListener('click', () => {
 		resetHistory();
 		clearPendingImage();
-	});
-	document.querySelectorAll("form[action='/auth/logout']").forEach((logoutForm) => {
-		logoutForm.addEventListener('submit', () => {
-			clearScopedHistoryStorage();
-		});
 	});
 	window.addEventListener('beforeunload', () => {
 		revokePendingImagePreview();

@@ -47,6 +47,66 @@ const OPENCLIP_PRODUCTS_CATEGORY_LABELS = [
   { key: 'phukien', prompts: ['phụ kiện thời trang', 'accessory', 'fashion accessory', 'thắt lưng', 'mũ'] }
 ];
 
+const COLOR_WORD_DISPLAY_MAP = {
+  den: 'đen',
+  do: 'đỏ',
+  trang: 'trắng',
+  vang: 'vàng',
+  tim: 'tím',
+  nau: 'nâu',
+  hong: 'hồng',
+  xam: 'xám',
+  xanh: 'xanh',
+  cam: 'cam',
+  be: 'be',
+  ghi: 'ghi',
+  black: 'đen',
+  red: 'đỏ',
+  white: 'trắng',
+  yellow: 'vàng',
+  purple: 'tím',
+  brown: 'nâu',
+  pink: 'hồng',
+  gray: 'xám',
+  grey: 'xám',
+  blue: 'xanh',
+  orange: 'cam',
+  beige: 'beige',
+  cream: 'kem'
+};
+
+const COLOR_PHRASE_DISPLAY_MAP = {
+  'xanh la': 'xanh lá',
+  'xanh duong': 'xanh dương',
+  'xanh navy': 'xanh navy'
+};
+
+function normalizeAsciiColorText(input) {
+  return String(input || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\u0111/g, 'd')
+    .replace(/[-_/]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function toColorDisplayName(rawColor) {
+  const original = String(rawColor || '').trim();
+  if (!original) return '';
+
+  const normalized = normalizeAsciiColorText(original);
+  if (!normalized) return original;
+  if (COLOR_PHRASE_DISPLAY_MAP[normalized]) return COLOR_PHRASE_DISPLAY_MAP[normalized];
+
+  return normalized
+    .split(' ')
+    .map((word) => COLOR_WORD_DISPLAY_MAP[word] || word)
+    .join(' ')
+    .trim();
+}
+
 function resolveSelectedProductTypeFromClassification(detected) {
   const detectedType = String(detected && detected.predictedKey ? detected.predictedKey : '').trim().toLowerCase();
   const labels = Array.isArray(detected && detected.labels) ? detected.labels : [];
@@ -535,7 +595,7 @@ async function getChiTietData(idsanpham, query = {}) {
 
   const tatcabienthe = [];
 
-  const mauchinh = capnhatsp.mausac_chinh || 'Mặc định';
+  const mauchinh = toColorDisplayName(capnhatsp.mausac_chinh) || 'Mặc định';
   const sizechinh = capnhatsp.sizes || [];
   tatcabienthe.push({
     _id: 'main',
@@ -559,9 +619,9 @@ async function getChiTietData(idsanpham, query = {}) {
       tatcabienthe.push({
         ...bienthe,
         _id: bienthe._id || `variant_${idx}`,
-        mausac: bienthe.mausac || `Màu ${tatcabienthe.length + 1}`,
+        mausac: toColorDisplayName(bienthe.mausac) || `Màu ${tatcabienthe.length + 1}`,
         hinhanh: (hinhbienthe && hinhbienthe !== '/images/shopping.png') ? hinhbienthe : capnhatsp.hinhanh,
-        colorCode: productViewHelper.layMaMau(bienthe.mausac),
+        colorCode: productViewHelper.layMaMau(toColorDisplayName(bienthe.mausac) || bienthe.mausac),
         gia: (bienthe.gia === null || bienthe.gia === undefined) ? capnhatsp.gia : bienthe.gia,
         phantramgiamgia: phanTramGiamGiaBienThe,
         sizes: sizebienthe
@@ -569,9 +629,10 @@ async function getChiTietData(idsanpham, query = {}) {
     });
   } else if (capnhatsp.mausac && capnhatsp.mausac.length > 0) {
     capnhatsp.mausac.forEach(mau => {
+      const displayColor = toColorDisplayName(mau);
       tatcabienthe.push({
-        mausac: mau,
-        colorCode: productViewHelper.layMaMau(mau),
+        mausac: displayColor || mau,
+        colorCode: productViewHelper.layMaMau(displayColor || mau),
         hinhanh: capnhatsp.hinhanh,
         gia: capnhatsp.gia,
         sizes: []
@@ -714,7 +775,7 @@ async function getTuyChonData(idsanpham) {
 
   danhsachbienthe.push({
     id: 'main',
-    mausac: capnhatsp.mausac_chinh || 'Mặc định',
+    mausac: toColorDisplayName(capnhatsp.mausac_chinh) || 'Mặc định',
     hinhanh: capnhatsp.hinhanh || '/images/shopping.png',
     gia: giagoc,
     phantramgiamgia: giamgoc,
@@ -730,7 +791,7 @@ async function getTuyChonData(idsanpham) {
       const giamoi = giam > 0 ? Math.round(gia * (100 - giam) / 100) : gia;
       danhsachbienthe.push({
         id: String(bienthe._id),
-        mausac: bienthe.mausac || 'Màu',
+        mausac: toColorDisplayName(bienthe.mausac) || 'Màu',
         hinhanh: (productViewHelper.chuanHoaAnh(bienthe.hinhanh) || capnhatsp.hinhanh || '/images/shopping.png'),
         gia,
         phantramgiamgia: giam,
