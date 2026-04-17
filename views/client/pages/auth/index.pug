@@ -1,6 +1,8 @@
 extends ../../layouts/default.pug
 
 block main
+  - const _authError = messages && messages.error ? (Array.isArray(messages.error) ? messages.error[0] : messages.error) : ''
+  - const _authSuccess = messages && messages.success ? (Array.isArray(messages.success) ? messages.success[0] : messages.success) : ''
   .auth-wrap
     .container.py-5.auth-page(data-mode=mode)
       .row.justify-content-center
@@ -8,11 +10,12 @@ block main
           .card.shadow-sm.border-0.auth-card
             .card-body.p-4.auth-card-body
               h1.h4.fw-bold.mb-3.text-center Đăng nhập / Đăng ký
-
-              if messages && messages.error
-                .alert.alert-danger(role="alert") #{messages.error}
-              if messages && messages.success
-                .alert.alert-success(role="alert") #{messages.success}
+              if _authError || _authSuccess
+                noscript
+                  if _authError
+                    .alert.alert-danger(role="alert") #{_authError}
+                  if _authSuccess
+                    .alert.alert-success(role="alert") #{_authSuccess}
               ul.nav.nav-pills.justify-content-center.mb-4
                 li.nav-item
                   a.nav-link(class=(mode === 'login' ? 'active' : '') href="/auth?mode=login") Đăng nhập
@@ -81,3 +84,29 @@ block main
 
 block scripts
   script(src="/js/auth.js")
+  if _authError || _authSuccess
+    script.
+      document.addEventListener('DOMContentLoaded', function () {
+        var notify = (window.App && typeof window.App.notify === 'function')
+          ? window.App.notify
+          : function (message) { window.alert(message); };
+
+        var errorMessage = !{JSON.stringify(_authError || '')};
+        var successMessage = !{JSON.stringify(_authSuccess || '')};
+
+        if (errorMessage) {
+          notify(errorMessage, {
+            type: 'info',
+            title: 'Thông báo',
+            duration: 5000
+          });
+        }
+
+        if (successMessage) {
+          notify(successMessage, {
+            type: 'info',
+            title: 'Thông báo',
+            duration: 5000
+          });
+        }
+      });

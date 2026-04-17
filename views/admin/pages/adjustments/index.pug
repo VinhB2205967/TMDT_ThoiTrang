@@ -21,7 +21,7 @@ block main
               th Lý do
               th Người tạo
               th Tạo lúc
-              th
+              th Hanh động
           tbody
             each r in receipts
               tr
@@ -47,6 +47,11 @@ block main
                       button.btn.btn-sm.btn-success(type='submit')
                         i.bi.bi-check2-circle
                         |  Xác nhận
+                    form.d-inline.me-1(method='POST' action=`${admin}/adjustments/${r._id}/delete` onsubmit='return confirm("Xoa phieu dieu chinh nay? Chi co the xoa khi chua xac nhan.")')
+                      input(type='hidden' name='_csrf' value=_csrf)
+                      button.btn.btn-sm.btn-outline-danger(type='submit')
+                        i.bi.bi-trash
+                        |  Xóa
                   a.btn.btn-sm.btn-outline-primary(href=`${admin}/adjustments/${r._id}`)
                     i.bi.bi-eye
                     |  Chi tiết

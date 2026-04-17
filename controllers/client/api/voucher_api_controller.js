@@ -57,12 +57,13 @@ module.exports.available = async (req, res) => {
     const userVouchers = await UserVoucher.find({ nguoidung_id: req.user._id }).lean();
     const savedMap = new Map((userVouchers || []).map((uv) => [String(uv.voucher_id), uv]));
 
-    const data = validVouchers.map((v) => {
+    const data = validVouchers.reduce((acc, v) => {
       const saved = savedMap.get(String(v._id));
+      if (saved?.isUsed) return acc;
       const remaining = v.soluong_toida != null
         ? Math.max(0, Number(v.soluong_toida || 0) - Number(v.soluong_dasudung || 0))
         : null;
-      return {
+      acc.push({
         id: String(v._id),
         code: v.code,
         name: v.ten || 'Voucher',
@@ -76,8 +77,9 @@ module.exports.available = async (req, res) => {
         banner: v.banner || '',
         isSaved: Boolean(saved),
         isUsed: Boolean(saved?.isUsed)
-      };
-    });
+      });
+      return acc;
+    }, []);
 
     return res.json({ success: true, vouchers: data });
   } catch (error) {

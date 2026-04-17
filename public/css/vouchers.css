@@ -113,6 +113,16 @@
   margin-bottom: 24px;
 }
 
+.toolbar-left {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.toolbar-right {
+  margin-left: auto;
+}
+
 .btn-filter {
   border: 1px solid rgba(30, 28, 26, 0.2);
   background: transparent;
@@ -138,6 +148,7 @@
   border-radius: 999px;
   padding: 6px 16px;
   box-shadow: 0 8px 20px rgba(18, 16, 12, 0.08);
+  min-width: min(100%, 320px);
 }
 
 .search-wrap input {
@@ -145,6 +156,7 @@
   outline: none;
   font-family: 'Space Grotesk', sans-serif;
   background: transparent;
+  width: 100%;
 }
 
 .voucher-layout {
@@ -155,8 +167,10 @@
 
 .voucher-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 20px;
+  align-items: start;
+  align-content: start;
 }
 
 .voucher-loading {
@@ -175,6 +189,10 @@
   box-shadow: 0 14px 30px rgba(30, 28, 26, 0.08);
   display: flex;
   flex-direction: column;
+  align-self: start;
+  max-width: 620px;
+  width: 100%;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
 }
 
 .voucher-card__banner {
@@ -213,6 +231,12 @@
   font-family: 'Space Grotesk', sans-serif;
 }
 
+.voucher-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(214, 127, 77, 0.38);
+  box-shadow: 0 20px 38px rgba(30, 28, 26, 0.14);
+}
+
 .voucher-title {
   font-weight: 600;
   color: var(--voucher-dark);
@@ -238,13 +262,19 @@
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 12px;
+  border: 1px solid rgba(214, 127, 77, 0.16);
 }
 
 .voucher-meta {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
   font-size: 12px;
   color: rgba(30, 28, 26, 0.7);
+}
+
+.voucher-meta span:last-child {
+  text-align: right;
 }
 
 .voucher-actions {
@@ -257,7 +287,7 @@
   border-radius: 999px;
   font-size: 13px;
   border: none;
-  padding: 8px 10px;
+  padding: 10px 12px;
   font-family: 'Space Grotesk', sans-serif;
 }
 
@@ -288,6 +318,23 @@
   border: 1px solid rgba(30, 28, 26, 0.08);
   box-shadow: var(--voucher-shadow);
   font-family: 'Space Grotesk', sans-serif;
+}
+
+.calculator-card .form-control {
+  border-radius: 14px;
+  border-color: rgba(30, 28, 26, 0.18);
+  padding: 10px 12px;
+}
+
+.calculator-card .btn-primary {
+  border-radius: 14px;
+  background: linear-gradient(120deg, #cf7848, #a75f36);
+  border: none;
+  font-weight: 600;
+}
+
+.calculator-card .btn-primary:hover {
+  filter: brightness(0.95);
 }
 
 .calc-title {
@@ -323,6 +370,15 @@
   .voucher-side {
     position: static;
   }
+
+  .toolbar-right {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .search-wrap {
+    width: 100%;
+  }
 }
 
 @media (max-width: 576px) {
@@ -330,7 +386,15 @@
     flex-direction: column;
   }
 
-  .search-wrap {
-    width: 100%;
+  .voucher-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .voucher-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .voucher-meta span:last-child {
+    text-align: left;
   }
 }

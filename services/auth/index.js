@@ -185,7 +185,7 @@ async function yeuCauDatLaiMK({ req, email }) {
   }
 
   const user = await nguoidung.findOne({ email: normalizedEmail, daxoa: { $ne: true } }).lean();
-  if (!user) throw taoLoi('Email không tồn tại trong hệ thống', 'EMAIL_NOT_FOUND');
+  if (!user) throw taoLoi('Email không tồn tại', 'EMAIL_NOT_FOUND');
 
   await damBaoTK(user, { provider: 'local' });
   const tokenInfo = await taoTokenReset({ userId: user._id, expiresMinutes: 15 });

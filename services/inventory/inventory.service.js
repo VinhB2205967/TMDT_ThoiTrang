@@ -68,6 +68,7 @@ function applyAdjustmentToProductDoc(productDoc, line, deltaQty) {
       const row = productDoc.sizes.find((s) => String(s.size) === size);
       const before = Number(row?.soluong || 0);
       const after = before + delta;
+      if (after < 0) throw new Error('Tồn kho không thể âm sau điều chỉnh');
       if (row) row.soluong = after;
       else productDoc.sizes.push({ size, soluong: after });
       return { before, after, color: productDoc.mausac_chinh || '' };
@@ -77,6 +78,7 @@ function applyAdjustmentToProductDoc(productDoc, line, deltaQty) {
     const row = variant.sizes.find((s) => String(s.size) === size);
     const before = Number(row?.soluong || 0);
     const after = before + delta;
+    if (after < 0) throw new Error('Tồn kho không thể âm sau điều chỉnh');
     if (row) row.soluong = after;
     else variant.sizes.push({ size, soluong: after });
     return { before, after, color: variant.mausac || '' };
@@ -85,12 +87,14 @@ function applyAdjustmentToProductDoc(productDoc, line, deltaQty) {
   if (isMain) {
     const before = Number(productDoc.soluong_chinh || 0);
     const after = before + delta;
+    if (after < 0) throw new Error('Tồn kho không thể âm sau điều chỉnh');
     productDoc.soluong_chinh = after;
     return { before, after, color: productDoc.mausac_chinh || '' };
   }
 
   const before = Number(variant.soluong || 0);
   const after = before + delta;
+  if (after < 0) throw new Error('Tồn kho không thể âm sau điều chỉnh');
   variant.soluong = after;
   return { before, after, color: variant.mausac || '' };
 }

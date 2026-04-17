@@ -225,7 +225,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const showBank = shouldRequireBankInfo();
       refundBankFields.classList.toggle('d-none', !showBank);
       bankInputs.forEach((input) => {
-        input.required = !!showBank;
+        input.required = showBank;
+        if (showBank) {
+          input.setAttribute('required', 'required');
+        } else {
+          input.removeAttribute('required');
+        }
         if (!showBank) input.value = '';
       });
     }
@@ -274,6 +279,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (returnForm) {
       returnForm.addEventListener('submit', (event) => {
         let selectedCount = 0;
+        const selected = refundMethodInputs.find((it) => it.checked);
+        const selectedValue = selected ? String(selected.value || '').toLowerCase() : 'bank';
+        const showBank = selectedValue === 'bank';
+        if (showBank) {
+          const hasMissingBankField = bankInputs.some((input) => !String(input.value || '').trim());
+          if (hasMissingBankField) {
+            event.preventDefault();
+            bankInputs.forEach((input) => {
+              if (!String(input.value || '').trim()) {
+                input.classList.add('is-invalid');
+              } else {
+                input.classList.remove('is-invalid');
+              }
+            });
+            return;
+          }
+        }
 
         returnQtyInputs.forEach((input) => {
           clampReturnQty(input);

@@ -137,6 +137,57 @@ function buildOrderDeliveredTemplate({ order, reviewUrl }) {
   };
 }
 
+function formatRefundMethod(method) {
+  const value = String(method || '').trim().toLowerCase();
+  if (value === 'momo') return 'Ví MoMo';
+  if (value === 'vnpay') return 'Ví VNPAY';
+  if (value === 'bank') return 'Chuyển khoản ngân hàng';
+  if (value === 'wallet') return 'Ví điện tử';
+  return 'Phương thức khác';
+}
+
+function buildOrderRefundedTemplate({ order, refundAmount, refundMethod, refundedAt }) {
+  const customerName = escapeHtml(order.tennguoinhan || 'Khách hàng');
+  const orderCode = escapeHtml(order.madonhang || String(order._id || ''));
+  const amount = formatCurrency(refundAmount || 0);
+  const methodLabel = escapeHtml(formatRefundMethod(refundMethod));
+  const refundedTime = formatDate(refundedAt || new Date());
+
+  const html = `
+  <div style="font-family:Arial,sans-serif;background:#f6f8ff;padding:24px;">
+    <div style="max-width:640px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+      <div style="background:linear-gradient(135deg,#0891b2,#0ea5e9);padding:20px;color:#fff;">
+        <h2 style="margin:0;">Hoàn tiền thành công cho đơn hàng #${orderCode}</h2>
+      </div>
+      <div style="padding:20px;color:#111827;line-height:1.7;">
+        <p>Xin chào <strong>${customerName}</strong>,</p>
+        <p>Yêu cầu hoàn tiền cho đơn hàng của bạn đã được xử lý thành công.</p>
+        <div style="margin-top:14px;padding:12px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;">
+          <div><strong>Số tiền hoàn:</strong> ${amount}</div>
+          <div><strong>Phương thức hoàn:</strong> ${methodLabel}</div>
+          <div><strong>Thời gian hoàn:</strong> ${escapeHtml(refundedTime)}</div>
+        </div>
+        <p style="margin-top:16px;">Nếu cần hỗ trợ thêm, vui lòng phản hồi email này hoặc liên hệ bộ phận chăm sóc khách hàng.</p>
+      </div>
+    </div>
+  </div>`;
+
+  const text = [
+    `Xin chào ${customerName},`,
+    `Đơn hàng #${orderCode} đã được hoàn tiền thành công.`,
+    `Số tiền hoàn: ${amount}`,
+    `Phương thức hoàn: ${formatRefundMethod(refundMethod)}`,
+    `Thời gian hoàn: ${refundedTime}`,
+    'Nếu cần hỗ trợ, vui lòng liên hệ bộ phận chăm sóc khách hàng.'
+  ].join('\n');
+
+  return {
+    subject: `Đơn hàng #${orderCode} đã hoàn tiền thành công`,
+    html,
+    text
+  };
+}
+
 function getBaseUrl() {
   return String(process.env.APP_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
 }
@@ -265,10 +316,57 @@ async function sendOrderDeliveredEmail({ orderId }) {
   }
 }
 
+async function sendOrderRefundedEmail({ orderId, refundAmount = 0, refundMethod = '', refundedAt = null }) {
+  const order = await Donhang.findOne({ _id: orderId, daxoa: { $ne: true } }).lean();
+  if (!order || !order.email) return { sent: false, reason: 'missing-order-or-email' };
+
+  const claim = await claimEmailLog({ order, action: 'email_order_refunded' });
+  if (!claim.claimed) return { sent: false, reason: 'already-sent' };
+
+  const emailContent = buildOrderRefundedTemplate({
+    order,
+    refundAmount,
+    refundMethod,
+    refundedAt
+  });
+
+  try {
+    const info = await sendMail({
+      to: order.email,
+      subject: emailContent.subject,
+      text: emailContent.text,
+      html: emailContent.html
+    });
+
+    await updateEmailLog(claim.uniqueKey, {
+      sent: true,
+      sentAt: new Date(),
+      channel: 'email',
+      to: String(order.email || ''),
+      refundAmount: Number(refundAmount || 0),
+      refundMethod: String(refundMethod || ''),
+      message: 'order refunded email sent'
+    });
+
+    return { sent: true, info };
+  } catch (error) {
+    await updateEmailLog(claim.uniqueKey, {
+      sent: false,
+      failedAt: new Date(),
+      channel: 'email',
+      to: String(order.email || ''),
+      error: String(error && error.message ? error.message : error)
+    }, { clearClaim: true });
+    throw error;
+  }
+}
+
 module.exports = {
   sendOrderConfirmedEmail,
   sendOrderDeliveredEmail,
+  sendOrderRefundedEmail,
   buildOrderConfirmedTemplate,
-  buildOrderDeliveredTemplate
+  buildOrderDeliveredTemplate,
+  buildOrderRefundedTemplate
 };
 

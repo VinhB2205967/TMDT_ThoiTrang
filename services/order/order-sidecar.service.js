@@ -133,9 +133,45 @@ async function dongBoYeuCauHoanHangTuDon({ order, action = '', actor = null }) {
   if (!order?._id) return;
 
   const req = order.yeucauhoanhang || {};
+  const existingRefund = await OrderRefund.findOne({ donhang_id: order._id }).lean();
+  const existingSnapshot = normalizeRefundSnapshot(existingRefund);
   const actorInfo = buildActorSnapshot(actor);
-  const requestedItems = normalizeRequestedItems(req.requestedItems || req.returnItems);
-  const receivedItems = normalizeRequestedItems(req.receivedItems);
+  const requestedItems = normalizeRequestedItems(
+    req.requestedItems
+      || req.returnItems
+      || req.danhsachsanphamyeucauhoan
+      || existingSnapshot.requestedItems
+  );
+  const receivedItems = normalizeRequestedItems(
+    req.receivedItems
+      || req.danhsachsanphamdanhanhoan
+      || existingSnapshot.receivedItems
+  );
+  const requestedAt = toDateOrNull(req.requestedAt || req.thoigianguiyeucau || existingSnapshot.requestedAt);
+  const reason = toStringSafe(req.reason || req.lydo || existingSnapshot.reason, '');
+  const reasonLabel = toStringSafe(req.reasonLabel || req.nhanlydo || existingSnapshot.reasonLabel, '');
+  const detail = toStringSafe(req.detail || req.motachitiet || existingSnapshot.detail, '');
+  const proofMedias = Array.isArray(req.proofMedias)
+    ? req.proofMedias
+    : (Array.isArray(req.danhsachminhchung)
+      ? req.danhsachminhchung
+      : (Array.isArray(existingSnapshot.proofMedias) ? existingSnapshot.proofMedias : []));
+  const proofMedia = toStringSafe(req.proofMedia || req.minhchung || existingSnapshot.proofMedia, '');
+  const proofImage = toStringSafe(req.proofImage || req.hinhanhminhchung || existingSnapshot.proofImage, '');
+  const refundMethod = toStringSafe(req.refundMethod || req.phuongthuchoantien || existingSnapshot.refundMethod, '');
+  const refundWallet = toStringSafe(req.refundWallet || req.vihoantien || existingSnapshot.refundWallet, '');
+  const refundBankName = toStringSafe(req.refundBankName || req.tennganhanghoantien || existingSnapshot.refundBankName, '');
+  const refundBankAccountName = toStringSafe(req.refundBankAccountName || req.tenchutaikhoanhoantien || existingSnapshot.refundBankAccountName, '');
+  const refundBankAccountNumber = toStringSafe(req.refundBankAccountNumber || req.sotaikhoanhoantien || existingSnapshot.refundBankAccountNumber, '');
+  const refundAmount = Number(req.refundAmount || req.sotienhoan || existingSnapshot.refundAmount || 0) || 0;
+  const adminNote = toStringSafe(req.adminNote || req.ghichuadmin || existingSnapshot.adminNote, '');
+  const reviewedAt = toDateOrNull(req.reviewedAt || req.thoigianduyet || existingSnapshot.reviewedAt);
+  const approvedAt = toDateOrNull(req.approvedAt || req.thoigianduyetchapnhan || existingSnapshot.approvedAt);
+  const rejectedAt = toDateOrNull(req.rejectedAt || req.thoigiantuchoi || existingSnapshot.rejectedAt);
+  const returnedAt = toDateOrNull(req.returnedAt || req.thoigiannhanhanghoan || existingSnapshot.returnedAt);
+  const refundedAt = toDateOrNull(req.refundedAt || req.thoigianhoantien || existingSnapshot.refundedAt);
+  const canceledByUser = Boolean(req.canceledByUser || req.dahuyboibannguoidung || existingSnapshot.canceledByUser);
+  const canceledByUserAt = toDateOrNull(req.canceledByUserAt || req.thoigianhuyboibannguoidung || existingSnapshot.canceledByUserAt);
   const now = new Date();
 
   await OrderRefund.updateOne(
@@ -145,29 +181,29 @@ async function dongBoYeuCauHoanHangTuDon({ order, action = '', actor = null }) {
         nguoidung_id: toObjectIdOrNull(order.nguoidung_id),
         madonhang: toStringSafe(order.madonhang, ''),
         trangthai_donhang: toStringSafe(order.trangthai, ''),
-        thoigianguiyeucau: toDateOrNull(req.requestedAt),
-        lydo: toStringSafe(req.reason, ''),
-        nhanlydo: toStringSafe(req.reasonLabel, ''),
-        motachitiet: toStringSafe(req.detail, ''),
+        thoigianguiyeucau: requestedAt,
+        lydo: reason,
+        nhanlydo: reasonLabel,
+        motachitiet: detail,
         danhsachsanphamyeucauhoan: requestedItems,
         danhsachsanphamdanhanhoan: receivedItems,
-        danhsachminhchung: Array.isArray(req.proofMedias) ? req.proofMedias.map((item) => toStringSafe(item, '')) : [],
-        minhchung: toStringSafe(req.proofMedia, ''),
-        hinhanhminhchung: toStringSafe(req.proofImage, ''),
-        phuongthuchoantien: toStringSafe(req.refundMethod, ''),
-        vihoantien: toStringSafe(req.refundWallet, ''),
-        tennganhanghoantien: toStringSafe(req.refundBankName, ''),
-        tenchutaikhoanhoantien: toStringSafe(req.refundBankAccountName, ''),
-        sotaikhoanhoantien: toStringSafe(req.refundBankAccountNumber, ''),
-        sotienhoan: Number(req.refundAmount || 0) || 0,
-        ghichuadmin: toStringSafe(req.adminNote, ''),
-        thoigianduyet: toDateOrNull(req.reviewedAt),
-        thoigianduyetchapnhan: toDateOrNull(req.approvedAt),
-        thoigiantuchoi: toDateOrNull(req.rejectedAt),
-        thoigiannhanhanghoan: toDateOrNull(req.returnedAt),
-        thoigianhoantien: toDateOrNull(req.refundedAt),
-        dahuyboibannguoidung: Boolean(req.canceledByUser),
-        thoigianhuyboibannguoidung: toDateOrNull(req.canceledByUserAt),
+        danhsachminhchung: proofMedias.map((item) => toStringSafe(item, '')),
+        minhchung: proofMedia,
+        hinhanhminhchung: proofImage,
+        phuongthuchoantien: refundMethod,
+        vihoantien: refundWallet,
+        tennganhanghoantien: refundBankName,
+        tenchutaikhoanhoantien: refundBankAccountName,
+        sotaikhoanhoantien: refundBankAccountNumber,
+        sotienhoan: refundAmount,
+        ghichuadmin: adminNote,
+        thoigianduyet: reviewedAt,
+        thoigianduyetchapnhan: approvedAt,
+        thoigiantuchoi: rejectedAt,
+        thoigiannhanhanghoan: returnedAt,
+        thoigianhoantien: refundedAt,
+        dahuyboibannguoidung: canceledByUser,
+        thoigianhuyboibannguoidung: canceledByUserAt,
         hanhdongcuoi: toStringSafe(action, ''),
         nguoithuchiencuoi_id: actorInfo.actorId,
         vaitronguoithuchiencuoi: actorInfo.actorRole,

@@ -87,10 +87,26 @@ const xacNhanPost = async (req, res) => {
   }
 };
 
+const xoaPost = async (req, res) => {
+  try {
+    const result = await adjustmentsService.xoaPhieuDieuChinh(req.params.id);
+    return adminControllerService.xuLyKetQuaSSR(req, res, result, {
+      successPath: adjustmentsPath(req),
+      errorPath: result.receiptId ? adjustmentsPath(req, `${result.receiptId}`) : adjustmentsPath(req),
+      resolveFlashType: adjustmentsService.xacDinhLoaiFlashKetQua
+    });
+  } catch (error) {
+    console.error('Delete adjustment error:', error);
+    req.flash('error', `Khong the xoa phieu dieu chinh: ${error.message}`);
+    return adminControllerService.redirectVe(req, res, adjustmentsPath(req));
+  }
+};
+
 module.exports = {
   danhSach,
   taoMoi,
   taoMoiPost,
   chiTiet,
-  xacNhanPost
+  xacNhanPost,
+  xoaPost
 };

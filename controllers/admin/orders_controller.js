@@ -148,30 +148,42 @@ module.exports.hoanTienDon = async (req, res) => {
 };
 
 module.exports.capNhatTrangThaiHangLoat = async (req, res) => {
-  try {
-    const result = await ordersAdminService.capNhatTrangThaiHangLoat({
-      orderIds: req.body.orderIds,
-      nextStatus: req.body.trangthai,
-      actor: req.adminUser || req.user || null
-    });
-
-    req.flash(ordersAdminService.xacDinhLoaiFlashKetQua(result), result.message);
-    return res.redirect(ordersAdminService.layDuongDanDanhSachMacDinh());
-  } catch (err) {
-    console.error('orders.capNhatTrangThaiHangLoat error:', err);
-    req.flash('error', 'Lỗi hệ thống khi cập nhật hàng loạt');
-    return res.redirect(ordersAdminService.layDuongDanDanhSachMacDinh());
-  }
-};
-
-module.exports.huyDon = async (req, res) => {
   const returnTo = ordersAdminService.layDuongDanQuayLaiDanhSach({
     fromBody: req.body.returnTo,
     fromQuery: req.query.returnTo
   });
+  const nextStatus = String(req.body.status || req.body.trangthai || '').trim();
+
+  try {
+    const result = await ordersAdminService.capNhatTrangThaiHangLoat({
+      orderIds: req.body.orderIds,
+      nextStatus,
+      actor: req.adminUser || req.user || null
+    });
+
+    req.flash(ordersAdminService.xacDinhLoaiFlashKetQua(result), result.message);
+    return res.redirect(returnTo);
+  } catch (err) {
+    console.error('orders.capNhatTrangThaiHangLoat error:', err);
+    req.flash('error', 'Lỗi hệ thống khi cập nhật hàng loạt');
+    return res.redirect(returnTo);
+  }
+};
+
+module.exports.huyDon = async (req, res) => {
+  const id = req.params.id;
+  const requestedListUrl = ordersAdminService.layDuongDanDanhSachHopLe(
+    req.body.returnTo || req.query.returnTo
+  );
+  const returnTo = ordersAdminService.layDuongDanQuayLaiDanhSach({
+    fromBody: req.body.returnTo,
+    fromQuery: req.query.returnTo
+  });
+  const detailRedirectUrl = ordersAdminService.taoDuongDanChiTietDon({ id, returnTo });
+  const redirectUrl = requestedListUrl || detailRedirectUrl;
   try {
     const result = await ordersAdminService.huyDon({
-      id: req.params.id,
+      id,
       reason: req.body.reason || req.body.lydohuy,
       actor: req.adminUser || req.user || null
     });
@@ -180,10 +192,10 @@ module.exports.huyDon = async (req, res) => {
       ordersAdminService.xacDinhLoaiFlashKetQua(result, { warningWhenPartial: true }),
       result.message
     );
-    return res.redirect(returnTo);
+    return res.redirect(redirectUrl);
   } catch (err) {
     console.error('orders.huyDon error:', err);
     req.flash('error', 'Lỗi hệ thống khi hủy đơn');
-    return res.redirect(returnTo);
+    return res.redirect(redirectUrl);
   }
 };

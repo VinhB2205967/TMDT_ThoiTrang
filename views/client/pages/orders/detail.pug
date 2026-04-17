@@ -311,13 +311,13 @@ block main
                       .row.g-2
                         .col-12
                           label.form-label.small(for='refundBankName') Tên ngân hàng
-                          input#refundBankName.form-control.form-control-sm(type='text' name='bankName' maxlength='120' placeholder='VD: Vietcombank')
+                          input#refundBankName.form-control.form-control-sm(type='text' name='bankName' maxlength='120' placeholder='VD: Vietcombank' required)
                         .col-12
                           label.form-label.small(for='refundBankAccountName') Tên người nhận
-                          input#refundBankAccountName.form-control.form-control-sm(type='text' name='bankAccountName' maxlength='120' placeholder='Họ tên chủ tài khoản')
+                          input#refundBankAccountName.form-control.form-control-sm(type='text' name='bankAccountName' maxlength='120' placeholder='Họ tên chủ tài khoản' required)
                         .col-12
                           label.form-label.small(for='refundBankAccountNumber') Số tài khoản
-                          input#refundBankAccountNumber.form-control.form-control-sm(type='text' name='bankAccountNumber' maxlength='30' inputmode='numeric' placeholder='Nhập số tài khoản')
+                          input#refundBankAccountNumber.form-control.form-control-sm(type='text' name='bankAccountNumber' maxlength='30' inputmode='numeric' placeholder='Nhập số tài khoản' required)
 
                 .modal-footer
                   button.btn.btn-outline-secondary(type='button' data-bs-dismiss='modal') Đóng

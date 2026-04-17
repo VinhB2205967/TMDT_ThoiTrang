@@ -477,7 +477,13 @@ function ganSubmitThemGioAjax() {
         });
 
         if (!ok || !data || !data.success) {
-            window.alert((data && data.message) ? data.message : 'Không thể thêm vào giỏ hàng');
+            const thongBao = (window.App && window.App.notify)
+                ? window.App.notify
+                : ((message) => window.alert(message));
+            thongBao((data && data.message) ? data.message : 'Không thể thêm vào giỏ hàng', {
+                type: 'info',
+                title: 'Thông báo'
+            });
             return;
         }
 

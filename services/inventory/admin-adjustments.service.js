@@ -226,6 +226,40 @@ async function xacNhanPhieuDieuChinh({ idOrCode, adminUser = null, user = null }
   const productDocMap = new Map(productDocs.map((p) => [String(p._id), p]));
   const touched = new Set();
 
+  // Validate all lines on a snapshot first so we do not apply FIFO partially
+  // when any later line would make stock go negative.
+  const simulatedProductMap = new Map(productDocs.map((p) => [
+    String(p._id),
+    typeof p.toObject === 'function' ? p.toObject() : JSON.parse(JSON.stringify(p))
+  ]));
+
+  for (const line of details) {
+    const pid = String(line.sanphamid || '').trim();
+    const simulatedDoc = simulatedProductMap.get(pid);
+    if (!simulatedDoc) {
+      return {
+        ok: false,
+        message: 'Có sản phẩm trong phiếu không còn tồn tại',
+        receiptId: receiptDoc._id
+      };
+    }
+
+    const delta = Number(line.soluongdieuchinh || 0);
+    if (!Number.isFinite(delta) || delta === 0) {
+      return { ok: false, message: 'Dòng điều chỉnh không hợp lệ', receiptId: receiptDoc._id };
+    }
+
+    try {
+      inventoryService.applyAdjustmentToProductDoc(simulatedDoc, line, delta);
+    } catch (error) {
+      return {
+        ok: false,
+        message: error.message || 'Không thể xác nhận điều chỉnh kho',
+        receiptId: receiptDoc._id
+      };
+    }
+  }
+
   for (const line of details) {
     const pid = String(line.sanphamid || '').trim();
     const productDoc = productDocMap.get(pid);
@@ -287,6 +321,27 @@ async function xacNhanPhieuDieuChinh({ idOrCode, adminUser = null, user = null }
   };
 }
 
+async function xoaPhieuDieuChinh(idOrCode) {
+  const receiptDoc = await findByIdOrCode(idOrCode);
+  if (!receiptDoc) return { ok: false, message: 'Khong tim thay phieu dieu chinh' };
+
+  if (receiptDoc.daxacnhan) {
+    return {
+      ok: false,
+      message: 'Phiếu đã được xác nhận, không thể xóa',
+      receiptId: receiptDoc._id
+    };
+  }
+
+  await PhieuDieuChinhKho.deleteOne({ _id: receiptDoc._id });
+
+  return {
+    ok: true,
+    message: 'Đã xóa phiếu điều chỉnh',
+    receiptId: receiptDoc._id
+  };
+}
+
 module.exports = {
   layDuongDanAdjustments,
   xacDinhLoaiFlashKetQua,
@@ -294,5 +349,6 @@ module.exports = {
   getTaoMoiData,
   taoMoiPhieuDieuChinh,
   getChiTietData,
-  xacNhanPhieuDieuChinh
+  xacNhanPhieuDieuChinh,
+  xoaPhieuDieuChinh
 };

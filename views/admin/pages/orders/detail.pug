@@ -390,7 +390,7 @@ block main
               else
                 .text-muted.small Không có thao tác trạng thái tiếp theo.
 
-              if ['choxacnhan', 'daxacnhan'].includes(order.trangthai) && !order.dathanhtoan
+              if ['choxacnhan', 'daxacnhan', 'dangchuanbi'].includes(order.trangthai) && !order.dathanhtoan
                 hr
                 form(method='POST', action=`${admin}/orders/${order._id}/cancel` onsubmit="return confirm('Bạn chắc chắn muốn hủy đơn này?')")
                   label.form-label.small Lý do hủy
@@ -404,24 +404,34 @@ block main
               - const hasReturnWorkflow = ['requested_return', 'approved_return', 'rejected_return', 'return_shipping', 'returned', 'returned_full', 'returned_partial', 'refunded'].includes(String(order.trangthai || '')) || Boolean(order.yeucauhoanhang && (order.yeucauhoanhang.requestedAt || order.yeucauhoanhang.reviewedAt || order.yeucauhoanhang.returnedAt || order.yeucauhoanhang.refundedAt)) || requestedItems.length > 0 || returnedItemsActual.length > 0 || returnedQtyActualTotal > 0 || returnedAmountActualTotal > 0 || hasReturnImport
               if hasReturnWorkflow
                 - const returnRequest = order.yeucauhoanhang || {}
+                - const refundInfo = refundPaymentInfo || {}
                 hr
                 .return-card.p-3.rounded-4.mb-2#return-workflow
                   .fw-semibold.mb-2 Yêu cầu hoàn hàng
-                  .small.text-muted.mb-1 Lý do: #{returnRequest.reasonLabel || returnRequest.reason || '-'}
+                  .small.text-muted.mb-1 Lý do: #{returnRequest.reasonLabel || returnRequest.reason || returnRequest.lydo || '-'}
                   if returnRequest.detail
                     .small.mb-1 Mô tả: #{returnRequest.detail}
-                  if returnRequest.refundMethod
-                    - const _refundMethod = String(returnRequest.refundMethod || '').toLowerCase()
-                    - const _refundWallet = String(returnRequest.refundWallet || order.phuongthucthanhtoan || '').toLowerCase()
+                  - const _refundMethodRaw = returnRequest.refundMethod || returnRequest.phuongthuchoantien || refundInfo.refundMethod || ''
+                  - const _refundWallet = String(returnRequest.refundWallet || returnRequest.vihoantien || refundInfo.refundWallet || order.phuongthucthanhtoan || '').toLowerCase()
+                  - const _refundBankName = String(returnRequest.refundBankName || returnRequest.tennganhanghoantien || refundInfo.bankName || '')
+                  - const _refundBankAccountName = String(returnRequest.refundBankAccountName || returnRequest.tenchutaikhoanhoantien || refundInfo.bankAccountName || '')
+                  - const _refundBankAccountNumber = String(returnRequest.refundBankAccountNumber || returnRequest.sotaikhoanhoantien || refundInfo.bankAccountNumber || '')
+                  - const _refundMethod = String(_refundMethodRaw || ((_refundBankName || _refundBankAccountName || _refundBankAccountNumber) ? 'bank' : '')).toLowerCase()
+                  - const _displayRefundAmount = Number(returnedAmountActualTotal || refundInfo.amount || 0)
+                  if _refundMethod
                     - const _refundLabel = _refundMethod === 'wallet' ? `Ví đã thanh toán (${_refundWallet.toUpperCase() || 'ONLINE'})` : (_refundMethod === 'bank' ? 'Chuyển khoản ngân hàng' : _refundMethod.toUpperCase())
                     .small.mb-1 Hoàn tiền: #{_refundLabel}
                     if _refundMethod === 'bank'
-                      if returnRequest.refundBankName
-                        .small.text-muted Tên ngân hàng: #{returnRequest.refundBankName}
-                      if returnRequest.refundBankAccountName
-                        .small.text-muted Tên người nhận: #{returnRequest.refundBankAccountName}
-                      if returnRequest.refundBankAccountNumber
-                        .small.text-muted Số tài khoản: #{returnRequest.refundBankAccountNumber}
+                      if _refundBankName
+                        .small.text-muted Tên ngân hàng: #{_refundBankName}
+                      if _refundBankAccountName
+                        .small.text-muted Tên người nhận: #{_refundBankAccountName}
+                      if _refundBankAccountNumber
+                        .small.text-muted Số tài khoản: #{_refundBankAccountNumber}
+                  if _displayRefundAmount > 0
+                    .small.text-muted.mb-1 Số tiền hoàn: #{_displayRefundAmount.toLocaleString('vi-VN')}đ
+                  if refundInfo.refundedAt
+                    .small.text-muted.mb-1 Thời gian hoàn: #{new Date(refundInfo.refundedAt).toLocaleString('vi-VN')}
                 .border.rounded.p-2.mb-2.bg-white
                   .small.fw-semibold.mb-1 Chi tiết khách muốn hoàn
                   if returnRequestItemsMissing

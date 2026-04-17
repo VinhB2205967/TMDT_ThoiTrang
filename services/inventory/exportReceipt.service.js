@@ -162,7 +162,7 @@ function taoTruyVanLoTon({ productId, variantId, size }) {
 
   return query;
 }
-
+// Hàm giải quyết xuất kho fifo
 async function xuatTonTheoLoFIFO({ productId, variantId, size, qty }) {
   const soLuongCanXuat = toNumber(qty, 0);
   if (soLuongCanXuat <= 0) throw new Error('Sá»‘ lÆ°á»£ng xuáº¥t khÃ´ng há»£p lá»‡');

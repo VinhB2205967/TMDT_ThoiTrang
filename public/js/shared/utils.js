@@ -236,6 +236,88 @@
     });
   };
 
+  App.notify = App.notify || function notify(message, options = {}) {
+    const text = String(message || '').trim() || 'Thông báo';
+    const cfg = {
+      type: 'info',
+      title: '',
+      duration: 3200,
+      actionText: '',
+      onAction: null,
+      ...options
+    };
+
+    const styleId = 'app-notify-style';
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.textContent = `
+        .app-notify-wrap{position:fixed;top:18px;right:18px;z-index:1080;display:flex;flex-direction:column;gap:10px;max-width:min(92vw,380px)}
+        .app-notify{display:flex;gap:12px;align-items:flex-start;padding:12px 12px 12px 10px;border-radius:14px;border:1px solid #bfdbfe;box-shadow:0 14px 28px rgba(29,78,216,.14);background:linear-gradient(135deg,#f8fbff 0%,#eff6ff 100%);animation:appNotifyIn .22s ease}
+        .app-notify__dot{width:10px;height:10px;border-radius:999px;flex:0 0 auto;margin-top:7px;background:#2563eb}
+        .app-notify__content{flex:1 1 auto;min-width:0}
+        .app-notify__title{font-weight:700;font-size:14px;line-height:1.35;color:#1e3a8a;margin:0 0 2px}
+        .app-notify__message{font-size:14px;line-height:1.4;color:#1e40af;margin:0}
+        .app-notify__btn{border:none;background:#2563eb;color:#fff;border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;align-self:center}
+        .app-notify__btn:hover{background:#1d4ed8}
+        .app-notify--success .app-notify__dot{background:#1d4ed8}
+        .app-notify--warning .app-notify__dot{background:#3b82f6}
+        .app-notify--error .app-notify__dot{background:#1e40af}
+        .app-notify--info .app-notify__dot{background:#2563eb}
+        @keyframes appNotifyIn{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+      `;
+      document.head.appendChild(style);
+    }
+
+    let wrap = App.qs('.app-notify-wrap');
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.className = 'app-notify-wrap';
+      document.body.appendChild(wrap);
+    }
+
+    const root = document.createElement('div');
+    root.className = `app-notify app-notify--${String(cfg.type || 'info').toLowerCase()}`;
+
+    const dot = document.createElement('span');
+    dot.className = 'app-notify__dot';
+
+    const content = document.createElement('div');
+    content.className = 'app-notify__content';
+
+    const title = document.createElement('p');
+    title.className = 'app-notify__title';
+    title.textContent = String(cfg.title || (cfg.type === 'error' ? 'Không thành công' : 'Thông báo'));
+
+    const msg = document.createElement('p');
+    msg.className = 'app-notify__message';
+    msg.textContent = text;
+
+    content.appendChild(title);
+    content.appendChild(msg);
+    root.appendChild(dot);
+    root.appendChild(content);
+
+    if (cfg.actionText && typeof cfg.onAction === 'function') {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'app-notify__btn';
+      btn.textContent = String(cfg.actionText);
+      btn.addEventListener('click', () => {
+        try { cfg.onAction(); } catch {}
+      });
+      root.appendChild(btn);
+    }
+
+    wrap.appendChild(root);
+
+    const timeout = Math.max(800, parseInt(String(cfg.duration), 10) || 3200);
+    setTimeout(() => {
+      root.remove();
+      if (wrap && !wrap.children.length) wrap.remove();
+    }, timeout);
+  };
+
   // Backward-compatible alias used by some admin templates/scripts
   window.xacNhanXoa = window.xacNhanXoa || function xacNhanXoa(thongBao) {
     return App.confirmDelete(thongBao || 'Bạn có chắc muốn xóa mục này?');

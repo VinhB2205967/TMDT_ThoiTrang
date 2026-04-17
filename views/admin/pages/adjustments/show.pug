@@ -15,6 +15,13 @@ block main
               i.bi.bi-check2-circle
               |  Xác nhận điều chỉnh
 
+        if !receipt.daxacnhan
+          form(method='POST' action=`${admin}/adjustments/${receipt._id}/delete` onsubmit='return confirm("Xoa phieu dieu chinh nay? Chi co the xoa khi chua xac nhan.")')
+            input(type='hidden' name='_csrf' value=_csrf)
+            button.btn.btn-outline-danger(type='submit')
+              i.bi.bi-trash
+              |  Xóa phiếu
+
     .card.mb-3
       .card-header Thông tin phiếu điều chỉnh
       .card-body

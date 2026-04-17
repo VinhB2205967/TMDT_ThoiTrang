@@ -37,11 +37,13 @@ block main
                   th(style='min-width:190px') Biến thể
                   th(style='min-width:100px') Size
                   th(style='min-width:130px') Số lượng (+/-)
+                  th(style='min-width:120px') Ton hien tai
+                  th(style='min-width:140px') Ton sau dieu chinh
                   th(style='min-width:120px') Màu
                   th(style='width:60px')
               tbody#adjustment-items-body
           .alert.alert-secondary.mb-0
-            | Quy tắc: số dương là tăng tồn, số âm là giảm tồn. Mỗi phiếu chỉ hỗ trợ 1 loại điều chỉnh (tăng hoặc giảm).
+            | Quy tắc: số dương là tăng tồn, số âm là giảm tồn. Mỗi phiếu chỉ hỗ trợ 1 loại điều chỉnh (tăng hoặc giảm). Không cho phép tồn sau điều chỉnh âm.
 
       .d-flex.justify-content-end.mt-3
         button.btn.btn-success(type='submit')

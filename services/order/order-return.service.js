@@ -150,12 +150,7 @@ async function chayVoiTransactionNeuHoTro(work, label = 'mongo transaction') {
     return result;
   } catch (error) {
     if (!laLoiMongoKhongHoTroTransaction(error)) throw error;
-    if (!daThongBaoFallbackTransaction) {
-      daThongBaoFallbackTransaction = true;
-      console.info(
-        `[mongo] ${label}: fallback sang che do khong transaction (MongoDB standalone, khong phai replica set).`
-      );
-    }
+    if (!daThongBaoFallbackTransaction) daThongBaoFallbackTransaction = true;
     return work(null);
   } finally {
     await session.endSession();

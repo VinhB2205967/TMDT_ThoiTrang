@@ -2,6 +2,7 @@
 const ExcelJS = require('exceljs');
 const Donhang = require('../../models/order_model');
 const Chitietdonhang = require('../../models/order_item_model');
+const Thanhtoan = require('../../models/pay_model');
 const Sanpham = require('../../models/product_model');
 const PhieuXuatKho = require('../../models/export_receipt_model');
 const PhieuNhapKho = require('../../models/import_receipt_model');
@@ -18,7 +19,8 @@ const { taoHoanTienMoMo, taoThongTinYeuCauHoanTienMoMo } = require('../payment/m
 const { restoreVoucherUsageForUser } = require('../payment/voucher.service.js');
 const {
   sendOrderConfirmedEmail,
-  sendOrderDeliveredEmail
+  sendOrderDeliveredEmail,
+  sendOrderRefundedEmail
 } = require('../communication/orderEmail.service.js');
 const { taoPhieuXuatTuDonHang } = require('../inventory/exportReceipt.service.js');
 const {
@@ -1207,12 +1209,56 @@ async function getChiTietData(id) {
   const hasReturnImport = Boolean(returnImportReceipt);
   const hasConfirmedReturnImport = Boolean(returnImportReceipt && returnImportReceipt.daxuatkho);
 
-  const [itemsRaw, exportReceipt] = await Promise.all([
+  const [itemsRaw, exportReceipt, refundPayment] = await Promise.all([
     Chitietdonhang.find({ donhang_id: order._id }).lean(),
     PhieuXuatKho.findOne({ donhang_id: order._id })
       .select('chitiet tongdoanhthuhoan')
+      .lean(),
+    Thanhtoan.findOne({
+      donhang_id: order._id,
+      trangthai: { $in: ['refunded', 'hoantien'] }
+    })
+      .sort({ ngaytao: -1, _id: -1 })
       .lean()
   ]);
+
+  const rawRefundMethod = String(
+    refundPayment?.response?.refundMethod
+      || order?.yeucauhoanhang?.refundMethod
+      || ''
+  ).trim().toLowerCase();
+  const paymentMethodFromTxn = String(refundPayment?.phuongthuc || '').trim().toLowerCase();
+  const refundMethod = rawRefundMethod || (
+    paymentMethodFromTxn === 'banking'
+      ? 'bank'
+      : (['momo', 'vnpay'].includes(paymentMethodFromTxn) ? paymentMethodFromTxn : '')
+  );
+  const refundWallet = String(
+    refundPayment?.response?.refundWallet
+      || order?.yeucauhoanhang?.refundWallet
+      || ''
+  ).trim().toLowerCase();
+  const refundPaymentInfo = {
+    refundMethod,
+    refundWallet,
+    bankName: String(
+      refundPayment?.response?.refundBankName
+        || order?.yeucauhoanhang?.refundBankName
+        || ''
+    ).trim(),
+    bankAccountName: String(
+      refundPayment?.response?.refundBankAccountName
+        || order?.yeucauhoanhang?.refundBankAccountName
+        || ''
+    ).trim(),
+    bankAccountNumber: String(
+      refundPayment?.response?.refundBankAccountNumber
+        || order?.yeucauhoanhang?.refundBankAccountNumber
+        || ''
+    ).trim(),
+    amount: Math.max(0, roundMoney(refundPayment?.sotien || order?.yeucauhoanhang?.refundAmount || 0)),
+    refundedAt: order?.yeucauhoanhang?.refundedAt || refundPayment?.ngaytao || null
+  };
   const items = (itemsRaw || []).map((it) => {
     const unitOriginalPrice = Math.max(0, Number(it?.giagoc || 0));
     const unitDiscountedPrice = Math.max(0, Number(it?.giaban || it?.giagoc || 0));
@@ -1326,6 +1372,7 @@ async function getChiTietData(id) {
       returnActualTotalQty,
       returnActualTotalAmount,
       returnActualDetailsMissing,
+      refundPaymentInfo,
       refundFinancialSummary,
       hasReturnImport,
       hasConfirmedReturnImport,
@@ -1793,6 +1840,26 @@ async function hoanTienDon(id, actor = null) {
     }
   }
 
+  const soTienHoanLamTron = Math.max(0, roundMoney(soTienHoan));
+  const bankAccountNumberRaw = String(order.yeucauhoanhang?.refundBankAccountNumber || '').trim();
+  const bankAccountNumberMasked = bankAccountNumberRaw.length > 4
+    ? `${'*'.repeat(Math.max(0, bankAccountNumberRaw.length - 4))}${bankAccountNumberRaw.slice(-4)}`
+    : bankAccountNumberRaw;
+
+  console.info('THONG_TIN_HOAN_TIEN', {
+    maDonHang: String(order.madonhang || ''),
+    idDonHang: String(order._id || ''),
+    idKhachHang: String(order.nguoidung_id || ''),
+    phuongThucHoanTien: refundMethod,
+    viHoanTien: String(order.yeucauhoanhang?.refundWallet || ''),
+    soTienHoan: soTienHoanLamTron,
+    tenNganHangHoanTien: String(order.yeucauhoanhang?.refundBankName || ''),
+    tenChuTaiKhoanHoanTien: String(order.yeucauhoanhang?.refundBankAccountName || ''),
+    soTaiKhoanHoanTien: bankAccountNumberMasked,
+    trangThaiTruocHoan: String(order.trangthai || ''),
+    idNguoiThucHien: String(actor?._id || '')
+  });
+
   await capNhatGiaoDichThanhToan({
     donhangId: order._id,
     nguoidungId: order.nguoidung_id,
@@ -1839,7 +1906,39 @@ async function hoanTienDon(id, actor = null) {
     });
   });
 
-  return { ok: true, message: 'Đã hoàn tiền thành công.' };
+  try {
+    const refundedAt = order.yeucauhoanhang && order.yeucauhoanhang.refundedAt
+      ? order.yeucauhoanhang.refundedAt
+      : new Date();
+    const mailResult = await sendOrderRefundedEmail({
+      orderId: order._id,
+      refundAmount: soTienHoanLamTron,
+      refundMethod,
+      refundedAt
+    });
+
+    console.info('THONG_TIN_EMAIL_HOAN_TIEN', {
+      maDonHang: String(order.madonhang || ''),
+      idDonHang: String(order._id || ''),
+      daGui: Boolean(mailResult?.sent),
+      lyDo: String(mailResult?.reason || '')
+    });
+
+    if (!mailResult.sent && mailResult.reason === 'already-sent') {
+      console.log('ORDER_REFUNDED_EMAIL_SKIPPED_ALREADY_SENT', { orderId: String(order._id) });
+    }
+
+    return { ok: true, message: 'Đã hoàn tiền thành công.' };
+  } catch (mailError) {
+    console.error('order refund email error:', {
+      orderId: String(order._id),
+      error: mailError && mailError.message ? mailError.message : mailError
+    });
+    return {
+      ok: true,
+      message: 'Đã hoàn tiền thành công, nhưng gửi email thông báo thất bại. Vui lòng kiểm tra SMTP/log.'
+    };
+  }
 }
 
 async function capNhatTrangThaiHangLoat({ orderIds, nextStatus, actor }) {
@@ -1976,7 +2075,7 @@ async function huyDon({ id, reason, actor = null }) {
   const order = await Donhang.findOne({ _id: orderId, daxoa: { $ne: true } }).lean();
   if (!order) return { ok: false, code: 'NOT_FOUND', message: 'Không tìm thấy đơn hàng' };
 
-  if (!['choxacnhan', 'daxacnhan'].includes(order.trangthai)) {
+  if (!['choxacnhan', 'daxacnhan', 'dangchuanbi'].includes(order.trangthai)) {
     return { ok: false, code: 'INVALID_STATE', message: 'Đơn hàng không thể hủy ở trạng thái hiện tại' };
   }
 

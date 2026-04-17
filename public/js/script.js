@@ -1,6 +1,7 @@
 (() => {
 	const App = window.App || {};
 	const $ = App.qs || ((selector, root = document) => root.querySelector(selector));
+	const thongBaoDep = App.notify || ((message) => window.alert(message));
 	const goiApi = App.apiFetch || (async (url, options = {}, cfg = {}) => {
 		const { redirectOn401 = true } = cfg;
 		const opts = {
@@ -647,7 +648,10 @@
 		const p = tuyChonHienTai.product;
 
 		if (p.hasSize && !sizeDaChon) {
-			alert('Vui lòng chọn size');
+			thongBaoDep('Vui lòng chọn size trước khi thêm vào giỏ.', {
+				type: 'info',
+				title: 'Thiếu thông tin'
+			});
 			return;
 		}
 
@@ -671,7 +675,24 @@
 		});
 
 		if (!ok || !data || !data.success) {
-			alert((data && data.message) ? data.message : 'Có lỗi xảy ra');
+			const message = (data && data.message) ? data.message : 'Có lỗi xảy ra';
+			const canDangNhap = /dang nhap|chua dang nhap|can dang nhap/i.test(String(message).normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+			if (canDangNhap) {
+				thongBaoDep(message, {
+					type: 'info',
+					title: 'Cần đăng nhập',
+					duration: 6000,
+					actionText: 'Đăng nhập',
+					onAction: () => {
+						window.location.href = (data && data.redirect) ? data.redirect : '/auth?mode=login';
+					}
+				});
+			} else {
+				thongBaoDep(message, {
+					type: 'info',
+					title: 'Không thể thêm vào giỏ'
+				});
+			}
 			return;
 		}
 

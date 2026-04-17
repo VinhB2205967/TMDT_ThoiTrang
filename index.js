@@ -75,7 +75,14 @@ const authLimiter = rateLimit({
   legacyHeaders: false
 });
 
-app.use(limiter);
+const enableRateLimit = String(
+  process.env.ENABLE_RATE_LIMIT
+  || (process.env.NODE_ENV === 'production' ? 'true' : 'false')
+).toLowerCase() === 'true';
+
+if (enableRateLimit) {
+  app.use(limiter);
+}
 
 // Read cookies (used for "remember email" on auth page)
 app.use(cookieParser())
@@ -175,8 +182,10 @@ app.use(trackOnline)
 
 app.locals.prefigAdmin = systemConfig.prefigAdmin;
 app.locals.admin = systemConfig.admin;
-app.use('/auth', authLimiter);
-app.use(systemConfig.prefigAdmin + '/login', authLimiter);
+if (enableRateLimit) {
+  app.use('/auth', authLimiter);
+  app.use(systemConfig.prefigAdmin + '/login', authLimiter);
+}
 
 // router
 routeAdmin(app);
