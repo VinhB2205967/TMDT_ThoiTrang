@@ -32,6 +32,30 @@ const port = process.env.PORT
 database.connect();
 const httpServer = http.createServer(app)
 
+function patchSessionStore(store, label) {
+  if (!store) return;
+
+  if (typeof store.touch === 'function') {
+    const originalTouch = store.touch.bind(store);
+    store.touch = function safeTouch(sid, sess, cb) {
+      const done = typeof cb === 'function' ? cb : function noop() {};
+      return originalTouch(sid, sess, function onTouched(err) {
+        if (err && /Unable to find the session to touch/i.test(String(err.message || ''))) {
+          // Session may have expired/been removed between request start and response finish.
+          return done(null);
+        }
+        return done(err);
+      });
+    };
+  }
+
+  if (typeof store.on === 'function') {
+    store.on('error', (error) => {
+      console.error(`[session:${label}]`, error);
+    });
+  }
+}
+
 // Auth setup
 configurePassport();
 seedAdminOnConnect();
@@ -70,7 +94,7 @@ const limiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
-  max: 30,
+  max: 300,
   standardHeaders: 'draft-7',
   legacyHeaders: false
 });
@@ -103,6 +127,9 @@ const sessionStoreAdmin = MongoStore.create({
   collectionName: 'admin_sessions',
   ttl: 7 * 24 * 60 * 60
 });
+
+patchSessionStore(sessionStoreClient, 'client');
+patchSessionStore(sessionStoreAdmin, 'admin');
 
 const clientSession = session({
   name: 'sid',
@@ -192,6 +219,8 @@ routeAdmin(app);
 route(app);
 
 app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+
   if (err && err.code === 'EBADCSRFTOKEN') {
     const message = 'Phiên làm việc đã hết hạn. Vui lòng tải lại trang.';
     const acceptHeader = String(req.get('accept') || '').toLowerCase();

@@ -97,7 +97,7 @@ const xoaPost = async (req, res) => {
     });
   } catch (error) {
     console.error('Delete adjustment error:', error);
-    req.flash('error', `Khong the xoa phieu dieu chinh: ${error.message}`);
+    req.flash('error', `Không thể xóa phiếu điều chỉnh: ${error.message}`);
     return adminControllerService.redirectVe(req, res, adjustmentsPath(req));
   }
 };

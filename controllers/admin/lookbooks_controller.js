@@ -6,6 +6,12 @@ function xuLyKetQuaSSR(req, res, result) {
   return redirectBackOrDefault(req, res, '/admin/lookbook');
 }
 
+function pickImageFile(req) {
+  if (req && req.file) return req.file;
+  if (req && req.files && Array.isArray(req.files.image) && req.files.image[0]) return req.files.image[0];
+  return null;
+}
+
 module.exports.danhSach = async (req, res) => {
   const result = await lookbooksService.layDanhSachLookbookData();
 
@@ -27,7 +33,11 @@ module.exports.trangTaoMoi = async (req, res) => {
 };
 
 module.exports.taoMoi = async (req, res) => {
-  const result = await lookbooksService.taoLookbook({ body: req.body || {}, file: req.file || null });
+  const result = await lookbooksService.taoLookbook({
+    body: req.body || {},
+    file: pickImageFile(req),
+    files: req.files || {}
+  });
   if (!result.ok) {
     const fallback = await lookbooksService.getTrangTaoData();
     return res.status(400).render('admin/pages/lookbooks/form.pug', {
@@ -59,7 +69,12 @@ module.exports.trangChinhSua = async (req, res) => {
 };
 
 module.exports.capNhat = async (req, res) => {
-  const result = await lookbooksService.capNhatLookbook({ id: req.params.id, body: req.body || {}, file: req.file || null });
+  const result = await lookbooksService.capNhatLookbook({
+    id: req.params.id,
+    body: req.body || {},
+    file: pickImageFile(req),
+    files: req.files || {}
+  });
   if (result.status === 404) {
     return res.status(404).render('admin/pages/errors/404.pug', { titlePage: 'Không tìm thấy Lookbook' });
   }

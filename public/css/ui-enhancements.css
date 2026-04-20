@@ -1024,6 +1024,50 @@ body.modal-open #chatClientToastWrap {
 .order-status[data-status="dahuy"] { background: linear-gradient(135deg, rgba(239, 68, 68, 0.22), rgba(254, 226, 226, 0.96)); color: #991b1b; border-color: rgba(239, 68, 68, 0.36); }
 .order-status[data-status="hoanhang"] { background: linear-gradient(135deg, rgba(100, 116, 139, 0.2), rgba(226, 232, 240, 0.95)); color: #334155; border-color: rgba(100, 116, 139, 0.35); }
 
+/* Keep review button aligned in order detail product lines */
+.order-detail-page .order-product-row {
+  gap: 12px;
+}
+
+.order-detail-page .order-product-main {
+  min-width: 0;
+}
+
+.order-detail-page .order-product-main .fw-semibold {
+  word-break: break-word;
+}
+
+.order-detail-page .order-product-meta {
+  flex: 0 0 auto;
+  min-width: max-content;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.order-detail-page .order-product-meta .fw-semibold {
+  white-space: nowrap;
+}
+
+.order-detail-page .order-product-meta .review-link {
+  margin-top: 0 !important;
+  white-space: nowrap;
+  line-height: 1;
+  padding: 6px 12px;
+}
+
+@media (max-width: 575.98px) {
+  .order-detail-page .order-product-row {
+    gap: 8px;
+  }
+
+  .order-detail-page .order-product-meta .review-link {
+    font-size: 11px;
+    padding: 5px 10px;
+  }
+}
+
 #quickAddModal .modal-dialog {
   max-width: 580px;
 }

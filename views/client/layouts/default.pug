@@ -16,10 +16,10 @@ html(lang="vi")
     link(rel="stylesheet", href="/css/filter-bar.css")
     link(rel="stylesheet", href="/css/ui-enhancements.css")
     link(rel="stylesheet", href="/css/chat-client.css")
-    link(rel="stylesheet", href="/css/chat-ai.css")
+    link(rel="stylesheet", href="/css/chat-ai.css?v=20260420-1")
     meta(name="csrf-token" content=csrfToken)
     block styles
-  body
+  body(class=[isAuthenticated && !isAdmin ? 'has-client-chat' : ''])
     include ../partials/header.pug
     include ../../partials/flash.pug
     main.main-content
@@ -51,7 +51,7 @@ html(lang="vi")
               label.form-label(for="aiChatModel") Model
               select#aiChatModel.form-select.form-select-sm
                 option(value="gemma-3-27b-it") Gemma 3 27B
-                option(value="gemini-2.0-flash") Gemini Flash 2.0
+                option(value="gemini-2.5-flash") Gemini Flash 2.5
           textarea#aiChatInput.form-control(rows="1" placeholder="Nhập câu hỏi... (Shift+Enter xuống dòng)")
           .ai-chatbox-footer
             .ai-chatbox-footer-start
@@ -98,7 +98,7 @@ html(lang="vi")
         isAuthenticated: !{JSON.stringify(Boolean(isAuthenticated))},
         userId: !{JSON.stringify(user && user._id ? String(user._id) : '')}
       };
-    script(src="/js/chat-ai.js")
+    script(src="/js/chat-ai.js?v=20260420-1")
     if isAuthenticated && !isAdmin
       script.
         window.ChatRuntime = {

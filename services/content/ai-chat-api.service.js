@@ -710,6 +710,498 @@ async function buildSuggestedActions({ question, context, exactOrder }) {
   return actions.slice(0, 5);
 }
 
+function isOutfitSuggestionQuestion(question, pageCurrentProduct) {
+  const q = normalizeForCompare(question);
+  if (!q) return false;
+  if (/\bdon hang|voucher|bang size|size guide|admin\b/.test(q)) return false;
+  if (/\blookbook\b|\bblog\b|\bbai viet\b|\btin tuc\b/.test(q)) return false;
+
+  if (/\boutfit\b|\bphoi do\b|\bmix\b|\bmix match\b|\bset do\b|\bcombo\b/.test(q)) return true;
+  if (/\bphoi cung\b|\bmac voi\b|\bket hop\b/.test(q)) return true;
+
+  if (pageCurrentProduct && /\b(mau nay|san pham nay|sp nay|item nay)\b/.test(q) && /\b(phoi|mac|ket hop)\b/.test(q)) {
+    return true;
+  }
+
+  return false;
+}
+
+function detectRequestedOutfitRoles(question) {
+  const q = normalizeForCompare(question);
+  if (!q) return [];
+
+  const roles = [];
+  const push = (role) => {
+    if (!role || roles.includes(role)) return;
+    roles.push(role);
+  };
+
+  if (/\bao khoac\b|\bjacket\b|\bblazer\b|\bcardigan\b|\bouterwear\b/.test(q)) push('outerwear');
+  if (/\bao\b|\bpolo\b|\bthun\b|\bso mi\b|\bshirt\b|\btee\b|\bhoodie\b/.test(q)) push('top');
+  if (/\bquan\b|\bjean\b|\bshort\b|\bjogger\b|\btrouser\b|\bpants?\b/.test(q)) push('bottom');
+  if (/\bvay\b|\bdam\b|\bdress\b|\bskirt\b/.test(q)) push('dress');
+  if (/\bgiay\b|\bsneaker\b|\bsandal\b|\bboot\b/.test(q)) push('shoes');
+  if (/\btui\b|\bbag\b|\bhandbag\b/.test(q)) push('bag');
+  if (/\bphu kien\b|\baccessor\b|\bthat lung\b|\bbelt\b|\bmu\b|\bnon\b|\bhat\b|\bcap\b|\bscarf\b/.test(q)) push('accessory');
+
+  return roles;
+}
+
+function resolveOutfitRoleFromType(typeValue, fallbackText = '') {
+  const type = normalizeForCompare(typeValue);
+  const text = normalizeForCompare(fallbackText);
+  const source = `${type} ${text}`.trim();
+  if (!source) return '';
+
+  if (/\baokhoac\b|\bao khoac\b|\bjacket\b|\bblazer\b|\bcardigan\b|\bcoat\b|\bouterwear\b/.test(source)) return 'outerwear';
+  if (/\bquan\b|\bjean\b|\bshort\b|\bjogger\b|\btrouser\b|\bpants?\b/.test(source)) return 'bottom';
+  if (/\bvay\b|\bdam\b|\bdress\b|\bskirt\b/.test(source)) return 'dress';
+  if (/\bgiay\b|\bsneaker\b|\bsandal\b|\bboot\b|\bshoe\b/.test(source)) return 'shoes';
+  if (/\btui\b|\bbag\b|\bhandbag\b/.test(source)) return 'bag';
+  if (/\bphu kien\b|\baccessor\b|\bthat lung\b|\bbelt\b|\bmu\b|\bnon\b|\bhat\b|\bcap\b|\bscarf\b/.test(source)) return 'accessory';
+  if (/\bao\b|\bpolo\b|\bthun\b|\bso mi\b|\bshirt\b|\btee\b|\bhoodie\b/.test(source)) return 'top';
+  return '';
+}
+
+function getOutfitRoleLabel(role, fallback = 'Món phối cùng') {
+  const map = {
+    base: 'Món chính',
+    top: 'Áo',
+    bottom: 'Quần',
+    dress: 'Váy/đầm',
+    shoes: 'Giày',
+    bag: 'Túi',
+    accessory: 'Phụ kiện',
+    outerwear: 'Áo khoác'
+  };
+  return map[role] || fallback;
+}
+
+function buildOutfitRolePlan(baseProduct, question) {
+  const baseRole = resolveOutfitRoleFromType(
+    baseProduct && (baseProduct.loaisanpham || baseProduct.productType || baseProduct.type),
+    baseProduct && (baseProduct.tensanpham || baseProduct.name || '')
+  );
+  const requestedRoles = detectRequestedOutfitRoles(question).filter((role) => role !== baseRole);
+  const fallbackRolesByBase = {
+    top: ['bottom', 'shoes', 'bag'],
+    outerwear: ['top', 'bottom', 'shoes'],
+    bottom: ['top', 'shoes', 'bag'],
+    dress: ['shoes', 'bag', 'outerwear'],
+    shoes: ['top', 'bottom', 'bag'],
+    bag: ['top', 'bottom', 'shoes'],
+    accessory: ['top', 'bottom', 'shoes']
+  };
+
+  const fallbackRoles = fallbackRolesByBase[baseRole] || ['top', 'bottom', 'shoes'];
+  const plan = [];
+  const push = (role) => {
+    if (!role || role === baseRole || plan.includes(role)) return;
+    plan.push(role);
+  };
+
+  requestedRoles.forEach(push);
+  fallbackRoles.forEach(push);
+  return plan.slice(0, 3);
+}
+
+function extractOccasionIdsFromProduct(product) {
+  const ids = new Set();
+  const push = (value) => {
+    const id = String(value || '').trim();
+    if (id) ids.add(id);
+  };
+
+  if (product && product.occasion) push(product.occasion);
+  if (product && product.dip_sudung_id) push(product.dip_sudung_id);
+  (Array.isArray(product && product.occasions) ? product.occasions : []).forEach(push);
+  (Array.isArray(product && product.occasionIds) ? product.occasionIds : []).forEach(push);
+  return Array.from(ids);
+}
+
+function mapProductForOutfit(item) {
+  const source = item && typeof item === 'object' ? item : {};
+  const id = String(source.id || source._id || '').trim();
+  if (!id) return null;
+
+  const currentPrice = Number(source.giaSauGiam || source.price || source.giaMoi || source.gia || 0);
+  const originalPrice = Number(source.gia || source.originalPrice || currentPrice || 0);
+  const imageUrl = String(source.imageUrl || source.hinhanh || source.image || '/images/shopping.png').trim();
+  const url = String(source.url || (id ? `/products/${id}` : '')).trim();
+  const name = String(source.tensanpham || source.name || 'San pham').trim();
+  if (!name) return null;
+
+  return {
+    id,
+    tensanpham: name,
+    imageUrl: imageUrl || '/images/shopping.png',
+    url,
+    gia: originalPrice > 0 ? originalPrice : currentPrice,
+    giaSauGiam: currentPrice > 0 ? currentPrice : originalPrice,
+    gioitinh: String(source.gioitinh || source.gender || '').trim(),
+    loaisanpham: String(source.loaisanpham || source.productType || source.type || '').trim(),
+    occasionIds: extractOccasionIdsFromProduct(source)
+  };
+}
+
+function pushUniqueOutfitProduct(map, item) {
+  const normalized = mapProductForOutfit(item);
+  if (!normalized || !normalized.id || map.has(normalized.id)) return;
+  map.set(normalized.id, normalized);
+}
+
+function productMatchesOutfitRole(product, role) {
+  const sourceText = `${product && (product.tensanpham || product.name || '')} ${product && (product.url || '')}`;
+  const productRole = resolveOutfitRoleFromType(product && (product.loaisanpham || product.productType || product.type), sourceText);
+  if (!productRole) return false;
+
+  if (role === 'top') return productRole === 'top';
+  if (role === 'bottom') return productRole === 'bottom';
+  if (role === 'dress') return productRole === 'dress';
+  if (role === 'shoes') return productRole === 'shoes';
+  if (role === 'bag') return productRole === 'bag';
+  if (role === 'accessory') return productRole === 'accessory';
+  if (role === 'outerwear') return productRole === 'outerwear';
+  return false;
+}
+
+function getOutfitRoleTypeValues(role) {
+  const map = {
+    top: ['ao'],
+    bottom: ['quan'],
+    dress: ['vay'],
+    shoes: ['giay'],
+    bag: ['tui'],
+    accessory: ['phukien'],
+    outerwear: ['aokhoac']
+  };
+  return Array.isArray(map[role]) ? map[role] : [];
+}
+
+async function hydrateCurrentProductForOutfit(pageCurrentProduct) {
+  const fallback = mapProductForOutfit(pageCurrentProduct);
+  const id = String(pageCurrentProduct && pageCurrentProduct.id || '').trim();
+  if (!id) return fallback;
+
+  const row = await Sanpham.findOne({
+    _id: id,
+    daxoa: { $ne: true },
+    trangthai: { $in: ['active', 'dangban'] }
+  })
+    .select('_id tensanpham hinhanh gia phantramgiamgia soluongton gioitinh loaisanpham bienthe occasion occasions dip_sudung_id')
+    .lean({ virtuals: true });
+
+  if (!row) return fallback;
+
+  const flashMap = await getActiveFlashSalePriceMap([row._id]);
+  const basePrice = Number(row && row.gia || 0);
+  const currentPrice = getCurrentPriceFromRecord(row);
+  const finalPrice = applyFlashSaleToCurrentPrice({
+    record: row,
+    currentPrice,
+    flashEntry: flashMap.get(String(row && row._id || ''))
+  });
+
+  return mapProductForOutfit({
+    ...row,
+    id: String(row && row._id || ''),
+    imageUrl: String(row && row.hinhanh || '/images/shopping.png'),
+    url: row && row._id ? `/products/${row._id}` : '',
+    gia: basePrice,
+    giaSauGiam: finalPrice > 0 ? finalPrice : currentPrice
+  }) || fallback;
+}
+
+function pickBaseOutfitProduct({ pageProduct, context, question }) {
+  if (pageProduct && pageProduct.id) return pageProduct;
+
+  const byId = new Map();
+  (Array.isArray(context && context.products) ? context.products : []).forEach((item) => pushUniqueOutfitProduct(byId, item));
+  (Array.isArray(context && context.topSelling) ? context.topSelling : []).forEach((item) => pushUniqueOutfitProduct(byId, item));
+  (Array.isArray(context && context.lookbooks) ? context.lookbooks : []).forEach((lookbook) => {
+    (Array.isArray(lookbook && lookbook.products) ? lookbook.products : []).forEach((item) => pushUniqueOutfitProduct(byId, item));
+  });
+
+  const requestedType = inferProductType(question);
+  const requestedGender = inferGender(question);
+  let candidates = Array.from(byId.values());
+
+  if (requestedType) {
+    const typed = candidates.filter((item) => productMatchesRequestedType(item, requestedType.value));
+    if (typed.length > 0) candidates = typed;
+  }
+
+  if (requestedGender) {
+    const gendered = candidates.filter((item) => productMatchesRequestedGender(item, requestedGender.value));
+    if (gendered.length > 0) candidates = gendered;
+  }
+
+  const ranked = rankProductsBySpecificTerms(candidates, question);
+  return ranked[0] || candidates[0] || null;
+}
+
+async function fetchOutfitDbCandidates({ rolePlan, requestedGender, occasionIds = [] }) {
+  const typeValues = Array.from(new Set(
+    (Array.isArray(rolePlan) ? rolePlan : [])
+      .flatMap((role) => getOutfitRoleTypeValues(role))
+      .filter(Boolean)
+  ));
+
+  if (typeValues.length === 0) return [];
+
+  const query = {
+    daxoa: { $ne: true },
+    trangthai: { $in: ['active', 'dangban'] },
+    loaisanpham: { $in: typeValues }
+  };
+
+  if (requestedGender) {
+    query.gioitinh = requestedGender === 'unisex'
+      ? { $in: ['unisex', 'nam', 'nu'] }
+      : { $in: [requestedGender, 'unisex'] };
+  }
+
+  if (Array.isArray(occasionIds) && occasionIds.length > 0) {
+    query.$and = [{
+      $or: [
+        { occasion: { $in: occasionIds } },
+        { dip_sudung_id: { $in: occasionIds } },
+        { occasions: { $in: occasionIds } }
+      ]
+    }];
+  }
+
+  const rows = await Sanpham.find(query)
+    .select('_id tensanpham hinhanh gia phantramgiamgia soluongton gioitinh loaisanpham bienthe occasion occasions dip_sudung_id ngaycapnhat ngaytao')
+    .sort({ ngaycapnhat: -1, ngaytao: -1 })
+    .limit(240)
+    .lean({ virtuals: true });
+
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+
+  const flashMap = await getActiveFlashSalePriceMap(rows.map((item) => item && item._id));
+  return rows
+    .map((item) => {
+      const basePrice = Number(item && item.gia || 0);
+      const currentPrice = getCurrentPriceFromRecord(item);
+      const finalPrice = applyFlashSaleToCurrentPrice({
+        record: item,
+        currentPrice,
+        flashEntry: flashMap.get(String(item && item._id || ''))
+      });
+
+      return mapProductForOutfit({
+        ...item,
+        id: String(item && item._id || ''),
+        imageUrl: String(item && item.hinhanh || '/images/shopping.png'),
+        url: item && item._id ? `/products/${item._id}` : '',
+        gia: basePrice,
+        giaSauGiam: finalPrice > 0 ? finalPrice : currentPrice
+      });
+    })
+    .filter(Boolean);
+}
+
+function selectOutfitProducts({ baseProduct, candidates, rolePlan, question, requestedGender }) {
+  const selected = [];
+  const selectedIds = new Set();
+  const take = (item, role) => {
+    const normalized = mapProductForOutfit(item);
+    if (!normalized || !normalized.id || selectedIds.has(normalized.id)) return;
+    selected.push({ role, item: normalized });
+    selectedIds.add(normalized.id);
+  };
+
+  take(baseProduct, 'base');
+  const ranked = rankProductsBySpecificTerms(
+    (Array.isArray(candidates) ? candidates : []).filter((item) => item && String(item.id || '') !== String(baseProduct && baseProduct.id || '')),
+    question
+  );
+
+  const fallbackRoles = {
+    bag: ['accessory'],
+    accessory: ['bag'],
+    outerwear: ['top'],
+    top: ['outerwear']
+  };
+
+  rolePlan.forEach((role) => {
+    const allowedRoles = [role].concat(fallbackRoles[role] || []);
+    const picked = ranked.find((item) => {
+      if (!item) return false;
+      if (requestedGender && !productMatchesRequestedGender(item, requestedGender)) return false;
+      return allowedRoles.some((allowedRole) => productMatchesOutfitRole(item, allowedRole));
+    });
+    if (picked) take(picked, role);
+  });
+
+  return selected;
+}
+
+function buildOutfitSuggestionAnswer({ question, baseProduct, selectedItems, occasionMatch, lookbook }) {
+  const extras = Array.isArray(selectedItems) ? selectedItems.filter((entry) => entry && entry.role !== 'base') : [];
+  if (!baseProduct || extras.length === 0) return '';
+
+  const intro = baseProduct && baseProduct.id
+    ? `Mình gợi ý một outfit để phối cùng ${baseProduct.tensanpham || 'sản phẩm này'}:`
+    : occasionMatch && occasionMatch.label
+      ? `Mình gợi ý một outfit hợp ${occasionMatch.label}:`
+      : 'Mình gợi ý một outfit dễ mặc, dễ đẹp:';
+
+  const lines = [intro];
+  const withLine = (index, label, item) => {
+    const price = Number(item && (item.giaSauGiam || item.gia) || 0);
+    const priceText = price > 0 ? ` - ${price.toLocaleString('vi-VN')}đ` : '';
+    const urlText = item && item.url ? ` (tại đây: ${item.url})` : '';
+    lines.push(`${index}. ${label}: ${item && item.tensanpham ? item.tensanpham : 'Sản phẩm'}${priceText}${urlText}`);
+  };
+
+  withLine(1, getOutfitRoleLabel('base'), baseProduct);
+  extras.forEach((entry, index) => {
+    withLine(index + 2, getOutfitRoleLabel(entry.role), entry.item);
+  });
+
+  if (lookbook && lookbook.url) {
+    lines.push(`Bạn xem thêm lookbook phù hợp tại đây: ${lookbook.url}`);
+  } else if (isProductFilterQuestion(question)) {
+    lines.push('Nếu bạn muốn, mình có thể đổi outfit theo dịp sử dụng, độ tuổi hoặc thương hiệu.');
+  }
+
+  return lines.join('\n');
+}
+
+function buildOutfitSuggestionActions({ baseProduct, selectedItems, requestedGender, occasionMatch, lookbook }) {
+  const actions = [];
+  if (baseProduct && baseProduct.url) {
+    pushUniqueAction(actions, { label: 'Xem món chính', url: String(baseProduct.url).trim(), kind: 'primary' });
+  }
+
+  const filters = {};
+  if (requestedGender) filters.gioitinh = requestedGender;
+  if (occasionMatch && occasionMatch.id) filters.occasion = occasionMatch.id;
+  if (Object.keys(filters).length > 0) {
+    pushUniqueAction(actions, { label: 'Xem sản phẩm phù hợp', url: buildProductsUrl(filters), kind: 'filter' });
+  }
+
+  const extraItems = Array.isArray(selectedItems)
+    ? selectedItems.filter((entry) => entry && entry.role !== 'base')
+    : [];
+  extraItems.slice(0, 2).forEach((entry) => {
+    if (!entry || !entry.item || !entry.item.url) return;
+    pushUniqueAction(actions, {
+      label: getOutfitRoleLabel(entry.role, 'Xem món phối'),
+      url: String(entry.item.url).trim(),
+      kind: 'link'
+    });
+  });
+
+  if (lookbook && lookbook.url) {
+    pushUniqueAction(actions, { label: 'Xem lookbook', url: String(lookbook.url).trim(), kind: 'link' });
+  }
+
+  return actions.slice(0, 5);
+}
+
+async function getQuickOutfitSuggestionPayload({
+  question,
+  userId,
+  pageCurrentProduct,
+  imageProducts,
+  imageMeta,
+  pageContext
+}) {
+  const context = await buildDataContext({
+    question,
+    userId,
+    useOpenClip: true
+  });
+
+  mergeImageProductsIntoContext(context, imageProducts, imageMeta, question);
+  mergePageProductIntoContext(context, pageContext);
+
+  const pageProduct = await hydrateCurrentProductForOutfit(pageCurrentProduct);
+  const baseProduct = pickBaseOutfitProduct({
+    pageProduct,
+    context,
+    question
+  });
+
+  if (!baseProduct) return null;
+
+  const rolePlan = buildOutfitRolePlan(baseProduct, question);
+  if (rolePlan.length === 0) return null;
+
+  const requestedGenderMatch = inferGender(question);
+  const baseGender = normalizeForCompare(baseProduct.gioitinh || '');
+  const requestedGender = requestedGenderMatch && requestedGenderMatch.value
+    ? requestedGenderMatch.value
+    : (baseGender === 'nam' || baseGender === 'nu' ? baseGender : '');
+
+  const occasionMatches = await findMatchedOccasions(question);
+  const occasionIds = occasionMatches.length > 0
+    ? occasionMatches.map((item) => String(item && item.id || '').trim()).filter(Boolean)
+    : extractOccasionIdsFromProduct(baseProduct);
+
+  const pool = new Map();
+  pushUniqueOutfitProduct(pool, baseProduct);
+  (Array.isArray(context && context.products) ? context.products : []).forEach((item) => pushUniqueOutfitProduct(pool, item));
+  (Array.isArray(context && context.topSelling) ? context.topSelling : []).forEach((item) => pushUniqueOutfitProduct(pool, item));
+  (Array.isArray(context && context.lookbooks) ? context.lookbooks : []).forEach((lookbook) => {
+    (Array.isArray(lookbook && lookbook.products) ? lookbook.products : []).forEach((item) => pushUniqueOutfitProduct(pool, item));
+  });
+
+  const dbCandidates = await fetchOutfitDbCandidates({
+    rolePlan,
+    requestedGender,
+    occasionIds
+  });
+  dbCandidates.forEach((item) => pushUniqueOutfitProduct(pool, item));
+
+  const selectedItems = selectOutfitProducts({
+    baseProduct,
+    candidates: Array.from(pool.values()),
+    rolePlan,
+    question,
+    requestedGender
+  });
+
+  if (!Array.isArray(selectedItems) || selectedItems.length < 2) return null;
+
+  const pickedLookbook = Array.isArray(context && context.lookbooks) && context.lookbooks.length > 0
+    ? (pickBestLookbookByQuestion(context.lookbooks, question) || context.lookbooks[0])
+    : null;
+
+  const answer = buildOutfitSuggestionAnswer({
+    question,
+    baseProduct,
+    selectedItems,
+    occasionMatch: occasionMatches[0] || null,
+    lookbook: pickedLookbook
+  });
+
+  if (!answer) return null;
+
+  const suggestedProducts = selectedItems.map((entry) => toSuggestedCard(entry.item));
+  return {
+    answer,
+    suggestedProducts,
+    suggestedActions: buildOutfitSuggestionActions({
+      baseProduct,
+      selectedItems,
+      requestedGender,
+      occasionMatch: occasionMatches[0] || null,
+      lookbook: pickedLookbook
+    }),
+    contextMeta: {
+      ...buildQuickContextMeta({
+        products: suggestedProducts.length,
+        hasFlashSale: selectedItems.some((entry) => Number(entry && entry.item && entry.item.giaSauGiam || 0) > 0 && Number(entry && entry.item && entry.item.gia || 0) > Number(entry && entry.item && entry.item.giaSauGiam || 0))
+      }),
+      topSelling: Array.isArray(context && context.topSelling) ? context.topSelling.length : 0
+    }
+  };
+}
+
 const ADMIN_DIRECT_PATTERNS = [
   /\badmin\b/,
   /\bquan tri\b/,
@@ -1893,6 +2385,9 @@ async function getQuickKnowledgePayload(question) {
 function shouldSuggestProducts(question) {
   const q = String(question || '').toLowerCase();
   if (!q) return false;
+  if (/outfit|phoi\s*do|mix\s*(?:do|match)|set\s*do|combo|mac\s*voi|phoi\s*cung|ket\s*hop/i.test(q)) {
+    return true;
+  }
 
   // Only show product cards when user explicitly asks to view/suggest products.
  const includePatterns = [
@@ -2774,6 +3269,31 @@ module.exports.sendMessage = async (req, res) => {
       });
     }
 
+    if (isOutfitSuggestionQuestion(question, pageCurrentProduct)) {
+      const quickOutfit = await getQuickOutfitSuggestionPayload({
+        question,
+        userId: req.user && req.user._id ? req.user._id : null,
+        pageCurrentProduct,
+        imageProducts,
+        imageMeta,
+        pageContext
+      });
+
+      if (quickOutfit && quickOutfit.answer) {
+        return res.json({
+          success: true,
+          data: {
+            answer: quickOutfit.answer,
+            model: 'db-outfit-path',
+            provider: 'system',
+            suggestedProducts: Array.isArray(quickOutfit.suggestedProducts) ? quickOutfit.suggestedProducts : [],
+            suggestedActions: Array.isArray(quickOutfit.suggestedActions) ? quickOutfit.suggestedActions : [],
+            contextMeta: quickOutfit.contextMeta || buildQuickContextMeta()
+          }
+        });
+      }
+    }
+
     const quickKnowledge = await getQuickKnowledgePayload(question);
     if (quickKnowledge && quickKnowledge.answer) {
       return res.json({
@@ -3186,7 +3706,7 @@ module.exports.sendMessage = async (req, res) => {
     if (msg.toLowerCase().includes('developer instruction is not enabled')) {
       return res.status(503).json({
         success: false,
-        message: 'Model Gemini hiện tại chưa được bật cho API key này. Hệ thống sẽ ưu tiên dùng gemini-2.0-flash nếu có thể.'
+        message: 'Model Gemini hiện tại chưa được bật cho API key này. Hệ thống sẽ ưu tiên dùng gemini-2.5-flash nếu có thể.'
       });
     }
 

@@ -13,7 +13,9 @@ const adjustmentLineSchema = new mongoose.Schema({
 
 const inventoryAdjustmentSchema = new mongoose.Schema({
   maphieu: { type: String, required: true, unique: true, index: true },
-  loaiphieu: { type: String, enum: ['increase', 'decrease'], required: true },
+  phieunhapid: { type: mongoose.Schema.Types.ObjectId, ref: 'PhieuNhapKho', required: false, index: true },
+  maphieunhap: { type: String, default: '' },
+  loaiphieu: { type: String, enum: ['increase', 'decrease', 'mixed'], required: true },
   lydo: { type: String, default: '' },
   daxacnhan: { type: Boolean, default: false, index: true },
   ngayxacnhan: { type: Date, default: null },

@@ -70,3 +70,19 @@
     background: #ff416c !important;
     color: #fff !important;
 }
+
+/* Ảnh trong phần mô tả nên nhỏ gọn hơn để không lấn bố cục đọc nội dung */
+.description-content img {
+    display: block;
+    width: auto;
+    max-width: min(480px, 50%);
+    height: auto;
+    margin: 14px auto;
+    border-radius: 10px;
+}
+
+@media (max-width: 500px) {
+    .description-content img {
+        max-width: 100%;
+    }
+}

@@ -32,7 +32,7 @@
 	const MODEL_STORAGE_KEY = 'fashion_ai_gemini_model_v1';
 	const EXPANDED_STORAGE_KEY = 'fashion_ai_chat_expanded_v1';
 	const DEFAULT_PROVIDER = 'gemini';
-	const ALLOWED_GEMINI_MODELS = new Set(['gemma-3-27b-it', 'gemini-2.0-flash']);
+	const ALLOWED_GEMINI_MODELS = new Set(['gemma-3-27b-it', 'gemini-2.5-flash']);
 	const DEFAULT_GEMINI_MODEL = 'gemma-3-27b-it';
 	const ALLOWED_PRODUCT_QUERY_KEYS = new Set([
 		'loaisanpham',
@@ -54,6 +54,23 @@
 	let pendingImageFile = null;
 	let pendingImagePreviewUrl = '';
 	const submittedImagePreviewUrls = [];
+	const PANEL_VIEWPORT_TOP_GAP = 10;
+
+	function persistExpandedState(expanded) {
+		try {
+			localStorage.setItem(EXPANDED_STORAGE_KEY, expanded ? '1' : '0');
+		} catch {
+			// Ignore storage errors in private mode.
+		}
+	}
+
+	function readExpandedState() {
+		try {
+			return localStorage.getItem(EXPANDED_STORAGE_KEY) === '1';
+		} catch {
+			return false;
+		}
+	}
 
 	function setExpanded(expanded) {
 		panel.classList.toggle('expanded', Boolean(expanded));
@@ -63,6 +80,20 @@
 			: '<i class="bi bi-arrows-angle-expand"></i>';
 		expandBtn.setAttribute('title', expanded ? 'Thu nhỏ chat' : 'Phóng to chat');
 		expandBtn.setAttribute('aria-label', expanded ? 'Thu nhỏ chat' : 'Phóng to chat');
+		if (expanded && panel.classList.contains('open')) {
+			window.requestAnimationFrame(() => {
+				ensureExpandedFitsViewport();
+			});
+		}
+	}
+
+	function ensureExpandedFitsViewport() {
+		if (!panel.classList.contains('open')) return;
+		if (!panel.classList.contains('expanded')) return;
+		const rect = panel.getBoundingClientRect();
+		if (rect.top >= PANEL_VIEWPORT_TOP_GAP) return;
+		setExpanded(false);
+		persistExpandedState(false);
 	}
 
 	function getProviderValue() {
@@ -100,15 +131,14 @@
 	}
 
 	function normalizeGeminiModel(value) {
-		const model = String(value || '').trim();
+		const rawModel = String(value || '').trim();
+		const model = rawModel === 'gemini-2.0-flash' ? 'gemini-2.5-flash' : rawModel;
 		if (ALLOWED_GEMINI_MODELS.has(model)) return model;
 		return DEFAULT_GEMINI_MODEL;
 	}
 
 	function buildResponseStatus(ai) {
-		const providerName = getProviderDisplayName(ai && ai.provider);
-		const modelName = String(ai && ai.model ? ai.model : '').trim();
-		return modelName ? `${providerName} - ${modelName}` : `Hoan tat (${providerName})`;
+		return 'Đã trả lời';
 	}
 
 	function syncModelVisibility() {
@@ -292,8 +322,8 @@
 			.replace(/\*\*/g, '')
 			.replace(/^\s*#{1,6}\s*/gm, '')
 			.replace(/(?:s[aả]n\s*[-_]?\s*ph[aẩ]m|san\s*[-_]?\s*pham|ph[aẩ]m|pham)\/([a-f0-9]{24})/gi, '/products/$1')
-			.replace(/\/(?:san\s*[-_]?\s*pham|products?)\/([a-f0-9]{24})(?=[\s)\].,;:!?]|$)/gi, '/products')
-			.replace(/https?:\/\/[^\s)]+\/(?:san\s*[-_]?\s*pham|products?)\/([a-f0-9]{24})(?=[\s)\].,;:!?]|$)/gi, '/products')
+			.replace(/\/(?:san\s*[-_]?\s*pham|products?)\/([a-f0-9]{24})(?=[\s)\].,;:!?]|$)/gi, '/products/$1')
+			.replace(/https?:\/\/[^\s)]+\/(?:san\s*[-_]?\s*pham|products?)\/([a-f0-9]{24})(?=[\s)\].,;:!?]|$)/gi, '/products/$1')
 			.replace(/:\s*(?=\d+\.\s)/g, ':\n')
 			.replace(/([\p{L}\)])\s(?=\d+\.\s)/gu, '$1\n')
 			.replace(/(tại\s+đây)\s(?=\d+\.)/gi, '$1\n')
@@ -893,11 +923,21 @@ async function askAI(question, options = {}) {
 		};
 	}
 	function togglePanel(forceOpen) {
+		if (
+			typeof forceOpen !== 'boolean'
+			&& panel.classList.contains('open')
+			&& panel.classList.contains('expanded')
+		) {
+			setExpanded(false);
+			persistExpandedState(false);
+			return;
+		}
 		const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : !panel.classList.contains('open');
 		panel.classList.toggle('open', shouldOpen);
 		if (shouldOpen) {
 			input.focus();
 			scrollToBottom();
+			ensureExpandedFitsViewport();
 		}
 	}
 
@@ -911,13 +951,16 @@ async function askAI(question, options = {}) {
 		revokePendingImagePreview();
 		revokeSubmittedImagePreviews();
 	});
+	window.addEventListener('resize', () => {
+		ensureExpandedFitsViewport();
+	});
 	if (expandBtn) {
-		const savedExpanded = localStorage.getItem(EXPANDED_STORAGE_KEY) === '1';
+		const savedExpanded = readExpandedState();
 		setExpanded(savedExpanded);
 		expandBtn.addEventListener('click', () => {
 			const nextExpanded = !panel.classList.contains('expanded');
 			setExpanded(nextExpanded);
-			localStorage.setItem(EXPANDED_STORAGE_KEY, nextExpanded ? '1' : '0');
+			persistExpandedState(nextExpanded);
 		});
 	}
 
@@ -1066,5 +1109,3 @@ form.addEventListener('submit', async (event) => {
 
 	loadHistory();
 })();
-
-

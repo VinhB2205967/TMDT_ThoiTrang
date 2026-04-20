@@ -57,7 +57,7 @@ block main
                   th Trạng thái
                   th Online
                   th Last seen
-                  th(style="width: 170px") Thao tác
+                  th(style="width: 150px;") Thao tác
               tbody
                 each u in users
                   tr(data-user-id=`${u._id}`)
@@ -70,7 +70,21 @@ block main
                     td
                       span.badge(class=(u.vaitro === 'admin' ? 'bg-warning text-dark' : 'bg-secondary')) #{u.vaitro}
                     td
-                      span.badge(class=(u.trangthai === 'active' ? 'bg-success' : 'bg-danger')) #{u.trangthai}
+                      .user-status-cell
+                        if !u.daxoa
+                          form.user-status-inline-form(method="POST" action=`/admin/users/${u._id}/status`)
+                            if csrfToken
+                              input(type="hidden" name="_csrf" value=csrfToken)
+                            select.form-select.form-select-sm.user-status-select(
+                              name="trangthai"
+                              class=(u.trangthai === 'active' ? 'is-active' : 'is-noactive')
+                              onchange="this.form.submit()"
+                              aria-label="Cập nhật trạng thái tài khoản"
+                            )
+                              option(value="active" selected=(u.trangthai === 'active')) Hoạt động
+                              option(value="noactive" selected=(u.trangthai === 'noactive')) Khóa
+                        else
+                          span.badge.bg-secondary Đã xóa
                     td
                       span.badge.user-online-badge(class=(u.isOnline ? 'bg-success' : 'bg-secondary')) #{u.isOnline ? 'Online' : 'Offline'}
                     td

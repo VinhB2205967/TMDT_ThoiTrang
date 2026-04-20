@@ -3,6 +3,14 @@ const Sanpham = require('../../../models/product_model');
 const productHelper = require('../../../helpers/product');
 const mongoose = require('mongoose');
 
+function stripHtmlTags(input) {
+  return String(input || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function buildActiveLookbookFilter(now = new Date()) {
   return {
     deletedAt: null,
@@ -40,6 +48,7 @@ module.exports.danhSach = async (req, res) => {
     title: book.title || book.tenmua || '',
     image: book.image || book.hinhanh || '',
     description: book.description || book.mota || '',
+    descriptionPreview: stripHtmlTags(book.description || book.mota || ''),
     products: Array.isArray(book.products) && book.products.length ? book.products : (book.sanpham_ids || [])
   }));
 

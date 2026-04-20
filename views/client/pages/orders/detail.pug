@@ -135,16 +135,27 @@ block main
                 each it in items
                   - const __lineTotal = (it.thanhtien || ((it.giaban || 0) * (it.soluong || 1)) || 0)
                   - const __rf = rs.perItem && rs.perItem[String(it._id)] ? rs.perItem[String(it._id)] : null
-                  .d-flex.justify-content-between.align-items-start.py-2.border-bottom
-                    .d-flex.gap-2.flex-grow-1
-                      img.rounded.border(src=(it.hinhanh || '/images/shopping.png') alt=(it.tensanpham || 'Sản phẩm') width='56' height='56' style='object-fit: cover;')
-                      .me-2
-                        .fw-semibold #{it.tensanpham}
-                        .small.text-muted
-                          | #{it.mausac || ''}#{it.kichco ? (' - ' + it.kichco) : ''} x#{it.soluong || 1}
-                        if __rf && __rf.returnedQty > 0
-                          .small.fw-semibold.text-success Đã hoàn #{__rf.returnedQty}/#{__rf.boughtQty || it.soluong || 0}
-                    .text-end
+                  - const __productHref = it.sanpham_id ? `/products/${it.sanpham_id}` : ''
+                  .d-flex.justify-content-between.align-items-start.py-2.border-bottom.order-product-row
+                    if __productHref
+                      a.d-flex.gap-2.flex-grow-1.order-product-main.text-decoration-none.text-reset(href=__productHref title='Xem chi tiết sản phẩm')
+                        img.rounded.border(src=(it.hinhanh || '/images/shopping.png') alt=(it.tensanpham || 'Sản phẩm') width='56' height='56' style='object-fit: cover;')
+                        .me-2
+                          .fw-semibold #{it.tensanpham}
+                          .small.text-muted
+                            | #{it.mausac || ''}#{it.kichco ? (' - ' + it.kichco) : ''} x#{it.soluong || 1}
+                          if __rf && __rf.returnedQty > 0
+                            .small.fw-semibold.text-success Đã hoàn #{__rf.returnedQty}/#{__rf.boughtQty || it.soluong || 0}
+                    else
+                      .d-flex.gap-2.flex-grow-1.order-product-main
+                        img.rounded.border(src=(it.hinhanh || '/images/shopping.png') alt=(it.tensanpham || 'Sản phẩm') width='56' height='56' style='object-fit: cover;')
+                        .me-2
+                          .fw-semibold #{it.tensanpham}
+                          .small.text-muted
+                            | #{it.mausac || ''}#{it.kichco ? (' - ' + it.kichco) : ''} x#{it.soluong || 1}
+                          if __rf && __rf.returnedQty > 0
+                            .small.fw-semibold.text-success Đã hoàn #{__rf.returnedQty}/#{__rf.boughtQty || it.soluong || 0}
+                    .text-end.order-product-meta
                       .fw-semibold #{__lineTotal.toLocaleString('vi-VN')}đ
                       if order.trangthai === 'dagiao'
                         if it.daDanhGia

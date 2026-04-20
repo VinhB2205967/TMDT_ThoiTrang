@@ -16,8 +16,8 @@ block main
                   img.card-img-top(src=book.image alt=book.title style="height:260px;object-fit:cover;")
                 .card-body.d-flex.flex-column
                   h5.card-title.mb-2 #{book.title}
-                  if book.description
-                    p.card-text.text-muted.small.mb-3 #{book.description}
+                  if book.descriptionPreview
+                    p.card-text.text-muted.small.mb-3 #{book.descriptionPreview}
                   .d-flex.justify-content-between.align-items-center.mt-auto
                     span.badge.bg-light.text-dark #{(book.products && book.products.length) ? book.products.length : 0} sản phẩm
                     span.btn.btn-sm.btn-primary Xem bộ sưu tập

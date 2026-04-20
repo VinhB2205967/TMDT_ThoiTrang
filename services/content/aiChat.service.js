@@ -33,12 +33,12 @@ const OLLAMA_KEEP_ALIVE = process.env.OLLAMA_KEEP_ALIVE || '30m';
 const GEMINI_API_URL = process.env.GEMINI_API_URL || 'https://generativelanguage.googleapis.com/v1beta';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemma-3-27b-it';
-const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.0-flash';
+const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.5-flash';
 const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 30000);
 const GEMINI_MAX_OUTPUT_TOKENS = Number(process.env.GEMINI_MAX_OUTPUT_TOKENS || 512);
 const GEMINI_ALLOWED_MODELS = [
   'gemma-3-27b-it',
-  'gemini-2.0-flash'
+  'gemini-2.5-flash'
 ];
 const OPENROUTER_API_URL = process.env.OPENROUTER_API_URL || 'https://openrouter.ai/api/v1';
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
@@ -1874,6 +1874,8 @@ async function askGemini({ question, history, context, model, systemPrompt }) {
         ? 'gemma-3-12b-it'
         : selectedRaw === 'gemma-3-27b'
           ? 'gemma-3-27b-it'
+          : selectedRaw === 'gemini-2.0-flash'
+            ? 'gemini-2.5-flash'
           : selectedRaw;
     if (selected && GEMINI_ALLOWED_MODELS.includes(selected)) return selected;
     if (GEMINI_ALLOWED_MODELS.includes(GEMINI_MODEL)) return GEMINI_MODEL;

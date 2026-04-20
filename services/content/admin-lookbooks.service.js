@@ -1,5 +1,15 @@
 const Lookbook = require('../../models/lookbook_model');
 const Sanpham = require('../../models/product_model');
+const xss = require('xss');
+const mongoose = require('mongoose');
+
+const LOOKBOOK_MEDIA_TOKEN_PREFIX = '__LOOKBOOK_MEDIA_TOKEN__';
+
+function parseObjectId(id) {
+  const value = String(id || '').trim();
+  if (!value || !mongoose.Types.ObjectId.isValid(value)) return null;
+  return value;
+}
 
 function toBoolean(value, fallback = false) {
   if (value === undefined || value === null || value === '') return fallback;
@@ -12,6 +22,95 @@ function normalizeIds(values) {
   if (Array.isArray(values)) return values.map(String).map((id) => id.trim()).filter(Boolean);
   if (values === undefined || values === null || values === '') return [];
   return [String(values).trim()].filter(Boolean);
+}
+
+function parseJsonArray(input) {
+  const raw = Array.isArray(input) ? input[0] : input;
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(String(raw));
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((item) => String(item || '').trim()).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function normalizePlainDescription(text) {
+  const lines = String(text || '')
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (!lines.length) return '';
+
+  return lines
+    .map((line) => `<p>${escapeHtml(line)}</p>`)
+    .join('');
+}
+
+function replaceDescriptionMediaTokens(html, files, mediaTokens) {
+  let output = String(html || '');
+  if (!output) return '';
+
+  const uploadedMedia = Array.isArray(files && files.description_media_uploads) ? files.description_media_uploads : [];
+  if (!uploadedMedia.length || !mediaTokens.length) return output;
+
+  mediaTokens.forEach((token, index) => {
+    const file = uploadedMedia[index];
+    if (!token || !file || !file.filename) return;
+    output = output.split(`${LOOKBOOK_MEDIA_TOKEN_PREFIX}${token}`).join(`/uploads/lookbooks/${file.filename}`);
+  });
+
+  return output;
+}
+
+function sanitizeLookbookDescription(input) {
+  const raw = String(input || '').trim();
+  if (!raw) return '';
+
+  const source = /<[^>]+>/.test(raw) ? raw : normalizePlainDescription(raw);
+
+  return xss(source, {
+    whiteList: {
+      p: ['class'],
+      br: [],
+      strong: [],
+      b: [],
+      em: [],
+      i: [],
+      u: [],
+      s: [],
+      strike: [],
+      blockquote: ['class'],
+      ul: [],
+      ol: [],
+      li: [],
+      h1: ['class'],
+      h2: ['class'],
+      h3: ['class'],
+      h4: ['class'],
+      a: ['href', 'target', 'rel'],
+      img: ['src', 'alt', 'title', 'class'],
+      video: ['src', 'controls', 'preload', 'playsinline', 'class'],
+      source: ['src', 'type'],
+      div: ['class'],
+      span: ['class']
+    },
+    stripIgnoreTag: true,
+    stripIgnoreTagBody: ['script', 'style']
+  });
 }
 
 function parseDate(value) {
@@ -48,16 +147,21 @@ async function validateInput({ title, productIds, currentId }) {
   return null;
 }
 
-function buildPayload({ body = {}, file = null, isCreate = false }) {
-  const imageFromUpload = file && file.filename ? `/uploads/lookbooks/${file.filename}` : null;
+function buildPayload({ body = {}, file = null, files = {}, isCreate = false }) {
+  const uploadedImage = (file && file.filename)
+    ? file
+    : ((Array.isArray(files.image) && files.image[0]) ? files.image[0] : null);
+  const imageFromUpload = uploadedImage && uploadedImage.filename ? `/uploads/lookbooks/${uploadedImage.filename}` : null;
   const productIds = normalizeIds(body.products || body.sanpham_ids);
   const startDate = parseDate(body.startDate);
   const endDate = parseDate(body.endDate);
+  const descriptionMediaTokens = parseJsonArray(body.description_media_tokens);
+  const rawDescription = replaceDescriptionMediaTokens(body.description || body.mota || '', files, descriptionMediaTokens);
 
   return {
     title: String(body.title || body.tenmua || '').trim(),
     image: imageFromUpload || String(body.image || body.hinhanh || '').trim() || (isCreate ? '' : undefined),
-    description: String(body.description || body.mota || '').trim(),
+    description: sanitizeLookbookDescription(rawDescription),
     products: productIds,
     order: Number(body.order ?? body.thuTu ?? 0),
     isActive: toBoolean(body.isActive ?? body.hienthi, true),
@@ -119,8 +223,8 @@ async function getTrangTaoData() {
   };
 }
 
-async function taoLookbook({ body = {}, file = null }) {
-  const payload = buildPayload({ body, file, isCreate: true });
+async function taoLookbook({ body = {}, file = null, files = {} }) {
+  const payload = buildPayload({ body, file, files, isCreate: true });
   const errors = pickErrors(payload);
   const businessError = await validateInput({ title: payload.title, productIds: payload.products });
   if (businessError) errors.push(businessError);
@@ -132,8 +236,11 @@ async function taoLookbook({ body = {}, file = null }) {
 }
 
 async function getTrangChinhSuaData(id) {
+  const parsedId = parseObjectId(id);
+  if (!parsedId) return { ok: false, status: 404, code: 'NOT_FOUND', message: 'Không tìm thấy lookbook' };
+
   const [lookbook, products] = await Promise.all([
-    Lookbook.findOne({ _id: id, deletedAt: null })
+    Lookbook.findOne({ _id: parsedId, deletedAt: null })
       .populate({ path: 'products', select: '_id tensanpham hinhanh gia' })
       .lean(),
     getProductsForPicker()
@@ -163,11 +270,14 @@ async function getTrangChinhSuaData(id) {
   };
 }
 
-async function capNhatLookbook({ id, body = {}, file = null }) {
-  const current = await Lookbook.findOne({ _id: id, deletedAt: null });
+async function capNhatLookbook({ id, body = {}, file = null, files = {} }) {
+  const parsedId = parseObjectId(id);
+  if (!parsedId) return { ok: false, status: 404, code: 'NOT_FOUND', message: 'Không tìm thấy lookbook' };
+
+  const current = await Lookbook.findOne({ _id: parsedId, deletedAt: null });
   if (!current) return { ok: false, status: 404, code: 'NOT_FOUND', message: 'Không tìm thấy lookbook' };
 
-  const rawPayload = buildPayload({ body, file, isCreate: false });
+  const rawPayload = buildPayload({ body, file, files, isCreate: false });
   const payload = { ...rawPayload, image: rawPayload.image || current.image };
 
   const errors = pickErrors(payload);
@@ -194,8 +304,11 @@ async function capNhatLookbook({ id, body = {}, file = null }) {
 }
 
 async function xoaLookbook(id) {
+  const parsedId = parseObjectId(id);
+  if (!parsedId) return { ok: false, status: 404, code: 'NOT_FOUND', message: 'Không tìm thấy lookbook' };
+
   const lookbook = await Lookbook.findOneAndUpdate(
-    { _id: id, deletedAt: null },
+    { _id: parsedId, deletedAt: null },
     {
       $set: {
         deletedAt: new Date(),
@@ -211,7 +324,10 @@ async function xoaLookbook(id) {
 }
 
 async function batTatLookbook(id) {
-  const lookbook = await Lookbook.findOne({ _id: id, deletedAt: null })
+  const parsedId = parseObjectId(id);
+  if (!parsedId) return { ok: false, status: 404, code: 'NOT_FOUND', message: 'Không tìm thấy lookbook' };
+
+  const lookbook = await Lookbook.findOne({ _id: parsedId, deletedAt: null })
     .select('_id isActive hienthi')
     .lean();
 
@@ -221,7 +337,7 @@ async function batTatLookbook(id) {
   const nextState = !current;
 
   await Lookbook.updateOne(
-    { _id: id, deletedAt: null },
+    { _id: parsedId, deletedAt: null },
     { $set: { isActive: nextState, hienthi: nextState } }
   );
 
@@ -229,7 +345,10 @@ async function batTatLookbook(id) {
 }
 
 async function capNhatNoiBatLookbook(id, body = {}) {
-  const lookbook = await Lookbook.findOne({ _id: id, deletedAt: null })
+  const parsedId = parseObjectId(id);
+  if (!parsedId) return { ok: false, status: 404, code: 'NOT_FOUND', message: 'Không tìm thấy lookbook' };
+
+  const lookbook = await Lookbook.findOne({ _id: parsedId, deletedAt: null })
     .select('_id noiBat isFeatured')
     .lean();
 
@@ -241,7 +360,7 @@ async function capNhatNoiBatLookbook(id, body = {}) {
     : !current;
 
   await Lookbook.updateOne(
-    { _id: id, deletedAt: null },
+    { _id: parsedId, deletedAt: null },
     { $set: { noiBat: nextState, isFeatured: nextState } }
   );
 

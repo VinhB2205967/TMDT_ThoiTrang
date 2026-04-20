@@ -1,4 +1,4 @@
-extends ../../layouts/default.pug
+﻿extends ../../layouts/default.pug
 
 block main
   .container-fluid.p-3
@@ -15,10 +15,18 @@ block main
         .card-header Thông tin phiếu
         .card-body
           .row.g-3
-            .col-md-4
+            .col-md-3
               label.form-label Mã phiếu
               input.form-control(type='text' name='maphieu' value=maPhieu readonly)
-            .col-md-8
+            .col-md-5
+              label.form-label Phiếu nhập tham chiếu
+              select#source-import-receipt.form-select(name='phieunhapid' required)
+                option(value='') -- Chọn phiếu nhập --
+                each r in (importReceipts || [])
+                  - const ngayNhapText = r.ngaynhap ? new Date(r.ngaynhap).toLocaleDateString('vi-VN') : ''
+                  option(value=r._id) #{r.maphieu || 'N/A'}#{r.nhacungcap ? ' - ' + r.nhacungcap : ''}#{ngayNhapText ? ' (' + ngayNhapText + ')' : ''}
+              .form-text Chỉ được điều chỉnh sản phẩm thuộc phiếu nhập đã chọn.
+            .col-md-4
               label.form-label Lý do điều chỉnh
               input.form-control(type='text' name='lydo' placeholder='Nhập lý do điều chỉnh kho...' required)
 
@@ -33,17 +41,17 @@ block main
             table.table.table-bordered.table-sm.align-middle
               thead.table-light
                 tr
-                  th(style='min-width:240px') Sản phẩm
-                  th(style='min-width:190px') Biến thể
-                  th(style='min-width:100px') Size
+                  th(style='min-width:260px') Sản phẩm (trong phiếu nhập)
+                  th(style='min-width:170px') Biến thể
+                  th(style='min-width:90px') Size
                   th(style='min-width:130px') Số lượng (+/-)
-                  th(style='min-width:120px') Ton hien tai
-                  th(style='min-width:140px') Ton sau dieu chinh
+                  th(style='min-width:120px') Tồn hiện tại
+                  th(style='min-width:140px') Tồn sau điều chỉnh
                   th(style='min-width:120px') Màu
                   th(style='width:60px')
               tbody#adjustment-items-body
           .alert.alert-secondary.mb-0
-            | Quy tắc: số dương là tăng tồn, số âm là giảm tồn. Mỗi phiếu chỉ hỗ trợ 1 loại điều chỉnh (tăng hoặc giảm). Không cho phép tồn sau điều chỉnh âm.
+            | Quy tắc: số dương là tăng tồn, số âm là giảm tồn. Mỗi sản phẩm/biến thể/size chỉ được chọn 1 lần. Không cho phép tồn sau điều chỉnh âm.
 
       .d-flex.justify-content-end.mt-3
         button.btn.btn-success(type='submit')
@@ -55,4 +63,8 @@ block scripts
     != JSON.stringify(products || [])
   script(type='application/json' id='sizes-json')
     != JSON.stringify(sizeList || [])
+  script(type='application/json' id='import-receipts-json')
+    != JSON.stringify(importReceipts || [])
+  script(type='application/json' id='receipt-items-json')
+    != JSON.stringify(receiptItemsById || {})
   script(src='/admin/js/adjustments.js')

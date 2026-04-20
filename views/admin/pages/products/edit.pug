@@ -40,13 +40,7 @@ block main
                                 input#productDescriptionMediaInput(type="file" name="mota_media_uploads" accept="image/*,video/*" multiple hidden)
                                 small.text-muted.d-block.mt-2 Dùng thanh công cụ để chèn ảnh/video, nội dung sẽ hiển thị như một bài viết ở trang chi tiết sản phẩm.
 
-                            .mb-3
-                                label.form-label.fw-bold Ảnh mô tả sản phẩm
-                                if product.mota_hinhanh
-                                    .mb-2
-                                        img.rounded.border(src=product.mota_hinhanh alt='Ảnh mô tả' style='max-height:120px;object-fit:cover;')
-                                input.form-control(type="file" name="mota_hinhanh" accept="image/*")
-                                small.text-muted Để trống nếu không thay đổi ảnh mô tả.
+                       
 
                             .row.g-3
                                 .col-md-6
@@ -142,7 +136,7 @@ block main
                                         option(value='') -- Tự động theo loại sản phẩm --
                                         each sg in (sizeGuideOptions || [])
                                             - const selectedGuide = String(sg._id) === String(product.sizeguide_id || '')
-                                            option(value=sg._id data-loai=sg.loaisanpham selected=selectedGuide) #{sg.tenbang} (#{sg.loaisanpham.toUpperCase()})
+                                            option(value=sg._id data-loai=sg.loaisanpham selected=selectedGuide) #{sg.tenbang} (#{sg.loaisanphamLabel || sg.loaisanpham})
                                     small.text-muted Chọn bảng size riêng cho sản phẩm nếu muốn ghi đè mặc định theo loại.
 
                             .mt-3

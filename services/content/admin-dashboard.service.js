@@ -937,6 +937,13 @@ function mapAdminAiError(error, selectedProvider = 'ollama') {
   }
 
   const lower = msg.toLowerCase();
+  if (lower.includes('developer instruction is not enabled')) {
+    return {
+      status: 503,
+      message: 'Model Gemini hiện tại chưa được bật cho API key này. Hệ thống sẽ ưu tiên dùng gemini-2.5-flash nếu có thể.'
+    };
+  }
+
   const isConnectionError = lower.includes('fetch failed')
     || lower.includes('econnrefused')
     || lower.includes('abort')

@@ -26,7 +26,7 @@ block main
             each g in guides
               tr
                 td.fw-semibold #{g.tenbang}
-                td.text-uppercase #{g.loaisanpham}
+                td #{g.loaisanphamLabel || g.loaisanpham}
                 td #{(g.cot || []).join(', ')}
                 td #{(g.dong || []).length}
                 td #{g.goiy || ''}

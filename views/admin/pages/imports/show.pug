@@ -4,28 +4,28 @@ block main
   .container-fluid.p-3
     .d-flex.justify-content-between.align-items-center.mb-3.page-header-section.orders-header.admin-page-header
       h3.mb-0 Chi tiết phiếu nhập
-      .d-flex.gap-2
+      .d-flex.gap-2.orders-actions
         if !receipt.daxuatkho
           form(method='POST' action=`${admin}/imports/${receipt._id}/delete` onsubmit='return confirm("Xóa phiếu nhập này? Chỉ có thể xóa khi chưa xác nhận nhập kho.")')
             input(type='hidden' name='_csrf' value=_csrf)
-            button.btn.btn-outline-danger(type='submit')
+            button.btn.btn-outline-danger.btn-header.btn-header-danger(type='submit')
               i.bi.bi-trash
               |  Xóa phiếu
-        a.btn.btn-outline-secondary(href=`${admin}/imports`)
+        a.btn.btn-outline-secondary.btn-header.btn-header-outline(href=`${admin}/imports`)
           i.bi.bi-arrow-left
           |  Danh sách
         if !receipt.daxuatkho
           form(method='POST' action=`${admin}/imports/${receipt._id}/export` onsubmit='return confirm("Xác nhận nhập kho phiếu này? Sau khi xác nhận sẽ không thể chỉnh sửa.")')
             input(type='hidden' name='_csrf' value=_csrf)
-            button.btn.btn-success(type='submit')
+            button.btn.btn-success.btn-header.btn-header-success(type='submit')
               i.bi.bi-check2-circle
               |  Xác nhận nhập kho
         if !receipt.daxuatkho && receipt.loaiphieu !== 'return'
-          a.btn.btn-primary(href=`${admin}/imports/${receipt._id}/edit`)
+          a.btn.btn-primary.btn-header.btn-header-primary.btn-header-edit(href=`${admin}/imports/${receipt._id}/edit`)
             i.bi.bi-pencil
             |  Chỉnh sửa
         if receipt.daxuatkho
-          button.btn.btn-success(type='button' disabled)
+          button.btn.btn-success.btn-header.btn-header-success(type='button' disabled)
             i.bi.bi-check-circle
             |  Đã nhập kho
 

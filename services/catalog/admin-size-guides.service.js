@@ -9,6 +9,27 @@ const {
   damBaoBangSizeMacDinh
 } = require('./sizeGuide.service.js');
 
+const LOAI_SAN_PHAM_LABEL_MAP = {
+  ao: 'Áo',
+  aokhoac: 'Áo khoác',
+  quan: 'Quần',
+  vay: 'Váy',
+  giay: 'Giày',
+  tui: 'Túi',
+  phukien: 'Phụ kiện'
+};
+
+function layNhanLoaiSanPham(loaiSanPham) {
+  const raw = String(loaiSanPham || '').trim();
+  if (!raw) return '';
+
+  const normalized = raw
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '');
+
+  return LOAI_SAN_PHAM_LABEL_MAP[normalized] || raw;
+}
+
 async function loaiSanPhamOptions() {
   const danhMucLoaiSp = await Danhmuc.find({
     daxoa: { $ne: true },
@@ -44,9 +65,14 @@ async function loaiSanPhamOptions() {
 
 async function getDanhSachData() {
   await damBaoBangSizeMacDinh(SizeGuide);
-  const guides = await SizeGuide.find({ daxoa: { $ne: true } })
+  const guidesRaw = await SizeGuide.find({ daxoa: { $ne: true } })
     .sort({ loaisanpham: 1, ngaycapnhat: -1 })
     .lean();
+
+  const guides = (guidesRaw || []).map((guide) => ({
+    ...guide,
+    loaisanphamLabel: layNhanLoaiSanPham(guide.loaisanpham)
+  }));
 
   return {
     ok: true,
@@ -118,7 +144,10 @@ async function getChinhSuaData(id) {
   const options = await loaiSanPhamOptions();
   const coGiaTriHienTai = options.some((opt) => String(opt.value) === String(guide.loaisanpham || ''));
   if (!coGiaTriHienTai && guide.loaisanpham) {
-    options.push({ value: String(guide.loaisanpham), label: String(guide.loaisanpham) });
+    options.push({
+      value: String(guide.loaisanpham),
+      label: layNhanLoaiSanPham(guide.loaisanpham)
+    });
   }
 
   const guideForm = {

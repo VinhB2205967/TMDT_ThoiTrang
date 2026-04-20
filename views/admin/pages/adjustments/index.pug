@@ -21,7 +21,7 @@ block main
               th Lý do
               th Người tạo
               th Tạo lúc
-              th Hanh động
+              th Hành động
           tbody
             each r in receipts
               tr
@@ -30,8 +30,10 @@ block main
                 td
                   if r.loaiphieu === 'increase'
                     span.badge.bg-success Điều chỉnh tăng
-                  else
+                  else if r.loaiphieu === 'decrease'
                     span.badge.bg-warning.text-dark Điều chỉnh giảm
+                  else
+                    span.badge.bg-primary Điều chỉnh tăng/giảm
                 td
                   if r.daxacnhan
                     span.badge.bg-success Đã xác nhận
@@ -47,7 +49,7 @@ block main
                       button.btn.btn-sm.btn-success(type='submit')
                         i.bi.bi-check2-circle
                         |  Xác nhận
-                    form.d-inline.me-1(method='POST' action=`${admin}/adjustments/${r._id}/delete` onsubmit='return confirm("Xoa phieu dieu chinh nay? Chi co the xoa khi chua xac nhan.")')
+                    form.d-inline.me-1(method='POST' action=`${admin}/adjustments/${r._id}/delete` onsubmit='return confirm("Xóa phiếu điều chỉnh này? Chỉ có thể xóa khi chưa xác nhận.")')
                       input(type='hidden' name='_csrf' value=_csrf)
                       button.btn.btn-sm.btn-outline-danger(type='submit')
                         i.bi.bi-trash

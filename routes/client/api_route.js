@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
-const { requireAuth } = require('../../middlewares/auth');
+const { requireAuth, denyAdminPurchase } = require('../../middlewares/auth');
 const homeApi = require('../../controllers/client/api/home_api_controller');
 const aiChatApi = require('../../controllers/client/api/ai_chat_api_controller');
 const favoritesApi = require('../../controllers/client/api/favorites_api_controller');
@@ -71,7 +71,7 @@ router.get('/products/suggest', productsApi.goiY);
 router.get('/products/:id/options', productsApi.tuyChon);
 
 router.post('/cart/add', requireAuth, cartApi.them);
-router.post('/cart/buy-now', requireAuth, cartApi.muaNgay);
+router.post('/cart/buy-now', requireAuth, denyAdminPurchase, cartApi.muaNgay);
 router.post('/cart/update', requireAuth, cartApi.capNhatSoLuong);
 router.post('/cart/update-options', requireAuth, cartApi.capNhatTuyChon);
 router.post('/cart/remove', requireAuth, cartApi.xoa);

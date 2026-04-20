@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Sanpham = require('../../models/product_model');
+const PhieuNhapKho = require('../../models/import_receipt_model');
 const PhieuDieuChinhKho = require('../../models/inventory_adjustment_model');
 const { SIZE_LIST } = require('../../config/constants');
 const { tinhTongTon } = require('../catalog/productStock.service');
@@ -62,6 +63,51 @@ function chuanHoaChiTiet(rawItems = []) {
   return normalized;
 }
 
+function taoKhoaDongDieuChinh({ sanphamid, bientheid, kichco }) {
+  const productId = String(sanphamid || '').trim();
+  const variantId = normalizeBienTheId(bientheid) || 'main';
+  const sizeKey = String(kichco || '').trim();
+  return `${productId}|${String(variantId)}|${sizeKey}`;
+}
+
+function lapBanDoDongTheoPhieuNhap(receiptDoc) {
+  const map = new Map();
+  const details = normalizeItems(receiptDoc?.chitiet || receiptDoc?.chi_tiet || receiptDoc?.items);
+
+  for (const raw of details) {
+    const productId = String(raw?.sanphamid || raw?.san_pham_id || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(productId)) continue;
+
+    const variantId = normalizeBienTheId(raw?.bientheid || raw?.bien_the_id);
+    const sizeKey = String(raw?.kichco || raw?.kich_co || '').trim();
+    const key = taoKhoaDongDieuChinh({
+      sanphamid: productId,
+      bientheid: variantId,
+      kichco: sizeKey
+    });
+
+    const existed = map.get(key);
+    if (existed) {
+      existed.soluongnhap += Number(raw?.soluong || raw?.so_luong || 0) || 0;
+      if (!existed.mausac) existed.mausac = String(raw?.mausac || raw?.mau_sac || '').trim();
+      if (!existed.tensanpham) existed.tensanpham = String(raw?.tensanpham || raw?.ten_san_pham || '').trim();
+      continue;
+    }
+
+    map.set(key, {
+      key,
+      sanphamid: productId,
+      bientheid: variantId || null,
+      kichco: sizeKey,
+      mausac: String(raw?.mausac || raw?.mau_sac || '').trim(),
+      tensanpham: String(raw?.tensanpham || raw?.ten_san_pham || '').trim(),
+      soluongnhap: Number(raw?.soluong || raw?.so_luong || 0) || 0
+    });
+  }
+
+  return map;
+}
+
 async function getDanhSachData() {
   const receipts = await PhieuDieuChinhKho.find({})
     .sort({ ngaytao: -1 })
@@ -75,26 +121,135 @@ async function getDanhSachData() {
 }
 
 async function getTaoMoiData() {
-  const products = await Sanpham.find({ daxoa: { $ne: true } })
-    .sort({ ngaytao: -1 })
+  const sourceReceipts = await PhieuNhapKho.find({ daxuatkho: true })
+    .sort({ ngayxuatkho: -1, ngaynhap: -1, ngaytao: -1, _id: -1 })
+    .limit(200)
+    .select('_id maphieu ma_phieu code nhacungcap ngaynhap ngayxuatkho loaiphieu chitiet')
+    .lean();
+
+  const receiptItemsById = {};
+  const importReceipts = [];
+  const productIdSet = new Set();
+
+  for (const receipt of sourceReceipts) {
+    const receiptId = String(receipt?._id || '').trim();
+    if (!receiptId) continue;
+
+    const lineMap = lapBanDoDongTheoPhieuNhap(receipt);
+    const lines = Array.from(lineMap.values());
+    if (!lines.length) continue;
+
+    lines.forEach((line) => productIdSet.add(String(line.sanphamid)));
+    receiptItemsById[receiptId] = lines;
+    importReceipts.push({
+      _id: receiptId,
+      maphieu: String(receipt.maphieu || receipt.ma_phieu || receipt.code || '').trim(),
+      nhacungcap: String(receipt.nhacungcap || '').trim(),
+      ngaynhap: receipt.ngaynhap || null,
+      ngayxuatkho: receipt.ngayxuatkho || null,
+      loaiphieu: String(receipt.loaiphieu || 'standard').trim(),
+      soDong: lines.length
+    });
+  }
+
+  const productIds = Array.from(productIdSet).filter((id) => mongoose.Types.ObjectId.isValid(id));
+  const products = await Sanpham.find({ _id: { $in: productIds }, daxoa: { $ne: true } })
+    .sort({ tensanpham: 1, _id: 1 })
     .select('_id tensanpham loaisanpham mausac_chinh bienthe sizes soluong_chinh')
     .lean();
+
+  const productMap = new Map(products.map((p) => [String(p._id), p]));
+  Object.keys(receiptItemsById).forEach((receiptId) => {
+    const rows = Array.isArray(receiptItemsById[receiptId]) ? receiptItemsById[receiptId] : [];
+    rows.forEach((line) => {
+      const product = productMap.get(String(line.sanphamid || ''));
+      if (!line.tensanpham) line.tensanpham = product?.tensanpham || '';
+
+      if (!line.mausac && product) {
+        const variantId = line.bientheid ? String(line.bientheid) : '';
+        if (variantId && variantId !== 'main') {
+          const variant = (Array.isArray(product.bienthe) ? product.bienthe : [])
+            .find((v) => String(v._id) === variantId);
+          line.mausac = String(variant?.mausac || '').trim();
+        } else {
+          line.mausac = String(product.mausac_chinh || '').trim();
+        }
+      }
+    });
+
+    rows.sort((a, b) => {
+      const an = String(a.tensanpham || '').localeCompare(String(b.tensanpham || ''), 'vi');
+      if (an !== 0) return an;
+      const av = String(a.bientheid || 'main').localeCompare(String(b.bientheid || 'main'));
+      if (av !== 0) return av;
+      return String(a.kichco || '').localeCompare(String(b.kichco || ''), 'vi');
+    });
+  });
 
   return {
     titlePage: 'Tạo phiếu điều chỉnh kho',
     maPhieu: taoMaPhieuDieuChinh(),
     products,
-    sizeList: SIZE_LIST
+    sizeList: SIZE_LIST,
+    importReceipts,
+    receiptItemsById
   };
 }
-
 async function taoMoiPhieuDieuChinh({ body = {}, adminUser = null, user = null }) {
   const maphieu = String(body.maphieu || '').trim() || taoMaPhieuDieuChinh();
   const lydo = String(body.lydo || '').trim();
+  const phieuNhapId = String(body.phieunhapid || body.phieu_nhap_id || '').trim();
+  if (!mongoose.Types.ObjectId.isValid(phieuNhapId)) {
+    return { ok: false, message: 'Vui lòng chọn phiếu nhập hợp lệ' };
+  }
+
+  const sourceReceipt = await PhieuNhapKho.findOne({ _id: phieuNhapId, daxuatkho: true })
+    .select('_id maphieu ma_phieu code chitiet')
+    .lean();
+  if (!sourceReceipt) {
+    return { ok: false, message: 'Không tìm thấy phiếu nhập để tham chiếu' };
+  }
+
+  const allowedLineMap = lapBanDoDongTheoPhieuNhap(sourceReceipt);
+  if (!allowedLineMap.size) {
+    return { ok: false, message: 'Phiếu nhập này không có dòng sản phẩm hợp lệ để điều chỉnh' };
+  }
+
   const rawItems = normalizeItems(body.chitiet || body.chi_tiet || body.items);
   if (!rawItems.length) return { ok: false, message: 'Vui lòng thêm ít nhất 1 dòng điều chỉnh' };
 
   const details = chuanHoaChiTiet(rawItems);
+  const seenKeys = new Set();
+  for (const line of details) {
+    const key = taoKhoaDongDieuChinh(line);
+    const allowed = allowedLineMap.get(key);
+    if (!allowed) {
+      return {
+        ok: false,
+        message: 'Chỉ được chọn sản phẩm/biến thể/size thuộc phiếu nhập đã chọn'
+      };
+    }
+
+    line.sanphamid = allowed.sanphamid;
+    line.bientheid = allowed.bientheid || null;
+    line.kichco = allowed.kichco || '';
+    if (!line.tensanpham) line.tensanpham = allowed.tensanpham || '';
+    if (!line.mausac) line.mausac = allowed.mausac || '';
+
+    const normalizedKey = taoKhoaDongDieuChinh({
+      sanphamid: line.sanphamid,
+      bientheid: line.bientheid,
+      kichco: line.kichco
+    });
+    if (seenKeys.has(normalizedKey)) {
+      return {
+        ok: false,
+        message: 'Không được chọn trùng sản phẩm/biến thể/size trong cùng một phiếu điều chỉnh'
+      };
+    }
+    seenKeys.add(normalizedKey);
+  }
+
   const productIds = Array.from(new Set(details
     .map((it) => String(it.sanphamid || ''))
     .filter((id) => mongoose.Types.ObjectId.isValid(id))));
@@ -110,18 +265,14 @@ async function taoMoiPhieuDieuChinh({ body = {}, adminUser = null, user = null }
   }
 
   const loai = xacDinhLoaiPhieuTheoChiTiet(details);
-  if (loai === 'mixed') {
-    return {
-      ok: false,
-      message: 'Một phiếu chỉ hỗ trợ một loại điều chỉnh (+ hoặc -). Vui lòng tách thành 2 phiếu riêng.'
-    };
-  }
 
   const existed = await PhieuDieuChinhKho.findOne({ maphieu }).select('_id').lean();
   if (existed) return { ok: false, message: 'Mã phiếu điều chỉnh đã tồn tại' };
 
   const doc = new PhieuDieuChinhKho({
     maphieu,
+    phieunhapid: sourceReceipt._id,
+    maphieunhap: String(sourceReceipt.maphieu || sourceReceipt.ma_phieu || sourceReceipt.code || '').trim(),
     loaiphieu: loai,
     lydo,
     daxacnhan: false,
@@ -139,7 +290,6 @@ async function taoMoiPhieuDieuChinh({ body = {}, adminUser = null, user = null }
     receiptId: doc._id
   };
 }
-
 async function getChiTietData(idOrCode) {
   const receiptDoc = await findByIdOrCode(idOrCode);
   if (!receiptDoc) return { ok: false, message: 'Không tìm thấy phiếu điều chỉnh' };
@@ -150,8 +300,16 @@ async function getChiTietData(idOrCode) {
   if (receiptDoc.nguoixacnhan) {
     await receiptDoc.populate({ path: 'nguoixacnhan', select: 'hoten email avatar' });
   }
+  if (receiptDoc.phieunhapid) {
+    await receiptDoc.populate({ path: 'phieunhapid', select: 'maphieu ma_phieu code nhacungcap ngaynhap' });
+  }
 
   const receipt = receiptDoc.toObject();
+  if (!receipt.maphieunhap && receipt.phieunhapid) {
+    receipt.maphieunhap = String(
+      receipt.phieunhapid.maphieu || receipt.phieunhapid.ma_phieu || receipt.phieunhapid.code || ''
+    ).trim();
+  }
   const details = Array.isArray(receipt.chitiet) ? receipt.chitiet : [];
   const productIds = Array.from(new Set(details
     .map((it) => String(it.sanphamid || ''))
@@ -216,6 +374,18 @@ async function xacNhanPhieuDieuChinh({ idOrCode, adminUser = null, user = null }
   const details = Array.isArray(receiptDoc.chitiet) ? receiptDoc.chitiet : [];
   if (!details.length) {
     return { ok: false, message: 'Phiếu điều chỉnh không có chi tiết', receiptId: receiptDoc._id };
+  }
+  const seenKeys = new Set();
+  for (const line of details) {
+    const key = taoKhoaDongDieuChinh(line);
+    if (seenKeys.has(key)) {
+      return {
+        ok: false,
+        message: 'Phiếu có dòng sản phẩm/biến thể/size bị trùng, vui lòng xóa phiếu và tạo lại',
+        receiptId: receiptDoc._id
+      };
+    }
+    seenKeys.add(key);
   }
 
   const productIds = Array.from(new Set(details
@@ -323,7 +493,7 @@ async function xacNhanPhieuDieuChinh({ idOrCode, adminUser = null, user = null }
 
 async function xoaPhieuDieuChinh(idOrCode) {
   const receiptDoc = await findByIdOrCode(idOrCode);
-  if (!receiptDoc) return { ok: false, message: 'Khong tim thay phieu dieu chinh' };
+  if (!receiptDoc) return { ok: false, message: 'Không tìm thấy phiếu điều chỉnh' };
 
   if (receiptDoc.daxacnhan) {
     return {

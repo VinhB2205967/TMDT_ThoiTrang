@@ -11,3 +11,4 @@ const homeSectionSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.model('HomeSection', homeSectionSchema, 'home_sections');
+

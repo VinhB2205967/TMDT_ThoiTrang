@@ -2,6 +2,8 @@ extends ../../layouts/default.pug
 
 block styles
   link(rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css")
+  link(rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css")
+  link(rel="stylesheet" href="/admin/css/product-editor.css")
   style.
     .lookbook-preview {
       width: 100%;
@@ -22,6 +24,29 @@ block styles
       height: 100%;
       object-fit: cover;
       display: block;
+    }
+    .lookbook-rich-editor .ql-editor {
+      min-height: 180px;
+      max-height: 360px;
+      overflow-y: auto;
+    }
+    .lookbook-rich-editor .ql-editor img {
+      max-width: 100%;
+      width: auto;
+      max-height: 300px;
+      height: auto;
+      margin: 0.75rem auto;
+      display: block;
+    }
+    .lookbook-rich-editor .ql-editor video {
+      max-width: 100%;
+      width: auto;
+      max-height: 300px;
+      height: auto;
+      margin: 0.75rem auto;
+      display: block;
+      background: #111;
+      border-radius: 12px;
     }
 
 block main
@@ -52,7 +77,13 @@ block main
 
               .col-12
                 label.form-label Mô tả
-                textarea.form-control(name="description" rows="4")= lookbook.description || ''
+                .product-rich-editor-card
+                  .product-rich-editor-toolbar#lookbookDescriptionToolbar
+                  #lookbookDescriptionEditor.product-rich-editor.lookbook-rich-editor(data-placeholder="Viết mô tả lookbook, chèn ảnh/video theo đúng thứ tự hiển thị...")
+                textarea#lookbookDescriptionInput.d-none(name="description" rows="4" data-richtext="quill")= lookbook.description || ''
+                input#lookbookDescriptionMediaTokens(type="hidden" name="description_media_tokens" value="[]")
+                input#lookbookDescriptionMediaInput(type="file" name="description_media_uploads" accept="image/*,video/*" multiple hidden)
+                small.text-muted.d-block.mt-2 Dùng thanh công cụ để chèn ảnh/video, nội dung sẽ hiển thị như phần mô tả sản phẩm.
 
               .col-12
                 label.form-label Chọn sản phẩm (nhiều)
@@ -107,4 +138,6 @@ block main
 block scripts
   script(src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js")
   script(src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js")
+  script(src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js")
+  script(src="/admin/js/lookbook-rich-editor.js")
   script(src="/admin/js/lookbook-form.js")

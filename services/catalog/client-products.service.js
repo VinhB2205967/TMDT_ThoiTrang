@@ -32,8 +32,6 @@ const OPENCLIP_PRODUCTS_RANK_CANDIDATE_LIMIT_UNTYPED = Math.max(
 const OPENCLIP_PRODUCTS_IMAGE_TYPE_MIN_SCORE = Number(process.env.OPENCLIP_PRODUCTS_IMAGE_TYPE_MIN_SCORE || 0.23);
 const OPENCLIP_PRODUCTS_IMAGE_TYPE_MIN_MARGIN = Number(process.env.OPENCLIP_PRODUCTS_IMAGE_TYPE_MIN_MARGIN || 0.03);
 const OPENCLIP_PRODUCTS_STRONG_SCORE = Number(process.env.OPENCLIP_PRODUCTS_STRONG_SCORE || 0.35);
-const OPENCLIP_PRODUCTS_SHOE_PRIORITY_DELTA = Number(process.env.OPENCLIP_PRODUCTS_SHOE_PRIORITY_DELTA || 0.06);
-const OPENCLIP_PRODUCTS_SHOE_MIN_SCORE = Number(process.env.OPENCLIP_PRODUCTS_SHOE_MIN_SCORE || 0.2);
 const OPENCLIP_PRODUCTS_TYPED_DB_LIMIT = Math.max(60, Number(process.env.OPENCLIP_PRODUCTS_TYPED_DB_LIMIT || 140));
 const OPENCLIP_PRODUCTS_TYPED_MIN_RESULTS = Math.max(8, Number(process.env.OPENCLIP_PRODUCTS_TYPED_MIN_RESULTS || 18));
 const OPENCLIP_ALLOWED_PRODUCT_TYPES = new Set(['ao', 'quan', 'vay', 'phukien', 'giay', 'tui', 'aokhoac']);
@@ -129,23 +127,6 @@ function resolveSelectedProductTypeFromClassification(detected) {
   let selectedType = '';
   if (OPENCLIP_ALLOWED_PRODUCT_TYPES.has(detectedType) && passMinScore && (passMargin || strongScore)) {
     selectedType = detectedType;
-  }
-
-  if (!selectedType) {
-    const shoeLabel = normalizedLabels.find((item) => item && item.key === 'giay');
-    const shoeScore = Number(shoeLabel && shoeLabel.score);
-    const top1Key = String(top1 && top1.key ? top1.key : '');
-    const closeToTop = Number.isFinite(top1Score) && Number.isFinite(shoeScore)
-      && top1Key
-      && top1Key !== 'giay'
-      && (top1Score - shoeScore) <= OPENCLIP_PRODUCTS_SHOE_PRIORITY_DELTA;
-    const shouldPreferShoe = Number.isFinite(shoeScore)
-      && shoeScore >= OPENCLIP_PRODUCTS_SHOE_MIN_SCORE
-      && (top1Key === 'giay' || closeToTop);
-
-    if (shouldPreferShoe) {
-      selectedType = 'giay';
-    }
   }
 
   return selectedType;
@@ -899,20 +880,7 @@ async function timBangAnhData(uploadedPath) {
       : OPENCLIP_PRODUCTS_RANK_CANDIDATE_LIMIT_UNTYPED
   });
   const rankedMatches = Array.isArray(ranked.matches) ? ranked.matches : [];
-  const shouldPrioritizeDetectedType = selectedType === 'giay';
-  const sortedByType = shouldPrioritizeDetectedType
-    ? [
-      ...rankedMatches.filter((item) => String(item && item.loaisanpham || '').trim().toLowerCase() === selectedType),
-      ...rankedMatches.filter((item) => String(item && item.loaisanpham || '').trim().toLowerCase() !== selectedType)
-    ]
-    : rankedMatches;
-
-  const typeOnlyPool = shouldPrioritizeDetectedType
-    ? sortedByType.filter((item) => String(item && item.loaisanpham || '').trim().toLowerCase() === selectedType)
-    : [];
-  const shouldKeepTypeOnly = selectedType
-    && typeOnlyPool.length >= Math.min(OPENCLIP_PRODUCTS_MAX_RESULTS, OPENCLIP_PRODUCTS_TYPED_MIN_RESULTS);
-  const finalPool = shouldKeepTypeOnly ? typeOnlyPool : sortedByType;
+  const finalPool = rankedMatches;
   const ids = Array.from(new Set(finalPool
     .map((item) => String(item && item.id ? item.id : ''))
     .filter(Boolean)));

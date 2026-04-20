@@ -33,6 +33,22 @@ function yeuCauDangNhap(req, res, next) {
   return res.redirect('/auth?mode=login');
 }
 
+function tuChoiAdminMuaHang(req, res, next) {
+  if (!req.user || req.user.vaitro !== 'admin') return next();
+
+  const message = 'Tài khoản admin không được phép mua hàng';
+  if (muonJSON(req)) {
+    return res.status(403).json({
+      success: false,
+      message,
+      redirect: '/'
+    });
+  }
+
+  req.flash?.('error', message);
+  return res.redirect('/');
+}
+
 function yeuCauAdmin(req, res, next) {
   const duongDanAdmin = systemConfig.prefigAdmin;
 
@@ -177,6 +193,7 @@ module.exports = {
   // Giữ tương thích tên cũ
   attachUserToLocals: ganNguoiDungVaoLocals,
   requireAuth: yeuCauDangNhap,
+  denyAdminPurchase: tuChoiAdminMuaHang,
   requireAdmin: yeuCauAdmin,
   redirectAfterLogin: chuyenHuongSauDangNhap,
   trackOnline: theoDoiTrucTuyen,
@@ -185,6 +202,7 @@ module.exports = {
   // Alias tiếng Việt
   ganNguoiDungVaoLocals,
   yeuCauDangNhap,
+  tuChoiAdminMuaHang,
   yeuCauAdmin,
   chuyenHuongSauDangNhap,
   theoDoiTrucTuyen,

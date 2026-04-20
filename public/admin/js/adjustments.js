@@ -1,13 +1,14 @@
 (() => {
   const productsEl = document.getElementById('products-json');
-  const sizesEl = document.getElementById('sizes-json');
+  const receiptItemsEl = document.getElementById('receipt-items-json');
+  const receiptSelect = document.getElementById('source-import-receipt');
   const tbody = document.getElementById('adjustment-items-body');
   const addBtn = document.getElementById('btn-add-row');
   const form = document.getElementById('adjustment-create-form');
-  if (!productsEl || !tbody || !form) return;
+  if (!productsEl || !receiptItemsEl || !receiptSelect || !tbody || !form) return;
 
   let products = [];
-  let sizeList = [];
+  let receiptItemsById = {};
 
   try {
     products = JSON.parse(productsEl.textContent || '[]');
@@ -16,9 +17,9 @@
   }
 
   try {
-    sizeList = JSON.parse((sizesEl && sizesEl.textContent) || '[]');
+    receiptItemsById = JSON.parse(receiptItemsEl.textContent || '{}');
   } catch {
-    sizeList = [];
+    receiptItemsById = {};
   }
 
   const noSizeTypes = new Set(['tui', 'phukien']);
@@ -38,45 +39,9 @@
       .replace(/'/g, '&#039;');
   }
 
-  function productOptions(selected = '') {
-    const opts = ['<option value="">-- Chon san pham --</option>'];
-    products.forEach((p) => {
-      const sel = String(selected) === String(p._id) ? ' selected' : '';
-      opts.push(`<option value="${escapeHtml(p._id)}"${sel}>${escapeHtml(p.tensanpham || 'San pham')}</option>`);
-    });
-    return opts.join('');
-  }
-
-  function variantOptions(product, selected = 'main') {
-    const opts = [`<option value="main"${String(selected) === 'main' ? ' selected' : ''}>Mặc định</option>`];
-    (product && Array.isArray(product.bienthe) ? product.bienthe : []).forEach((v) => {
-      const id = String(v._id || '');
-      const label = v.mausac ? `Bien the: ${v.mausac}` : `Bien the: ${id.slice(-6)}`;
-      const sel = id === String(selected) ? ' selected' : '';
-      opts.push(`<option value="${escapeHtml(id)}"${sel}>${escapeHtml(label)}</option>`);
-    });
-    return opts.join('');
-  }
-
-  function sizeOptions(selected = '') {
-    const opts = ['<option value="">-- Size --</option>'];
-    sizeList.forEach((s) => {
-      const sel = String(selected) === String(s) ? ' selected' : '';
-      opts.push(`<option value="${escapeHtml(s)}"${sel}>${escapeHtml(s)}</option>`);
-    });
-    return opts.join('');
-  }
-
-  function renumber() {
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    rows.forEach((tr, idx) => {
-      tr.dataset.index = String(idx);
-      tr.querySelectorAll('[data-field]').forEach((el) => {
-        const field = el.getAttribute('data-field');
-        if (!field) return;
-        el.setAttribute('name', `chitiet[${idx}][${field}]`);
-      });
-    });
+  function formatQty(value) {
+    if (value == null || !Number.isFinite(value)) return '--';
+    return numberFormatter.format(value);
   }
 
   function getProductById(productId) {
@@ -115,11 +80,6 @@
     return toNumber(variant && variant.soluong, 0);
   }
 
-  function formatQty(value) {
-    if (value == null || !Number.isFinite(value)) return '--';
-    return numberFormatter.format(value);
-  }
-
   function paintStockCell(el, value, invalid = false) {
     if (!el) return;
     const hasValue = value != null && Number.isFinite(value);
@@ -129,18 +89,112 @@
     el.classList.toggle('fw-semibold', Boolean(invalid));
   }
 
+  function activeReceiptId() {
+    return String(receiptSelect.value || '').trim();
+  }
+
+  function activeReceiptItems() {
+    const rid = activeReceiptId();
+    if (!rid) return [];
+    const rows = receiptItemsById[rid];
+    return Array.isArray(rows) ? rows : [];
+  }
+
+  function collectSelectedKeys(excludeSelect = null) {
+    const selected = new Set();
+    tbody.querySelectorAll('.js-receipt-item').forEach((selectEl) => {
+      if (excludeSelect && selectEl === excludeSelect) return;
+      const value = String(selectEl.value || '').trim();
+      if (value) selected.add(value);
+    });
+    return selected;
+  }
+
+  function buildItemLabel(item) {
+    const product = getProductById(item.sanphamid);
+    const productName = String(item.tensanpham || product?.tensanpham || 'Sản phẩm').trim();
+    const variantId = String(item.bientheid || 'main');
+    const color = String(item.mausac || '').trim();
+    const size = String(item.kichco || '').trim();
+
+    const variantLabel = variantId === 'main'
+      ? 'Mặc định'
+      : (color ? `Biến thể: ${color}` : 'Biến thể');
+
+    const parts = [productName, variantLabel];
+    if (size) parts.push(`Size ${size}`);
+    if (item.soluongnhap && Number(item.soluongnhap) > 0) {
+      parts.push(`SL nhập ${formatQty(Number(item.soluongnhap))}`);
+    }
+
+    return parts.join(' - ');
+  }
+
+  function itemOptions(selected = '', disabledKeys = new Set()) {
+    const rows = activeReceiptItems();
+    const opts = ['<option value="">-- Chọn sản phẩm trong phiếu nhập --</option>'];
+    const selectedKey = String(selected || '');
+    rows.forEach((item) => {
+      const key = String(item.key || '');
+      const sel = key === selectedKey ? ' selected' : '';
+      const disabled = disabledKeys.has(key) && key !== selectedKey ? ' disabled' : '';
+      opts.push(`<option value="${escapeHtml(key)}"${sel}${disabled}>${escapeHtml(buildItemLabel(item))}</option>`);
+    });
+    return opts.join('');
+  }
+
+  function renumber() {
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    rows.forEach((tr, idx) => {
+      tr.dataset.index = String(idx);
+      tr.querySelectorAll('[data-field]').forEach((el) => {
+        const field = el.getAttribute('data-field');
+        if (!field) return;
+        el.setAttribute('name', `chitiet[${idx}][${field}]`);
+      });
+    });
+  }
+
+  function findSelectedItem(key) {
+    if (!key) return null;
+    return activeReceiptItems().find((it) => String(it.key || '') === String(key)) || null;
+  }
+
+  function refreshAllRowsOptions(keepSelected = true) {
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    rows.forEach((tr) => {
+      if (typeof tr._refreshOptions === 'function') tr._refreshOptions(keepSelected);
+    });
+    setAddButtonState();
+  }
+
   function wireRow(tr) {
-    const productSelect = tr.querySelector('.js-product');
-    const variantSelect = tr.querySelector('.js-variant');
-    const sizeSelect = tr.querySelector('.js-size');
+    const itemSelect = tr.querySelector('.js-receipt-item');
     const qtyInput = tr.querySelector('.js-qty');
-    const colorInput = tr.querySelector('.js-color');
     const stockBeforeEl = tr.querySelector('.js-stock-before');
     const stockAfterEl = tr.querySelector('.js-stock-after');
+    const variantLabel = tr.querySelector('.js-variant-label');
+    const sizeLabel = tr.querySelector('.js-size-label');
+    const colorLabel = tr.querySelector('.js-color-label');
+
+    const productIdInput = tr.querySelector('.js-product-id');
+    const productNameInput = tr.querySelector('.js-product-name');
+    const variantIdInput = tr.querySelector('.js-variant-id');
+    const sizeInput = tr.querySelector('.js-size-input');
+    const colorInput = tr.querySelector('.js-color-input');
 
     function refreshStock() {
-      const product = getProductById(productSelect.value);
-      const before = readStock(product, variantSelect.value, sizeSelect.value);
+      const selected = findSelectedItem(itemSelect.value);
+      if (!selected) {
+        paintStockCell(stockBeforeEl, null, false);
+        paintStockCell(stockAfterEl, null, false);
+        qtyInput.setCustomValidity('');
+        qtyInput.classList.remove('is-invalid');
+        return;
+      }
+
+      const product = getProductById(selected.sanphamid);
+      const before = readStock(product, selected.bientheid || 'main', selected.kichco || '');
       const deltaRaw = Number(qtyInput.value);
       const hasDelta = Number.isFinite(deltaRaw);
       const after = before == null || !hasDelta ? null : before + deltaRaw;
@@ -150,58 +204,68 @@
       paintStockCell(stockAfterEl, after, isInvalidAfter);
 
       qtyInput.classList.toggle('is-invalid', isInvalidAfter);
-      qtyInput.setCustomValidity(isInvalidAfter ? 'Ton sau dieu chinh khong duoc am' : '');
+      qtyInput.setCustomValidity(isInvalidAfter ? 'Tồn sau điều chỉnh không được âm' : '');
     }
 
-    function refreshProduct() {
-      const product = getProductById(productSelect.value);
-      variantSelect.innerHTML = variantOptions(product, 'main');
-
-      const isNoSize = noSizeTypes.has(String((product && product.loaisanpham) || '').toLowerCase());
-      sizeSelect.disabled = isNoSize;
-      sizeSelect.required = !isNoSize;
-      if (isNoSize) sizeSelect.value = '';
-
-      if (!product) {
+    function refreshSelectedItem() {
+      const selected = findSelectedItem(itemSelect.value);
+      if (!selected) {
+        productIdInput.value = '';
+        productNameInput.value = '';
+        variantIdInput.value = 'main';
+        sizeInput.value = '';
         colorInput.value = '';
-      } else if (!colorInput.value) {
-        colorInput.value = product.mausac_chinh || '';
-      }
 
-      refreshVariant();
-      refreshStock();
-    }
-
-    function refreshVariant() {
-      const product = getProductById(productSelect.value);
-      if (!product) {
-        colorInput.value = '';
+        variantLabel.textContent = '--';
+        sizeLabel.textContent = '--';
+        colorLabel.textContent = '--';
         refreshStock();
         return;
       }
 
-      const variantId = String(variantSelect.value || 'main');
-      if (variantId !== 'main') {
-        const variant = getVariantById(product, variantId);
-        colorInput.value = (variant && variant.mausac) || colorInput.value || '';
-      } else {
-        colorInput.value = product.mausac_chinh || colorInput.value || '';
-      }
+      const variantId = String(selected.bientheid || 'main');
+      productIdInput.value = String(selected.sanphamid || '');
+      productNameInput.value = String(selected.tensanpham || '');
+      variantIdInput.value = variantId;
+      sizeInput.value = String(selected.kichco || '');
+      colorInput.value = String(selected.mausac || '');
+
+      variantLabel.textContent = variantId === 'main'
+        ? 'Mặc định'
+        : (selected.mausac ? `Biến thể: ${selected.mausac}` : 'Biến thể');
+      sizeLabel.textContent = String(selected.kichco || '--');
+      colorLabel.textContent = String(selected.mausac || '--');
 
       refreshStock();
     }
 
-    productSelect.addEventListener('change', refreshProduct);
-    variantSelect.addEventListener('change', refreshVariant);
-    sizeSelect.addEventListener('change', refreshStock);
+    function refreshOptions(keepSelected = true) {
+      const oldValue = keepSelected ? String(itemSelect.value || '') : '';
+      const disabledKeys = collectSelectedKeys(itemSelect);
+      itemSelect.innerHTML = itemOptions(oldValue, disabledKeys);
+
+      if (!itemSelect.value) {
+        const firstDataOption = itemSelect.querySelector('option[value]:not([value=""]):not([disabled])');
+        if (firstDataOption && !oldValue) itemSelect.value = String(firstDataOption.value || '');
+      }
+
+      refreshSelectedItem();
+    }
+
+    itemSelect.addEventListener('change', () => {
+      refreshSelectedItem();
+      refreshAllRowsOptions(true);
+    });
     qtyInput.addEventListener('input', refreshStock);
 
     tr.querySelector('.js-remove') && tr.querySelector('.js-remove').addEventListener('click', () => {
       tr.remove();
       renumber();
+      refreshAllRowsOptions(true);
     });
 
-    refreshProduct();
+    tr._refreshOptions = refreshOptions;
+    refreshOptions(true);
   }
 
   function createRow() {
@@ -210,28 +274,21 @@
     tr.dataset.index = String(idx);
     tr.innerHTML = `
       <td>
-        <select class="form-select form-select-sm js-product" data-field="sanphamid" name="chitiet[${idx}][sanphamid]" required>
-          ${productOptions('')}
-        </select>
+        <select class="form-select form-select-sm js-receipt-item" required></select>
+        <input type="hidden" class="js-product-id" data-field="sanphamid" name="chitiet[${idx}][sanphamid]" />
+        <input type="hidden" class="js-product-name" data-field="tensanpham" name="chitiet[${idx}][tensanpham]" />
+        <input type="hidden" class="js-variant-id" data-field="bientheid" name="chitiet[${idx}][bientheid]" />
+        <input type="hidden" class="js-size-input" data-field="kichco" name="chitiet[${idx}][kichco]" />
+        <input type="hidden" class="js-color-input" data-field="mausac" name="chitiet[${idx}][mausac]" />
       </td>
+      <td><span class="js-variant-label text-muted">--</span></td>
+      <td><span class="js-size-label text-muted">--</span></td>
       <td>
-        <select class="form-select form-select-sm js-variant" data-field="bientheid" name="chitiet[${idx}][bientheid]">
-          <option value="main">Mặc định</option>
-        </select>
-      </td>
-      <td>
-        <select class="form-select form-select-sm js-size" data-field="kichco" name="chitiet[${idx}][kichco]">
-          ${sizeOptions('')}
-        </select>
-      </td>
-      <td>
-        <input class="form-control form-control-sm js-qty" type="number" step="1" data-field="soluongdieuchinh" name="chitiet[${idx}][soluongdieuchinh]" placeholder="VD: 5 hoac -3" required />
+        <input class="form-control form-control-sm js-qty" type="number" step="1" data-field="soluongdieuchinh" name="chitiet[${idx}][soluongdieuchinh]" placeholder="VD: 5 hoặc -3" required />
       </td>
       <td class="text-end"><span class="js-stock-before text-muted">--</span></td>
       <td class="text-end"><span class="js-stock-after text-muted">--</span></td>
-      <td>
-        <input class="form-control form-control-sm js-color" type="text" data-field="mausac" name="chitiet[${idx}][mausac]" placeholder="Mau" />
-      </td>
+      <td><span class="js-color-label text-muted">--</span></td>
       <td class="text-center">
         <button class="btn btn-sm btn-outline-danger js-remove" type="button" title="Xóa dòng">
           <i class="bi bi-x"></i>
@@ -243,23 +300,70 @@
     return tr;
   }
 
-  addBtn && addBtn.addEventListener('click', () => {
+  function setAddButtonState() {
+    const hasReceipt = Boolean(activeReceiptId());
+    const totalItems = activeReceiptItems().length;
+    const selectedCount = collectSelectedKeys().size;
+    addBtn.disabled = !hasReceipt || totalItems === 0 || selectedCount >= totalItems;
+  }
+
+  function resetRowsByReceipt() {
+    tbody.innerHTML = '';
     tbody.appendChild(createRow());
     renumber();
+    refreshAllRowsOptions(true);
+  }
+
+  receiptSelect.addEventListener('change', resetRowsByReceipt);
+
+  addBtn && addBtn.addEventListener('click', () => {
+    if (!activeReceiptId()) {
+      window.alert('Vui lòng chọn phiếu nhập trước khi thêm dòng.');
+      receiptSelect.focus();
+      return;
+    }
+    if (collectSelectedKeys().size >= activeReceiptItems().length) {
+      window.alert('Bạn đã chọn hết sản phẩm trong phiếu nhập này.');
+      return;
+    }
+    tbody.appendChild(createRow());
+    renumber();
+    refreshAllRowsOptions(true);
   });
 
   form.addEventListener('submit', (e) => {
+    if (!activeReceiptId()) {
+      e.preventDefault();
+      window.alert('Vui lòng chọn phiếu nhập trước khi tạo phiếu điều chỉnh.');
+      receiptSelect.focus();
+      return;
+    }
+
     const rows = Array.from(tbody.querySelectorAll('tr'));
-    const qtyInputs = rows
-      .map((tr) => tr.querySelector('input[name$="[soluongdieuchinh]"]'))
-      .filter(Boolean);
+    const selectedKeys = new Set();
+    const values = [];
 
-    const values = qtyInputs
-      .map((el) => Number(el.value || 0))
-      .filter((n) => Number.isFinite(n) && n !== 0);
+    for (const tr of rows) {
+      const itemSelect = tr.querySelector('.js-receipt-item');
+      const qtyInput = tr.querySelector('.js-qty');
+      const selectedKey = String((itemSelect && itemSelect.value) || '').trim();
+      const selected = findSelectedItem(itemSelect && itemSelect.value);
+      const qty = Number(qtyInput && qtyInput.value);
 
-    const hasPositive = values.some((n) => n > 0);
-    const hasNegative = values.some((n) => n < 0);
+      if (selected && selectedKey) {
+        if (selectedKeys.has(selectedKey)) {
+          e.preventDefault();
+          window.alert('Không được chọn trùng sản phẩm/biến thể/size trong cùng một phiếu điều chỉnh.');
+          itemSelect.focus();
+          return;
+        }
+        selectedKeys.add(selectedKey);
+      }
+
+      if (!selected) continue;
+      if (!Number.isFinite(qty) || qty === 0) continue;
+      values.push(qty);
+    }
 
     if (!values.length) {
       e.preventDefault();
@@ -267,21 +371,18 @@
       return;
     }
 
-    if (hasPositive && hasNegative) {
-      e.preventDefault();
-      window.alert('Một phiếu chỉ hỗ trợ một loại điều chỉnh (+ hoặc -). Vui lòng tách thành 2 phiếu riêng.');
-      return;
-    }
-
     const hasNegativeAfter = rows.some((tr) => {
-      const productSelect = tr.querySelector('.js-product');
-      const variantSelect = tr.querySelector('.js-variant');
-      const sizeSelect = tr.querySelector('.js-size');
+      const itemSelect = tr.querySelector('.js-receipt-item');
       const qtyInput = tr.querySelector('.js-qty');
-      const product = getProductById(productSelect && productSelect.value);
-      const before = readStock(product, variantSelect && variantSelect.value, sizeSelect && sizeSelect.value);
+      const selected = findSelectedItem(itemSelect && itemSelect.value);
+      if (!selected) return false;
+
       const delta = Number(qtyInput && qtyInput.value);
-      if (before == null || !Number.isFinite(delta)) return false;
+      if (!Number.isFinite(delta)) return false;
+
+      const product = getProductById(selected.sanphamid);
+      const before = readStock(product, selected.bientheid || 'main', selected.kichco || '');
+      if (before == null) return false;
       return before + delta < 0;
     });
 
@@ -291,6 +392,5 @@
     }
   });
 
-  tbody.appendChild(createRow());
-  renumber();
+  resetRowsByReceipt();
 })();

@@ -57,10 +57,14 @@ module.exports.capNhatVaiTro = async (req, res) => {
 };
 
 module.exports.capNhatTrangThai = async (req, res) => {
+  const currentAdminId = req.session && req.session.adminUserId
+    ? String(req.session.adminUserId)
+    : (req.adminUser && req.adminUser._id ? String(req.adminUser._id) : '');
+
   return xuLyAction(
     req,
     res,
-    () => adminUsersService.capNhatTrangThai(req.params.id, req.body.trangthai),
+    () => adminUsersService.capNhatTrangThai(req.params.id, req.body.trangthai, currentAdminId),
     'admin users updateStatus error:',
     'Không thể cập nhật trạng thái'
   );

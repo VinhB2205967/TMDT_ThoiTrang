@@ -16,7 +16,7 @@ block main
               |  Xác nhận điều chỉnh
 
         if !receipt.daxacnhan
-          form(method='POST' action=`${admin}/adjustments/${receipt._id}/delete` onsubmit='return confirm("Xoa phieu dieu chinh nay? Chi co the xoa khi chua xac nhan.")')
+          form(method='POST' action=`${admin}/adjustments/${receipt._id}/delete` onsubmit='return confirm("Xóa phiếu điều chỉnh này? Chỉ có thể xóa khi chưa xác nhận.")')
             input(type='hidden' name='_csrf' value=_csrf)
             button.btn.btn-outline-danger(type='submit')
               i.bi.bi-trash
@@ -33,8 +33,10 @@ block main
             .fw-semibold Loại phiếu
             if receipt.loaiphieu === 'increase'
               div.text-success Điều chỉnh tăng
-            else
+            else if receipt.loaiphieu === 'decrease'
               div.text-warning Điều chỉnh giảm
+            else
+              div.text-primary Điều chỉnh tăng/giảm
           .col-md-4
             .fw-semibold Trạng thái
             if receipt.daxacnhan
@@ -44,6 +46,12 @@ block main
           .col-md-8
             .fw-semibold Lý do
             div #{receipt.lydo || ''}
+          .col-md-4
+            .fw-semibold Phiếu nhập tham chiếu
+            if receipt.maphieunhap
+              div #{receipt.maphieunhap}
+            else
+              div -
           .col-md-4
             .fw-semibold Thời gian tạo
             div #{receipt.ngaytao ? new Date(receipt.ngaytao).toLocaleString('vi-VN') : ''}

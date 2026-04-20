@@ -162,3 +162,29 @@
   top: 16px;
   z-index: 1060;
 }
+
+@media (max-width: 991.98px) {
+  .chat-widget-toggle {
+    right: 14px;
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    width: 54px;
+    height: 54px;
+  }
+
+  .chat-widget-panel {
+    left: 12px;
+    right: 12px;
+    bottom: calc(74px + env(safe-area-inset-bottom));
+    width: auto;
+    max-width: none;
+    height: min(72vh, 560px);
+  }
+
+  .chat-widget-panel.expanded {
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    width: auto;
+    height: min(84vh, 700px);
+  }
+}

@@ -436,7 +436,7 @@ async function capNhatVaiTro(userId, vaitro) {
   return { ok: true, message: 'Cập nhật vai trò thành công', redirect: DEFAULT_USERS_URL };
 }
 // Cập nhật trạng thái của người dùng
-async function capNhatTrangThai(userId, trangthai) {
+async function capNhatTrangThai(userId, trangthai, currentAdminId = '') {
   const id = String(userId || '');
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return { ok: false, message: 'ID khách hàng không hợp lệ', redirect: DEFAULT_USERS_URL };
@@ -445,6 +445,10 @@ async function capNhatTrangThai(userId, trangthai) {
   const status = String(trangthai || '').trim();
   if (status !== 'active' && status !== 'noactive') {
     return { ok: false, message: 'Trạng thái không hợp lệ', redirect: DEFAULT_USERS_URL };
+  }
+
+  if (String(currentAdminId || '') === id && status !== 'active') {
+    return { ok: false, message: 'Không thể tự khóa chính tài khoản admin đang đăng nhập', redirect: DEFAULT_USERS_URL };
   }
 
   await dongBoVaiTro({ userId: id, trangthai: status });

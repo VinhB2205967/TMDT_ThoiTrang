@@ -14,6 +14,27 @@ const { damBaoBangSizeMacDinh } = require('./sizeGuide.service.js');
 
 const LOW_STOCK_THRESHOLD = 10;
 
+const LOAI_SAN_PHAM_LABEL_MAP = {
+  ao: 'Áo',
+  aokhoac: 'Áo khoác',
+  quan: 'Quần',
+  vay: 'Váy',
+  giay: 'Giày',
+  tui: 'Túi',
+  phukien: 'Phụ kiện'
+};
+
+function layNhanLoaiSanPham(loaiSanPham) {
+  const raw = String(loaiSanPham || '').trim();
+  if (!raw) return '';
+
+  const normalized = raw
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '');
+
+  return LOAI_SAN_PHAM_LABEL_MAP[normalized] || raw;
+}
+
 async function timHoacTaoDanhMuc({ name, slug, type, parentId = null, order = 0 }) {
   const existed = await Danhmuc.findOne({ slug, daxoa: { $ne: true } }).select('_id').lean();
   if (existed?._id) return existed._id;
@@ -114,10 +135,15 @@ async function layDuLieuPhanLoaiSanPham() {
     }).sort({ order: 1, thuTu: 1, ten: 1 }).lean()
   ]);
 
-  const sizeGuideOptions = await SizeGuide.find({ daxoa: { $ne: true } })
+  const sizeGuideOptionsRaw = await SizeGuide.find({ daxoa: { $ne: true } })
     .sort({ loaisanpham: 1, tenbang: 1 })
     .select('_id tenbang loaisanpham')
     .lean();
+
+  const sizeGuideOptions = (sizeGuideOptionsRaw || []).map((item) => ({
+    ...item,
+    loaisanphamLabel: layNhanLoaiSanPham(item.loaisanpham)
+  }));
 
   const categoryOptions = [];
   const flattenCategoryChildren = (nodes = []) => {
