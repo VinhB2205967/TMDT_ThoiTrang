@@ -165,7 +165,7 @@ function taoTruyVanLoTon({ productId, variantId, size }) {
 // Hàm giải quyết xuất kho fifo
 async function xuatTonTheoLoFIFO({ productId, variantId, size, qty }) {
   const soLuongCanXuat = toNumber(qty, 0);
-  if (soLuongCanXuat <= 0) throw new Error('Sá»‘ lÆ°á»£ng xuáº¥t khÃ´ng há»£p lá»‡');
+  if (soLuongCanXuat <= 0) throw new Error('Số lượng xuất không hợp lệ');
 
   const lots = await TonKhoLo.find(taoTruyVanLoTon({ productId, variantId, size }))
     .sort({ ngaynhap: 1, ngaytao: 1, _id: 1 });
@@ -198,7 +198,7 @@ async function xuatTonTheoLoFIFO({ productId, variantId, size, qty }) {
   }
 
   if (conLaiCanXuat > 0) {
-    throw new Error('KhÃ´ng Ä‘á»§ tá»“n theo lÃ´ FIFO Ä‘á»ƒ xuáº¥t kho');
+    throw new Error('Không đủ tồn theo lô FIFO để xuất kho');
   }
 
   return {
@@ -246,33 +246,33 @@ function apDungGiaDeXuatChoSanPham(productDoc, { variantId, suggestedPrice }) {
 
 function truTonKhoTheoDong(productDoc, { variantId, size, qty }) {
   const soLuong = toNumber(qty, 0);
-  if (soLuong <= 0) throw new Error('Sá»‘ lÆ°á»£ng xuáº¥t khÃ´ng há»£p lá»‡');
+  if (soLuong <= 0) throw new Error('Số lượng xuất không hợp lệ');
 
   const hasSize = !laLoaiKhongSize(productDoc.loaisanpham);
   const isMain = !variantId;
 
   if (hasSize) {
     const sizeKey = String(size || '').trim();
-    if (!sizeKey) throw new Error('Thiáº¿u size cho sáº£n pháº©m cÃ³ size');
+    if (!sizeKey) throw new Error('Thiếu size cho sản phẩm có size');
 
     if (isMain) {
       productDoc.sizes = Array.isArray(productDoc.sizes) ? productDoc.sizes : [];
       const row = productDoc.sizes.find((s) => String(s.size) === sizeKey);
       const current = toNumber(row?.soluong, 0);
       const next = current - soLuong;
-      if (next < 0) throw new Error('Tá»“n kho khÃ´ng Ä‘á»§ Ä‘á»ƒ xuáº¥t (size chÃ­nh)');
+      if (next < 0) throw new Error('Tồn kho không đủ để xuất (size chính)');
       if (row) row.soluong = next;
       else productDoc.sizes.push({ size: sizeKey, soluong: 0 });
       return;
     }
 
     const variant = (productDoc.bienthe || []).find((v) => String(v._id) === String(variantId));
-    if (!variant) throw new Error('Biáº¿n thá»ƒ khÃ´ng tá»“n táº¡i');
+    if (!variant) throw new Error('Biến thể không tồn tại');
     variant.sizes = Array.isArray(variant.sizes) ? variant.sizes : [];
     const row = variant.sizes.find((s) => String(s.size) === sizeKey);
     const current = toNumber(row?.soluong, 0);
     const next = current - soLuong;
-    if (next < 0) throw new Error('Tá»“n kho khÃ´ng Ä‘á»§ Ä‘á»ƒ xuáº¥t (size biáº¿n thá»ƒ)');
+    if (next < 0) throw new Error('Tồn kho không đủ để xuất (size biến thể)');
     if (row) row.soluong = next;
     else variant.sizes.push({ size: sizeKey, soluong: 0 });
     return;
@@ -281,29 +281,29 @@ function truTonKhoTheoDong(productDoc, { variantId, size, qty }) {
   if (isMain) {
     const current = toNumber(productDoc.soluong_chinh, 0);
     const next = current - soLuong;
-    if (next < 0) throw new Error('Tá»“n kho khÃ´ng Ä‘á»§ Ä‘á»ƒ xuáº¥t (sáº£n pháº©m chÃ­nh)');
+    if (next < 0) throw new Error('Tồn kho không đủ để xuất (sản phẩm chính)');
     productDoc.soluong_chinh = next;
     return;
   }
 
   const variant = (productDoc.bienthe || []).find((v) => String(v._id) === String(variantId));
-  if (!variant) throw new Error('Biáº¿n thá»ƒ khÃ´ng tá»“n táº¡i');
+  if (!variant) throw new Error('Biến thể không tồn tại');
   const current = toNumber(variant.soluong, 0);
   const next = current - soLuong;
-  if (next < 0) throw new Error('Tá»“n kho khÃ´ng Ä‘á»§ Ä‘á»ƒ xuáº¥t (biáº¿n thá»ƒ)');
+  if (next < 0) throw new Error('Tồn kho không đủ để xuất (biến thể)');
   variant.soluong = next;
 }
 
 function congTonKhoTheoDong(productDoc, { variantId, size, qty }) {
   const soLuong = toNumber(qty, 0);
-  if (soLuong <= 0) throw new Error('Sá»‘ lÆ°á»£ng xuáº¥t khÃ´ng há»£p lá»‡');
+  if (soLuong <= 0) throw new Error('Số lượng xuất không hợp lệ');
 
   const hasSize = !laLoaiKhongSize(productDoc.loaisanpham);
   const isMain = !variantId;
 
   if (hasSize) {
     const sizeKey = String(size || '').trim();
-    if (!sizeKey) throw new Error('Thiáº¿u size cho sáº£n pháº©m cÃ³ size');
+    if (!sizeKey) throw new Error('Thiếu size cho sản phẩm có size');
 
     if (isMain) {
       productDoc.sizes = Array.isArray(productDoc.sizes) ? productDoc.sizes : [];
@@ -316,7 +316,7 @@ function congTonKhoTheoDong(productDoc, { variantId, size, qty }) {
     }
 
     const variant = (productDoc.bienthe || []).find((v) => String(v._id) === String(variantId));
-    if (!variant) throw new Error('Biáº¿n thá»ƒ khÃ´ng tá»“n táº¡i');
+    if (!variant) throw new Error('Biến thể không tồn tại');
     variant.sizes = Array.isArray(variant.sizes) ? variant.sizes : [];
     const row = variant.sizes.find((s) => String(s.size) === sizeKey);
     const current = toNumber(row?.soluong, 0);
@@ -333,7 +333,7 @@ function congTonKhoTheoDong(productDoc, { variantId, size, qty }) {
   }
 
   const variant = (productDoc.bienthe || []).find((v) => String(v._id) === String(variantId));
-  if (!variant) throw new Error('Biáº¿n thá»ƒ khÃ´ng tá»“n táº¡i');
+  if (!variant) throw new Error('Biến thể không tồn tại');
   const current = toNumber(variant.soluong, 0);
   variant.soluong = current + soLuong;
 }

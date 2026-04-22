@@ -25,7 +25,7 @@ const {
 } = require('../payment/payment.service.js');
 
 const MAX_ORDER_TOTAL = 50000000;
-
+// Hàm lấy dữ liệu checkout
 async function getCheckoutPageData({ userId, itemIdsQuery }) {
   const giohang = await getOrCreateCart(userId);
   const daDongBoGia = await dongBoGiaGioHang(giohang);

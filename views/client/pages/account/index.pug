@@ -1,7 +1,7 @@
 extends ../../layouts/default.pug
 
 block main
-  .container.py-5
+  .container.py-5.account-profile-page
     .row.justify-content-center
       .col-12.col-lg-8
         .card.shadow-sm.border-0
@@ -19,7 +19,7 @@ block main
                       .input-group
                         - const userCode = ((profile && profile.idhienthi) || (profile && profile.userid) || '')
                         input.form-control(type="text" value=userCode readonly)
-                        button#copyUserIdBtn.btn.btn-outline-secondary(type='button' data-copy-text=userCode data-copy-label='ID người dùng' title='Sao chép ID người dùng' aria-label='Sao chép ID người dùng')
+                        button#copyUserIdBtn.btn.btn-outline-secondary.account-copy-btn(type='button' data-copy-text=userCode data-copy-label='ID người dùng' title='Sao chép ID người dùng' aria-label='Sao chép ID người dùng')
                           i.bi.bi-clipboard
                     .col-12
                       label.form-label Họ tên
@@ -49,9 +49,9 @@ block main
                         img#accountAvatarPreview(src=((profile && profile.avatar) || '/images/avatar/avatar.png') alt="avatar" style="width:64px;height:64px;border-radius:12px;object-fit:cover")
                       input#accountAvatarFileInput.form-control(type="file" name="avatarFile" accept="image/*")
 
-                  .d-flex.gap-2.mt-3
-                    button.btn.btn-primary(type="submit") Lưu thay đổi
-                    a.btn.btn-outline-secondary(href="/") Về trang chủ
+                  .d-flex.gap-2.mt-3.account-action-group
+                    button.btn.btn-primary.account-save-btn(type="submit") Lưu thay đổi
+                    a.btn.btn-outline-secondary.account-home-btn(href="/") Về trang chủ
 
               .col-12
                 hr

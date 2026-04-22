@@ -28,7 +28,7 @@ block main
               i.bi.bi-clipboard
         .d-flex.align-items-center.gap-2
           span.badge.order-status(data-status=order.trangthai) #{label}
-          a.btn.btn-sm.btn-outline-secondary(href='/orders') Quay lại
+          a.btn.btn-sm.btn-outline-secondary.order-back-btn(href='/orders') Quay lại
 
       .d-flex.flex-wrap.gap-2.mb-3
         button.btn.btn-sm.btn-outline-dark(type='button' data-bs-toggle='modal' data-bs-target='#refundPolicyModal')
@@ -290,9 +290,11 @@ block main
                       input#reasonDesc.form-check-input(type='radio' name='reason' value='khong_giong_mo_ta')
                       label.form-check-label(for='reasonDesc') Không giống mô tả
                     .form-check
+                      input#reasonOther.form-check-input(type='radio' name='reason' value='huhong')
+                      label.form-check-label(for='reasonOther') Hư hỏng trong quá trình vận chuyển
+                    .form-check
                       input#reasonOther.form-check-input(type='radio' name='reason' value='khac')
                       label.form-check-label(for='reasonOther') Khác
-
                   .mb-3
                     label.form-label(for='returnDetail') Mô tả chi tiết
                     textarea#returnDetail.form-control(name='detail' rows='3' placeholder='Mô tả thêm về lý do hoàn hàng')
@@ -331,7 +333,7 @@ block main
                           input#refundBankAccountNumber.form-control.form-control-sm(type='text' name='bankAccountNumber' maxlength='30' inputmode='numeric' placeholder='Nhập số tài khoản' required)
 
                 .modal-footer
-                  button.btn.btn-outline-secondary(type='button' data-bs-dismiss='modal') Đóng
+                  button.btn.btn-outline-secondary.order-modal-close-btn(type='button' data-bs-dismiss='modal') Đóng
                   button.btn.btn-primary(type='submit') Gửi yêu cầu
 
       .modal.fade#refundPolicyModal(tabindex='-1' aria-hidden='true')
@@ -397,7 +399,7 @@ block main
                 p.mb-1 Fanpage: facebook.com/fashionstore
                 
             .modal-footer
-              button.btn.btn-outline-secondary(type='button' data-bs-dismiss='modal') Đóng
+              button.btn.btn-outline-secondary.order-modal-close-btn(type='button' data-bs-dismiss='modal') Đóng
 
 block scripts
   script(src='/js/orders.js')

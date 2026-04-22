@@ -93,7 +93,7 @@ async function xuLyDangKy(req) {
     };
   }
 }
-
+// Hàm này sẽ xử lý đăng nhập, bao gồm cả lưu log và trả về thông tin cần thiết cho controller để quyết định redirect và flash message
 function dangNhapReq(req, user) {
   return new Promise((resolve, reject) => {
     req.login(user, function (loi) {

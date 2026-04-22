@@ -94,6 +94,11 @@ function toColorDisplayName(rawColor) {
   const original = String(rawColor || '').trim();
   if (!original) return '';
 
+  // Keep user-entered Vietnamese text as-is to avoid losing diacritics on display.
+  if (/[\u00C0-\u024F\u1E00-\u1EFF]/.test(original)) {
+    return original;
+  }
+
   const normalized = normalizeAsciiColorText(original);
   if (!normalized) return original;
   if (COLOR_PHRASE_DISPLAY_MAP[normalized]) return COLOR_PHRASE_DISPLAY_MAP[normalized];

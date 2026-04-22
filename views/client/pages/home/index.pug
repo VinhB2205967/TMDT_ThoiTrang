@@ -149,8 +149,8 @@ block main
                                             img.card-img-top(src=book.image alt=book.title)
                                         .card-body
                                             h5.card-title #{book.title}
-                                            if book.description
-                                                p.card-text #{book.description}
+                                            if book.descriptionPreview
+                                                p.card-text.lookbook-card-desc #{book.descriptionPreview}
                                             if book.products && book.products.length
                                                 .d-flex.justify-content-between.align-items-center
                                                     span.badge.bg-light.text-dark #{book.products.length} sản phẩm

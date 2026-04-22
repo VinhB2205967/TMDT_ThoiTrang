@@ -1708,7 +1708,7 @@ async function xacNhanDaNhanHangHoan({ id, payload = {}, actor = null }) {
     actor
   });
 }
-
+// Hoàn tiền
 async function hoanTienDon(id, actor = null) {
   const orderId = String(id || '');
   let order = await Donhang.findOne({ _id: orderId, daxoa: { $ne: true } });

@@ -515,13 +515,13 @@ async function capNhatSanPham(id, body, files) {
   await Sanpham.findByIdAndUpdate(id, dulieusanpham);
   return { ok: true, message: 'Cập nhật sản phẩm thành công!' };
 }
-
+// Xóa mềm
 async function xoaMemSanPham(id) {
   const pid = String(id || '');
   if (!mongoose.Types.ObjectId.isValid(pid)) {
     return { ok: false, message: 'ID không hợp lệ' };
   }
-
+// Kiểm tra nếu sản phẩm đã có đơn hàng thì không cho xóa
   const daDuocMua = await OrderItem.exists({
     sanpham_id: pid,
     trangthai: { $nin: ['cancelled', 'dahuy'] }
@@ -533,12 +533,12 @@ async function xoaMemSanPham(id) {
   await Sanpham.findByIdAndUpdate(pid, { daxoa: true, ngaycapnhat: new Date() });
   return { ok: true, message: 'Xóa sản phẩm thành công!' };
 }
-
+// Chuyển trạng thái bán/ngừng bán
 function laTrangThaiDangBan(trangthai) {
   const status = String(trangthai || '').trim().toLowerCase();
   return status === 'dangban' || status === 'active' || status === 'đang bán';
 }
-
+// Toggle trạng thái bán/ngừng bán
 async function toggleTrangThaiSanPham(id) {
   const pid = String(id || '');
   if (!mongoose.Types.ObjectId.isValid(pid)) {

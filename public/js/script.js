@@ -166,6 +166,13 @@
 		}
 	}
 
+	function vietHoaChuCaiDau(text) {
+		const value = String(text || '').trim();
+		if (!value) return '';
+		const chars = Array.from(value);
+		return chars[0].toLocaleUpperCase('vi-VN') + chars.slice(1).join('');
+	}
+
 	function hienThiSanPhamModal() {
 		if (!tuyChonHienTai) return;
 		const p = tuyChonHienTai.product;
@@ -196,7 +203,7 @@
 			const btn = document.createElement('button');
 			btn.type = 'button';
 			btn.className = 'btn btn-sm qam-chip qam-chip--variant ' + (String(v.id) === String(idBienTheDaChon) ? 'btn-primary' : 'btn-outline-primary');
-			btn.textContent = `${v.mausac || 'Màu'}${tonBienThe > 0 ? '' : ' (Hết hàng)'}`;
+			btn.textContent = `${vietHoaChuCaiDau(v.mausac || 'Màu')}${tonBienThe > 0 ? '' : ' (Hết hàng)'}`;
 			btn.dataset.variantId = String(v.id);
 			btn.addEventListener('click', () => {
 				idBienTheDaChon = String(v.id);

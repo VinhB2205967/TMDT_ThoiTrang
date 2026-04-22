@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+﻿const mongoose = require('mongoose');
 const Coupon = require('../../models/coupon_model');
 
 function normalizeCode(raw) {
@@ -9,7 +9,7 @@ function parseNumber(raw, fallback = 0) {
   const n = Number(raw);
   return Number.isFinite(n) ? n : fallback;
 }
-
+// Hàm này sẽ parse ngày và set giờ về đầu ngày hoặc cuối ngày tùy vào tuỳ chọn
 function parseDate(raw, options = {}) {
   const { endOfDay = false } = options || {};
   if (!raw) return null;
@@ -22,7 +22,7 @@ function parseDate(raw, options = {}) {
   }
   return d;
 }
-
+// Hàm này sẽ convert Date sang định dạng YYYY-MM-DD để dùng cho input
 function toInputDate(d) {
   if (!d) return '';
   const pad = (n) => String(n).padStart(2, '0');

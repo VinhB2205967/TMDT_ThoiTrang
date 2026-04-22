@@ -26,6 +26,21 @@
     goiy: 'Nếu bạn cao 170cm và nặng 60kg -> thường mặc vừa size M'
   },
   {
+    tenbang: 'Váy',
+    slug: 'guide-vay-default',
+    loaisanpham: 'vay',
+    cot: ['Ngực (cm)', 'Eo (cm)', 'Mông (cm)', 'Dài váy (cm)', 'Cân nặng (kg)'],
+    dong: [
+      { size: 'XS', giatri: ['78-82', '60-64', '84-88', '80-85', '38-43'] },
+      { size: 'S', giatri: ['82-86', '64-68', '88-92', '85-90', '43-48'] },
+      { size: 'M', giatri: ['86-90', '68-72', '92-96', '90-95', '48-53'] },
+      { size: 'L', giatri: ['90-94', '72-76', '96-100', '95-100', '53-58'] },
+      { size: 'XL', giatri: ['94-98', '76-80', '100-104', '100-105', '58-63'] },
+      { size: 'XXL', giatri: ['98-104', '80-86', '104-110', '105-110', '63-70'] }
+    ],
+    goiy: 'Nếu số đo nằm giữa hai size, nên ưu tiên size lớn hơn để mặc váy thoải mái hơn.'
+  },
+  {
     tenbang: 'Bảng size giày tiêu chuẩn',
     slug: 'guide-giay-default',
     loaisanpham: 'giay',
@@ -118,7 +133,8 @@ function taoSlug(value) {
 function chuanLoaiBangSize(loaiSanPham) {
   const type = String(loaiSanPham || '').trim().toLowerCase();
   if (!type) return null;
-  if (['ao', 'aokhoac', 'vay'].includes(type)) return 'ao';
+  if (['ao', 'aokhoac'].includes(type)) return 'ao';
+  if (['vay'].includes(type)) return 'vay';
   if (['quan'].includes(type)) return 'quan';
   if (['giay'].includes(type)) return 'giay';
   return null;

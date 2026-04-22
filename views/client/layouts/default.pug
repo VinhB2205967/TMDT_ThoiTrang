@@ -14,9 +14,9 @@ html(lang="vi")
     link(rel="stylesheet", href="/css/product-card.css")
     link(rel="stylesheet", href="/css/product-detail.css")
     link(rel="stylesheet", href="/css/filter-bar.css")
-    link(rel="stylesheet", href="/css/ui-enhancements.css")
+    link(rel="stylesheet", href="/css/ui-enhancements.css?v=20260421-4")
     link(rel="stylesheet", href="/css/chat-client.css")
-    link(rel="stylesheet", href="/css/chat-ai.css?v=20260420-1")
+    link(rel="stylesheet", href="/css/chat-ai.css?v=20260421-2")
     meta(name="csrf-token" content=csrfToken)
     block styles
   body(class=[isAuthenticated && !isAdmin ? 'has-client-chat' : ''])
@@ -98,7 +98,7 @@ html(lang="vi")
         isAuthenticated: !{JSON.stringify(Boolean(isAuthenticated))},
         userId: !{JSON.stringify(user && user._id ? String(user._id) : '')}
       };
-    script(src="/js/chat-ai.js?v=20260420-1")
+    script(src="/js/chat-ai.js?v=20260421-1")
     if isAuthenticated && !isAdmin
       script.
         window.ChatRuntime = {

@@ -29,6 +29,20 @@ const defaultSections = [
   { key: 'blog', tieuDe: 'Blog thời trang', hienthi: true, thuTu: 7, config: { limit: 6 } }
 ];
 
+function stripHtmlTags(input) {
+  return String(input || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function truncateText(text, maxLength = 180) {
+  const clean = String(text || '').trim();
+  if (!clean || clean.length <= maxLength) return clean;
+  return `${clean.slice(0, maxLength).trimEnd()}...`;
+}
+
 function normalizeSectionTitle(section) {
   const key = String(section?.key || '').trim();
   if (!key || !HOME_SECTION_TITLES[key]) return section;
@@ -185,6 +199,7 @@ async function getHomePageData() {
     title: book.title || book.tenmua || '',
     image: book.image || book.hinhanh || '',
     description: book.description || book.mota || '',
+    descriptionPreview: truncateText(stripHtmlTags(book.description || book.mota || ''), 180),
     products: Array.isArray(book.products) && book.products.length ? book.products : (book.sanpham_ids || [])
   }));
 

@@ -38,6 +38,7 @@ const LY_DO_HOAN_LABELS = {
   sai_size: 'Sai size',
   loi_san_pham: 'Lỗi sản phẩm',
   khong_giong_mo_ta: 'Không giống mô tả',
+  huhong: 'Hư hỏng trong quá trình vận chuyển',
   khac: 'Khác'
 };
 
@@ -400,7 +401,7 @@ function layMocDaGiao(order) {
   if (!order) return null;
   return order.ngaygiaohang || order.ngaycapnhat || order.ngaytao || null;
 }
-
+// Kiểm tra xem đơn hàng đã đủ điều kiện để khách hàng có thể yêu cầu hoàn hàng hay chưa
 function coTheYeuCauHoan(order) {
   if (!order) return false;
   if (String(order.trangthai || '') !== 'dagiao') return false;
@@ -410,7 +411,7 @@ function coTheYeuCauHoan(order) {
   const delta = Date.now() - new Date(moc).getTime();
   return Number.isFinite(delta) && delta >= 0 && delta <= CUA_SO_HOAN_HANG_MS;
 }
-
+// Kiểm tra xem đơn hàng đã quá hạn để yêu cầu hoàn hàng hay chưa
 function normalizeReturnItemsPayload(raw) {
   if (!raw) return [];
 
@@ -467,7 +468,7 @@ async function congTonChoChiTietDon(orderitemdoc, session = null) {
   let productQuery = sanpham.findById(productid);
   if (session) productQuery = productQuery.session(session);
   const product = await productQuery;
-  if (!product) throw new Error('San pham khong ton tai');
+  if (!product) throw new Error('Sản phẩm không tồn tại');
 
   const basetotal = (typeof product.soluongton === 'number') ? product.soluongton : tinhTongTon(product);
   const hassize = !laLoaiKhongSize(product.loaisanpham);
@@ -486,7 +487,7 @@ async function congTonChoChiTietDon(orderitemdoc, session = null) {
     }
   } else {
     const v = (product.bienthe || []).id(variantid);
-    if (!v) throw new Error('Bien the khong ton tai');
+    if (!v) throw new Error('Biến thể không tồn tại');
 
     if (hassize) {
       v.sizes = v.sizes || [];
@@ -520,7 +521,7 @@ async function congTonChoChiTietDon(orderitemdoc, session = null) {
     );
   }
 }
-
+// Hủy đơn hàng bởi khách hàng
 async function huyDonKhachHangTrongTransaction({ userId, orderId, lydo }) {
   let donhangdoc = null;
 
@@ -557,7 +558,7 @@ async function huyDonKhachHangTrongTransaction({ userId, orderId, lydo }) {
 
   return donhangdoc;
 }
-
+// Tự động hủy
 async function tuDongHuyDonQuaHan(userId) {
   const cutoff = new Date(Date.now() - THOI_GIAN_CHO_THANH_TOAN_MS);
   const danhsach = await donhang.find({
@@ -613,7 +614,7 @@ async function tuDongHuyDonQuaHan(userId) {
     }
   }
 }
-
+//
 async function getOrdersPageData({ userId, query }) {
   await tuDongHuyDonQuaHan(userId);
 
@@ -778,7 +779,7 @@ async function getOrderDetailPageData({ userId, orderId, paidFlag }) {
     returnReasonLabels: LY_DO_HOAN_LABELS
   };
 }
-
+// Tạo yêu cầu hoàn hàng
 async function createReturnRequest({ userId, orderId, body, files }) {
   const order = await donhang.findOne({
     _id: orderId,

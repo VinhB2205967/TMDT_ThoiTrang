@@ -149,7 +149,7 @@ async function layChiTietBaiViet({ id }) {
 async function taoBaiViet({ body, files }) {
   const payload = buildBlogPayload({ body, files });
   const data = await BlogPost.create(payload);
-  return { ok: true, status: 201, message: 'Tao bai viet thanh cong', data };
+  return { ok: true, status: 201, message: 'Tạo bài viết thành công', data };
 }
 
 async function capNhatBaiViet({ id, body, files }) {
@@ -175,13 +175,13 @@ async function capNhatBaiViet({ id, body, files }) {
   if (nextImage) payload.hinhanh = nextImage;
 
   const data = await BlogPost.findByIdAndUpdate(id, payload, { new: true });
-  return { ok: true, status: 200, message: 'Cap nhat bai viet thanh cong', data };
+  return { ok: true, status: 200, message: 'Cập nhật bài viết thành công', data };
 }
 
 async function xoaBaiViet({ id }) {
   const data = await BlogPost.findByIdAndDelete(id);
   if (!data) return { ok: false, status: 404, code: 'NOT_FOUND', message: 'Not found' };
-  return { ok: true, status: 200, message: 'Xoa bai viet thanh cong', data: null };
+  return { ok: true, status: 200, message: 'Xóa bài viết thành công', data: null };
 }
 
 async function capNhatXuatBan({ id, body }) {
@@ -194,7 +194,7 @@ async function capNhatXuatBan({ id, body }) {
   data.ngayxuatban = next ? new Date() : null;
   await data.save();
 
-  return { ok: true, status: 200, message: 'Cap nhat xuat ban thanh cong', data };
+  return { ok: true, status: 200, message: 'Cập nhật xuất bản thành công', data };
 }
 
 async function capNhatNoiBat({ id, body }) {
@@ -206,7 +206,7 @@ async function capNhatNoiBat({ id, body }) {
   data.noiBat = next;
   await data.save();
 
-  return { ok: true, status: 200, message: 'Cap nhat noi bat thanh cong', data };
+  return { ok: true, status: 200, message: 'Cập nhật nổi bật thành công', data };
 }
 
 module.exports = {

@@ -225,7 +225,7 @@ block main
                         .card-body.text-center
                             .mb-3
                                 - const currentImage = product.displayImage || product.hinhanh || '/images/shopping.png';
-                                img#preview-image.img-fluid.rounded.mb-3(src=currentImage alt="Preview" style="max-height: 250px; object-fit: cover;")
+                                img#preview-image.img-fluid.rounded.mb-3.product-main-preview(src=currentImage alt="Preview")
 
                             input.form-control(type="file" name="hinhanh" accept="image/*" onchange="xemTruocAnh(this)")
                             small.text-muted.d-block.mt-2 Để trống nếu không thay đổi ảnh.

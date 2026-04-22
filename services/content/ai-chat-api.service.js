@@ -327,6 +327,258 @@ function hasSpecificProductNameIntent(question) {
   return terms.length > 0;
 }
 
+function isStockAvailabilityQuestion(question) {
+  const q = normalizeForCompare(question);
+  if (!q) return false;
+
+  const hasExplicitSize = /\b(?:size|sz|co)\s*[a-z0-9]{1,5}\b/.test(q);
+  const hasStockCue = /\b(con|het|co|khong|khong con|bao nhieu|nhieu|it|ton kho|so luong)\b/.test(q);
+  if (hasExplicitSize && hasStockCue) return true;
+
+  return [
+    /\bcon hang\b/,
+    /\bhet hang\b/,
+    /\bcon bao nhieu\b/,
+    /\bton kho\b/,
+    /\bso luong\b/,
+    /\bsize\s*[a-z0-9]{1,5}\s*(?:con|het|co|khong|khong con|bao nhieu|nhieu|it)/,
+    /\bsz\s*[a-z0-9]{1,5}\s*(?:con|het|co|khong|khong con|bao nhieu|nhieu|it)/
+  ].some((pattern) => pattern.test(q));
+}
+
+function normalizeSizeKey(value) {
+  const key = String(value || '')
+    .toUpperCase()
+    .replace(/\s+/g, '')
+    .replace(/^SIZE/, '')
+    .trim();
+  return key;
+}
+
+function extractRequestedSizes(question) {
+  const q = normalizeForCompare(question);
+  if (!q) return [];
+
+  const found = [];
+  const seen = new Set();
+  const regex = /\b(?:size|sz|co)\b\s*([a-z0-9]{1,5})\b/g;
+  let match = regex.exec(q);
+  while (match) {
+    const key = normalizeSizeKey(match[1]);
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      found.push(key);
+    }
+    match = regex.exec(q);
+  }
+
+  return found.slice(0, 4);
+}
+// Hàm này sẽ xây dựng câu trả lời khi người dùng hỏi về tồn kho và hệ thống đã xác định được sản phẩm cụ thể để trả lời
+function buildSizeStockMap(product) {
+  const map = new Map();
+  const push = (size, quantity) => {
+    const key = normalizeSizeKey(size);
+    const qty = Number(quantity);
+    if (!key || !Number.isFinite(qty) || qty < 0) return;
+    map.set(key, Number(map.get(key) || 0) + qty);
+  };
+
+  const row = product && typeof product === 'object' ? product : {};
+  if (Array.isArray(row.sizes)) {
+    row.sizes.forEach((entry) => push(entry && entry.size, entry && entry.soluong));
+  }
+
+  if (Array.isArray(row.bienthe)) {
+    row.bienthe.forEach((variant) => {
+      if (!variant || !Array.isArray(variant.sizes)) return;
+      variant.sizes.forEach((entry) => push(entry && entry.size, entry && entry.soluong));
+    });
+  }
+
+  return map;
+}
+
+function hasStrongSpecificProductMatch(product, terms, question) {
+  const name = normalizeForCompare(product && (product.tensanpham || product.name));
+  if (!name) return false;
+
+  if (name && normalizeForCompare(question).includes(name)) return true;
+  if (!Array.isArray(terms) || terms.length === 0) return true;
+
+  const matchedCount = terms.filter((term) => name.includes(term)).length;
+  const minRequired = terms.length >= 2 ? 2 : 1;
+  return matchedCount >= minRequired;
+}
+
+function pickStockLookupProduct({ question, context, pageCurrentProduct }) {
+  const terms = extractSpecificProductQueryTerms(question);
+
+  if (
+    pageCurrentProduct
+    && (isCurrentProductReferenceQuestion(question) || terms.length === 0)
+  ) {
+    return pageCurrentProduct;
+  }
+
+  if (terms.length === 0) return null;
+
+  const pool = [];
+  const seen = new Set();
+  const pushUnique = (item) => {
+    if (!item || typeof item !== 'object') return;
+    const id = String(item.id || item._id || '').trim();
+    const url = String(item.url || '').trim();
+    const name = String(item.tensanpham || item.name || '').trim();
+    const key = [id, url, normalizeForCompare(name)].find(Boolean);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    pool.push(item);
+  };
+
+  (Array.isArray(context && context.products) ? context.products : []).forEach(pushUnique);
+  (Array.isArray(context && context.topSelling) ? context.topSelling : []).forEach(pushUnique);
+
+  if (pool.length === 0) return null;
+
+  const ranked = rankProductsBySpecificTerms(pool, question);
+  const candidate = ranked[0] || null;
+  if (!candidate) return null;
+  if (!hasStrongSpecificProductMatch(candidate, terms, question)) return null;
+
+  return candidate;
+}
+// Hàm này sẽ xây dựng câu trả lời khi người dùng hỏi về tồn kho nhưng hệ thống đã xác định được sản phẩm cụ thể để trả lời
+function buildVariantStockBreakdown(product, requestedSizes = []) {
+  const row = product && typeof product === 'object' ? product : {};
+  const requested = Array.from(new Set((Array.isArray(requestedSizes) ? requestedSizes : [])
+    .map((size) => normalizeSizeKey(size))
+    .filter(Boolean)));
+  const sections = [];
+
+  const mapRows = (sizes = []) => {
+    const sizeMap = new Map();
+    (Array.isArray(sizes) ? sizes : []).forEach((entry) => {
+      const key = normalizeSizeKey(entry && entry.size);
+      const qty = Number(entry && entry.soluong);
+      if (!key || !Number.isFinite(qty) || qty < 0) return;
+      sizeMap.set(key, qty);
+    });
+
+    const keys = requested.length > 0
+      ? requested
+      : Array.from(sizeMap.keys()).sort((a, b) => String(a).localeCompare(String(b), 'vi'));
+
+    return keys.map((size) => ({
+      size,
+      qty: Number(sizeMap.get(size) || 0)
+    }));
+  };
+
+  if (Array.isArray(row.sizes) && row.sizes.length > 0) {
+    sections.push({
+      label: 'Mặc định',
+      sizes: mapRows(row.sizes)
+    });
+  }
+
+  if (Array.isArray(row.bienthe) && row.bienthe.length > 0) {
+    row.bienthe.forEach((variant, index) => {
+      const variantSizes = mapRows(variant && variant.sizes);
+      if (variantSizes.length === 0) return;
+      sections.push({
+        label: String(variant && variant.mausac || `Màu ${index + 1}`),
+        sizes: variantSizes
+      });
+    });
+  }
+
+  return sections
+    .map((section) => ({
+      ...section,
+      sizes: (Array.isArray(section.sizes) ? section.sizes : []).filter((entry) => (
+        requested.length > 0 ? true : Number(entry && entry.qty || 0) > 0
+      ))
+    }))
+    .filter((section) => Array.isArray(section.sizes) && section.sizes.length > 0);
+}
+// Hàm này sẽ xây dựng câu trả lời khi người dùng hỏi về tồn kho nhưng hệ thống chưa xác định được sản phẩm cụ thể nào để trả lời, hoặc có sự mơ hồ về size cần kiểm tra
+function buildAmbiguousStockAnswer(question, requestedSizes = []) {
+  const typeMatch = inferProductType(question);
+  const sizeLabels = Array.from(new Set((Array.isArray(requestedSizes) ? requestedSizes : [])
+    .map((size) => normalizeSizeKey(size))
+    .filter(Boolean)))
+    .map((size) => `size ${size}`);
+  const typeLabel = String(typeMatch && typeMatch.label ? typeMatch.label : 'sản phẩm').trim().toLowerCase();
+
+  if (sizeLabels.length > 0) {
+    return `Mình chưa xác định được mẫu ${typeLabel} cụ thể để báo tồn kho ${sizeLabels.join(', ')}. Bạn gửi thêm tên sản phẩm hoặc mở đúng trang sản phẩm, mình sẽ trả theo đầy đủ biến thể.`;
+  }
+
+  return 'Mình chưa xác định được sản phẩm cụ thể để kiểm tra tồn kho. Bạn gửi thêm tên mẫu hoặc mở đúng trang sản phẩm nhé.';
+}
+// Hàm này sẽ xây dựng câu trả lời khi người dùng hỏi về tồn kho nhưng hệ thống chưa xác định được sản phẩm cụ thể nào để trả lời, hoặc có sự mơ hồ về size cần kiểm tra
+function buildSpecificStockAnswer(product, requestedSizes = []) {
+  const row = product && typeof product === 'object' ? product : {};
+  const name = String(row.tensanpham || 'Sản phẩm').trim();
+  const productUrl = row && row._id ? `/products/${row._id}` : '';
+
+  const sizeStockMap = buildSizeStockMap(row);
+  const variantBreakdown = buildVariantStockBreakdown(row, requestedSizes);
+  const uniqueRequestedSizes = Array.from(new Set((Array.isArray(requestedSizes) ? requestedSizes : [])
+    .map((size) => normalizeSizeKey(size))
+    .filter(Boolean)));
+
+  if (sizeStockMap.size === 0) {
+    const totalStock = Number(row.soluongton || 0);
+    if (uniqueRequestedSizes.length > 0) {
+      const label = uniqueRequestedSizes[0];
+      return [
+        `Hiện mình chưa có tồn kho chi tiết theo size cho ${name}, nên chưa xác nhận chính xác size ${label}.`,
+        `Tồn kho tổng hiện tại là ${totalStock} sản phẩm.`,
+        productUrl ? `Bạn xem chi tiết tại đây: ${productUrl}` : ''
+      ].filter(Boolean).join('\n');
+    }
+
+    return [
+      `Hiện tại ${name} còn ${totalStock} sản phẩm trong kho.`,
+      productUrl ? `Bạn xem chi tiết tại đây: ${productUrl}` : ''
+    ].filter(Boolean).join('\n');
+  }
+
+  if (uniqueRequestedSizes.length > 0) {
+    const totalLines = uniqueRequestedSizes.map((size) => {
+      const qty = Number(sizeStockMap.get(size) || 0);
+      return `- Tổng size ${size}: ${qty} sản phẩm`;
+    });
+    const variantLines = variantBreakdown.flatMap((section) => {
+      const detail = section.sizes
+        .map((entry) => `size ${entry.size}: ${Number(entry.qty || 0)} sản phẩm`)
+        .join(', ');
+      return detail ? [`- ${section.label}: ${detail}`] : [];
+    });
+
+    return [
+      `Tồn kho theo size của ${name}:`,
+      ...totalLines,
+      ...(variantLines.length > 0 ? ['Chi tiết theo biến thể:', ...variantLines] : []),
+      productUrl ? `Bạn xem chi tiết tại đây: ${productUrl}` : ''
+    ].filter(Boolean).join('\n');
+  }
+
+  const entries = variantBreakdown.length > 0
+    ? variantBreakdown.map((section) => `${section.label}: ${section.sizes.map((entry) => `Size ${entry.size} (${entry.qty})`).join(', ')}`)
+    : Array.from(sizeStockMap.entries())
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0]), 'vi'))
+      .slice(0, 8)
+      .map(([size, qty]) => `Size ${size} (${qty})`);
+
+  return [
+    `Hiện ${name} còn hàng ở các size: ${entries.join(', ')}.`,
+    productUrl ? `Bạn xem chi tiết tại đây: ${productUrl}` : ''
+  ].filter(Boolean).join('\n');
+}
+
 function rankProductsBySpecificTerms(products, question) {
   const list = Array.isArray(products) ? products : [];
   if (list.length <= 1) return list;
@@ -418,9 +670,6 @@ function inferCoreRoute(question) {
   }
   if (/\bvoucher\b|\bma giam gia\b|\bgiam gia\b|\bkhuyen mai\b|\bkhuyến mại\b/.test(q)) {
     return { label: 'Xem voucher', url: '/vouchers', kind: 'route' };
-  }
-  if (/\bsize\b|\bbang size\b|\bbảng size\b|\bkich co\b|\bkích cỡ\b/.test(q)) {
-    return { label: 'Xem bảng size', url: '/size-guide', kind: 'route' };
   }
   if (/\bgio hang\b|\bgiỏ hàng\b|\bcart\b/.test(q)) {
     return { label: 'Mở giỏ hàng', url: '/cart', kind: 'route' };
@@ -1462,14 +1711,16 @@ function buildPriceListUrlFromConstraint(constraint, extraFilters = {}) {
 }
 
 function toSuggestedCard(item) {
+  const id = String(item && (item.id || item._id) || '').trim();
   const finalPrice = Number(item && (item.giaSauGiam || item.gia) || 0);
   const originalPrice = Number(item && item.gia || 0);
   const hasDiscount = originalPrice > 0 && finalPrice > 0 && finalPrice < originalPrice;
+  const rawImageUrl = String(item && (item.imageUrl || item.hinhanh || item.image) || '').trim();
   return {
-    id: String(item && item.id || ''),
-    name: String(item && item.tensanpham || 'Sản phẩm'),
-    url: String(item && item.url || ''),
-    imageUrl: String(item && item.imageUrl || '/images/shopping.png'),
+    id,
+    name: String(item && (item.tensanpham || item.name || item.ten) || 'Sản phẩm'),
+    url: String(item && item.url || (id ? `/products/${id}` : '')),
+    imageUrl: rawImageUrl || '/images/shirt.png',
     price: finalPrice,
     originalPrice,
     hasDiscount,
@@ -1567,7 +1818,7 @@ function buildFacetFiltersForUrl({
   if (Number.isFinite(priceConstraint && priceConstraint.max)) filters.priceMax = String(priceConstraint.max);
   return filters;
 }
-
+// HÀM KIỂM TRA CÓ PHẢI LÀ CÂU HỎI LIÊN QUAN ĐẾN TÌM KIẾM SẢN PHẨM THEO TIÊU CHÍ (FACET) KHÔNG
 function isFacetListingQuestion(question) {
   const q = normalizeForCompare(question);
   if (!q) return false;
@@ -1582,7 +1833,7 @@ function isFacetListingQuestion(question) {
     || isProductFilterQuestion(question)
   );
 }
-
+// HÀM LẤY SẢN PHẨM NHANH THEO TIÊU CHÍ (FACET) VÀ GIÁ CẢ
 async function getQuickProductsByFacet({ question, priceConstraint }) {
   const typeMatch = inferProductType(question);
   const genderMatch = inferGender(question);
@@ -2761,7 +3012,7 @@ function buildColorAvailabilityAnswer(context, requestedColor) {
   lines.push('Bạn muốn mình lọc thêm theo size còn hàng hoặc màu gần giống không?');
   return lines.join('\n');
 }
-
+// HÀM LAY SẢN PHẨM NHANH THEO MÀU SẮC ĐƯỢC NHẮC ĐẾN TRONG CÂU HỎI
 async function getQuickProductsByColor({ question, requestedColor, limit = 8 }) {
   if (!requestedColor) return [];
 
@@ -2942,17 +3193,18 @@ function toSuggestedProducts(context, answerText, questionText) {
 
   const push = (item) => {
     if (!item) return;
-    const id = String(item.id || '').trim();
+    const id = String(item.id || item._id || '').trim();
     if (!id || byId.has(id)) return;
     const finalPrice = Number(item.giaSauGiam || item.gia || 0);
     const originalPrice = Number(item.gia || 0);
     const hasDiscount = originalPrice > 0 && finalPrice > 0 && finalPrice < originalPrice;
+    const rawImageUrl = String(item.imageUrl || item.hinhanh || item.image || '').trim();
     byId.set(id, {
       id,
-      name: String(item.tensanpham || 'Sản phẩm'),
+      name: String(item.tensanpham || item.name || item.ten || 'Sản phẩm'),
       url: String(item.url || `/products/${id}`),
-      imageUrl: String(item.imageUrl || '/images/shopping.png'),
-      productType: String(item.loaisanpham || '').trim(),
+      imageUrl: rawImageUrl || '/images/shirt.png',
+      productType: String(item.loaisanpham || item.productType || item.type || '').trim(),
       mauSacCoSan: Array.isArray(item.mauSacCoSan) ? item.mauSacCoSan.slice(0, 12) : [],
       mauSacChiTiet: Array.isArray(item.mauSacChiTiet) ? item.mauSacChiTiet.slice(0, 12) : [],
       price: finalPrice,
@@ -3407,6 +3659,79 @@ module.exports.sendMessage = async (req, res) => {
     mergeImageProductsIntoContext(context, imageProducts, imageMeta, question);
     mergePageProductIntoContext(context, pageContext);
 
+    if (isStockAvailabilityQuestion(question)) {
+      const requestedSizes = extractRequestedSizes(question);
+      const stockTarget = pickStockLookupProduct({
+        question,
+        context,
+        pageCurrentProduct
+      });
+
+      if (stockTarget && (stockTarget.id || stockTarget._id)) {
+        const stockProduct = await Sanpham.findById(stockTarget.id || stockTarget._id)
+          .select('_id tensanpham hinhanh soluongton sizes bienthe')
+          .lean();
+
+        if (stockProduct) {
+          const answer = buildSpecificStockAnswer(stockProduct, requestedSizes);
+          const productUrl = `/products/${stockProduct._id}`;
+          const variantImage = Array.isArray(stockProduct.bienthe)
+            ? (stockProduct.bienthe.find((item) => item && item.hinhanh) || {}).hinhanh
+            : '';
+          const productCard = {
+            id: String(stockProduct._id || ''),
+            tensanpham: String(stockProduct.tensanpham || 'Sản phẩm'),
+            imageUrl: String(stockProduct.hinhanh || variantImage || '/images/shopping.png'),
+            url: productUrl
+          };
+
+          const suggestedActions = await buildSuggestedActions({
+            question,
+            context
+          });
+          pushUniqueAction(suggestedActions, {
+            label: 'Xem sản phẩm',
+            url: productUrl,
+            kind: 'primary'
+          });
+
+          return res.json({
+            success: true,
+            data: {
+              answer,
+              model: 'db-stock-path',
+              provider: 'system',
+              suggestedProducts: [toSuggestedCard(productCard)],
+              suggestedActions,
+              contextMeta: buildQuickContextMeta({
+                products: 1,
+                hasFlashSale: false
+              })
+            }
+          });
+        }
+      }
+
+      const suggestedActions = await buildSuggestedActions({
+        question,
+        context
+      });
+      return res.json({
+        success: true,
+        data: {
+          answer: buildAmbiguousStockAnswer(question, requestedSizes),
+          model: 'db-stock-path-clarify',
+          provider: 'system',
+          suggestedProducts: [],
+          suggestedActions,
+          contextMeta: buildQuickContextMeta({
+            products: Array.isArray(context && context.products) ? context.products.length : 0,
+            hasFlashSale: false
+          })
+        }
+      });
+    }
+
     if (isColorProductQuestion(question, requestedColorFromQuestion)) {
       const colorProducts = await getQuickProductsByColor({
         question,
@@ -3645,10 +3970,58 @@ module.exports.sendMessage = async (req, res) => {
 
     const hasLookbookProducts = Array.isArray(context.lookbooks)
       && context.lookbooks.some((lookbook) => Array.isArray(lookbook && lookbook.products) && lookbook.products.length > 0);
-    const shouldShowCards = shouldUseSemanticProductSearch || hasLookbookProducts;
-    const suggestedProducts = shouldShowCards
+    const hasContextProducts = Array.isArray(context.products) && context.products.length > 0;
+    const hasPriceConstraint = Boolean(extractPriceConstraint(question));
+    const answerHasProductId = extractMentionedProductIds(answer).size > 0;
+    const shouldShowCards = shouldUseSemanticProductSearch
+      || hasLookbookProducts
+      || (hasContextProducts && (hasPriceConstraint || answerHasProductId));
+    let suggestedProducts = shouldShowCards
       ? toSuggestedProducts(context, answer, question)
       : [];
+
+    if (suggestedProducts.length === 0 && answerHasProductId) {
+      const mentionedIds = Array.from(extractMentionedProductIds(answer)).slice(0, 8);
+      if (mentionedIds.length > 0) {
+        const linkedProducts = await Sanpham.find({
+          _id: { $in: mentionedIds },
+          daxoa: { $ne: true },
+          trangthai: { $in: ['active', 'dangban'] }
+        })
+          .select('_id tensanpham hinhanh gia phantramgiamgia loaisanpham gioitinh')
+          .lean();
+
+        const byId = new Map();
+        linkedProducts.forEach((item) => {
+          const key = String(item && item._id || '').toLowerCase();
+          if (!key) return;
+          byId.set(key, item);
+        });
+
+        const orderedLinkedProducts = mentionedIds
+          .map((id) => byId.get(String(id || '').toLowerCase()))
+          .filter(Boolean)
+          .map((item) => {
+            const basePrice = Number(item && item.gia || 0);
+            const percent = Number(item && item.phantramgiamgia || 0);
+            const currentPrice = basePrice > 0 && percent > 0
+              ? Math.round(basePrice * (1 - percent / 100))
+              : basePrice;
+            return {
+              id: String(item && item._id || ''),
+              tensanpham: String(item && item.tensanpham || 'Sản phẩm'),
+              imageUrl: String(item && item.hinhanh || '/images/shirt.png'),
+              url: item && item._id ? `/products/${item._id}` : '',
+              gia: basePrice,
+              giaSauGiam: currentPrice > 0 ? currentPrice : basePrice,
+              loaisanpham: String(item && item.loaisanpham || ''),
+              gioitinh: String(item && item.gioitinh || '')
+            };
+          });
+
+        suggestedProducts = orderedLinkedProducts.slice(0, 4).map(toSuggestedCard);
+      }
+    }
 
     if (answerHasNegativeAvailability(answer) && suggestedProducts.length > 0) {
       const corrected = buildAvailableSuggestedAnswer(suggestedProducts);

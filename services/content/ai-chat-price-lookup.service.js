@@ -379,7 +379,7 @@ function findDirectPriceMatchInContext(question, context) {
     product: pickBestMatchedProduct(question, candidates, lookupTerms)
   };
 }
-
+// HÀM HỎI GIÁ SẢN PHẨM CỤ THỂ
 function buildDirectPriceAnswer(product) {
   const item = product && typeof product === 'object' ? product : {};
   const name = String(item.tensanpham || item.name || 'San pham').trim();

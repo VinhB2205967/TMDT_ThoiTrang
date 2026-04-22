@@ -48,7 +48,7 @@ function buildActorSnapshot(actor = null, fallbackRole = 'system') {
     )
   };
 }
-
+// Chuẩn hóa thông tin yêu cầu hoàn hàng để lưu vào sidecar và trả về client
 function normalizeRefundSnapshot(refundDoc) {
   if (!refundDoc) return {};
   const raw = typeof refundDoc.toObject === 'function' ? refundDoc.toObject() : { ...refundDoc };

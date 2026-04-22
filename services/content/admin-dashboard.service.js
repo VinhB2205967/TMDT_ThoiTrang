@@ -11,6 +11,33 @@ const {
 } = require('../../models');
 const { askAI } = require('./aiChat.service.js');
 
+const PRODUCT_TYPE_LABELS = {
+  ao: 'Ao',
+  quan: 'Quan',
+  vay: 'Vay',
+  phukien: 'Phu kien',
+  giay: 'Giay',
+  tui: 'Tui',
+  aokhoac: 'Ao khoac'
+};
+
+const PRODUCT_TYPE_PATTERNS = [
+  { key: 'ao', patterns: [/\bao\b/, /\bshirt\b/, /\bt[\s-]?shirt\b/] },
+  { key: 'quan', patterns: [/\bquan\b/, /\bpants?\b/, /\btrousers?\b/, /\bjeans?\b/] },
+  { key: 'vay', patterns: [/\bvay\b/, /\bdam\b/, /\bdress\b/, /\bskirt\b/] },
+  { key: 'phukien', patterns: [/\bphu kien\b/, /\baccessor(?:y|ies)\b/, /\bthat lung\b/, /\bmu\b/, /\bnon\b/] },
+  { key: 'giay', patterns: [/\bgiay\b/, /\bshoe?s?\b/, /\bsneaker\b/, /\bsandal\b/] },
+  { key: 'tui', patterns: [/\btui\b/, /\bbag\b/, /\bhandbag\b/, /\bpurse\b/] },
+  { key: 'aokhoac', patterns: [/\bao khoac\b/, /\bjacket\b/, /\bblazer\b/, /\bouterwear\b/] }
+];
+
+const STOCK_QUERY_STOPWORDS = new Set([
+  'san', 'pham', 'size', 'sz', 'co', 'con', 'het', 'khong', 'bao', 'nhieu', 'it',
+  'so', 'luong', 'ton', 'kho', 'hang', 'mau', 'ma', 'model', 'loai', 'nhom', 'cho',
+  'toi', 'minh', 'em', 'anh', 'chi', 'shop', 'cua', 'nay', 'kia', 'voi', 'theo',
+  'trong', 'admin', 'xem', 'hoi', 'giup', 'kiem', 'tra'
+]);
+
 function getProductStock(product) {
   let total = 0;
   if (Array.isArray(product.sizes)) {
@@ -30,8 +57,8 @@ function getProductStock(product) {
     });
   }
   total += Number(product && product.soluong_chinh ? product.soluong_chinh : 0);
-  total += Number(product && product.soluongton ? product.soluongton : 0);
-  return total;
+  if (total > 0) return total;
+  return Number(product && product.soluongton ? product.soluongton : 0);
 }
 
 function normalizeHistory(history) {
@@ -50,6 +77,245 @@ function stripVietnamese(text) {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
+}
+
+function normalizeForLookup(text) {
+  return stripVietnamese(text)
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeSizeKey(size) {
+  return String(size || '')
+    .toUpperCase()
+    .replace(/\s+/g, '')
+    .replace(/^SIZE/, '')
+    .trim();
+}
+
+function isStockAvailabilityQuestion(question) {
+  const q = normalizeForLookup(question);
+  if (!q) return false;
+
+  const hasExplicitSize = /\b(?:size|sz|co)\s*[a-z0-9]{1,5}\b/.test(q);
+  const hasStockCue = /\b(con|het|co|khong|bao nhieu|nhieu|it|ton kho|so luong)\b/.test(q);
+  return hasExplicitSize && hasStockCue;
+}
+
+function extractRequestedSizes(question) {
+  const q = normalizeForLookup(question);
+  if (!q) return [];
+
+  const found = [];
+  const seen = new Set();
+  const regex = /(?:size|sz|co)\s*([a-z0-9]{1,5})\b/g;
+  let match = regex.exec(q);
+  while (match) {
+    const key = normalizeSizeKey(match[1]);
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      found.push(key);
+    }
+    match = regex.exec(q);
+  }
+
+  return found.slice(0, 4);
+}
+
+function detectRequestedProductType(question) {
+  const q = normalizeForLookup(question);
+  if (!q) return '';
+
+  for (const type of PRODUCT_TYPE_PATTERNS) {
+    if (type.patterns.some((pattern) => pattern.test(q))) {
+      return type.key;
+    }
+  }
+
+  return '';
+}
+
+function extractSpecificProductTerms(question) {
+  const q = normalizeForLookup(question);
+  if (!q) return [];
+
+  const tokens = q
+    .replace(/(?:size|sz|co)\s*[a-z0-9]{1,5}\b/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((token) => token.length >= 2)
+    .filter((token) => !STOCK_QUERY_STOPWORDS.has(token))
+    .filter((token) => !Object.prototype.hasOwnProperty.call(PRODUCT_TYPE_LABELS, token));
+
+  return Array.from(new Set(tokens)).slice(0, 8);
+}
+
+function buildSizeStockMap(product) {
+  const map = new Map();
+  const push = (size, quantity) => {
+    const key = normalizeSizeKey(size);
+    const qty = Number(quantity);
+    if (!key || !Number.isFinite(qty) || qty < 0) return;
+    map.set(key, Number(map.get(key) || 0) + qty);
+  };
+
+  const row = product && typeof product === 'object' ? product : {};
+  if (Array.isArray(row.sizes)) {
+    row.sizes.forEach((entry) => push(entry && entry.size, entry && entry.soluong));
+  }
+
+  if (Array.isArray(row.bienthe)) {
+    row.bienthe.forEach((variant) => {
+      if (!variant || !Array.isArray(variant.sizes)) return;
+      variant.sizes.forEach((entry) => push(entry && entry.size, entry && entry.soluong));
+    });
+  }
+
+  return map;
+}
+
+function rankProductsByTerms(products, question, terms) {
+  const questionNorm = normalizeForLookup(question);
+  return (Array.isArray(products) ? products : [])
+    .map((item, index) => {
+      const name = normalizeForLookup(item && item.tensanpham);
+      if (!name) return { item, index, score: -1, matchedCount: 0 };
+
+      const matchedCount = terms.filter((term) => name.includes(term)).length;
+      let score = matchedCount * 20;
+
+      if (matchedCount && questionNorm.includes(name)) score += 100;
+      if (terms.length > 0 && matchedCount === terms.length) score += 60;
+      if (name.startsWith(terms[0] || '')) score += 8;
+
+      return { item, index, score, matchedCount };
+    })
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.matchedCount !== a.matchedCount) return b.matchedCount - a.matchedCount;
+      return a.index - b.index;
+    });
+}
+
+function buildSpecificSizeStockAnswer(product, requestedSizes = []) {
+  const row = product && typeof product === 'object' ? product : {};
+  const name = String(row.tensanpham || 'San pham').trim();
+  const sizeStockMap = buildSizeStockMap(row);
+  const uniqueRequestedSizes = Array.from(new Set((Array.isArray(requestedSizes) ? requestedSizes : [])
+    .map((size) => normalizeSizeKey(size))
+    .filter(Boolean)));
+
+  if (sizeStockMap.size === 0) {
+    const totalStock = getProductStock(row);
+    return uniqueRequestedSizes.length
+      ? `Hien chua co ton kho chi tiet theo size cho ${name}. Ton kho tong hien tai la ${totalStock} san pham.`
+      : `Hien tai ${name} con ${totalStock} san pham trong kho.`;
+  }
+
+  if (uniqueRequestedSizes.length > 0) {
+    const lines = uniqueRequestedSizes.map((size) => {
+      const qty = Number(sizeStockMap.get(size) || 0);
+      return `- Size ${size}: ${qty} san pham`;
+    });
+    return [`Ton kho theo size cua ${name}:`, ...lines].join('\n');
+  }
+
+  const entries = Array.from(sizeStockMap.entries())
+    .sort((a, b) => String(a[0]).localeCompare(String(b[0]), 'vi'))
+    .slice(0, 8)
+    .map(([size, qty]) => `Size ${size} (${qty})`);
+  return `Hien ${name} con hang o cac size: ${entries.join(', ')}.`;
+}
+
+function buildAggregateSizeStockAnswer(products, requestedSizes = [], productType = '') {
+  const list = Array.isArray(products) ? products : [];
+  const uniqueRequestedSizes = Array.from(new Set((Array.isArray(requestedSizes) ? requestedSizes : [])
+    .map((size) => normalizeSizeKey(size))
+    .filter(Boolean)));
+
+  if (!uniqueRequestedSizes.length) return '';
+
+  const typeLabel = productType && PRODUCT_TYPE_LABELS[productType]
+    ? PRODUCT_TYPE_LABELS[productType]
+    : 'san pham';
+
+  const summaries = uniqueRequestedSizes.map((size) => {
+    let totalQty = 0;
+    let matchedProducts = 0;
+    const topProducts = [];
+
+    list.forEach((product) => {
+      const qty = Number(buildSizeStockMap(product).get(size) || 0);
+      if (qty <= 0) return;
+      totalQty += qty;
+      matchedProducts += 1;
+      topProducts.push({
+        name: String(product && product.tensanpham ? product.tensanpham : 'San pham'),
+        qty
+      });
+    });
+
+    topProducts.sort((a, b) => b.qty - a.qty);
+    return {
+      size,
+      totalQty,
+      matchedProducts,
+      topProducts: topProducts.slice(0, 3)
+    };
+  });
+
+  const nonZeroSummaries = summaries.filter((item) => item.totalQty > 0);
+  if (!nonZeroSummaries.length) {
+    if (uniqueRequestedSizes.length === 1) {
+      return `Hien khong co ${typeLabel} nao con size ${uniqueRequestedSizes[0]} trong kho.`;
+    }
+
+    return uniqueRequestedSizes
+      .map((size) => `- Size ${size}: 0 san pham`)
+      .join('\n');
+  }
+
+  if (nonZeroSummaries.length === 1) {
+    const item = nonZeroSummaries[0];
+    const topLine = item.topProducts.length
+      ? ` Mau con nhieu nhat: ${item.topProducts.map((entry) => `${entry.name} (${entry.qty})`).join(', ')}.`
+      : '';
+    return `Hien ${typeLabel} size ${item.size} con tong ${item.totalQty} san pham tren ${item.matchedProducts} mau.${topLine}`;
+  }
+
+  return [
+    `Tong ton kho theo size cua nhom ${typeLabel}:`,
+    ...summaries.map((item) => `- Size ${item.size}: ${item.totalQty} san pham tren ${item.matchedProducts} mau`)
+  ].join('\n');
+}
+
+async function buildAdminStockAnswer(question) {
+  if (!isStockAvailabilityQuestion(question)) return '';
+
+  const requestedSizes = extractRequestedSizes(question);
+  if (!requestedSizes.length) return '';
+
+  const productType = detectRequestedProductType(question);
+  const productTerms = extractSpecificProductTerms(question);
+  const filter = { daxoa: { $ne: true } };
+  if (productType) filter.loaisanpham = productType;
+
+  const products = await sanpham.find(filter)
+    .select('_id tensanpham loaisanpham sizes bienthe soluong_chinh soluongton')
+    .lean();
+
+  if (!products.length) return '';
+
+  if (productTerms.length > 0) {
+    const ranked = rankProductsByTerms(products, question, productTerms);
+    const best = ranked[0];
+    if (best && best.item && best.matchedCount > 0) {
+      return buildSpecificSizeStockAnswer(best.item, requestedSizes);
+    }
+  }
+
+  return buildAggregateSizeStockAnswer(products, requestedSizes, productType);
 }
 
 function detectReportPeriod(question) {
@@ -881,6 +1147,25 @@ async function askAdminAssistant({ question, provider, model, history }) {
 
   if (!cleanQuestion) {
     return { ok: false, status: 400, message: 'Vui lòng nhập câu hỏi cho AI.' };
+  }
+
+  const stockAnswer = await buildAdminStockAnswer(cleanQuestion);
+  if (stockAnswer) {
+    return {
+      ok: true,
+      status: 200,
+      data: {
+        answer: stockAnswer,
+        provider: 'system',
+        model: 'admin-stock-path',
+        contextMeta: {
+          topSelling30Days: 0,
+          lowStock: 0,
+          topCustomers30Days: 0,
+          recentOrders: 0
+        }
+      }
+    };
   }
 
   const context = await buildAdminDataContext(cleanQuestion);

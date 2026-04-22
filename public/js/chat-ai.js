@@ -46,6 +46,8 @@
 		'keyword'
 	]);
 	const DEFAULT_SUGGEST_LIMIT = 6;
+	const DEFAULT_PRODUCT_IMAGE = '/images/shirt.png';
+	const BROKEN_PRODUCT_IMAGE_REGEX = /\/images\/shopping\.png(?:\?.*)?$/i;
 	const IMAGE_SEARCH_SUGGEST_LIMIT = Math.max(
 		1,
 		Number(runtime.openClipUiMaxResults || window.OPENCLIP_UI_MAX_RESULTS || 48)
@@ -55,6 +57,7 @@
 	let pendingImagePreviewUrl = '';
 	const submittedImagePreviewUrls = [];
 	const PANEL_VIEWPORT_TOP_GAP = 10;
+	const COMPACT_VIEWPORT_QUERY = '(max-width: 991.98px)';
 
 	function persistExpandedState(expanded) {
 		try {
@@ -73,14 +76,16 @@
 	}
 
 	function setExpanded(expanded) {
-		panel.classList.toggle('expanded', Boolean(expanded));
+		const allowExpanded = !window.matchMedia(COMPACT_VIEWPORT_QUERY).matches;
+		const finalExpanded = Boolean(expanded) && allowExpanded;
+		panel.classList.toggle('expanded', finalExpanded);
 		if (!expandBtn) return;
-		expandBtn.innerHTML = expanded
+		expandBtn.innerHTML = finalExpanded
 			? '<i class="bi bi-arrows-angle-contract"></i>'
 			: '<i class="bi bi-arrows-angle-expand"></i>';
-		expandBtn.setAttribute('title', expanded ? 'Thu nhỏ chat' : 'Phóng to chat');
-		expandBtn.setAttribute('aria-label', expanded ? 'Thu nhỏ chat' : 'Phóng to chat');
-		if (expanded && panel.classList.contains('open')) {
+		expandBtn.setAttribute('title', finalExpanded ? 'Thu nhỏ chat' : 'Phóng to chat');
+		expandBtn.setAttribute('aria-label', finalExpanded ? 'Thu nhỏ chat' : 'Phóng to chat');
+		if (finalExpanded && panel.classList.contains('open')) {
 			window.requestAnimationFrame(() => {
 				ensureExpandedFitsViewport();
 			});
@@ -90,6 +95,11 @@
 	function ensureExpandedFitsViewport() {
 		if (!panel.classList.contains('open')) return;
 		if (!panel.classList.contains('expanded')) return;
+		if (window.matchMedia(COMPACT_VIEWPORT_QUERY).matches) {
+			setExpanded(false);
+			persistExpandedState(false);
+			return;
+		}
 		const rect = panel.getBoundingClientRect();
 		if (rect.top >= PANEL_VIEWPORT_TOP_GAP) return;
 		setExpanded(false);
@@ -156,7 +166,7 @@
 					id: String(item.id || ''),
 					name: String(item.tensanpham || 'Sản phẩm'),
 					url: String(item.url || ''),
-					imageUrl: String(item.imageUrl || '/images/shopping.png'),
+					imageUrl: normalizeProductImageUrl(item.imageUrl || item.image),
 					price: finalPrice,
 					originalPrice,
 					hasDiscount,
@@ -171,6 +181,13 @@
 		const count = Array.isArray(products) ? products.length : 0;
 		if (count === 0) return 'Mình chưa tìm thấy sản phẩm phù hợp từ ảnh này.';
 		return `Tìm thấy ${count} sản phẩm tương tự từ ảnh:`;
+	}
+
+	function normalizeProductImageUrl(value) {
+		const raw = String(value || '').trim();
+		if (!raw) return DEFAULT_PRODUCT_IMAGE;
+		if (BROKEN_PRODUCT_IMAGE_REGEX.test(raw)) return DEFAULT_PRODUCT_IMAGE;
+		return raw;
 	}
 
 	function escapeHtml(value) {
@@ -651,13 +668,47 @@ function setInputHeight() {
 		scrollToBottom();
 	}
 
-	function renderProductCards(products, options = {}) {
+	function normalizeSuggestedProductsForCards(products, options = {}) {
 		const maxItems = Number.isFinite(Number(options && options.maxItems))
 			? Math.max(1, Number(options.maxItems))
 			: DEFAULT_SUGGEST_LIMIT;
-		const items = Array.isArray(products)
-			? products.filter((item) => item && /^\/products\/[a-f0-9]{24}$/i.test(String(item.url || ''))).slice(0, maxItems)
-			: [];
+		const listRaw = Array.isArray(products) ? products : [];
+		const normalized = [];
+		const seen = new Set();
+
+		listRaw.forEach((item) => {
+			if (!item || typeof item !== 'object') return;
+			const id = String(item.id || item._id || '').trim();
+			const rawUrl = String(item.url || (id ? `/products/${id}` : '')).trim();
+			const safeUrl = normalizeProductUrl(rawUrl) || (id && /^[a-f0-9]{24}$/i.test(id) ? `/products/${id}` : '');
+			if (!safeUrl || !/^\/products\/[a-f0-9]{24}$/i.test(safeUrl)) return;
+
+			const key = String(id || safeUrl).toLowerCase();
+			if (!key || seen.has(key)) return;
+			seen.add(key);
+
+			const finalPrice = Number(item.price || item.giaSauGiam || item.gia || 0);
+			const originalPrice = Number(item.originalPrice || item.gia || 0);
+			const hasDiscount = Boolean(item.hasDiscount) || (originalPrice > 0 && finalPrice > 0 && finalPrice < originalPrice);
+			const priceText = String(item.priceText || (finalPrice > 0 ? `${finalPrice.toLocaleString('vi-VN')}đ` : '')).trim();
+			const originalPriceText = String(item.originalPriceText || (hasDiscount ? `${originalPrice.toLocaleString('vi-VN')}đ` : '')).trim();
+
+			normalized.push({
+				id: id || String((safeUrl.match(/([a-f0-9]{24})$/i) || [])[1] || '').trim(),
+				name: String(item.name || item.tensanpham || 'Sản phẩm').trim(),
+				url: safeUrl,
+				imageUrl: normalizeProductImageUrl(item.imageUrl || item.image),
+				priceText,
+				originalPriceText,
+				hasDiscount
+			});
+		});
+
+		return normalized.slice(0, maxItems);
+	}
+
+	function renderProductCards(products, options = {}) {
+		const items = normalizeSuggestedProductsForCards(products, options);
 		if (items.length === 0) return;
 
 		const row = document.createElement('div');
@@ -677,7 +728,7 @@ function setInputHeight() {
 				? `<span class="ai-product-card-old-price">${escapeHtml(item.originalPriceText)}</span>`
 				: '';
 			card.innerHTML = `
-				<img class="ai-product-card-image" src="${escapeHtml(item.imageUrl || '/images/shopping.png')}" alt="${escapeHtml(item.name || 'Sản phẩm')}" onerror="this.onerror=null;this.src='/images/shopping.png';">
+				<img class="ai-product-card-image" src="${escapeHtml(normalizeProductImageUrl(item.imageUrl))}" alt="${escapeHtml(item.name || 'Sản phẩm')}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}';">
 				<div class="ai-product-card-body">
 					<div class="ai-product-card-name">${escapeHtml(item.name || 'Sản phẩm')}</div>
 					<div class="ai-product-card-price-wrap">
@@ -714,7 +765,7 @@ function setInputHeight() {
 				? `<span class="ai-product-card-old-price">${escapeHtml(item.originalPriceText)}</span>`
 				: '';
 			card.innerHTML = `
-				<img class="ai-product-card-image" src="${escapeHtml(item.imageUrl || '/images/shopping.png')}" alt="${escapeHtml(item.name || 'Sản phẩm')}" onerror="this.onerror=null;this.src='/images/shopping.png';">
+				<img class="ai-product-card-image" src="${escapeHtml(normalizeProductImageUrl(item.imageUrl))}" alt="${escapeHtml(item.name || 'Sản phẩm')}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}';">
 				<div class="ai-product-card-body">
 					<div class="ai-product-card-name">${escapeHtml(item.name || 'Sản phẩm')}</div>
 					<div class="ai-product-card-price-wrap">
@@ -819,7 +870,7 @@ function setInputHeight() {
 		const id = String(source.id || source._id || '').trim();
 		const name = String(source.name || source.tensanpham || '').trim();
 		const url = String(source.url || (id ? `/products/${id}` : '')).trim();
-		const imageUrl = String(source.imageUrl || source.image || '/images/shopping.png').trim();
+		const imageUrl = normalizeProductImageUrl(source.imageUrl || source.image);
 		const price = Number(source.price || source.giaSauGiam || source.gia || 0);
 		const originalPrice = Number(source.originalPrice || source.gia || price || 0);
 		const productType = String(source.productType || source.loaisanpham || '').trim();
@@ -923,15 +974,6 @@ async function askAI(question, options = {}) {
 		};
 	}
 	function togglePanel(forceOpen) {
-		if (
-			typeof forceOpen !== 'boolean'
-			&& panel.classList.contains('open')
-			&& panel.classList.contains('expanded')
-		) {
-			setExpanded(false);
-			persistExpandedState(false);
-			return;
-		}
 		const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : !panel.classList.contains('open');
 		panel.classList.toggle('open', shouldOpen);
 		if (shouldOpen) {
@@ -955,7 +997,7 @@ async function askAI(question, options = {}) {
 		ensureExpandedFitsViewport();
 	});
 	if (expandBtn) {
-		const savedExpanded = readExpandedState();
+		const savedExpanded = readExpandedState() && !window.matchMedia(COMPACT_VIEWPORT_QUERY).matches;
 		setExpanded(savedExpanded);
 		expandBtn.addEventListener('click', () => {
 			const nextExpanded = !panel.classList.contains('expanded');

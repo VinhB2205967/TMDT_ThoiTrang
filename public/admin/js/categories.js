@@ -84,11 +84,11 @@
     const actionsHtml = isRootNode
       ? ''
       : `
-        <button class="btn btn-sm ${isActive ? 'btn-outline-warning' : 'btn-outline-success'} js-category-toggle" type="button" data-id="${id}">${isActive ? 'An' : 'Hien'}</button>
-        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#${editCollapseId}" aria-expanded="${editExpanded ? 'true' : 'false'}" aria-controls="${editCollapseId}">Sua</button>
+        <button class="btn btn-sm ${isActive ? 'btn-outline-warning' : 'btn-outline-success'} js-category-toggle" type="button" data-id="${id}">${isActive ? 'Ẩn' : 'Hiển thị'}</button>
+        <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#${editCollapseId}" aria-expanded="${editExpanded ? 'true' : 'false'}" aria-controls="${editCollapseId}">Sửa</button>
         ${children.length
-          ? '<button class="btn btn-sm btn-outline-secondary" type="button" disabled title="Xoa danh muc con truoc">Xoa</button>'
-          : `<button class="btn btn-sm btn-outline-danger js-category-delete" type="button" data-id="${id}">Xoa</button>`}
+          ? '<button class="btn btn-sm btn-outline-secondary" type="button" disabled title="óa danh mục con trước">Xóa</button>'
+          : `<button class="btn btn-sm btn-outline-danger js-category-delete" type="button" data-id="${id}">óa</button>`}
       `;
 
     const editBoxHtml = isRootNode
@@ -113,7 +113,7 @@
               </div>
             </div>
             <div class="col-12">
-              <button class="btn btn-sm btn-primary" type="submit">Luu</button>
+              <button class="btn btn-sm btn-primary" type="submit">Lưu</button>
             </div>
           </form>
         </div>
@@ -144,7 +144,7 @@
   function renderTree(tree, openState) {
     const items = Array.isArray(tree) ? tree : [];
     if (!items.length) {
-      treeRoot.innerHTML = '<div class="text-muted">Chua co danh muc.</div>';
+      treeRoot.innerHTML = '<div class="text-muted">Chưa có danh mục.</div>';
       return;
     }
 
@@ -198,9 +198,9 @@
       createForm.reset();
       const activeInput = createForm.querySelector('input[name="isActive"]');
       if (activeInput) activeInput.checked = true;
-      await refreshTree(result.message || 'Tao danh muc thanh cong', 'success', captureOpenState());
+      await refreshTree(result.message || 'Tạo danh mục thành công', 'success', captureOpenState());
     } catch (error) {
-      showToast(error.message || 'Khong the tao danh muc', 'error');
+      showToast(error.message || 'Không thể tạo danh mục', 'error');
     } finally {
       if (submitBtn) submitBtn.disabled = false;
     }
@@ -224,9 +224,9 @@
         method: 'PATCH',
         body: JSON.stringify(formToPayload(form))
       });
-      await refreshTree(result.message || 'Cap nhat danh muc thanh cong', 'success', openState);
+      await refreshTree(result.message || 'Cập nhật danh mục thành công', 'success', openState);
     } catch (error) {
-      showToast(error.message || 'Khong the cap nhat danh muc', 'error');
+      showToast(error.message || 'Không thể cập nhật danh mục', 'error');
     } finally {
       if (submitBtn) submitBtn.disabled = false;
     }
@@ -244,9 +244,9 @@
           method: 'PATCH',
           body: JSON.stringify({})
         });
-        await refreshTree(result.message || 'Da cap nhat trang thai hien thi', 'success', captureOpenState());
+        await refreshTree(result.message || 'Đã cập nhật trạng thái hiển thị', 'success', captureOpenState());
       } catch (error) {
-        showToast(error.message || 'Khong the cap nhat trang thai', 'error');
+        showToast(error.message || 'Không thể cập nhật trạng thái', 'error');
       } finally {
         toggleBtn.disabled = false;
       }
@@ -276,8 +276,8 @@
   if (refreshBtn) {
     refreshBtn.addEventListener('click', function (event) {
       event.preventDefault();
-      refreshTree('Da lam moi cay danh muc', 'success', captureOpenState()).catch(function (error) {
-        showToast(error.message || 'Khong the lam moi danh muc', 'error');
+      refreshTree('Đã làm mới cây danh mục', 'success', captureOpenState()).catch(function (error) {
+        showToast(error.message || 'Không thể làm mới danh mục', 'error');
       });
     });
   }

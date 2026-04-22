@@ -531,6 +531,27 @@ function extractProductIntent(question) {
   };
 }
 
+function extractAgeGroupAliases(question) {
+  const normalized = normalizeVietnameseForSearch(question);
+  if (!normalized) return [];
+
+  const aliases = [];
+
+  if (/\btre em\b|\bbe\b|\btre con\b|\bnhi dong\b/.test(normalized)) {
+    aliases.push('tre em');
+  }
+
+  if (/\bthieu nien\b|\bteen\b|\bthanh thieu nien\b/.test(normalized)) {
+    aliases.push('thieu nien');
+  }
+
+  if (/\btrung nien\b|\btrung tuoi\b|\bnguoi trung nien\b/.test(normalized)) {
+    aliases.push('trung nien');
+  }
+
+  return Array.from(new Set(aliases));
+}
+
 function relatedKeywordsBySeason(seasonTerms) {
   const map = {
     dong: ['aokhoac', 'áo khoác', 'hoodie', 'len', 'nỉ', 'ni', 'varsity', 'jacket'],
@@ -942,6 +963,7 @@ async function getProductContext(question) {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+  const requestedAgeAliases = extractAgeGroupAliases(question);
 
   const orConditions = [];
 
@@ -1028,7 +1050,11 @@ async function getProductContext(question) {
   const ageCategories = await Danhmuc.find({
     daxoa: { $ne: true },
     type: 'age_group',
-    isActive: true
+    $or: [
+      { isActive: true },
+      { trangthai: 'active' },
+      { isActive: { $exists: false } }
+    ]
   }).select('_id name tendanhmuc slug').lean();
 
   const requestedAges = [];
@@ -1081,6 +1107,16 @@ async function getProductContext(question) {
       .replace(/[^a-z0-9\s-]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
+
+    const matchedByAlias = requestedAgeAliases.some((alias) => {
+      if (!alias) return false;
+      return asciiLabel.includes(alias) || alias.includes(asciiLabel);
+    });
+
+    if (matchedByAlias) {
+      matchedAgeIds.push(item._id);
+      return;
+    }
 
     if (
       normalizedQuestion.includes(normalizedLabel)
