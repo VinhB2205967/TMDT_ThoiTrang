@@ -20,7 +20,7 @@ function chuanHoaToanBoDongGio(giohang) {
   if (!giohang || !Array.isArray(giohang.sanpham)) return;
   giohang.sanpham.forEach((item) => chuanHoaChuoiHienThiGio(item));
 }
-
+// Định dạng số tiền sang VND
 function dinhDangTienVND(value) {
   const n = Math.max(0, Math.round(Number(value || 0)));
   return `${n.toLocaleString('vi-VN')}đ`;
@@ -40,7 +40,7 @@ function taoCanhBaoGiaFifoKhiTangSoLuong({
 
   return `Giá sản phẩm có thể thay đổi khi thay đổi số lượng`;
 }
-
+// Đồng bộ giá và tồn kho của giỏ hàng, trả về true nếu có cập nhật
 async function getCartPageData({ userId }) {
   const giohang = await getOrCreateCart(userId);
   const giaTruocKhiDongBo = new Map(
@@ -79,7 +79,7 @@ async function getCartPageData({ userId }) {
 
   return { cart: giohang, fifoPriceNotice };
 }
-
+// Thêm sản phẩm vào giỏ hàng
 async function addToCart({ userId, body }) {
   const { sanpham_id, bienthe_id, kichco } = body;
   const soluong = Math.max(1, parseInt(body.soluong, 10) || 1);
@@ -120,7 +120,7 @@ async function addToCart({ userId, body }) {
   await giohang.save();
   return { ok: true, cartCount: tinhSoLuongHienThiGio(giohang), redirect: '/cart' };
 }
-
+// Mua ngay từ trang sản phẩm
 async function buyNowFromProduct({ userId, body }) {
   const { sanpham_id, bienthe_id, kichco } = body;
   const soluong = Math.max(1, parseInt(body.soluong, 10) || 1);
@@ -166,7 +166,7 @@ async function buyNowFromProduct({ userId, body }) {
   const redirect = iditemdich ? `/cart/checkout?itemIds=${iditemdich}` : '/cart/checkout';
   return { ok: true, cartCount: tinhSoLuongHienThiGio(giohang), redirect };
 }
-
+// Cập nhật số lượng sản phẩm trong giỏ hàng
 async function updateCartItemQuantity({ userId, body }) {
   const iditem = String(body.itemId || '').trim();
   const soluong = Math.max(1, parseInt(body.soluong, 10) || 1);
@@ -228,7 +228,7 @@ async function updateCartItemQuantity({ userId, body }) {
     }
   };
 }
-
+// Cập nhật biến thể, màu sắc, kích cỡ của sản phẩm trong giỏ hàng
 async function updateCartItemOptions({ userId, body }) {
   const iditem = String(body.itemId || '').trim();
   const idsanpham = String(body.sanpham_id || '').trim();
@@ -280,7 +280,7 @@ async function updateCartItemOptions({ userId, body }) {
 
   return { ok: true, payload: { success: true, cartCount: tinhSoLuongHienThiGio(giohang) } };
 }
-
+// Xóa sản phẩm khỏi giỏ hàng
 async function removeCartItem({ userId, itemId }) {
   const giohang = await getOrCreateCart(userId);
   giohang.sanpham = giohang.sanpham.filter(i => String(i._id) !== String(itemId));

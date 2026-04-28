@@ -42,6 +42,7 @@ const LY_DO_HOAN_LABELS = {
   khac: 'Khác'
 };
 
+// Chạy đồng bộ sidecar theo cơ chế best-effort.
 async function dongBoSidecarAnToan(taskName, runner) {
   try {
     await runner();
@@ -50,14 +51,17 @@ async function dongBoSidecarAnToan(taskName, runner) {
   }
 }
 
+// Gắn session vào query khi đang chạy transaction.
 function ganSessionNeuCo(query, session) {
   return session ? query.session(session) : query;
 }
 
+// Tạo options cho thao tác DB, có hoặc không có session.
 function taoSessionOptions(session, extra = {}) {
   return session ? { ...extra, session } : { ...extra };
 }
 
+// Nhận diện lỗi Mongo chưa hỗ trợ transaction để fallback.
 function laLoiMongoKhongHoTroTransaction(error) {
   const message = String(error?.message || error || '').toLowerCase();
   return message.includes('transaction numbers are only allowed on a replica set member or mongos')
@@ -65,6 +69,7 @@ function laLoiMongoKhongHoTroTransaction(error) {
     || (message.includes('transaction') && message.includes('mongos'));
 }
 
+  // Chạy công việc trong transaction nếu hỗ trợ, fallback nếu không.
 async function chayVoiTransactionNeuHoTro(work, label = 'mongo transaction') {
   const session = await mongoose.startSession();
   try {
@@ -81,15 +86,18 @@ async function chayVoiTransactionNeuHoTro(work, label = 'mongo transaction') {
   }
 }
 
+// Ép kiểu số an toàn với fallback.
 function toNumber(value, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
 }
 
+// Làm tròn số tiền.
 function roundMoney(value) {
   return Math.round(toNumber(value, 0));
 }
 
+// Hoàn lại lượt dùng voucher cho đơn hàng.
 async function hoanLaiVoucherChoDon({ orderDoc, userId, session = null }) {
   const voucherId = orderDoc?.voucher_id;
   if (!voucherId) return;
@@ -103,12 +111,14 @@ async function hoanLaiVoucherChoDon({ orderDoc, userId, session = null }) {
   );
 }
 
+// Ép số nguyên dương.
 function toPositiveInt(value, fallback = 0) {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return fallback;
   return Math.floor(n);
 }
 
+// Chia tiền theo tỷ lệ số lượng.
 function splitAmountByQty(totalAmount, totalQty, partQty) {
   const amount = Math.max(0, roundMoney(totalAmount));
   const qty = Math.max(0, toPositiveInt(totalQty, 0));
@@ -118,6 +128,7 @@ function splitAmountByQty(totalAmount, totalQty, partQty) {
   return Math.max(0, Math.min(amount, Math.round((amount * part) / qty)));
 }
 
+// Phân bổ tổng tiền theo trọng số từng dòng.
 function allocateProportionalAmounts(rows, totalAmount) {
   const normalizedRows = (Array.isArray(rows) ? rows : [])
     .map((row, index) => ({
@@ -166,6 +177,7 @@ function allocateProportionalAmounts(rows, totalAmount) {
   return result;
 }
 
+// Tạo tổng hợp hoàn tiền/giữ lại cho màn chi tiết đơn của khách.
 function buildRefundSummary(order, items, statusLabels = {}) {
   const orderDoc = order || {};
   const itemRows = Array.isArray(items) ? items : [];
@@ -397,11 +409,13 @@ function buildRefundSummary(order, items, statusLabels = {}) {
   };
 }
 
+// Lấy mốc thời gian giao hàng để tính điều kiện hoàn.
 function layMocDaGiao(order) {
   if (!order) return null;
   return order.ngaygiaohang || order.ngaycapnhat || order.ngaytao || null;
 }
-// Kiểm tra xem đơn hàng đã đủ điều kiện để khách hàng có thể yêu cầu hoàn hàng hay chưa
+
+// Kiểm tra đơn có đủ điều kiện gửi yêu cầu hoàn hàng.
 function coTheYeuCauHoan(order) {
   if (!order) return false;
   if (String(order.trangthai || '') !== 'dagiao') return false;
@@ -411,7 +425,8 @@ function coTheYeuCauHoan(order) {
   const delta = Date.now() - new Date(moc).getTime();
   return Number.isFinite(delta) && delta >= 0 && delta <= CUA_SO_HOAN_HANG_MS;
 }
-// Kiểm tra xem đơn hàng đã quá hạn để yêu cầu hoàn hàng hay chưa
+
+// Chuẩn hóa payload danh sách sản phẩm hoàn từ nhiều định dạng.
 function normalizeReturnItemsPayload(raw) {
   if (!raw) return [];
 
@@ -434,10 +449,12 @@ function normalizeReturnItemsPayload(raw) {
     .filter((it) => mongoose.Types.ObjectId.isValid(it.orderItemId) && it.qty >= 0);
 }
 
+// Chuẩn hóa text input theo độ dài tối đa.
 function normalizeTextField(raw, maxLength = 120) {
   return String(raw || '').trim().slice(0, maxLength);
 }
 
+// Chuẩn hóa số tài khoản chỉ còn chữ số.
 function normalizeAccountNumber(raw) {
   return String(raw || '')
     .replace(/\s+/g, '')
@@ -445,6 +462,7 @@ function normalizeAccountNumber(raw) {
     .slice(0, 30);
 }
 
+  // Kiểm tra đơn chờ thanh toán online còn hiệu lực xử lý.
 function laDonChoThanhToanOnline(don) {
   return don
     && String(don.trangthai || '') === 'choxacnhan'
@@ -452,6 +470,7 @@ function laDonChoThanhToanOnline(don) {
     && (String(don.phuongthucthanhtoan || '') === 'momo' || String(don.phuongthucthanhtoan || '') === 'vnpay');
 }
 
+  // Tính deadline thanh toán theo thời gian tạo đơn.
 function tinhHanThanhToanMs(don) {
   if (!don || !don.ngaytao) return null;
   const t = new Date(don.ngaytao).getTime();
@@ -459,6 +478,7 @@ function tinhHanThanhToanMs(don) {
   return t + THOI_GIAN_CHO_THANH_TOAN_MS;
 }
 
+// Hoàn tồn kho cho một dòng chi tiết đơn và lot FIFO liên quan.
 async function congTonChoChiTietDon(orderitemdoc, session = null) {
   const productid = orderitemdoc.sanpham_id;
   const variantid = orderitemdoc.bienthe_id;
@@ -521,7 +541,8 @@ async function congTonChoChiTietDon(orderitemdoc, session = null) {
     );
   }
 }
-// Hủy đơn hàng bởi khách hàng
+
+// Hủy đơn bởi khách hàng trong transaction.
 async function huyDonKhachHangTrongTransaction({ userId, orderId, lydo }) {
   let donhangdoc = null;
 
@@ -558,7 +579,8 @@ async function huyDonKhachHangTrongTransaction({ userId, orderId, lydo }) {
 
   return donhangdoc;
 }
-// Tự động hủy
+
+// Tự động hủy đơn quá hạn thanh toán online.
 async function tuDongHuyDonQuaHan(userId) {
   const cutoff = new Date(Date.now() - THOI_GIAN_CHO_THANH_TOAN_MS);
   const danhsach = await donhang.find({
@@ -614,7 +636,8 @@ async function tuDongHuyDonQuaHan(userId) {
     }
   }
 }
-//
+
+// Lấy dữ liệu trang danh sách đơn hàng của khách.
 async function getOrdersPageData({ userId, query }) {
   await tuDongHuyDonQuaHan(userId);
 
@@ -699,6 +722,7 @@ async function getOrdersPageData({ userId, query }) {
   };
 }
 
+// Lấy dữ liệu trang chi tiết đơn hàng của khách.
 async function getOrderDetailPageData({ userId, orderId, paidFlag }) {
   if (String(paidFlag || '') === '1') {
     return { redirect: `/orders/${orderId}`, flash: { type: 'success', message: 'Thanh toán thành công!' } };
@@ -779,7 +803,8 @@ async function getOrderDetailPageData({ userId, orderId, paidFlag }) {
     returnReasonLabels: LY_DO_HOAN_LABELS
   };
 }
-// Tạo yêu cầu hoàn hàng
+
+// Tạo yêu cầu hoàn hàng từ phía khách.
 async function createReturnRequest({ userId, orderId, body, files }) {
   const order = await donhang.findOne({
     _id: orderId,
@@ -944,6 +969,7 @@ async function createReturnRequest({ userId, orderId, body, files }) {
   return { ok: true, redirect: `/orders/${order._id}`, flash: { type: 'success', message: 'Đã gửi yêu cầu hoàn hàng. Vui lòng chờ admin duyệt.' } };
 }
 
+// Hủy yêu cầu hoàn hàng khi còn ở trạng thái chờ xử lý.
 async function cancelReturnRequestByUser({ userId, orderId }) {
   const order = await donhang.findOne({
     _id: orderId,
@@ -1011,6 +1037,7 @@ async function cancelReturnRequestByUser({ userId, orderId }) {
   };
 }
 
+// Hủy đơn hàng từ phía khách và xử lý hoàn tồn/hoàn tiền liên quan.
 async function cancelOrderByUser({ userId, orderId, reason }) {
   const lydo = String(reason || '').trim() || 'Khach hang huy don';
   const previousStatus = 'choxacnhan';
@@ -1088,6 +1115,7 @@ async function cancelOrderByUser({ userId, orderId, reason }) {
   return { ok: true, redirect: '/orders', flash: { type: 'success', message: 'Đã hủy đơn hàng và hoàn lại số lượng sản phẩm.' } };
 }
 
+// Mua lại từ đơn cũ bằng cách thêm lại sản phẩm vào giỏ hàng.
 async function reorderFromOldOrder({ userId, orderId }) {
   const donhangdoc = await donhang.findOne({ _id: orderId, nguoidung_id: userId, daxoa: { $ne: true } }).lean();
   if (!donhangdoc) return { redirect: '/orders', flash: { type: 'success', message: 'Không tìm thấy đơn hàng.' } };
@@ -1144,6 +1172,7 @@ async function reorderFromOldOrder({ userId, orderId }) {
   };
 }
 
+// Thanh toán lại đơn chờ thanh toán qua MoMo/VNPAY.
 async function repayOrder({ userId, orderId, protocol, host, headers, socketRemoteAddress, ip }) {
   const donhangdoc = await donhang.findOne({ _id: orderId, nguoidung_id: userId, daxoa: { $ne: true } }).lean();
   if (!donhangdoc) return { redirect: '/orders', flash: { type: 'error', message: 'Không tìm thấy đơn hàng.' } };
@@ -1237,6 +1266,7 @@ async function repayOrder({ userId, orderId, protocol, host, headers, socketRemo
   return { redirect: payUrl };
 }
 
+// Kiểm tra trạng thái thanh toán MoMo của đơn hàng.
 async function checkOrderPaymentStatus({ userId, orderId }) {
   const donhangdoc = await donhang.findOne({ _id: orderId, nguoidung_id: userId, daxoa: { $ne: true } })
     .select('_id nguoidung_id madonhang trangthai tongtien tamtinh dathanhtoan phuongthucthanhtoan momoOrderId momoRequestId momoTransId')
@@ -1297,6 +1327,7 @@ async function checkOrderPaymentStatus({ userId, orderId }) {
   return { status: 200, payload: { success: true, paid: false, resultCode, message: ketqua?.message || '' } };
 }
 
+// Đổi phương thức thanh toán khi đơn còn chờ xác nhận.
 async function changePaymentMethod({ userId, orderId, newMethod }) {
   const phuongthucMoi = String(newMethod || '').trim();
   const hopLe = ['cod', 'momo'];

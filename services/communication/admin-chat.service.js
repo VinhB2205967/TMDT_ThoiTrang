@@ -24,13 +24,13 @@ async function layChiTietHoiThoaiTheoUser({ userId, limit = 100 }) {
     messages
   };
 }
-
+// Đánh dấu đã đọc và lấy tổng số tin nhắn chưa đọc sau khi cập nhật
 async function danhDauDaDocVaLayTong({ userId }) {
   const updated = await adminDaDoc({ clientId: userId });
   const totalUnread = await demChuaDocAdmin();
   return { updated, totalUnread };
 }
-
+// Lấy tổng số tin nhắn chưa đọc cho admin
 async function layTongTinNhanChuaDocAdmin() {
   const count = await demChuaDocAdmin();
   return { count };

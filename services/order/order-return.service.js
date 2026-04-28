@@ -12,21 +12,25 @@ const {
   ganThongTinHoanHangChoDon
 } = require('./order-sidecar.service.js');
 
+// Tạo mã phiếu nhập cho luồng hoàn trả.
 function taoMaPhieuNhapHoanTra() {
   return `NK-RETURN-${Date.now()}`;
 }
 
+// Ép kiểu số an toàn với fallback.
 function toNumber(value, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
 }
 
+// Ép số nguyên dương.
 function toPositiveInt(value, fallback = 0) {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return fallback;
   return Math.floor(n);
 }
 
+// Chuẩn hóa payload sản phẩm hoàn từ nhiều định dạng đầu vào.
 function normalizeReturnItemsPayload(raw) {
   if (!raw) return [];
 
@@ -49,12 +53,14 @@ function normalizeReturnItemsPayload(raw) {
     .filter((it) => mongoose.Types.ObjectId.isValid(it.orderItemId) && it.qty >= 0);
 }
 
+  // Kiểm tra đơn đã có dữ liệu yêu cầu hoàn trả hay chưa.
 function hasRequestedReturn(order) {
   if (!order || !order.yeucauhoanhang) return false;
   const req = order.yeucauhoanhang;
   return Boolean(req.requestedAt || req.reason || req.refundMethod || req.proofMedia || req.proofImage);
 }
 
+// Tạo key duy nhất theo sản phẩm/biến thể/size để ghép dữ liệu.
 function buildExportLineKey({ sanphamid, bientheid, kichco }) {
   const productId = String(sanphamid || '').trim();
   const variantId = bientheid ? String(bientheid).trim() : 'main';
@@ -62,6 +68,7 @@ function buildExportLineKey({ sanphamid, bientheid, kichco }) {
   return `${productId}|${variantId}|${sizeKey}`;
 }
 
+// Suy ra danh sách item hoàn từ chi tiết phiếu nhập khi thiếu mapping trực tiếp.
 function suyRaDanhSachHoanTheoChiTietPhieuNhap(orderItems = [], receiptDetails = []) {
   const rows = Array.isArray(receiptDetails) ? receiptDetails : [];
   if (!rows.length) return [];
@@ -111,10 +118,12 @@ function suyRaDanhSachHoanTheoChiTietPhieuNhap(orderItems = [], receiptDetails =
   return derived;
 }
 
+// Làm tròn số tiền.
 function roundMoney(value) {
   return Math.round(toNumber(value, 0));
 }
 
+// Chạy đồng bộ sidecar theo cơ chế best-effort.
 async function dongBoSidecarAnToan(taskName, runner) {
   try {
     await runner();
@@ -123,14 +132,17 @@ async function dongBoSidecarAnToan(taskName, runner) {
   }
 }
 
+// Gắn session vào query khi có transaction.
 function ganSessionNeuCo(query, session) {
   return session ? query.session(session) : query;
 }
 
+// Tạo options thao tác DB có/không có session.
 function taoSessionOptions(session, extra = {}) {
   return session ? { ...extra, session } : { ...extra };
 }
 
+// Nhận diện lỗi Mongo chưa hỗ trợ transaction.
 function laLoiMongoKhongHoTroTransaction(error) {
   const message = String(error?.message || error || '').toLowerCase();
   return message.includes('transaction numbers are only allowed on a replica set member or mongos')
@@ -140,6 +152,7 @@ function laLoiMongoKhongHoTroTransaction(error) {
 
 let daThongBaoFallbackTransaction = false;
 
+// Chạy transaction nếu hỗ trợ, fallback sang non-transaction khi cần.
 async function chayVoiTransactionNeuHoTro(work, label = 'mongo transaction') {
   const session = await mongoose.startSession();
   try {
@@ -157,6 +170,7 @@ async function chayVoiTransactionNeuHoTro(work, label = 'mongo transaction') {
   }
 }
 
+// Chia tiền theo tỷ lệ số lượng.
 function splitAmountByQty(totalAmount, totalQty, partQty) {
   const amount = Math.max(0, roundMoney(totalAmount));
   const qty = Math.max(0, toPositiveInt(totalQty, 0));
@@ -166,6 +180,7 @@ function splitAmountByQty(totalAmount, totalQty, partQty) {
   return Math.max(0, Math.min(amount, Math.round((amount * part) / qty)));
 }
 
+// Phân bổ tổng tiền theo trọng số từng dòng.
 function allocateProportionalAmounts(rows, totalAmount) {
   const normalizedRows = (Array.isArray(rows) ? rows : [])
     .map((row, index) => ({
@@ -214,6 +229,7 @@ function allocateProportionalAmounts(rows, totalAmount) {
   return result;
 }
 
+// Dựng map tài chính theo order item để tính hoàn tiền theo voucher.
 function buildOrderItemFinancialMap(order, orderItems) {
   const rows = Array.isArray(orderItems) ? orderItems : [];
   const lines = rows.map((item, index) => {
@@ -253,6 +269,7 @@ function buildOrderItemFinancialMap(order, orderItems) {
   return out;
 }
 
+// Áp doanh thu hoàn theo phân bổ voucher cho từng allocation.
 function apDungDoanhThuHoanTheoVoucher({ allocations, orderItemFinancialMap }) {
   const map = orderItemFinancialMap instanceof Map ? orderItemFinancialMap : new Map();
   const rows = Array.isArray(allocations) ? allocations : [];
@@ -289,6 +306,7 @@ function apDungDoanhThuHoanTheoVoucher({ allocations, orderItemFinancialMap }) {
   }
 }
 
+// Tạo các slot allocation còn có thể nhận hàng hoàn từ dòng xuất kho.
 function buildAllocationSlotsFromExportLine(line) {
   const exportedQty = toPositiveInt(line?.soluong, 0);
   const returnedQty = toPositiveInt(line?.soluonghoan, 0);
@@ -354,6 +372,7 @@ function buildAllocationSlotsFromExportLine(line) {
   return slots;
 }
 
+// Tính tỷ suất lợi nhuận phần trăm.
 function tinhTySuatLoiNhuan({ doanhThu, loiNhuan }) {
   const dt = toNumber(doanhThu, 0);
   const ln = toNumber(loiNhuan, 0);
@@ -361,6 +380,7 @@ function tinhTySuatLoiNhuan({ doanhThu, loiNhuan }) {
   return Number(((ln / dt) * 100).toFixed(2));
 }
 
+// Cộng tồn kho cho sản phẩm hoàn theo biến thể/size.
 function congTonChoDongTraHang(productDoc, { variantId, size, qty, mausac }) {
   const soLuong = Math.max(1, toPositiveInt(qty, 1));
   const hasSize = !laLoaiKhongSize(productDoc.loaisanpham);
@@ -409,6 +429,7 @@ function congTonChoDongTraHang(productDoc, { variantId, size, qty, mausac }) {
   }
 }
 
+// Lập kế hoạch nhập kho hoàn trả từ dữ liệu đơn và phiếu xuất.
 async function lapKeHoachNhapKhoHoanTra({ order, exportReceipt, orderItems, requestedRows = [] }) {
   const rows = normalizeReturnItemsPayload(requestedRows);
   const approvedRequestedRows = normalizeReturnItemsPayload(
@@ -642,6 +663,7 @@ async function lapKeHoachNhapKhoHoanTra({ order, exportReceipt, orderItems, requ
   };
 }
 
+// Sinh mã phiếu nhập hoàn trả duy nhất.
 async function taoMaPhieuNhapHoanTraKhongTrung() {
   let maPhieuNhap = taoMaPhieuNhapHoanTra();
   while (await PhieuNhapKho.findOne({ maphieu: maPhieuNhap }).select('_id').lean()) {
@@ -650,6 +672,7 @@ async function taoMaPhieuNhapHoanTraKhongTrung() {
   return maPhieuNhap;
 }
 
+// Tạo mới hoặc cập nhật phiếu nhập kho hoàn trả cho đơn hàng.
 async function taoHoacCapNhatPhieuNhapHoanTraChoDon({ order, exportReceipt, importDetails, tongTienNhap, actor = null, existingReceipt = null }) {
   const now = new Date();
   const receipt = existingReceipt || new PhieuNhapKho();
@@ -686,6 +709,7 @@ async function taoHoacCapNhatPhieuNhapHoanTraChoDon({ order, exportReceipt, impo
   return receipt;
 }
 
+// Chuyển dữ liệu kế hoạch sang danh sách hàng đã nhận.
 function taoDanhSachDaNhanTuKeHoach(plan = {}) {
   return (Array.isArray(plan.importDetails) ? plan.importDetails : []).map((item) => ({
     orderItemId: item?.orderitemid || null,
@@ -700,6 +724,7 @@ function taoDanhSachDaNhanTuKeHoach(plan = {}) {
   })).filter((item) => item.qty > 0);
 }
 
+// Tạo chi tiết phiếu nhập từ danh sách hàng đã nhận thực tế.
 function taoChiTietPhieuNhapTuHangDaNhan({ orderItems = [], receivedItems = [] } = {}) {
   const itemMap = new Map();
   for (const item of (orderItems || [])) {
@@ -747,6 +772,7 @@ function taoChiTietPhieuNhapTuHangDaNhan({ orderItems = [], receivedItems = [] }
   };
 }
 
+// Đồng bộ nhập kho hoàn trả và cập nhật số liệu hoàn hàng cho đơn.
 async function dongBoNhapKhoHoanTra({ id, payload = {}, actor = null }) {
   const orderId = String(id || '').trim();
   if (!mongoose.Types.ObjectId.isValid(orderId)) {
@@ -1004,6 +1030,7 @@ async function dongBoNhapKhoHoanTra({ id, payload = {}, actor = null }) {
   };
 }
 
+// Tạo phiếu nhập hoàn trả sau khi đơn đã hoàn tiền.
 async function taoPhieuNhapHoanTraSauHoanTien({ id, actor = null }) {
   const orderId = String(id || '').trim();
   if (!mongoose.Types.ObjectId.isValid(orderId)) {
@@ -1072,6 +1099,7 @@ async function taoPhieuNhapHoanTraSauHoanTien({ id, actor = null }) {
   };
 }
 
+// Xác nhận nhập kho cho phiếu nhập hoàn trả.
 async function xacNhanNhapKhoPhieuNhapHoanTra({ receiptId, actor = null }) {
   const rawReceiptId = String(receiptId || '').trim();
   if (!mongoose.Types.ObjectId.isValid(rawReceiptId)) {

@@ -1,9 +1,11 @@
 const { NO_SIZE_TYPES } = require('../../config/constants');
 
+// Kiểm tra loại sản phẩm có thuộc nhóm không dùng size hay không.
 function laLoaiKhongSize(loaisanpham) {
   return NO_SIZE_TYPES.includes(String(loaisanpham || '').toLowerCase());
 }
 
+// Xác định biến thể mục tiêu (chính hoặc biến thể màu) từ dữ liệu dòng nhập.
 function resolveVariant(productDoc, line) {
   const variantId = line.bientheid ? String(line.bientheid) : (line.bien_the_id ? String(line.bien_the_id) : '');
   let isMain = !variantId || variantId === 'main';
@@ -25,6 +27,7 @@ function resolveVariant(productDoc, line) {
   return { isMain, variant };
 }
 
+// Đọc tồn kho hiện tại theo biến thể/size được chỉ định.
 function readCurrentStock(productDoc, line, preResolved = null) {
   const hasSize = !laLoaiKhongSize(productDoc.loaisanpham);
   const resolved = preResolved || resolveVariant(productDoc, line);
@@ -49,6 +52,7 @@ function readCurrentStock(productDoc, line, preResolved = null) {
   return Number(variant?.soluong || 0);
 }
 
+// Áp dụng tăng/giảm tồn kho vào document sản phẩm và trả về trước/sau.
 function applyAdjustmentToProductDoc(productDoc, line, deltaQty) {
   const delta = Number(deltaQty || 0);
   if (!Number.isFinite(delta) || delta === 0) throw new Error('Số lượng điều chỉnh không hợp lệ');

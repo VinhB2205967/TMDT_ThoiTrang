@@ -1,15 +1,18 @@
 ﻿const { NO_SIZE_TYPES } = require('../../config/constants');
 
+// Chuẩn hóa đường dẫn ảnh để client luôn render được.
 function normalizeImage(path) {
   if (!path) return '/images/shopping.png';
   if (String(path).startsWith('/public')) return String(path).replace('/public', '');
   return path;
 }
 
+// Kiểm tra loại sản phẩm có thuộc nhóm không dùng size hay không.
 function laLoaiKhongSize(loaisanpham) {
   return NO_SIZE_TYPES.includes(String(loaisanpham || '').toLowerCase());
 }
 
+// Tính tổng tồn kho của sản phẩm (gồm bản chính và biến thể).
 function tinhTongTon(productdoc) {
   if (!productdoc) return 0;
 
@@ -38,7 +41,7 @@ function tinhTongTon(productdoc) {
   return tong;
 }
 
-// Lấy thông tin biến thể và tồn kho 
+// Lấy thông tin biến thể, giá hiển thị và tồn kho theo lựa chọn.
 function layBienTheVaTon(productdoc, bientheId, kichco) {
   const coSize = !laLoaiKhongSize(productdoc.loaisanpham);
   const laChinh = !bientheId || bientheId === 'main';

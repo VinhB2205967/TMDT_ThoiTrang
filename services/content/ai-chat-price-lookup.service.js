@@ -13,6 +13,7 @@ const GENERIC_PRODUCT_TOKENS = new Set([
   'kien', 'san', 'pham', 'thoi', 'trang'
 ]);
 
+// Chuẩn hóa chuỗi để so khớp không dấu và ổn định ký tự.
 function normalizeForCompare(input) {
   return String(input || '')
     .toLowerCase()
@@ -24,20 +25,24 @@ function normalizeForCompare(input) {
     .trim();
 }
 
+// Escape ký tự đặc biệt để dựng regex an toàn.
 function escapeRegex(text) {
   return String(text || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// Định dạng tiền VND cho câu trả lời chat.
 function formatMoney(value) {
   return `${Number(value || 0).toLocaleString('vi-VN')}\u0111`;
 }
 
+// Kiểm tra câu hỏi có thuộc intent hỏi giá hay không.
 function isPriceLookupQuestion(question) {
   const q = normalizeForCompare(question);
   if (!q) return false;
   return /\bgia\b|\bgia cua\b|\bgia ban\b|\bmuc gia\b|\bbao nhieu tien\b|\bla bao nhieu\b/.test(q);
 }
 
+// Tách từ khóa sản phẩm cụ thể từ câu hỏi hỏi giá.
 function extractSpecificProductLookupTerms(question) {
   const normalized = normalizeForCompare(question)
     .replace(/\bgia\s+cua\b/g, ' ')
@@ -57,12 +62,14 @@ function extractSpecificProductLookupTerms(question) {
   )).slice(0, 6);
 }
 
+// Xác định đây có phải truy vấn giá của sản phẩm cụ thể hay không.
 function isSpecificProductPriceLookup(question) {
   if (!isPriceLookupQuestion(question)) return false;
   const terms = extractSpecificProductLookupTerms(question);
   return terms.length >= 2 && terms.some((term) => term.length >= 4);
 }
 
+// Lấy giá hiện tại tốt nhất từ dữ liệu sản phẩm/biến thể.
 function getCurrentPriceFromRecord(item) {
   const row = item && typeof item === 'object' ? item : {};
   const candidates = [];
@@ -97,6 +104,7 @@ function getCurrentPriceFromRecord(item) {
   return Math.min(...candidates);
 }
 
+// Lấy map flash sale đang hiệu lực theo danh sách sản phẩm.
 async function getActiveFlashSalePriceMap(productIds) {
   const ids = Array.isArray(productIds)
     ? productIds.map((id) => String(id || '').trim()).filter(Boolean)
@@ -135,6 +143,7 @@ async function getActiveFlashSalePriceMap(productIds) {
   return map;
 }
 
+// Áp flash sale vào giá hiện tại để ra giá thấp nhất hợp lệ.
 function applyFlashSaleToCurrentPrice({ record, currentPrice, flashEntry }) {
   const basePrice = Number(record && record.gia || 0);
   const priceCandidates = [];
@@ -158,6 +167,7 @@ function applyFlashSaleToCurrentPrice({ record, currentPrice, flashEntry }) {
   return Math.min(...priceCandidates.filter((value) => Number.isFinite(value) && value > 0));
 }
 
+// Chấm điểm mức độ khớp giữa sản phẩm và câu hỏi người dùng.
 function scoreProductCandidateForQuestion(product, questionNorm, lookupTerms) {
   const nameNorm = normalizeForCompare(product && product.tensanpham);
   if (!nameNorm) {
@@ -189,6 +199,7 @@ function scoreProductCandidateForQuestion(product, questionNorm, lookupTerms) {
   };
 }
 
+// Chọn sản phẩm khớp nhất từ danh sách candidate.
 function pickBestMatchedProduct(question, products, lookupTerms) {
   const questionNorm = normalizeForCompare(question);
   const ranked = (Array.isArray(products) ? products : [])
@@ -233,6 +244,7 @@ function pickBestMatchedProduct(question, products, lookupTerms) {
   return null;
 }
 
+// Tìm nhanh sản phẩm được hỏi giá trực tiếp từ DB.
 async function findDirectPriceMatchFast(question) {
   const isSpecific = isSpecificProductPriceLookup(question);
   const lookupTerms = extractSpecificProductLookupTerms(question);
@@ -338,6 +350,7 @@ async function findDirectPriceMatchFast(question) {
   };
 }
 
+// Tìm sản phẩm hỏi giá trong context đã có sẵn ở phiên chat.
 function findDirectPriceMatchInContext(question, context) {
   const isSpecific = isSpecificProductPriceLookup(question);
   const lookupTerms = extractSpecificProductLookupTerms(question);
@@ -379,7 +392,8 @@ function findDirectPriceMatchInContext(question, context) {
     product: pickBestMatchedProduct(question, candidates, lookupTerms)
   };
 }
-// HÀM HỎI GIÁ SẢN PHẨM CỤ THỂ
+
+// Dựng câu trả lời khi đã tìm thấy đúng sản phẩm cần báo giá.
 function buildDirectPriceAnswer(product) {
   const item = product && typeof product === 'object' ? product : {};
   const name = String(item.tensanpham || item.name || 'San pham').trim();
@@ -402,6 +416,7 @@ function buildDirectPriceAnswer(product) {
   ].filter(Boolean).join('\n');
 }
 
+// Dựng câu trả lời fallback khi không tìm thấy sản phẩm cụ thể.
 function buildSpecificProductNotFoundAnswer(lookupTerms) {
   const keyword = Array.isArray(lookupTerms) ? lookupTerms.join(' ') : '';
   const params = new URLSearchParams();

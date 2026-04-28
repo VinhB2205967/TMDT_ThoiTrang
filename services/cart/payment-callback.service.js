@@ -74,7 +74,7 @@ function xacThucDuLieuDonMoMo({ payload, orderDoc }) {
 
   return { ok: true, amount: expectedAmount };
 }
-
+// Xử lý callback trả về từ MoMo sau khi khách hàng hoàn tất thanh toán trên cổng MoMo
 async function handleMoMoReturn({ query }) {
   const payload = query || {};
   const signatureCheck = kiemTraChuKyKetQuaMoMo(payload);
@@ -159,7 +159,7 @@ async function handleMoMoReturn({ query }) {
 
   return { redirect: `/orders/${idDon}`, flash: { type: 'info', message: 'Đang chờ xác nhận thanh toán MoMo...' } };
 }
-
+// Xử lý callback IPN 
 async function handleMoMoIpn({ body }) {
   const payload = body || {};
   const signatureCheck = kiemTraChuKyKetQuaMoMo(payload);

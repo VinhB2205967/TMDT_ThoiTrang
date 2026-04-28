@@ -69,7 +69,7 @@ async function buildSocketUser(auth) {
     name: user.hoten || user.email || 'Người dùng'
   };
 }
-
+// buil socket
 function setupChatSocket(io) {
   io.on('connection', async (socket) => {
     const auth = socket.handshake && socket.handshake.auth ? socket.handshake.auth : {};

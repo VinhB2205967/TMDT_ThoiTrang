@@ -24,7 +24,7 @@ function chuanHoaTuKhoa(tukhoa) {
   if (!k) return '';
   return k.slice(0, 100);
 }
-
+// tìm kiếm người dùng
 function taoDieuKienTuKhoaNguoiDung(tukhoa) {
   const keyword = String(tukhoa || '').trim();
   if (!keyword) return null;
@@ -41,7 +41,7 @@ function taoDieuKienTuKhoaNguoiDung(tukhoa) {
 
   return { $or: dieuKienHoac };
 }
-
+// Lọc người dùng dựa trên từ khóa tìm kiếm, có thể tìm theo email, họ tên, ID hoặc mã hiển thị
 function locNguoiDungTheoTuKhoa(users = [], tukhoa = '') {
   const keyword = String(tukhoa || '').trim().toLowerCase();
   if (!keyword) return users;

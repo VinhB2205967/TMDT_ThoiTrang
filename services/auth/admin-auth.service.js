@@ -9,7 +9,7 @@ function chuanHoaEmail(email) {
 function taoKetQua({ ok, status, code, message, user }) {
   return { ok, status, code, message, user };
 }
-
+// Xác thực đăng nhập Admin
 async function xacThucDangNhapAdmin({ req, email, password }) {
   const emaildangnhap = chuanHoaEmail(email);
   const matkhau = String(password || '');

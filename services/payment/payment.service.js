@@ -79,8 +79,8 @@ async function capNhatGiaoDichThanhToan({
   response,
   ghichu
 }) {
-  if (!donhangId) throw new Error('Thiáº¿u donhangId');
-  if (!phuongthuc) throw new Error('Thiáº¿u phuongthuc');
+  if (!donhangId) throw new Error('Thiếu donhangId');
+  if (!phuongthuc) throw new Error('Thiếu phuongthuc');
 
   const amount = Number(sotien || 0);
 
@@ -170,7 +170,7 @@ async function danhDauThatBaiTatCaPendingTheoDonHang({
   response,
   ghichu
 }) {
-  if (!donhangId) throw new Error('Thiáº¿u donhangId');
+  if (!donhangId) throw new Error('Thiếu donhangId');
 
   return Thanhtoan.updateMany(
     { donhang_id: donhangId, trangthai: { $in: PENDING_VALUES } },

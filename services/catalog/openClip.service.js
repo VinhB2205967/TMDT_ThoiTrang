@@ -4,6 +4,7 @@ const readline = require('readline');
 const { spawn } = require('child_process');
 const crypto = require('crypto');
 
+// Cấu hình runtime cho worker OpenCLIP và hành vi xếp hạng.
 const OPENCLIP_ENABLED = String(process.env.OPENCLIP_ENABLED || '1') !== '0';
 const OPENCLIP_PYTHON_BIN = String(process.env.OPENCLIP_PYTHON_BIN || 'python').trim() || 'python';
 const OPENCLIP_SCRIPT_PATH = String(
@@ -56,7 +57,7 @@ function toCandidates(products, limit) {
 
   const rows = [];
 
-  // Main images first so every product gets at least one chance to rank.
+  // Ưu tiên ảnh chính trước để mỗi sản phẩm đều có ít nhất một cơ hội được xếp hạng.
   for (const item of products) {
     const id = String(item && item.id ? item.id : '').trim();
     if (!id) continue;
@@ -68,7 +69,7 @@ function toCandidates(products, limit) {
     if (rows.length >= maxRows) return rows;
   }
 
-  // Variant images are bonus signals and should not crowd out product coverage.
+  // Ảnh biến thể chỉ là tín hiệu bổ sung, không để làm mất độ bao phủ sản phẩm.
   for (const item of products) {
     if (rows.length >= maxRows) break;
     const id = String(item && item.id ? item.id : '').trim();
@@ -87,6 +88,7 @@ function toCandidates(products, limit) {
 }
 
 function computeImageCacheKey(imagePath, products, topK, candidateLimit) {
+  // Gồm dấu vân tay ảnh + tham số xếp hạng + mẫu sản phẩm để tránh dùng lại cache cũ.
   try {
     const stat = fs.statSync(imagePath);
     const data = fs.readFileSync(imagePath);
@@ -109,7 +111,7 @@ function getCachedImageRank(cacheKey) {
     imageRankCache.delete(cacheKey);
     return null;
   }
-  // Refresh LRU position.
+  // Làm mới vị trí LRU.
   imageRankCache.delete(cacheKey);
   imageRankCache.set(cacheKey, record);
   return record.value || null;
@@ -126,7 +128,7 @@ function setCachedImageRank(cacheKey, value) {
     value
   });
 }
-
+// Gộp các kết quả trùng sản phẩm từ ảnh chính/ảnh biến thể, giữ điểm mạnh nhất cho từng nguồn.
 function aggregateScoresByPriority(products, rawMatches, topK) {
   const scoreById = new Map();
 
@@ -168,7 +170,7 @@ function aggregateScoresByPriority(products, rawMatches, topK) {
       const bestDiff = Number(b.openClipBestScore || Number.NEGATIVE_INFINITY) - Number(a.openClipBestScore || Number.NEGATIVE_INFINITY);
       if (Math.abs(bestDiff) > 0.0001) return bestDiff;
 
-      // If scores are effectively tied, prefer the product whose main image matches better.
+      // Nếu điểm gần như bằng nhau, ưu tiên sản phẩm có ảnh chính khớp tốt hơn.
       const mainDiff = Number(b.openClipMainScore || Number.NEGATIVE_INFINITY) - Number(a.openClipMainScore || Number.NEGATIVE_INFINITY);
       if (Math.abs(mainDiff) > 0.0001) return mainDiff;
 
@@ -178,6 +180,7 @@ function aggregateScoresByPriority(products, rawMatches, topK) {
 }
 
 function getPythonCandidates() {
+  // Thứ tự candidate rất quan trọng: ưu tiên binary đã chạy được, sau đó tới cấu hình, rồi fallback theo nền tảng.
   const bins = [];
 
   if (workingPythonBin) bins.push(workingPythonBin);
@@ -202,6 +205,7 @@ function getPythonCandidates() {
 }
 
 function buildWorkerError(message, state, rawPayload) {
+  // Giữ stderr gọn và loại bỏ warning nhiễu đã biết để log vận hành dễ đọc hơn.
   const stderr = String(state && state.stderr ? state.stderr : '')
     .split(/\r?\n/)
     .map((line) => String(line || '').trim())
@@ -276,6 +280,7 @@ function createWorkerState(pythonBin) {
   };
 
   state.stdout.on('line', (line) => {
+    // Giao thức worker: mỗi dòng stdout là một JSON message độc lập.
     let parsed;
     try {
       parsed = JSON.parse(String(line || '').trim());
@@ -377,6 +382,7 @@ function sendWorkerRequest(state, payload, timeoutMs = OPENCLIP_TIMEOUT_MS) {
 }
 
 async function ensureWorker(pythonBin) {
+  // Tái sử dụng 1 process worker đang chạy cho nhiều request để tránh chi phí reload model.
   bindCleanupHandlers();
 
   if (activeWorker && activeWorker.pythonBin === pythonBin && !activeWorker.exited) {
@@ -430,6 +436,7 @@ async function runPythonClassifyWithBin({ pythonBin, imageQueryPath, labels }) {
 }
 
 async function runPythonRank({ query, imageQueryPath, candidates, topK = OPENCLIP_TOP_K }) {
+  // Chỉ retry qua các python candidate khi gặp lỗi có khả năng phục hồi (startup/import/runtime).
   const candidatesBin = getPythonCandidates();
   let lastError = null;
 
@@ -449,7 +456,7 @@ async function runPythonRank({ query, imageQueryPath, candidates, topK = OPENCLI
 
   throw lastError || new Error('OPENCLIP_PYTHON_NOT_AVAILABLE');
 }
-
+// Hàm này chỉ dùng cho classify, không retry nếu lỗi không phải do môi trường Python để tránh mất dữ liệu phân loại quan trọng.
 async function runPythonClassify({ imageQueryPath, labels }) {
   const candidatesBin = getPythonCandidates();
   let lastError = null;
@@ -528,6 +535,7 @@ async function rankProductsByImage({ imagePath, products, topK = OPENCLIP_TOP_K,
   }
 
   const workerTopK = Math.min(
+    // Yêu cầu worker trả về tập rộng hơn, sau đó mới chốt topK sau khi gộp điểm theo cấp sản phẩm.
     Math.max(1, candidates.length),
     Math.max(80, Number(topK || 1) * 10)
   );

@@ -224,7 +224,7 @@ async function layDuLieuHoSo({ userId, fallbackUser } = {}) {
     canChangePassword: loaiTaiKhoan !== 'google'
   };
 }
-
+// Cập nhật hồ sơ
 async function capNhatHoSo({ userId, payload, fileUpload, currentAvatar } = {}) {
   const uid = chuanId(userId);
   if (!uid) throw taoLoi('Vui lòng đăng nhập lại', 'AUTH_REQUIRED');

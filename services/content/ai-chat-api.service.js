@@ -69,6 +69,11 @@ const BRAND_QUERY_NOISE_TERMS = new Set([
   'so', 'mot', 'vai', 'nhieu', 'it', 'cac', 'nhung', 'thuong', 'hieu', 'brand'
 ]);
 
+const FLASH_SALE_QUERY_NOISE_TERMS = new Set([
+  'flash', 'sale', 'flase', 'san', 'pham', 'sp', 'dang', 'hien', 'tai', 'co', 'khong',
+  'chuong', 'trinh', 'khuyen', 'mai', 'giam', 'gia', 'bao', 'nhieu', 'xem', 'tim', 'cho', 'toi', 'minh'
+]);
+
 const SPECIFIC_PRODUCT_QUERY_STOPWORDS = new Set([
   'tim', 'xem', 'cho', 'toi', 'minh', 'em', 'anh', 'chi', 'goi', 'y',
   'de', 'xuat', 'mua', 'muon', 'lay', 'can', 'shop', 'san', 'pham',
@@ -1286,7 +1291,7 @@ function selectOutfitProducts({ baseProduct, candidates, rolePlan, question, req
 
   return selected;
 }
-
+// Oufit nhanh
 function buildOutfitSuggestionAnswer({ question, baseProduct, selectedItems, occasionMatch, lookbook }) {
   const extras = Array.isArray(selectedItems) ? selectedItems.filter((entry) => entry && entry.role !== 'base') : [];
   if (!baseProduct || extras.length === 0) return '';
@@ -1783,7 +1788,7 @@ async function getQuickProductsByPriceConstraint(question, priceConstraint) {
   });
   return filtered.slice(0, 8);
 }
-
+// Giá nhanh
 function buildQuickPriceListingAnswer(products, priceConstraint, extraFilters = {}) {
   const items = Array.isArray(products) ? products.slice(0, 6) : [];
   if (!items.length) return '';
@@ -1993,7 +1998,7 @@ function productBelongsToAnyBrand(product, brandIds) {
   if (values.length === 0) return false;
   return values.some((value) => ids.includes(value));
 }
-
+// Yêu thích nhanh
 function buildQuickFavoritesAnswer({ totalFavorites, selectedProducts, brandMatch }) {
   const items = Array.isArray(selectedProducts) ? selectedProducts.slice(0, 6) : [];
   const brandLabel = brandMatch && brandMatch.label ? String(brandMatch.label).trim() : '';
@@ -2041,7 +2046,7 @@ function isBrandListingQuestion(question) {
 
   return true;
 }
-
+// Thương hiệu nhanh
 async function getQuickBrandListingPayload(question) {
   if (!isBrandListingQuestion(question)) return null;
 
@@ -2101,7 +2106,202 @@ async function getQuickBrandListingPayload(question) {
     contextMeta: buildQuickContextMeta()
   };
 }
+// Flash sale nhanh
+function isFlashSaleQuestion(question) {
+  const q = normalizeForCompare(question);
+  if (!q) return false;
 
+  if (/\bvoucher\b|\bma giam\b|\bcoupon\b/.test(q)) return false;
+  if (/\bflashsale\b|\bflash\s*sale\b|\bflase\b/.test(q)) return true;
+
+  const hasSaleToken = /\bsale\b/.test(q);
+  const hasProductToken = /\bsan pham\b|\bsp\b|\bmat hang\b|\bhang\b/.test(q);
+  return hasSaleToken && hasProductToken;
+}
+
+function formatDateTimeVi(value) {
+  if (!value) return '';
+  try {
+    return new Date(value).toLocaleString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch {
+    return '';
+  }
+}
+
+// Flash sale nhanh
+async function getQuickFlashSalePayload(question) {
+  if (!isFlashSaleQuestion(question)) return null;
+
+  const now = new Date();
+  const activeSale = await FlashSale.findOne({
+    hienthi: true,
+    batdau: { $lte: now },
+    ketthuc: { $gte: now }
+  })
+    .select('ten batdau ketthuc phantramgiamgia sanpham')
+    .sort({ batdau: -1 })
+    .lean();
+
+  if (!activeSale) {
+    return {
+      answer: 'Hiện chưa có chương trình Flash Sale đang diễn ra. Bạn có thể xem sản phẩm đang bán tại đây: /products',
+      suggestedProducts: [],
+      suggestedActions: [
+        { label: 'Xem sản phẩm', url: '/products', kind: 'primary' },
+        { label: 'Mở trang chủ', url: '/', kind: 'link' }
+      ],
+      contextMeta: buildQuickContextMeta({ products: 0, hasFlashSale: false })
+    };
+  }
+
+  const saleItems = Array.isArray(activeSale.sanpham) ? activeSale.sanpham : [];
+  const productIds = Array.from(new Set(
+    saleItems
+      .map((entry) => String(entry && entry.sanpham_id || '').trim())
+      .filter(Boolean)
+  ));
+
+  if (productIds.length === 0) {
+    return {
+      answer: `Hiện chương trình "${String(activeSale.ten || 'Flash Sale').trim() || 'Flash Sale'}" đang diễn ra nhưng chưa có sản phẩm khả dụng để hiển thị.`,
+      suggestedProducts: [],
+      suggestedActions: [
+        { label: 'Mở trang chủ', url: '/', kind: 'primary' },
+        { label: 'Xem sản phẩm', url: '/products', kind: 'link' }
+      ],
+      contextMeta: buildQuickContextMeta({ products: 0, hasFlashSale: true })
+    };
+  }
+
+  const rows = await Sanpham.find({
+    _id: { $in: productIds },
+    daxoa: { $ne: true },
+    trangthai: { $in: ['active', 'dangban'] }
+  })
+    .select('_id tensanpham hinhanh gia phantramgiamgia soluongton gioitinh loaisanpham bienthe ngaycapnhat ngaytao')
+    .lean({ virtuals: true });
+
+  const rowMap = new Map((rows || []).map((item) => [String(item && item._id || ''), item]));
+  const mappedProducts = saleItems
+    .map((entry) => {
+      const product = rowMap.get(String(entry && entry.sanpham_id || '').trim());
+      if (!product) return null;
+
+      const basePrice = Number(product && product.gia || 0);
+      const currentPrice = getCurrentPriceFromRecord(product);
+      const salePercent = Number(activeSale && activeSale.phantramgiamgia || 0);
+      const saleByPercent = basePrice > 0 && salePercent > 0
+        ? Math.round(basePrice * (1 - salePercent / 100))
+        : 0;
+      const fixedPrice = Number(entry && entry.giagiam || 0);
+      const saleByFixed = fixedPrice > 0 && (basePrice <= 0 || fixedPrice <= basePrice) ? fixedPrice : 0;
+      const candidates = [currentPrice, saleByPercent, saleByFixed].filter((value) => Number.isFinite(value) && value > 0);
+      const finalPrice = candidates.length > 0 ? Math.min(...candidates) : 0;
+
+      return {
+        id: String(product && product._id || ''),
+        tensanpham: String(product && product.tensanpham || 'Sản phẩm'),
+        imageUrl: String(product && product.hinhanh || '/images/shopping.png'),
+        url: product && product._id ? `/products/${product._id}` : '',
+        gia: basePrice > 0 ? basePrice : finalPrice,
+        giaSauGiam: finalPrice > 0 ? finalPrice : basePrice,
+        gioitinh: String(product && product.gioitinh || ''),
+        loaisanpham: String(product && product.loaisanpham || '')
+      };
+    })
+    .filter(Boolean);
+
+  if (mappedProducts.length === 0) {
+    return {
+      answer: `Hiện chương trình "${String(activeSale.ten || 'Flash Sale').trim() || 'Flash Sale'}" đang diễn ra nhưng chưa có sản phẩm phù hợp để hiển thị.`,
+      suggestedProducts: [],
+      suggestedActions: [
+        { label: 'Mở trang chủ', url: '/', kind: 'primary' },
+        { label: 'Xem sản phẩm', url: '/products', kind: 'link' }
+      ],
+      contextMeta: buildQuickContextMeta({ products: 0, hasFlashSale: true })
+    };
+  }
+
+  const typeMatch = inferProductType(question);
+  const genderMatch = inferGender(question);
+
+  let selectedProducts = mappedProducts.slice();
+  if (typeMatch) {
+    const typed = selectedProducts.filter((item) => productMatchesRequestedType(item, typeMatch.value));
+    if (typed.length > 0) selectedProducts = typed;
+  }
+
+  if (genderMatch) {
+    const gendered = selectedProducts.filter((item) => productMatchesRequestedGender(item, genderMatch.value));
+    if (gendered.length > 0) selectedProducts = gendered;
+  }
+
+  const searchTerms = extractQuickSearchTerms(question).filter((term) => !FLASH_SALE_QUERY_NOISE_TERMS.has(term));
+  if (searchTerms.length > 0) {
+    const matched = selectedProducts.filter((item) => hasAnyQuickSearchTerm(
+      `${item.tensanpham} ${item.loaisanpham} ${item.gioitinh}`,
+      searchTerms
+    ));
+    if (matched.length > 0) selectedProducts = matched;
+  }
+
+  const finalSelection = (selectedProducts.length > 0 ? selectedProducts : mappedProducts).slice(0, 8);
+  const saleName = String(activeSale && activeSale.ten || 'Flash Sale').trim() || 'Flash Sale';
+  const salePercent = Number(activeSale && activeSale.phantramgiamgia || 0);
+  const startText = formatDateTimeVi(activeSale && activeSale.batdau);
+  const endText = formatDateTimeVi(activeSale && activeSale.ketthuc);
+
+  const lines = [
+    `Hiện tại có chương trình "${saleName}"${salePercent > 0 ? ` giảm ${salePercent}%` : ''} cho một số sản phẩm.`
+  ];
+  if (startText || endText) {
+    lines.push(`Thời gian: ${startText || 'không rõ'} - ${endText || 'không rõ'}.`);
+  }
+  if (finalSelection.length > 0) {
+    lines.push('Mình chọn nhanh một số sản phẩm nổi bật:');
+    finalSelection.slice(0, 5).forEach((item, index) => {
+      const finalPrice = Number(item && (item.giaSauGiam || item.gia) || 0);
+      const priceText = finalPrice > 0 ? formatMoney(finalPrice) : 'Liên hệ';
+      const url = String(item && item.url || '').trim();
+      lines.push(`${index + 1}. ${item && item.tensanpham ? item.tensanpham : 'Sản phẩm'}: ${priceText}${url ? ` (tại đây: ${url})` : ''}`);
+    });
+  }
+  lines.push('Bạn có thể xem thêm ở trang chủ hoặc danh sách sản phẩm: /products');
+
+  const suggestedActions = [];
+  pushUniqueAction(suggestedActions, { label: 'Mở trang chủ', url: '/', kind: 'primary' });
+  pushUniqueAction(suggestedActions, { label: 'Xem sản phẩm', url: '/products', kind: 'link' });
+  if (typeMatch || genderMatch) {
+    pushUniqueAction(suggestedActions, {
+      label: 'Xem sản phẩm phù hợp',
+      url: buildProductsUrl({
+        ...(typeMatch ? { loaisanpham: typeMatch.value } : {}),
+        ...(genderMatch ? { gioitinh: genderMatch.value } : {})
+      }),
+      kind: 'filter'
+    });
+  }
+  if (finalSelection[0] && finalSelection[0].url) {
+    pushUniqueAction(suggestedActions, { label: 'Sản phẩm nổi bật', url: finalSelection[0].url, kind: 'link' });
+  }
+
+  return {
+    answer: lines.join('\n'),
+    suggestedProducts: finalSelection.map(toSuggestedCard),
+    suggestedActions: suggestedActions.slice(0, 5),
+    contextMeta: buildQuickContextMeta({
+      products: finalSelection.length,
+      hasFlashSale: true
+    })
+  };
+}
+// Yêu thích nhanh
 async function getQuickFavoritesPayload({ userId, question }) {
   if (!isFavoritesQuestion(question)) return null;
 
@@ -2224,7 +2424,7 @@ async function getQuickFavoritesPayload({ userId, question }) {
     })
   };
 }
-
+// Lọc nhanh
 function buildQuickFacetListingAnswer({
   products,
   typeMatch,
@@ -2500,7 +2700,7 @@ async function getQuickLookbookProducts(question) {
     products
   };
 }
-
+// LOOKBOOK VÀ SẢN PHẨM TRONG LOOKBOOK
 function buildQuickLookbookProductsAnswer(payload) {
   const lookbook = payload && payload.lookbook ? payload.lookbook : null;
   const products = Array.isArray(payload && payload.products) ? payload.products : [];
@@ -3451,7 +3651,7 @@ module.exports.sendMessage = async (req, res) => {
         }
       });
     }
-
+// Kết quả tìm nhanh
     const fastDirectPriceLookup = await findDirectPriceMatchFast(question);
     if (fastDirectPriceLookup.isSpecific) {
       if (fastDirectPriceLookup.product) {
@@ -3488,6 +3688,21 @@ module.exports.sendMessage = async (req, res) => {
       }
     }
 
+    const quickFlashSale = await getQuickFlashSalePayload(question);
+    if (quickFlashSale && quickFlashSale.answer) {
+      return res.json({
+        success: true,
+        data: {
+          answer: quickFlashSale.answer,
+          model: 'db-fast-path',
+          provider: 'system',
+          suggestedProducts: Array.isArray(quickFlashSale.suggestedProducts) ? quickFlashSale.suggestedProducts : [],
+          suggestedActions: Array.isArray(quickFlashSale.suggestedActions) ? quickFlashSale.suggestedActions : [],
+          contextMeta: quickFlashSale.contextMeta || buildQuickContextMeta()
+        }
+      });
+    }
+
     const quickFavorites = await getQuickFavoritesPayload({
       userId: req.user && req.user._id ? req.user._id : null,
       question
@@ -3505,7 +3720,7 @@ module.exports.sendMessage = async (req, res) => {
         }
       });
     }
-
+//Thương hiệu nhanh
     const quickBrands = await getQuickBrandListingPayload(question);
     if (quickBrands && quickBrands.answer) {
       return res.json({
@@ -3520,7 +3735,7 @@ module.exports.sendMessage = async (req, res) => {
         }
       });
     }
-
+//Gợi ý phối đồ nhanh
     if (isOutfitSuggestionQuestion(question, pageCurrentProduct)) {
       const quickOutfit = await getQuickOutfitSuggestionPayload({
         question,
@@ -3545,7 +3760,7 @@ module.exports.sendMessage = async (req, res) => {
         });
       }
     }
-
+//
     const quickKnowledge = await getQuickKnowledgePayload(question);
     if (quickKnowledge && quickKnowledge.answer) {
       return res.json({

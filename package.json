@@ -15,6 +15,7 @@
     "seed:users:30": "node scripts/seed-users-30.js",
     "seed:auth:demo": "node scripts/seed-auth-demo-users.js",
     "seed:fake:catalog": "node scripts/seed-fake-catalog-data.js",
+    "seed:revenue:q1": "node scripts/seed-fake-revenue-q1.js --reset",
     "db:cleanup:keep-active-users": "node scripts/cleanup-db-keep-active-users.js",
     "openclip:warmup": "python scripts/openclip_warmup.py",
     "postinstall": "patch-package",

@@ -10,6 +10,7 @@ const { normalizeItems, normalizeBienTheId, tinhTongTienNhap } = require('../../
 const { chuanIdNhanVienHienThi } = require('../../helpers/user-display-id');
 const paginationHelper = require('../../helpers/pagination');
 const { xacNhanNhapKhoPhieuNhapHoanTra } = require('../order/order-return.service.js');
+const exportsService = require('./admin-exports.service.js');
 
 async function layDanhSachDanhMucNhapKho() {
   const tree = await getCategoryTree({ type: 'category', isActive: true });
@@ -56,6 +57,18 @@ function taoMaPhieuNhap() {
   const s = String(d.getSeconds()).padStart(2, '0');
   const rand = Math.floor(Math.random() * 9000 + 1000);
   return `NK${y}${m}${day}-${h}${min}${s}-${rand}`;
+}
+
+function taoMaDonHangNoiBoTuPhieuNhap() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  const s = String(d.getSeconds()).padStart(2, '0');
+  const rand = Math.floor(Math.random() * 9000 + 1000);
+  return `DHNK${y}${m}${day}-${h}${min}${s}-${rand}`;
 }
 
 function layDuongDanImports({ adminPrefix = '/admin', subPath = '' } = {}) {
@@ -169,6 +182,22 @@ async function findReceiptByIdOrCode(idOrCode) {
     if (docById) return docById;
   }
   return PhieuNhapKho.findOne({ maphieu: raw });
+}
+
+function chuanHoaThongTinPhieuXuatLienKet(receipt) {
+  if (!receipt || typeof receipt !== 'object') return receipt;
+
+  const linkedExport = receipt.phieuxuat_id && typeof receipt.phieuxuat_id === 'object'
+    ? receipt.phieuxuat_id
+    : null;
+  const linkedExportId = linkedExport?._id || receipt.phieuxuat_id || null;
+  const linkedExportCode = String(receipt.maphieuxuat || linkedExport?.maphieu || '').trim();
+
+  return {
+    ...receipt,
+    phieuxuat_id: linkedExportId,
+    maphieuxuat: linkedExportCode
+  };
 }
 
 function applyDeltaToProductDoc(productDoc, item, deltaQty) {
@@ -486,32 +515,41 @@ async function tachDongPhieuNhapHoanTheoFifo(receipt) {
 
 async function getDanhSachData(query = {}) {
   const supplier = String(query.supplier || '').trim();
+  const exportCode = String(query.exportCode || query.maphieuxuat || '').trim();
   const limitRaw = parseInt(query.limit, 10);
   const limit = Number.isFinite(limitRaw) ? Math.min(100, Math.max(5, limitRaw)) : 10;
 
-  const filter = {};
+  const andFilter = [];
   if (supplier) {
-    filter.$or = [
-      { nhacungcap: { $regex: supplier, $options: 'i' } },
-      { nha_cung_cap: { $regex: supplier, $options: 'i' } },
-      { supplier: { $regex: supplier, $options: 'i' } }
-    ];
+    andFilter.push({
+      $or: [
+        { nhacungcap: { $regex: supplier, $options: 'i' } },
+        { nha_cung_cap: { $regex: supplier, $options: 'i' } },
+        { supplier: { $regex: supplier, $options: 'i' } }
+      ]
+    });
+  }
+  if (exportCode) {
+    andFilter.push({ maphieuxuat: { $regex: exportCode, $options: 'i' } });
   }
 
+  const filter = andFilter.length ? { $and: andFilter } : {};
   const totalReceipts = await PhieuNhapKho.countDocuments(filter);
   let pagination = { currentPage: 1, limit };
   pagination = paginationHelper(pagination, query, totalReceipts);
 
-  const receipts = await PhieuNhapKho.find(filter)
+  const receiptsRaw = await PhieuNhapKho.find(filter)
     .sort({ ngaytao: -1, ngay_tao: -1, created_at: -1 })
     .skip(pagination.skip)
     .limit(pagination.limit)
+    .populate({ path: 'phieuxuat_id', select: 'maphieu' })
     .lean();
+  const receipts = (receiptsRaw || []).map(chuanHoaThongTinPhieuXuatLienKet);
 
   return {
-    titlePage: 'Phiếu nhập kho',
+    titlePage: 'Phi\u1ebfu nh\u1eadp kho',
     receipts,
-    filters: { supplier, limit },
+    filters: { supplier, exportCode, limit },
     pagination
   };
 }
@@ -581,8 +619,14 @@ async function getChiTietData(id) {
   if (receiptDoc && receiptDoc.nguoitao) {
     await receiptDoc.populate({ path: 'nguoitao', select: 'hoten email avatar chukyso ngaytao' });
   }
+  if (receiptDoc && receiptDoc.phieuxuat_id) {
+    await receiptDoc.populate({ path: 'phieuxuat_id', select: 'maphieu donhang_id' });
+  }
+  if (receiptDoc && receiptDoc.donhang_id) {
+    await receiptDoc.populate({ path: 'donhang_id', select: 'madonhang' });
+  }
 
-  let receipt = receiptDoc ? receiptDoc.toObject() : null;
+  let receipt = receiptDoc ? chuanHoaThongTinPhieuXuatLienKet(receiptDoc.toObject()) : null;
   if (!receipt) return { ok: false, message: 'Không tìm thấy phiếu nhập' };
 
   if (false && String(receipt.loaiphieu || '') === 'return') {
@@ -861,6 +905,106 @@ async function xuatKhoPhieuNhap({ id, adminUser, user }) {
   };
 }
 
+async function taoPhieuXuatTuPhieuNhap({ id, body = {}, adminUser, user }) {
+  const receiptDoc = await findReceiptByIdOrCode(id);
+  if (!receiptDoc) return { ok: false, message: 'Khong tim thay phieu nhap' };
+
+  if (!receiptDoc.daxuatkho) {
+    return {
+      ok: false,
+      message: 'Phieu nhap chua duoc xac nhan nhap kho. Khong the xuat.'
+    };
+  }
+
+  if (String(receiptDoc.loaiphieu || '') === 'return') {
+    return {
+      ok: false,
+      message: 'Khong ho tro tao phieu xuat tu phieu nhap hoan tra.'
+    };
+  }
+
+  if (receiptDoc.phieuxuat_id || String(receiptDoc.maphieuxuat || '').trim()) {
+    return {
+      ok: false,
+      message: 'Phieu nhap nay da lien ket voi phieu xuat truoc do.',
+      receiptId: receiptDoc._id
+    };
+  }
+
+  const noiNhan = String(body.noinhan || body.noi_nhan || '').trim();
+  if (!noiNhan) {
+    return {
+      ok: false,
+      message: 'Vui long nhap noi nhan.',
+      receiptId: receiptDoc._id
+    };
+  }
+
+  const sourceCode = String(receiptDoc.maphieu || receiptDoc.ma_phieu || receiptDoc.code || '').trim();
+  const exportOrderCode = String(body.madonhang || '').trim() || taoMaDonHangNoiBoTuPhieuNhap();
+  const lyDo = String(body.lydo || '').trim() || `Xuat toan bo tu phieu nhap ${sourceCode}`;
+  const ngayXuat = body.ngayxuat || new Date();
+
+  const sourceItems = normalizeItems(receiptDoc.chitiet || receiptDoc.chi_tiet || receiptDoc.items);
+  if (!sourceItems.length) {
+    return { ok: false, message: 'Phieu nhap khong co dong san pham de xuat.', receiptId: receiptDoc._id };
+  }
+
+  const exportItems = sourceItems
+    .map((item) => ({
+      sanphamid: String(item?.sanphamid || item?.san_pham_id || '').trim(),
+      tensanpham: String(item?.tensanpham || item?.ten_san_pham || '').trim(),
+      bientheid: normalizeBienTheId(item?.bientheid || item?.bien_the_id || 'main'),
+      kichco: String(item?.kichco || item?.kich_co || '').trim(),
+      mausac: String(item?.mausac || item?.mau_sac || '').trim(),
+      soluong: Number(item?.soluong ?? item?.so_luong ?? 0),
+      hinhanh: String(item?.hinhanh || item?.image || '').trim(),
+      ghichudong: `Xuat tu phieu nhap ${sourceCode}`
+    }))
+    .filter((item) => mongoose.Types.ObjectId.isValid(String(item.sanphamid || '')) && Number(item.soluong || 0) > 0);
+
+  if (!exportItems.length) {
+    return { ok: false, message: 'Khong co dong hop le de tao phieu xuat.', receiptId: receiptDoc._id };
+  }
+
+  const createResult = await exportsService.taoPhieuXuat({
+    body: {
+      maphieu: String(body.maphieu || '').trim(),
+      madonhang: exportOrderCode,
+      ngayxuat: ngayXuat,
+      noinhan: noiNhan,
+      lydo: lyDo,
+      chitiet: exportItems
+    },
+    adminUser,
+    user
+  });
+
+  if (!createResult.ok) {
+    return {
+      ok: false,
+      message: createResult.message || 'Khong the tao phieu xuat tu phieu nhap.',
+      receiptId: receiptDoc._id
+    };
+  }
+
+  const exportReceipt = createResult.data;
+  receiptDoc.phieuxuat_id = exportReceipt._id;
+  receiptDoc.maphieuxuat = String(exportReceipt.maphieu || '').trim();
+  if (!String(receiptDoc.madonhang || '').trim()) {
+    receiptDoc.madonhang = String(exportReceipt.madonhang || exportOrderCode).trim();
+  }
+  receiptDoc.ngaycapnhat = new Date();
+  await receiptDoc.save();
+
+  return {
+    ok: true,
+    message: `Da tao phieu xuat ${String(exportReceipt.maphieu || '')} tu phieu nhap ${sourceCode}.`,
+    receiptId: receiptDoc._id,
+    exportId: exportReceipt._id
+  };
+}
+
 module.exports = {
   layDuongDanImports,
   xacDinhLoaiFlashKetQua,
@@ -871,5 +1015,6 @@ module.exports = {
   getChinhSuaData,
   chinhSuaPhieuNhap,
   xoaPhieuNhap,
-  xuatKhoPhieuNhap
+  xuatKhoPhieuNhap,
+  taoPhieuXuatTuPhieuNhap
 };

@@ -22,6 +22,16 @@ const POST_DELIVERY_FLOW_STATUSES = [
   'refunded'
 ];
 
+// Bao gồm cả các trạng thái đã xác nhận/xuất kho để doanh thu dashboard
+// phản ánh ngay sau khi đơn được xác nhận tạo phiếu xuất.
+// NOTE: Default revenue now excludes pre-delivery states such as
+// daxacnhan, dangchuanbi, and danggiao.
+const REVENUE_RECOGNIZED_STATUSES = [
+  ...POST_DELIVERY_FLOW_STATUSES
+];
+
+const MANUAL_EXPORT_STATUS = 'manual_export';
+
 const FINALIZED_RETURN_STATUSES = new Set([
   'returned',
   'returned_full',
@@ -29,6 +39,7 @@ const FINALIZED_RETURN_STATUSES = new Set([
   'refunded'
 ]);
 
+// Parse số nguyên trong khoảng cho phép.
 function parseNumber(value, min, max) {
   const n = parseInt(value, 10);
   if (!Number.isFinite(n)) return null;
@@ -37,6 +48,7 @@ function parseNumber(value, min, max) {
   return n;
 }
 
+// Parse chuỗi ngày, trả null nếu không hợp lệ.
 function parseDate(value) {
   const raw = String(value || '').trim();
   if (!raw) return null;
@@ -45,18 +57,21 @@ function parseDate(value) {
   return d;
 }
 
+// Lấy mốc đầu ngày.
 function startOfDay(date) {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
   return d;
 }
 
+// Lấy mốc cuối ngày.
 function endOfDay(date) {
   const d = new Date(date);
   d.setHours(23, 59, 59, 999);
   return d;
 }
 
+// Chuẩn hóa trạng thái lọc báo cáo.
 function normalizeStatus(raw) {
   const v = String(raw || '').trim();
   if (!v) return DEFAULT_STATUS;
@@ -64,6 +79,7 @@ function normalizeStatus(raw) {
   return v;
 }
 
+// Dựng khoảng thời gian báo cáo từ query.
 function buildDateRange(query) {
   const now = new Date();
   const fromDate = parseDate(query.fromDate);
@@ -103,6 +119,7 @@ function buildDateRange(query) {
   };
 }
 
+// Dựng khoảng thời gian kỳ trước để so sánh tăng trưởng.
 function buildPreviousRange(range) {
   if (!range || !range.from || !range.to) return null;
 
@@ -132,10 +149,12 @@ function buildPreviousRange(range) {
   };
 }
 
+// Padding 2 chữ số.
 function pad2(value) {
   return String(value).padStart(2, '0');
 }
 
+// Format nhãn thời gian theo cấp ngày/tháng/năm.
 function formatDateLabel(date, groupBy) {
   const y = date.getFullYear();
   const m = pad2(date.getMonth() + 1);
@@ -145,6 +164,7 @@ function formatDateLabel(date, groupBy) {
   return `${y}-${m}`;
 }
 
+// Xác định cấp nhóm dữ liệu biểu đồ theo khoảng thời gian.
 function resolveGroupBy(raw, range) {
   const value = String(raw || '').trim().toLowerCase();
   if (['day', 'month', 'year'].includes(value)) return value;
@@ -156,6 +176,7 @@ function resolveGroupBy(raw, range) {
   return 'year';
 }
 
+// Tạo danh sách nhãn thời gian liên tục cho biểu đồ.
 function buildTimeLabels(from, to, groupBy) {
   const labels = [];
   const cursor = new Date(from.getFullYear(), from.getMonth(), from.getDate());
@@ -175,6 +196,7 @@ function buildTimeLabels(from, to, groupBy) {
   return labels;
 }
 
+// Map trạng thái đơn hàng sang class badge hiển thị.
 function buildStatusClass(status) {
   switch (status) {
     case 'choxacnhan':
@@ -206,11 +228,14 @@ function buildStatusClass(status) {
       return 'bg-danger';
     case 'hoanhang':
       return 'bg-secondary';
+    case MANUAL_EXPORT_STATUS:
+      return 'bg-info text-dark';
     default:
       return 'bg-secondary';
   }
 }
 
+// Tạo điều kiện match đơn hàng cho báo cáo.
 function buildOrderMatch(filters, range, options = {}) {
   const prefix = String(options.prefix || '');
   const path = (field) => `${prefix}${field}`;
@@ -228,8 +253,8 @@ function buildOrderMatch(filters, range, options = {}) {
       match[path('trangthai')] = filters.status;
     }
   } else {
-    // Mặc định báo cáo doanh thu ròng theo các đơn đã hoàn tất luồng giao hàng.
-    match[path('trangthai')] = { $in: POST_DELIVERY_FLOW_STATUSES };
+    // Mặc định báo cáo doanh thu theo các đơn đã giao trở đi.
+    match[path('trangthai')] = { $in: REVENUE_RECOGNIZED_STATUSES };
   }
 
   if (range && range.from && range.to) {
@@ -239,6 +264,169 @@ function buildOrderMatch(filters, range, options = {}) {
   return match;
 }
 
+function toObjectIdString(value) {
+  if (!value) return '';
+  if (typeof value === 'string') return value.trim();
+  if (value && typeof value === 'object' && value._id) return String(value._id).trim();
+  return String(value).trim();
+}
+
+function isValidObjectIdString(value) {
+  const v = String(value || '').trim();
+  return /^[a-fA-F0-9]{24}$/.test(v);
+}
+
+function getManualExportDate(receipt) {
+  if (receipt?.ngayxuat) return new Date(receipt.ngayxuat);
+  if (receipt?.ngaytao) return new Date(receipt.ngaytao);
+  return null;
+}
+
+function normalizeManualLineMetrics(line) {
+  const soldQty = Math.max(0, Number(line?.soluong || 0));
+  const returnedQty = Math.max(0, Number(line?.soluonghoan || 0));
+  const qty = Math.max(0, soldQty - returnedQty);
+
+  const soldRevenue = Math.max(0, Number(line?.doanhthu || 0));
+  const returnedRevenue = Math.max(0, Number(line?.doanhthuhoan || 0));
+  const revenue = Math.max(0, soldRevenue - returnedRevenue);
+
+  const soldCost = Math.max(0, Number(line?.giavon || 0));
+  const returnedCost = Math.max(0, Number(line?.giavonhoan || 0));
+  const cost = Math.max(0, soldCost - returnedCost);
+
+  return { qty, revenue, cost };
+}
+
+function createEmptyManualExportMetrics() {
+  return {
+    totalRevenue: 0,
+    totalCost: 0,
+    totalQty: 0,
+    totalOrders: 0,
+    revenueByBucket: new Map(),
+    costByBucket: new Map(),
+    productMap: new Map(),
+    rows: []
+  };
+}
+
+async function buildManualExportMetrics(filters, range, groupBy) {
+  const out = createEmptyManualExportMetrics();
+  if (!filters || (filters.status && filters.status !== 'all')) return out;
+
+  const match = {
+    nguoitaophieu: 'manual',
+    $or: [
+      { donhang_id: { $exists: false } },
+      { donhang_id: null }
+    ]
+  };
+
+  if (range && range.from && range.to) {
+    match.ngayxuat = { $gte: range.from, $lte: range.to };
+  }
+
+  const receipts = await PhieuXuatKho.find(match)
+    .select('_id maphieu madonhang ngayxuat ngaytao tongdoanhthu tonggiavon tongloinhuan tongsoluong chitiet')
+    .lean();
+
+  if (!receipts || !receipts.length) return out;
+
+  let categoryMap = null;
+  const category = String(filters.category || '').trim();
+  if (category) {
+    const productIds = new Set();
+    receipts.forEach((receipt) => {
+      (Array.isArray(receipt?.chitiet) ? receipt.chitiet : []).forEach((line) => {
+        const id = toObjectIdString(line?.sanphamid);
+        if (isValidObjectIdString(id)) productIds.add(id);
+      });
+    });
+
+    const ids = Array.from(productIds);
+    if (ids.length) {
+      const products = await Sanpham.find({ _id: { $in: ids } })
+        .select('_id loaisanpham')
+        .lean();
+      categoryMap = new Map();
+      (products || []).forEach((product) => {
+        categoryMap.set(String(product?._id || ''), String(product?.loaisanpham || '').trim());
+      });
+    } else {
+      categoryMap = new Map();
+    }
+  }
+
+  receipts.forEach((receipt) => {
+    const receiptDate = getManualExportDate(receipt);
+    if (!receiptDate || Number.isNaN(receiptDate.getTime())) return;
+
+    const lines = Array.isArray(receipt?.chitiet) ? receipt.chitiet : [];
+    if (!lines.length) return;
+
+    let receiptRevenue = 0;
+    let receiptCost = 0;
+    let receiptQty = 0;
+
+    lines.forEach((line) => {
+      const productId = toObjectIdString(line?.sanphamid);
+      if (category) {
+        const lineCategory = categoryMap ? String(categoryMap.get(productId) || '') : '';
+        if (lineCategory !== category) return;
+      }
+
+      const metrics = normalizeManualLineMetrics(line);
+      if (metrics.qty <= 0 && metrics.revenue <= 0 && metrics.cost <= 0) return;
+
+      receiptQty += metrics.qty;
+      receiptRevenue += metrics.revenue;
+      receiptCost += metrics.cost;
+
+      const productKey = productId || String(line?.tensanpham || '').trim() || 'manual_product';
+      if (!out.productMap.has(productKey)) {
+        out.productMap.set(productKey, {
+          id: productId,
+          name: String(line?.tensanpham || 'Sản phẩm'),
+          qty: 0
+        });
+      }
+      out.productMap.get(productKey).qty += metrics.qty;
+    });
+
+    if (receiptQty <= 0 && receiptRevenue <= 0 && receiptCost <= 0) return;
+
+    out.totalRevenue += receiptRevenue;
+    out.totalCost += receiptCost;
+    out.totalQty += receiptQty;
+    out.totalOrders += 1;
+
+    const label = formatDateLabel(receiptDate, groupBy);
+    out.revenueByBucket.set(label, (out.revenueByBucket.get(label) || 0) + receiptRevenue);
+    out.costByBucket.set(label, (out.costByBucket.get(label) || 0) + receiptCost);
+
+    const receiptId = String(receipt?._id || '');
+    const orderCode = String(receipt?.madonhang || receipt?.maphieu || receiptId || '').trim();
+
+    out.rows.push({
+      id: receiptId,
+      orderCode,
+      orderDate: receiptDate,
+      customerName: 'Xuất kho nội bộ',
+      revenue: receiptRevenue,
+      cost: receiptCost,
+      profit: receiptRevenue - receiptCost,
+      status: MANUAL_EXPORT_STATUS,
+      statusLabel: 'Xuất kho',
+      statusClass: buildStatusClass(MANUAL_EXPORT_STATUS),
+      detailUrl: `/admin/exports/${receiptId}`
+    });
+  });
+
+  return out;
+}
+
+// Dựng timeline giá nhập theo sản phẩm/biến thể/size.
 async function buildCostTimeline() {
   const rows = await PhieuNhapKho.aggregate([
     { $unwind: '$chitiet' },
@@ -270,6 +458,7 @@ async function buildCostTimeline() {
   return map;
 }
 
+// Lấy giá vốn tại thời điểm đơn hàng từ timeline nhập kho.
 function resolveCostAtDate(costTimeline, item, orderDate) {
   if (!costTimeline || costTimeline.size === 0) return 0;
   const productId = item.productId ? String(item.productId) : '';
@@ -291,12 +480,14 @@ function resolveCostAtDate(costTimeline, item, orderDate) {
   return resolved;
 }
 
+// Ép số dương, âm hoặc lỗi trả 0.
 function toPositiveNumber(value) {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return 0;
   return n;
 }
 
+// Tính giá vốn từ snapshot FIFO của order item.
 function calcFifoCostFromItem(item) {
   const rows = Array.isArray(item?.fifoAllocations) ? item.fifoAllocations : [];
   if (!rows.length) {
@@ -326,6 +517,7 @@ function calcFifoCostFromItem(item) {
   };
 }
 
+// Dựng pipeline aggregate lấy item + order + product cho báo cáo.
 function buildItemPipeline(filters, range) {
   const orderMatch = buildOrderMatch(filters, range, { prefix: 'order.' });
 
@@ -382,6 +574,7 @@ function buildItemPipeline(filters, range) {
   return pipeline;
 }
 
+// Xác định giá vốn hàng trả từ dữ liệu hoàn.
 function resolveReturnedCost({ cost, revenue, profit }) {
   const directCost = toPositiveNumber(cost);
   if (directCost > 0) return directCost;
@@ -391,6 +584,7 @@ function resolveReturnedCost({ cost, revenue, profit }) {
   return Math.max(0, safeRevenue - safeProfit);
 }
 
+// Tính doanh thu gốc của đơn trước khi trừ phần trả hàng.
 function resolveBaseOrderRevenue(order, grossItemRevenue = 0) {
   const safeGrossItemRevenue = Math.max(0, Number(grossItemRevenue || 0));
   if (safeGrossItemRevenue > 0) {
@@ -404,6 +598,7 @@ function resolveBaseOrderRevenue(order, grossItemRevenue = 0) {
   return Math.max(0, currentRevenue - shipping);
 }
 
+// Tính doanh thu ròng của đơn sau điều chỉnh hàng trả.
 function getOrderNetRevenue(order, returnsByOrder, metricsByOrder = {}) {
   const orderId = String(order?._id || '');
   const returned = returnsByOrder.get(orderId) || {};
@@ -428,6 +623,7 @@ function getOrderNetRevenue(order, returnsByOrder, metricsByOrder = {}) {
   return baseRevenue;
 }
 
+// Tổng hợp điều chỉnh hoàn trả theo đơn và theo sản phẩm.
 async function buildReturnAdjustments(orderIds = [], options = {}) {
   const ids = Array.isArray(orderIds) ? orderIds.filter(Boolean) : [];
   const category = String(options.category || '').trim();
@@ -532,6 +728,7 @@ async function buildReturnAdjustments(orderIds = [], options = {}) {
   };
 }
 
+// Tính doanh thu ròng kỳ trước theo pipeline item (khi có lọc danh mục).
 async function sumRevenueForRangeItems(filters, range) {
   const orderMatch = buildOrderMatch(filters, range);
   const orders = await Donhang.find(orderMatch)
@@ -562,6 +759,7 @@ async function sumRevenueForRangeItems(filters, range) {
   return Math.max(0, grossRevenue - returnedRevenue);
 }
 
+// Tính doanh thu ròng kỳ trước theo cấp đơn hàng (toàn cục).
 async function sumRevenueForRangeOrders(filters, range) {
   const orderMatch = buildOrderMatch(filters, range);
   const orders = await Donhang.find(orderMatch)
@@ -602,6 +800,12 @@ async function sumRevenueForRangeOrders(filters, range) {
   }, 0);
 }
 
+async function sumManualExportRevenueForRange(filters, range) {
+  const metrics = await buildManualExportMetrics(filters, range, 'month');
+  return Number(metrics?.totalRevenue || 0);
+}
+
+// Lấy dữ liệu khởi tạo trang báo cáo (bộ lọc, danh mục, mốc thời gian).
 async function getTrangBaoCaoData() {
   const categories = await Sanpham.distinct('loaisanpham', { daxoa: { $ne: true } });
   const cleanedCategories = (categories || []).filter((c) => c && String(c).trim() !== '');
@@ -632,6 +836,7 @@ async function getTrangBaoCaoData() {
   };
 }
 
+// Tính và tổng hợp toàn bộ dữ liệu báo cáo theo bộ lọc query.
 async function getDuLieuBaoCao(query = {}) {
   const status = normalizeStatus(query.status || DEFAULT_STATUS);
   const category = String(query.category || '').trim();
@@ -655,13 +860,14 @@ async function getDuLieuBaoCao(query = {}) {
   });
 
   const orderIds = orders.map((order) => order._id);
-  const [costTimeline, returnAdjustments] = await Promise.all([
+  const [costTimeline, returnAdjustments, manualExportMetrics] = await Promise.all([
     buildCostTimeline(),
     buildReturnAdjustments(orderIds, {
       category: filters.category,
       includeOrderFallback: true,
       orders
-    })
+    }),
+    buildManualExportMetrics(filters, range, groupBy)
   ]);
   const returnsByOrder = returnAdjustments.byOrder;
   const returnedQtyByProduct = returnAdjustments.returnedQtyByProduct;
@@ -837,6 +1043,26 @@ async function getDuLieuBaoCao(query = {}) {
     }
   });
 
+  manualExportMetrics.productMap.forEach((manualProduct, key) => {
+    const product = productMap.get(key) || {
+      id: String(manualProduct?.id || ''),
+      name: manualProduct?.name || 'Sản phẩm',
+      qty: 0
+    };
+    product.qty += toPositiveNumber(manualProduct?.qty);
+    productMap.set(key, product);
+  });
+
+  manualExportMetrics.revenueByBucket.forEach((value, label) => {
+    revenueByBucket.set(label, (revenueByBucket.get(label) || 0) + Number(value || 0));
+  });
+  manualExportMetrics.costByBucket.forEach((value, label) => {
+    costByBucket.set(label, (costByBucket.get(label) || 0) + Number(value || 0));
+  });
+
+  totalCost += Number(manualExportMetrics.totalCost || 0);
+  totalQty += Number(manualExportMetrics.totalQty || 0);
+
   let totalRevenue = 0;
   if (filters.category) {
     orderRevenueMap.forEach((value) => {
@@ -855,15 +1081,17 @@ async function getDuLieuBaoCao(query = {}) {
       }
     });
   }
+  totalRevenue += Number(manualExportMetrics.totalRevenue || 0);
 
   const labels = buildTimeLabels(range.from, range.to, groupBy);
   const revenueSeries = labels.map((label) => Number(revenueByBucket.get(label) || 0));
   const costSeries = labels.map((label) => Number(costByBucket.get(label) || 0));
   const profitSeries = labels.map((_, idx) => revenueSeries[idx] - costSeries[idx]);
 
-  const totalOrders = filters.category
+  let totalOrders = filters.category
     ? orderRevenueMap.size
     : orders.length;
+  totalOrders += Number(manualExportMetrics.totalOrders || 0);
 
   const profit = totalRevenue - totalCost;
   const profitMargin = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
@@ -878,7 +1106,6 @@ async function getDuLieuBaoCao(query = {}) {
       if (!filters.category) return true;
       return orderRevenueMap.has(String(order._id));
     })
-    .sort((a, b) => new Date(b.ngaytao) - new Date(a.ngaytao))
     .map((order) => {
       const orderId = String(order._id);
       const revenue = filters.category
@@ -902,6 +1129,10 @@ async function getDuLieuBaoCao(query = {}) {
         detailUrl: `/admin/orders/${orderId}`
       };
     });
+  if (Array.isArray(manualExportMetrics.rows) && manualExportMetrics.rows.length) {
+    allOrderRows.push(...manualExportMetrics.rows);
+  }
+  allOrderRows.sort((a, b) => new Date(b.orderDate || 0) - new Date(a.orderDate || 0));
   const orderRows = allOrderRows.slice(0, 12);
 
   const topCustomersMap = new Map();
@@ -923,16 +1154,28 @@ async function getDuLieuBaoCao(query = {}) {
     entry.orders += 1;
   });
 
-  const topCustomers = Array.from(topCustomersMap.values())
+  if (Number(manualExportMetrics.totalRevenue || 0) > 0 || Number(manualExportMetrics.totalOrders || 0) > 0) {
+    const manualKey = 'Xuất kho nội bộ';
+    const existing = topCustomersMap.get(manualKey) || { name: manualKey, revenue: 0, orders: 0 };
+    existing.revenue += Number(manualExportMetrics.totalRevenue || 0);
+    existing.orders += Number(manualExportMetrics.totalOrders || 0);
+    topCustomersMap.set(manualKey, existing);
+  }
+
+  const mergedTopCustomers = Array.from(topCustomersMap.values())
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 5);
 
   const prevRange = buildPreviousRange(range);
-  const prevRevenue = prevRange
+  const prevOrderRevenue = prevRange
     ? (filters.category
       ? await sumRevenueForRangeItems(filters, prevRange)
       : await sumRevenueForRangeOrders(filters, prevRange))
     : 0;
+  const prevManualRevenue = prevRange
+    ? await sumManualExportRevenueForRange(filters, prevRange)
+    : 0;
+  const prevRevenue = prevOrderRevenue + prevManualRevenue;
   const growth = prevRevenue > 0 ? ((totalRevenue - prevRevenue) / prevRevenue) * 100 : null;
 
   return {
@@ -977,7 +1220,7 @@ async function getDuLieuBaoCao(query = {}) {
     },
     advanced: {
       topProducts,
-      topCustomers,
+      topCustomers: mergedTopCustomers,
       growth,
       negativeProfit: profit < 0,
       previousRevenue: prevRevenue

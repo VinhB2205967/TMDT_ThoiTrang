@@ -1,7 +1,10 @@
-extends ../../layouts/default.pug
+﻿extends ../../layouts/default.pug
 
 block main
   .container-fluid.p-3
+    - const __headerExportId = receipt && receipt.phieuxuat_id && receipt.phieuxuat_id._id ? receipt.phieuxuat_id._id : (receipt ? receipt.phieuxuat_id : '')
+    - const __headerExportCode = String((receipt && receipt.maphieuxuat) || (receipt && receipt.phieuxuat_id && receipt.phieuxuat_id.maphieu) || '').trim()
+    - const __canCreateExportFromImport = Boolean(receipt && receipt.daxuatkho && String(receipt.loaiphieu || '') !== 'return')
     .d-flex.justify-content-between.align-items-center.mb-3.page-header-section.orders-header.admin-page-header
       h3.mb-0 Chi tiết phiếu nhập
       .d-flex.gap-2.orders-actions
@@ -28,21 +31,76 @@ block main
           button.btn.btn-success.btn-header.btn-header-success(type='button' disabled)
             i.bi.bi-check-circle
             |  Đã nhập kho
+        if __canCreateExportFromImport
+          if __headerExportId || __headerExportCode
+            a.btn.btn-outline-primary.btn-header(href=`${admin}/exports/${__headerExportId || __headerExportCode}`)
+              i.bi.bi-box-arrow-up-right
+              |  Xem phiếu xuất
+          else
+            button.btn.btn-outline-primary.btn-header(type='button' data-bs-toggle='collapse' data-bs-target='#create-export-from-import')
+              i.bi.bi-box-seam
+              |  Tạo phiếu xuất từ phiếu nhập
+
+    if __canCreateExportFromImport && !(__headerExportId || __headerExportCode)
+      .card.mb-3.collapse#create-export-from-import
+        .card-header Tạo phiếu xuất từ phiếu nhập này
+        .card-body
+          form(method='POST' action=`${admin}/imports/${receipt._id}/create-export`)
+            input(type='hidden' name='_csrf' value=_csrf)
+            .row.g-3
+              .col-md-6
+                label.form-label Nơi nhận
+                input.form-control(name='noinhan' required placeholder='Kho chi nhánh / địa chỉ giao')
+              .col-md-6
+                label.form-label Lý do xuất
+                input.form-control(name='lydo' placeholder='Xuất toàn bộ từ phiếu nhập')
+            .mt-3
+              button.btn.btn-primary(type='submit')
+                i.bi.bi-check2-circle
+                |  Tạo phiếu xuất ngay
 
     .card.mb-3
       .card-header Thông tin phiếu nhập
       .card-body
+        - const _ngayNhap = receipt.ngaynhap || receipt.ngay_nhap || receipt.import_date
+        - const _orderId = receipt && receipt.donhang_id && receipt.donhang_id._id ? receipt.donhang_id._id : (receipt ? receipt.donhang_id : '')
+        - const _orderCode = String((receipt && receipt.madonhang) || (receipt && receipt.donhang_id && receipt.donhang_id.madonhang) || '').trim()
+        - const _exportId = receipt && receipt.phieuxuat_id && receipt.phieuxuat_id._id ? receipt.phieuxuat_id._id : (receipt ? receipt.phieuxuat_id : '')
+        - const _exportCode = String((receipt && receipt.maphieuxuat) || (receipt && receipt.phieuxuat_id && receipt.phieuxuat_id.maphieu) || '').trim()
+        - const _loaiphieuRaw = String(receipt.loaiphieu || '').trim().toLowerCase()
+        - const _loaiphieuLabel = String(receipt.tenloaiphieu || '').trim() || (_loaiphieuRaw === 'return' ? 'Nhập kho hoàn trả' : 'Nhập kho')
+        - const _nguonNhap = String(receipt.nguonnhap || '').trim()
         .row.g-3
           .col-md-4
             .fw-semibold Mã phiếu
             div #{receipt.maphieu || receipt.ma_phieu || receipt.code}
           .col-md-4
+            .fw-semibold Loại phiếu
+            div #{_loaiphieuLabel}
+          .col-md-4
+            .fw-semibold Nguồn nhập
+            div #{_nguonNhap || '-'}
+          .col-md-4
             .fw-semibold Ngày nhập
-            - const _ngayNhap = receipt.ngaynhap || receipt.ngay_nhap || receipt.import_date
             div #{_ngayNhap ? new Date(_ngayNhap).toLocaleString('vi-VN') : ''}
           .col-md-4
             .fw-semibold Nhà cung cấp
             div #{receipt.nhacungcap || receipt.nha_cung_cap || receipt.supplier || ''}
+          .col-md-4
+            .fw-semibold Phiếu xuất liên kết
+            if _exportCode || _exportId
+              a(href=`${admin}/exports/${_exportId || _exportCode}`) #{_exportCode || _exportId}
+            else
+              div.text-muted -
+          .col-md-4
+            .fw-semibold Đơn hàng liên kết
+            if _orderId || _orderCode
+              if _orderId
+                a(href=`${admin}/orders/${_orderId}`) #{_orderCode || _orderId}
+              else
+                div #{_orderCode}
+            else
+              div.text-muted -
           .col-12
             .fw-semibold Ghi chú
             div #{receipt.ghichu || receipt.ghi_chu || receipt.note || ''}

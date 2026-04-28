@@ -104,6 +104,7 @@ const ADMIN_FLOW = ['choxacnhan', 'daxacnhan', 'dangchuanbi', 'danggiao', 'dagia
 const RETURN_STEP_STATUSES = new Set(['approved_return', 'rejected_return', 'return_shipping', 'returned', 'returned_full', 'returned_partial', 'refunded']);
 const DEFAULT_ORDERS_LIST_URL = '/admin/orders';
 
+// Chạy đồng bộ sidecar theo cơ chế best-effort, không chặn luồng chính.
 async function dongBoSidecarAnToan(taskName, runner) {
   try {
     await runner();
@@ -112,18 +113,21 @@ async function dongBoSidecarAnToan(taskName, runner) {
   }
 }
 
+// Chuẩn hóa từ khóa tìm kiếm và giới hạn độ dài an toàn.
 function chuanHoaTuKhoa(raw) {
   const k = String(raw || '').trim();
   if (!k) return '';
   return thoatBieuThuc(k.slice(0, 100));
 }
 
+// Chuẩn hóa tên phương thức thanh toán về chữ thường.
 function chuanHoaPhuongThuc(raw) {
   const v = String(raw || '').trim().toLowerCase();
   if (!v) return '';
   return v;
 }
 
+// Parse chuỗi ngày từ query, trả null nếu không hợp lệ.
 function phanTichNgay(raw) {
   const v = String(raw || '').trim();
   if (!v) return null;
@@ -132,6 +136,7 @@ function phanTichNgay(raw) {
   return d;
 }
 
+// Tạo chuỗi query giữ nguyên bộ lọc hiện tại.
 function taoChuoiBoLoc({ keyword, status, payment, fromDate, toDate, sort, limit }) {
   let s = '';
   if (keyword) s += `&search=${encodeURIComponent(keyword)}`;
@@ -144,6 +149,7 @@ function taoChuoiBoLoc({ keyword, status, payment, fromDate, toDate, sort, limit
   return s;
 }
 
+// Map khóa sắp xếp sang object sort của Mongo.
 function sortMap(sortKey) {
   switch (sortKey) {
     case 'oldest':
@@ -158,6 +164,7 @@ function sortMap(sortKey) {
   }
 }
 
+// Kiểm tra và chuẩn hóa URL quay về danh sách đơn hàng.
 function layDuongDanDanhSachHopLe(raw) {
   const input = String(raw || '').trim();
   if (!input) return '';
@@ -175,27 +182,32 @@ function layDuongDanDanhSachHopLe(raw) {
   return path;
 }
 
+// Trả URL mặc định của trang danh sách đơn hàng admin.
 function layDuongDanDanhSachMacDinh() {
   return DEFAULT_ORDERS_LIST_URL;
 }
 
+// Lấy URL quay lại danh sách với ưu tiên body, rồi query, rồi mặc định.
 function layDuongDanQuayLaiDanhSach({ fromBody, fromQuery } = {}) {
   return layDuongDanDanhSachHopLe(fromBody)
     || layDuongDanDanhSachHopLe(fromQuery)
     || layDuongDanDanhSachMacDinh();
 }
 
+  // Tạo URL chi tiết đơn hàng kèm tham số returnTo an toàn.
 function taoDuongDanChiTietDon({ id, returnTo } = {}) {
   const safeId = encodeURIComponent(String(id || '').trim());
   const safeReturnTo = layDuongDanDanhSachHopLe(returnTo) || layDuongDanDanhSachMacDinh();
   return `/admin/orders/${safeId}?returnTo=${encodeURIComponent(safeReturnTo)}`;
 }
 
+// Sinh tên file xuất Excel đơn hàng theo timestamp hiện tại.
 function taoTenFileXuatDonHang(now = new Date()) {
   const pad = (n) => String(n).padStart(2, '0');
   return `don-hang-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.xlsx`;
 }
 
+// Xác định loại flash message từ kết quả xử lý.
 function xacDinhLoaiFlashKetQua(result, options = {}) {
   const { warningCodes = [], warningWhenPartial = false } = options || {};
   if (!result || !result.ok) {
@@ -206,6 +218,7 @@ function xacDinhLoaiFlashKetQua(result, options = {}) {
   return 'success';
 }
 
+// Map trạng thái đơn hàng sang class badge hiển thị.
 function buildBadgeClass(status) {
   switch (status) {
     case 'choxacnhan':
@@ -243,10 +256,12 @@ function buildBadgeClass(status) {
   }
 }
 
+// Lấy nhãn trạng thái thân thiện cho giao diện admin.
 function layNhanTrangThai(status) {
   return ADMIN_STATUS_LABELS[status] || status || '-';
 }
 
+// Chuẩn hóa query danh sách đơn hàng thành bộ lọc Mongo và thông tin điều khiển.
 function taoBoLocTuQuery(query = {}) {
   const keyword = chuanHoaTuKhoa(query.search);
   const statusRaw = String(query.status || 'all').trim();
@@ -306,21 +321,25 @@ function taoBoLocTuQuery(query = {}) {
   };
 }
 
+// Tạo mã phiếu nhập cho luồng nhận hàng hoàn.
 function taoMaPhieuNhapHoanTra() {
   return `NK-RETURN-${Date.now()}`;
 }
 
+// Ép kiểu số an toàn với giá trị fallback.
 function toNumber(value, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
 }
 
+// Ép số nguyên dương, trả fallback nếu không hợp lệ.
 function toPositiveInt(value, fallback = 0) {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return fallback;
   return Math.floor(n);
 }
 
+// Chuẩn hóa payload danh sách item hoàn hàng từ nhiều định dạng đầu vào.
 function normalizeReturnItemsPayload(raw) {
   if (!raw) return [];
 
@@ -343,6 +362,7 @@ function normalizeReturnItemsPayload(raw) {
     .filter((it) => mongoose.Types.ObjectId.isValid(it.orderItemId) && it.qty >= 0);
 }
 
+  // Tạo key duy nhất cho dòng xuất kho theo sản phẩm/biến thể/size.
 function buildExportLineKey({ sanphamid, bientheid, kichco }) {
   const productId = String(sanphamid || '').trim();
   const variantId = bientheid ? String(bientheid).trim() : 'main';
@@ -350,10 +370,12 @@ function buildExportLineKey({ sanphamid, bientheid, kichco }) {
   return `${productId}|${variantId}|${sizeKey}`;
 }
 
+// Làm tròn giá trị tiền về số nguyên.
 function roundMoney(value) {
   return Math.round(toNumber(value, 0));
 }
 
+// Chia tiền theo tỷ lệ số lượng cho một phần đơn hàng.
 function splitAmountByQty(totalAmount, totalQty, partQty) {
   const amount = Math.max(0, roundMoney(totalAmount));
   const qty = Math.max(0, toPositiveInt(totalQty, 0));
@@ -363,6 +385,7 @@ function splitAmountByQty(totalAmount, totalQty, partQty) {
   return Math.max(0, Math.min(amount, Math.round((amount * part) / qty)));
 }
 
+// Phân bổ tổng tiền theo trọng số từng dòng, có xử lý phần dư.
 function allocateProportionalAmounts(rows, totalAmount) {
   const normalizedRows = (Array.isArray(rows) ? rows : [])
     .map((row, index) => ({
@@ -411,6 +434,7 @@ function allocateProportionalAmounts(rows, totalAmount) {
   return result;
 }
 
+// Tạo export key từ một order item.
 function buildOrderItemExportKey(item = {}) {
   const productId = String(item?.sanpham_id || item?.sanphamid || '').trim();
   if (!productId) return '';
@@ -421,6 +445,7 @@ function buildOrderItemExportKey(item = {}) {
   });
 }
 
+// Tổng hợp dữ liệu hàng đã trả từ phiếu xuất kho để tính hoàn tiền.
 function buildReturnedItemSummary({ exportReceipt, orderItems = [] } = {}) {
   const out = {
     items: [],
@@ -599,6 +624,7 @@ function buildReturnedItemSummary({ exportReceipt, orderItems = [] } = {}) {
   return out;
 }
 
+// Tổng hợp dữ liệu hàng trả từ phiếu nhập kho hoàn trả.
 function buildReturnedItemSummaryFromImportReceipt({ importReceipt, orderItems = [] } = {}) {
   const out = {
     items: [],
@@ -737,6 +763,7 @@ function buildReturnedItemSummaryFromImportReceipt({ importReceipt, orderItems =
   return out;
 }
 
+// Tính toán bảng tài chính hoàn tiền/giữ lại cho màn hình admin chi tiết đơn.
 function buildAdminRefundFinancialSummary({
   order = {},
   items = [],
@@ -915,6 +942,7 @@ function buildAdminRefundFinancialSummary({
   };
 }
 
+// Tính số tiền hoàn từ yêu cầu trả hàng, ưu tiên dữ liệu trả hàng thực tế.
 async function tinhSoTienHoanTheoYeuCau(order) {
   if (!order || !order._id) return 0;
 
@@ -988,6 +1016,7 @@ async function tinhSoTienHoanTheoYeuCau(order) {
   return Math.max(0, roundMoney(financialSummary?.refund?.amount || 0));
 }
 
+// Tính tỷ suất lợi nhuận theo phần trăm.
 function tinhTySuatLoiNhuan({ doanhThu, loiNhuan }) {
   const dt = toNumber(doanhThu, 0);
   const ln = toNumber(loiNhuan, 0);
@@ -995,6 +1024,7 @@ function tinhTySuatLoiNhuan({ doanhThu, loiNhuan }) {
   return Number(((ln / dt) * 100).toFixed(2));
 }
 
+// Hoàn tồn kho cho một dòng chi tiết đơn hàng bị hủy.
 async function congTonChoChiTietDon(orderitemdoc) {
   const productid = orderitemdoc.sanpham_id;
   const variantid = orderitemdoc.bienthe_id;
@@ -1044,6 +1074,7 @@ async function congTonChoChiTietDon(orderitemdoc) {
   await product.save();
 }
 
+// Cộng tồn kho cho dòng hàng hoàn theo biến thể/size.
 function congTonChoDongTraHang(productDoc, { variantId, size, qty, mausac }) {
   const soLuong = Math.max(1, toPositiveInt(qty, 1));
   const hasSize = !laLoaiKhongSize(productDoc.loaisanpham);
@@ -1092,6 +1123,7 @@ function congTonChoDongTraHang(productDoc, { variantId, size, qty, mausac }) {
   }
 }
 
+// Lấy dữ liệu trang danh sách đơn hàng admin theo bộ lọc.
 async function getDanhSachData(query = {}) {
   const { boloc, keyword, status, paymentMethod, fromDate, toDate, sort, limit } = taoBoLocTuQuery(query);
 
@@ -1173,6 +1205,7 @@ async function getDanhSachData(query = {}) {
   };
 }
 
+// Trả dữ liệu fallback khi trang danh sách đơn lỗi tải.
 function getDanhSachFallbackData() {
   return {
     titlePage: 'Quản lý đơn hàng',
@@ -1189,6 +1222,7 @@ function getDanhSachFallbackData() {
   };
 }
 
+// Lấy dữ liệu chi tiết đơn hàng gồm item, hoàn hàng và tài chính hoàn tiền.
 async function getChiTietData(id) {
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return { ok: false, code: 'INVALID_ID', message: 'ID không hợp lệ!' };
@@ -1385,6 +1419,7 @@ async function getChiTietData(id) {
   };
 }
 
+// Tạo workbook Excel danh sách đơn hàng theo bộ lọc.
 async function buildExportWorkbook(query = {}) {
   const { boloc } = taoBoLocTuQuery(query);
   const rows = await Donhang.find(boloc).sort({ ngaytao: -1 }).lean();
@@ -1453,6 +1488,7 @@ async function buildExportWorkbook(query = {}) {
   return workbook;
 }
 
+// Lấy số lượng đơn mới chờ xác nhận cho dashboard admin.
 async function getTongQuanDonMoiData() {
   const filter = { daxoa: { $ne: true }, trangthai: 'choxacnhan' };
   const [count, latest] = await Promise.all([
@@ -1477,6 +1513,7 @@ async function getTongQuanDonMoiData() {
   };
 }
 
+// Cập nhật trạng thái một đơn hàng theo luồng cho phép.
 async function capNhatTrangThaiDon({ id, nextStatus, actor }) {
   const orderId = String(id || '');
   const status = String(nextStatus || '').trim();
@@ -1616,6 +1653,7 @@ async function capNhatTrangThaiDon({ id, nextStatus, actor }) {
   return { ok: true, message: 'Cập nhật trạng thái thành công' };
 }
 
+// Duyệt yêu cầu hoàn hàng
 async function duyetHoanHang({ id, note, actor = null }) {
   const orderId = String(id || '');
   const adminNote = String(note || '').trim();
@@ -1656,6 +1694,7 @@ async function duyetHoanHang({ id, note, actor = null }) {
   return { ok: true, message: 'Đã duyệt yêu cầu hoàn hàng.' };
 }
 
+// Từ chối yêu cầu hoàn hàng
 async function tuChoiHoanHang({ id, note, actor = null }) {
   const orderId = String(id || '');
   const adminNote = String(note || '').trim();
@@ -1696,6 +1735,7 @@ async function tuChoiHoanHang({ id, note, actor = null }) {
   return { ok: true, message: 'Đã từ chối yêu cầu hoàn hàng.' };
 }
 
+// Xác nhận đã nhận hàng hoàn
 async function xacNhanDaNhanHangHoan({ id, payload = {}, actor = null }) {
   const orderId = String(id || '').trim();
   if (!mongoose.Types.ObjectId.isValid(orderId)) {
@@ -1708,6 +1748,7 @@ async function xacNhanDaNhanHangHoan({ id, payload = {}, actor = null }) {
     actor
   });
 }
+
 // Hoàn tiền
 async function hoanTienDon(id, actor = null) {
   const orderId = String(id || '');
@@ -1738,8 +1779,6 @@ async function hoanTienDon(id, actor = null) {
     };
   }
 
-  // Refund is allowed right after confirming actual returned goods.
-  // The return import receipt is created only after refund succeeds.
   const paymentMethod = String(order.phuongthucthanhtoan || '').trim().toLowerCase();
   const requestedRefundMethod = String((order.yeucauhoanhang && order.yeucauhoanhang.refundMethod) || '').trim().toLowerCase();
   const requestedRefundWallet = String((order.yeucauhoanhang && order.yeucauhoanhang.refundWallet) || '').trim().toLowerCase();
@@ -1859,7 +1898,7 @@ async function hoanTienDon(id, actor = null) {
     trangThaiTruocHoan: String(order.trangthai || ''),
     idNguoiThucHien: String(actor?._id || '')
   });
-
+// Cập nhật giao dịch hoàn tiền
   await capNhatGiaoDichThanhToan({
     donhangId: order._id,
     nguoidungId: order.nguoidung_id,
@@ -1941,6 +1980,7 @@ async function hoanTienDon(id, actor = null) {
   }
 }
 
+// Cập nhật trạng thái hàng loạt cho nhiều đơn hàng cùng lúc.
 async function capNhatTrangThaiHangLoat({ orderIds, nextStatus, actor }) {
   const status = String(nextStatus || '').trim();
 
@@ -2064,6 +2104,7 @@ async function capNhatTrangThaiHangLoat({ orderIds, nextStatus, actor }) {
   return { ok: true, message };
 }
 
+// Hủy đơn hàng và hoàn tác tồn kho/thanh toán liên quan.
 async function huyDon({ id, reason, actor = null }) {
   const orderId = String(id || '');
   const lydo = String(reason || '').trim() || 'Admin hủy đơn hàng';

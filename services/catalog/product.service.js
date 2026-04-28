@@ -4,12 +4,14 @@ const xss = require('xss');
 
 const PRODUCT_MEDIA_TOKEN_PREFIX = '__PRODUCT_MEDIA_TOKEN__';
 
+// Parse ObjectId hợp lệ, trả null nếu dữ liệu không đúng.
 function parseObjectId(id) {
     const value = String(id || '').trim();
     if (!value || !mongoose.Types.ObjectId.isValid(value)) return null;
     return value;
 }
 
+// Parse mảng ObjectId và loại bỏ phần tử trùng/lỗi định dạng.
 function parseObjectIdArray(input) {
     const values = Array.isArray(input) ? input : (input == null ? [] : [input]);
     const seen = new Set();
@@ -23,6 +25,7 @@ function parseObjectIdArray(input) {
     return output;
 }
 
+// Parse chuỗi JSON thành mảng string an toàn.
 function parseJsonArray(input) {
     const raw = Array.isArray(input) ? input[0] : input;
     if (!raw) return [];
@@ -36,6 +39,7 @@ function parseJsonArray(input) {
     }
 }
 
+// Escape HTML cơ bản cho nội dung text thuần.
 function escapeHtml(value) {
     return String(value || '')
         .replace(/&/g, '&amp;')
@@ -45,6 +49,7 @@ function escapeHtml(value) {
         .replace(/'/g, '&#39;');
 }
 
+    // Chuyển mô tả text thuần thành các đoạn HTML <p>.
 function normalizePlainDescription(text) {
     const lines = String(text || '')
         .replace(/\r\n/g, '\n')
@@ -59,6 +64,7 @@ function normalizePlainDescription(text) {
         .join('');
 }
 
+// Thay token media trong mô tả bằng URL file đã upload.
 function replaceDescriptionMediaTokens(html, files, mediaTokens) {
     let output = String(html || '');
     if (!output) return '';
@@ -75,6 +81,7 @@ function replaceDescriptionMediaTokens(html, files, mediaTokens) {
     return output;
 }
 
+// Làm sạch HTML mô tả sản phẩm theo whitelist thẻ cho phép.
 function sanitizeProductDescription(input) {
     const raw = String(input || '').trim();
     if (!raw) return '';
@@ -112,6 +119,7 @@ function sanitizeProductDescription(input) {
     });
 }
 
+// Chuẩn hóa dữ liệu từ form + file upload thành payload lưu sản phẩm.
 const prepareProductData = (body, files) => {
     const isNoSizeProduct = NO_SIZE_TYPES.includes(body.loaisanpham);
     let tongSizeGoc = 0;

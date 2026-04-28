@@ -34,6 +34,7 @@ router.get('/:id', controller.chiTiet);
 router.get('/:id/edit', controller.chinhSua);
 router.post('/:id/edit', upload.any(), controller.chinhSuaPost);
 router.post('/:id/export', controller.xuatKhoPhieuPost);
+router.post('/:id/create-export', controller.taoPhieuXuatTuPhieuNhapPost);
 router.post('/:id/delete', controller.xoaPhieu);
 
 module.exports = router;

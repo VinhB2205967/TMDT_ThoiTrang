@@ -79,6 +79,7 @@ const COLOR_PHRASE_DISPLAY_MAP = {
   'xanh navy': 'xanh navy'
 };
 
+// Chuẩn hóa chuỗi màu về ASCII để map hiển thị ổn định.
 function normalizeAsciiColorText(input) {
   return String(input || '')
     .toLowerCase()
@@ -90,6 +91,7 @@ function normalizeAsciiColorText(input) {
     .trim();
 }
 
+  // Đổi tên màu thô sang tên hiển thị thân thiện cho UI.
 function toColorDisplayName(rawColor) {
   const original = String(rawColor || '').trim();
   if (!original) return '';
@@ -110,6 +112,7 @@ function toColorDisplayName(rawColor) {
     .trim();
 }
 
+  // Quyết định loại sản phẩm từ kết quả phân loại ảnh OpenCLIP.
 function resolveSelectedProductTypeFromClassification(detected) {
   const detectedType = String(detected && detected.predictedKey ? detected.predictedKey : '').trim().toLowerCase();
   const labels = Array.isArray(detected && detected.labels) ? detected.labels : [];
@@ -137,6 +140,7 @@ function resolveSelectedProductTypeFromClassification(detected) {
   return selectedType;
 }
 
+// Tìm danh mục theo slug hoặc tạo mới khi chưa tồn tại.
 async function timHoacTaoDanhMuc({ name, slug, type, parentId = null, order = 0 }) {
   const existed = await Danhmuc.findOne({ slug, daxoa: { $ne: true } }).select('_id').lean();
   if (existed?._id) return existed._id;
@@ -157,6 +161,7 @@ async function timHoacTaoDanhMuc({ name, slug, type, parentId = null, order = 0 
   return doc._id;
 }
 
+// Đảm bảo có sẵn taxonomy mặc định cho dịp sử dụng và nhóm tuổi.
 async function damBaoDanhMucMacDinh() {
   const occasionCount = await Danhmuc.countDocuments({ daxoa: { $ne: true }, type: 'occasion' });
   if (!occasionCount) {
@@ -200,6 +205,7 @@ async function damBaoDanhMucMacDinh() {
   }
 }
 
+// Lấy dữ liệu bộ lọc nâng cao cho trang danh sách sản phẩm.
 async function layBoLocNangCao() {
   let [categoryTree, occasionTree, ageGroupTree, brands] = await Promise.all([
     getCategoryTree({ type: 'category', isActive: true }),
@@ -248,6 +254,7 @@ async function layBoLocNangCao() {
   };
 }
 
+// Chuẩn hóa dữ liệu sản phẩm dùng cho trang danh sách.
 function chuanHoaSanPhamDanhSach(item) {
   const p = productHelper(item);
 
@@ -272,6 +279,7 @@ function chuanHoaSanPhamDanhSach(item) {
   return p;
 }
 
+// Gắn giá flash sale vào sản phẩm và từng biến thể.
 function ganGiaFlashSaleChoSanPham(product, flashPercentMap) {
   if (!product || !product._id || !(flashPercentMap instanceof Map)) return product;
 
@@ -303,6 +311,7 @@ function ganGiaFlashSaleChoSanPham(product, flashPercentMap) {
   return product;
 }
 
+// Chuẩn hóa URL media về dạng public có thể render trên client.
 function chuanHoaUrlMedia(rawUrl) {
   const val = String(rawUrl || '').trim();
   if (!val) return '';
@@ -323,6 +332,7 @@ function chuanHoaUrlMedia(rawUrl) {
   return val.startsWith('/') ? val : `/${val}`;
 }
 
+// Chuẩn hóa ảnh cho OpenCLIP và loại các ảnh placeholder.
 function chuanHoaAnhChoOpenclip(rawUrl) {
   const normalized = chuanHoaUrlMedia(rawUrl);
   if (!normalized) return '';
@@ -331,6 +341,7 @@ function chuanHoaAnhChoOpenclip(rawUrl) {
   return normalized;
 }
 
+// Tách tối đa 5 ảnh biến thể hợp lệ cho tìm kiếm ảnh.
 function tachAnhBienTheChoOpenclip(rawVariants) {
   const variants = Array.isArray(rawVariants) ? rawVariants : [];
   const images = [];
@@ -347,6 +358,7 @@ function tachAnhBienTheChoOpenclip(rawVariants) {
   return images;
 }
 
+// Parse danh sách id OpenCLIP từ query và loại trùng/lỗi định dạng.
 function parseOpenclipIds(raw) {
   const text = String(raw || '').trim();
   if (!text) return [];
@@ -357,6 +369,7 @@ function parseOpenclipIds(raw) {
   return Array.from(new Set(ids)).slice(0, OPENCLIP_PRODUCTS_MAX_RESULTS);
 }
 
+// Chuyển path file upload thành URL preview phục vụ trang danh sách.
 function buildOpenclipPreviewUrl(filePath) {
   const normalized = String(filePath || '').replace(/\\/g, '/');
   const marker = '/public/uploads/openclip-query/';
@@ -367,6 +380,7 @@ function buildOpenclipPreviewUrl(filePath) {
 
   const fileName = normalized.split('/').pop();
   return fileName ? `/uploads/openclip-query/${fileName}` : '';
+  // Parse URL preview OpenCLIP hợp lệ từ query string.
 }
 
 function parseOpenclipPreview(raw) {
@@ -375,6 +389,7 @@ function parseOpenclipPreview(raw) {
   return value;
 }
 
+// Chuẩn hóa lựa chọn sắp xếp, fallback về mặc định khi sai định dạng.
 function parseSortOption(raw) {
   const text = String(raw || '').trim();
   if (!text) return { key: 'ngaytao', direction: 'desc', isDefault: true };
@@ -389,6 +404,7 @@ function parseSortOption(raw) {
   return { key, direction, isDefault: false };
 }
 
+// Lấy giá hiển thị ưu tiên flash sale, sau đó giá giảm thường.
 function getDisplayedPrice(product) {
   const flashPrice = Number(product && product.flashSalePrice);
   if (Number.isFinite(flashPrice) && flashPrice > 0) return flashPrice;
@@ -399,6 +415,7 @@ function getDisplayedPrice(product) {
   return Number(product && product.gia) || 0;
 }
 
+// So sánh 2 sản phẩm theo tùy chọn sort và thứ tự OpenCLIP.
 function compareProductsBySort(a, b, sortOption, openclipOrderMap) {
   if (sortOption.isDefault && openclipOrderMap instanceof Map) {
     const ai = openclipOrderMap.has(String(a && a._id ? a._id : '')) ? openclipOrderMap.get(String(a._id)) : Number.MAX_SAFE_INTEGER;
@@ -438,6 +455,7 @@ function compareProductsBySort(a, b, sortOption, openclipOrderMap) {
   return String(a && a._id ? a._id : '').localeCompare(String(b && b._id ? b._id : ''));
 }
 
+// Lấy dữ liệu trang danh sách sản phẩm theo bộ lọc/query hiện tại.
 async function getDanhSachData(query = {}) {
   const filterOptions = await layBoLocNangCao();
   const openclipIds = parseOpenclipIds(query.openclip_ids);
@@ -570,6 +588,7 @@ async function getDanhSachData(query = {}) {
   };
 }
 
+// Lấy dữ liệu trang chi tiết sản phẩm, review và sản phẩm liên quan.
 async function getChiTietData(idsanpham, query = {}) {
   const sanphamdoc = await sanpham.findById(idsanpham).lean();
   if (!sanphamdoc) return { notFound: true };
@@ -741,6 +760,7 @@ async function getChiTietData(idsanpham, query = {}) {
   };
 }
 
+// Lấy dữ liệu tùy chọn biến thể để phục vụ chọn nhanh ở client.
 async function getTuyChonData(idsanpham) {
   const sanphamdoc = await sanpham.findOne({ _id: idsanpham, daxoa: { $ne: true }, trangthai: 'dangban' }).lean();
   if (!sanphamdoc) return { notFound: true };
@@ -803,6 +823,7 @@ async function getTuyChonData(idsanpham) {
   };
 }
 
+// Tìm sản phẩm theo ảnh upload bằng OpenCLIP và trả URL chuyển hướng.
 async function timBangAnhData(uploadedPath) {
   const imagePath = uploadedPath ? String(uploadedPath) : '';
   if (!imagePath) return { status: 'empty', redirectUrl: '/products?openclip_status=empty' };
@@ -906,6 +927,7 @@ async function timBangAnhData(uploadedPath) {
   };
 }
 
+// Trả dữ liệu gợi ý tìm kiếm nhanh cho ô search client.
 async function getSearchSuggestionsData(rawKeyword, options = {}) {
   const keyword = String(rawKeyword || '').trim();
   if (!keyword) return [];

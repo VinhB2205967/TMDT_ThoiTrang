@@ -12,7 +12,7 @@ function toOid(id) {
     return null;
   }
 }
-
+// Chuẩn hóa dữ liệu tin nhắn trước khi trả về client hoặc admin
 function chuanTin(doc) {
   return {
     _id: String(doc._id),

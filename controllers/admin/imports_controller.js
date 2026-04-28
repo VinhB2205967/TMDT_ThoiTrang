@@ -158,6 +158,32 @@ const xuatKhoPhieuPost = async (req, res) => {
   }
 };
 
+const taoPhieuXuatTuPhieuNhapPost = async (req, res) => {
+  try {
+    const result = await importsService.taoPhieuXuatTuPhieuNhap({
+      id: req.params.id,
+      body: req.body || {},
+      adminUser: req.adminUser,
+      user: req.user
+    });
+
+    const adminBase = adminControllerService.layAdminBase(req);
+    const successPath = result.exportId
+      ? `${adminBase}/exports/${result.exportId}`
+      : importsPath(req, `${result.receiptId || req.params.id}`);
+    const errorPath = importsPath(req, `${result.receiptId || req.params.id}`);
+    return adminControllerService.xuLyKetQuaSSR(req, res, result, {
+      successPath,
+      errorPath,
+      resolveFlashType: importsService.xacDinhLoaiFlashKetQua
+    });
+  } catch (error) {
+    console.error('Create export from import receipt error:', error);
+    req.flash('error', `Khong the tao phieu xuat tu phieu nhap: ${error.message}`);
+    return adminControllerService.redirectVe(req, res, importsPath(req, `${req.params.id}`));
+  }
+};
+
 module.exports = {
   danhSach,
   taoMoi,
@@ -166,5 +192,6 @@ module.exports = {
   chinhSua,
   chinhSuaPost,
   xoaPhieu,
-  xuatKhoPhieuPost
+  xuatKhoPhieuPost,
+  taoPhieuXuatTuPhieuNhapPost
 };

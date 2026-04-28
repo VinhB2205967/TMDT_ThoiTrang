@@ -57,7 +57,7 @@ function chuanPayload(body) {
 function toOid(value) {
   return value && mongoose.Types.ObjectId.isValid(String(value)) ? new mongoose.Types.ObjectId(String(value)) : null;
 }
-
+// Lấy danh sách danh mục theo cây phân cấp
 async function layThuTuCuoi({ parent_id, type, excludeId = null }) {
   const query = {
     daxoa: { $ne: true },

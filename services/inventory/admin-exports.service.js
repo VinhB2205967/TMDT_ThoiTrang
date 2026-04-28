@@ -184,6 +184,11 @@ async function getTaoMoiViewData() {
 
 async function taoPhieuXuat({ body = {}, adminUser = null, user = null }) {
   const maphieu = String(body.maphieu || '').trim() || taoMaPhieuXuat();
+  const madonhang = String(body.madonhang || '').trim();
+  const donhangIdRaw = String(body.donhang_id || '').trim();
+  const donhangId = mongoose.Types.ObjectId.isValid(donhangIdRaw)
+    ? new mongoose.Types.ObjectId(donhangIdRaw)
+    : null;
   const ngayxuat = body.ngayxuat ? new Date(body.ngayxuat) : new Date();
   const noinhan = String(body.noinhan || '').trim();
   const lydo = String(body.lydo || '').trim();
@@ -348,8 +353,9 @@ async function taoPhieuXuat({ body = {}, adminUser = null, user = null }) {
 
   const totals = tinhTongSoLieu(normalizedItems);
 
-  const receipt = new PhieuXuatKho({
+  const receiptPayload = {
     maphieu,
+    madonhang,
     ngayxuat,
     noinhan,
     lydo,
@@ -360,7 +366,10 @@ async function taoPhieuXuat({ body = {}, adminUser = null, user = null }) {
     nguoitao: (adminUser && adminUser._id) || (user && user._id) || null,
     ngaytao: new Date(),
     ngaycapnhat: new Date()
-  });
+  };
+  if (donhangId) receiptPayload.donhang_id = donhangId;
+
+  const receipt = new PhieuXuatKho(receiptPayload);
 
   await receipt.save();
 

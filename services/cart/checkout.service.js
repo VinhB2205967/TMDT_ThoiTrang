@@ -25,7 +25,7 @@ const {
 } = require('../payment/payment.service.js');
 
 const MAX_ORDER_TOTAL = 50000000;
-// Hàm lấy dữ liệu checkout
+// Lấy dữ liệu cần thiết để hiển thị trang checkout
 async function getCheckoutPageData({ userId, itemIdsQuery }) {
   const giohang = await getOrCreateCart(userId);
   const daDongBoGia = await dongBoGiaGioHang(giohang);
@@ -336,7 +336,7 @@ async function processCheckout({ userId, body, protocol, host, headers, socketRe
     const tapdathanhtoan = new Set(danhsachitem.map(it => String(it._id)));
     giohang.sanpham = giohang.sanpham.filter(it => !tapdathanhtoan.has(String(it._id)));
     await giohang.save();
-
+// Xử lý thanh toán theo phương thức đã chọn
     if (phuongthucthanhtoan === 'momo') {
       const redirectUrl = String(process.env.MOMO_REDIRECT_URL || `${protocol}://${host}/cart/momo/return`);
       const ipnUrl = String(process.env.MOMO_IPN_URL || `${protocol}://${host}/cart/momo/ipn`);

@@ -20,11 +20,13 @@ function tuyChonCookie() {
   };
 }
 
+// Lưu dữ liệu form
 function luuDuLieuForm(req, data = {}) {
   if (!req || !req.flash) return;
   req.flash('formData', JSON.stringify(data || {}));
 }
 
+// Lấy dữ liệu form đã lưu
 function layDuLieuForm(req) {
   try {
     const raw = req && req.flash ? req.flash('formData') : [];
@@ -37,10 +39,12 @@ function layDuLieuForm(req) {
   }
 }
 
+// Kiểm tra nếu tài khoản đang đăng nhập có hoạt động hay không (dựa trên trạng thái của tài khoản)
 function laTaiKhoanDangNhapHoatDong(user) {
   return !!(user && user.trangthai === 'active');
 }
 
+// Tạo dữ liệu cần render cho trang đăng nhập/đăng ký.
 function taoDuLieuTrangDangNhap(req) {
   const chedo = req.query.mode === 'register' ? 'register' : 'login';
   const emaildanho = String(req.cookies?.rememberEmail || '').trim();
@@ -54,6 +58,7 @@ function taoDuLieuTrangDangNhap(req) {
   };
 }
 
+// Xử lý đăng ký tài khoản local và trả kết quả cho controller.
 async function xuLyDangKy(req) {
   const hoten = String(req.body.hoten || '').trim();
   const emaildangky = chuanEmail(req.body.email);
@@ -93,7 +98,8 @@ async function xuLyDangKy(req) {
     };
   }
 }
-// Hàm này sẽ xử lý đăng nhập, bao gồm cả lưu log và trả về thông tin cần thiết cho controller để quyết định redirect và flash message
+
+// Bao req.login thành Promise để dùng được với async/await.
 function dangNhapReq(req, user) {
   return new Promise((resolve, reject) => {
     req.login(user, function (loi) {
@@ -103,10 +109,12 @@ function dangNhapReq(req, user) {
   });
 }
 
+// Chuẩn hóa giá trị "ghi nhớ email" từ form đăng nhập.
 function chonNhoEmail(remember) {
   return remember === 'on' || remember === '1' || remember === true;
 }
 
+// Xử lý đăng nhập local, đăng nhập session và ghi log đăng nhập.
 async function xuLyDangNhap(req) {
   const emaildangnhap = chuanEmail(req.body.email);
   const ghinho = chonNhoEmail(req.body.remember);
@@ -155,11 +163,13 @@ async function xuLyDangNhap(req) {
   }
 }
 
+// Xử lý đăng xuất và cập nhật trạng thái offline cho người dùng.
 async function xuLyDangXuat(req) {
   const idnguoidung = req.user && req.user._id ? String(req.user._id) : null;
   await danhDauOffline({ userId: idnguoidung });
 }
 
+// Kiểm tra hệ thống đã cấu hình Google OAuth hay chưa.
 function kiemTraGoogleAuth() {
   if (!daCauHinhGoogle()) {
     return {
@@ -171,6 +181,7 @@ function kiemTraGoogleAuth() {
   return { ok: true };
 }
 
+// Đọc lỗi Google OAuth từ query và tạo thông tin phản hồi phù hợp.
 function xuLyLoiGoogleQuery(req) {
   if (!(req.query && req.query.error)) return null;
 
@@ -183,16 +194,19 @@ function xuLyLoiGoogleQuery(req) {
   };
 }
 
+// Trả về gợi ý lỗi thân thiện cho luồng đăng nhập Google.
 function layGoiYLoiGoogle(loi, req) {
   return goiYLoiGoogle(loi, req);
 }
 
+// Hoàn tất đăng nhập sau khi Google xác thực thành công.
 async function xuLyGoogleDaXacThuc(req, taikhoan) {
   const user = await chuanBiDangNhapGoogle({ req, user: taikhoan });
   await dangNhapReq(req, user);
   return user;
 }
 
+// Tạo dữ liệu render cho trang quên mật khẩu.
 function getTrangQuenMatKhauData(req) {
   return {
     titlePage: 'Quên mật khẩu',
@@ -200,6 +214,7 @@ function getTrangQuenMatKhauData(req) {
   };
 }
 
+// Gửi email đặt lại mật khẩu và trả thông tin phản hồi.
 async function xuLyGuiEmailDatLai(req) {
   const email = chuanEmail(req.body.email);
 
@@ -225,6 +240,7 @@ async function xuLyGuiEmailDatLai(req) {
   }
 }
 
+// Kiểm tra token reset để hiển thị trang đặt lại mật khẩu.
 async function xuLyTrangDatLai(req) {
   const token = String(req.query.token || '').trim();
 
@@ -247,6 +263,7 @@ async function xuLyTrangDatLai(req) {
   }
 }
 
+// Đặt lại mật khẩu bằng token và trả điều hướng phù hợp.
 async function xuLyDatLaiMatKhau(req) {
   const token = String(req.body.token || '').trim();
 
