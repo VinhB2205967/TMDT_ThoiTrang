@@ -22,6 +22,7 @@ router.get('/unread-total', controller.layTongChuaDoc);
 router.get('/messages/:userId', controller.layLichSuTheoUser);
 router.post('/read/:userId', controller.danhDauDaDocTheoUser);
 router.post('/upload', uploadSingleMedia, controller.uploadMedia);
+router.post('/ai-suggest', controller.aiSuggest);
 
 module.exports = router;
 

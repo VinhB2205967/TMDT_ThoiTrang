@@ -79,7 +79,6 @@ def _ensure_local_hf_cache(root_dir):
     cache_root.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("HF_HOME", str(cache_root))
     os.environ.setdefault("HUGGINGFACE_HUB_CACHE", str(cache_root / "hub"))
-    os.environ.setdefault("TRANSFORMERS_CACHE", str(cache_root / "transformers"))
 
 
 def _write_output_line(payload):

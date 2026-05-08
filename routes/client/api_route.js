@@ -10,7 +10,7 @@ const chatApi = require('../../controllers/client/api/chat_api_controller');
 const cartApi = require('../../controllers/client/api/cart_api_controller');
 const productsApi = require('../../controllers/client/api/products_api_controller');
 const ordersApi = require('../../controllers/client/api/orders_api_controller');
-const { uploadOpenclipQuery } = require('../../middlewares/openclipUpload');
+const { uploadOpenclipQuery, validateOpenclipQueryFile } = require('../../middlewares/openclipUpload');
 const { uploadChatMedia, MAX_CHAT_MEDIA_MB } = require('../../middlewares/chatUpload');
 
 const aiChatLimiter = rateLimit({
@@ -42,9 +42,17 @@ router.post('/ai-chat/message', aiChatLimiter, aiChatApi.sendMessage);
 router.post('/openclip/search', aiChatLimiter, aiChatApi.searchOpenClip);
 router.post('/openclip/search-by-image', aiChatLimiter, (req, res, next) => {
 	uploadOpenclipQuery.single('image')(req, res, (err) => {
-		if (!err) return next();
+		if (!err) {
+			return validateOpenclipQueryFile(req, res, (validationErr) => {
+				if (!validationErr) return next();
+				return res.status(400).json({ success: false, message: 'Chỉ hỗ trợ ảnh JPG, PNG, WebP hoặc BMP. Vui lòng đổi định dạng ảnh rồi thử lại.' });
+			});
+		}
 		if (err && err.message === 'ONLY_IMAGE') {
 			return res.status(400).json({ success: false, message: 'Chỉ hỗ trợ file ảnh (jpg, png, webp...)' });
+		}
+		if (err && err.message === 'UNSUPPORTED_IMAGE_TYPE') {
+			return res.status(400).json({ success: false, message: 'Chỉ hỗ trợ ảnh JPG, PNG, WebP hoặc BMP. Vui lòng đổi định dạng ảnh rồi thử lại.' });
 		}
 		if (err && err.code === 'LIMIT_FILE_SIZE') {
 			return res.status(400).json({ success: false, message: 'Ảnh quá lớn (tối đa 10MB)' });

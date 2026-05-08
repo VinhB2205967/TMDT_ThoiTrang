@@ -21,6 +21,12 @@
   const previewRemove = document.getElementById('adminChatPreviewRemove');
   const unreadTotalEl = document.getElementById('adminChatUnreadTotal');
   const menuUnreadEl = document.getElementById('adminChatMenuUnread');
+  const aiActionEl = document.getElementById('adminChatAiAction');
+  const aiProviderEl = document.getElementById('adminChatAiProvider');
+  const aiBtn = document.getElementById('adminChatAiBtn');
+  const aiInsertBtn = document.getElementById('adminChatAiInsert');
+  const aiOutputEl = document.getElementById('adminChatAiOutput');
+  const aiStatusEl = document.getElementById('adminChatAiStatus');
 
   if (!listEl || !messagesEl || !formEl || !inputEl) return;
 
@@ -39,6 +45,7 @@
   let searchKeyword = '';
   let searchTimer = null;
   let initialTargetUserId = '';
+  let aiLoading = false;
   try {
     const params = new URLSearchParams(window.location.search || '');
     initialTargetUserId = String(params.get('userId') || '').trim();
@@ -107,6 +114,25 @@
       menuUnreadEl.textContent = String(value);
       menuUnreadEl.classList.toggle('d-none', value <= 0);
     }
+  }
+
+  function setAiOutput(text) {
+    if (!aiOutputEl) return;
+    const value = String(text || '').trim();
+    aiOutputEl.value = value;
+    if (aiInsertBtn) aiInsertBtn.disabled = !value;
+  }
+
+  function setAiStatus(text) {
+    if (!aiStatusEl) return;
+    aiStatusEl.textContent = String(text || '');
+  }
+
+  function setAiLoading(loading) {
+    aiLoading = Boolean(loading);
+    if (aiBtn) aiBtn.disabled = aiLoading;
+    if (aiActionEl) aiActionEl.disabled = aiLoading;
+    if (aiProviderEl) aiProviderEl.disabled = aiLoading;
   }
 
   function clearPreview() {
@@ -343,6 +369,8 @@
 
   async function openConversation(userId) {
     activeUserId = userId;
+    setAiOutput('');
+    setAiStatus('');
     const { ok, data } = await fetchJson(`${runtime.adminPath}/api/chats/messages/${userId}`);
     if (!ok || !data.success) return;
     const payload = data.data || {};
@@ -496,6 +524,65 @@
     if (!payload) return;
     setUnreadTotal(payload.count || 0);
   });
+
+  async function requestAiSuggestion() {
+    if (aiLoading) return;
+    if (!activeUserId) {
+      showToast('Chon hoi thoai truoc khi dung AI.');
+      return;
+    }
+    setAiStatus('Dang tao goi y...');
+    setAiLoading(true);
+
+    try {
+      const payload = {
+        userId: activeUserId,
+        action: aiActionEl ? aiActionEl.value : 'draft',
+        provider: aiProviderEl ? aiProviderEl.value : ''
+      };
+      const { ok, data } = await fetchJson(`${runtime.adminPath}/api/chats/ai-suggest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!ok || !data.success) {
+        setAiStatus((data && data.message) || 'Khong the tao goi y.');
+        return;
+      }
+
+      const result = data.data || {};
+      setAiOutput(result.suggestion || '');
+      const provider = result.meta && result.meta.provider ? result.meta.provider : '';
+      const model = result.meta && result.meta.model ? result.meta.model : '';
+      const info = [provider, model].filter(Boolean).join(' - ');
+      setAiStatus(info ? `Da tao goi y (${info})` : 'Da tao goi y');
+    } catch (error) {
+      setAiStatus('Khong the tao goi y.');
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  if (aiBtn) {
+    aiBtn.addEventListener('click', requestAiSuggestion);
+  }
+
+  if (aiInsertBtn) {
+    aiInsertBtn.addEventListener('click', () => {
+      if (!aiOutputEl || !inputEl) return;
+      const value = String(aiOutputEl.value || '').trim();
+      if (!value) return;
+      inputEl.value = value;
+      inputEl.focus();
+    });
+  }
+
+  if (aiActionEl) {
+    aiActionEl.addEventListener('change', () => {
+      setAiOutput('');
+      setAiStatus('');
+    });
+  }
 
   window.addEventListener('resize', () => {
     syncViewportHeight();

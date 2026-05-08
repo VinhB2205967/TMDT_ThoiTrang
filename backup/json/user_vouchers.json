@@ -1,0 +1,2 @@
+{"_id":{"$oid":"69e8da820e26b3ec999c9ef1"},"nguoidung_id":{"$oid":"69cab245b2ae7e9555621c7e"},"voucher_id":{"$oid":"69cab2c882b9b4f4f99cba02"},"__v":{"$numberInt":"0"},"isUsed":true,"savedAt":{"$date":{"$numberLong":"1776867970118"}},"usedAt":{"$date":{"$numberLong":"1776867970118"}}}
+{"_id":{"$oid":"69e9c4b30e26b3ec999c9ef6"},"nguoidung_id":{"$oid":"69cab245b2ae7e9555621c7e"},"voucher_id":{"$oid":"69e9c1ca22b187cb73c9ef3d"},"__v":{"$numberInt":"0"},"isUsed":true,"savedAt":{"$date":{"$numberLong":"1776927923327"}},"usedAt":{"$date":{"$numberLong":"1776927923327"}}}

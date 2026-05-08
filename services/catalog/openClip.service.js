@@ -213,6 +213,7 @@ function buildWorkerError(message, state, rawPayload) {
     .filter((line) => {
       const lower = line.toLowerCase();
       if (lower.includes('you are sending unauthenticated requests to the hf hub')) return false;
+      if (lower.includes('using `transformers_cache` is deprecated')) return false;
       if (lower.startsWith('warning:huggingface_hub.utils._http:warning:')) return false;
       return true;
     })

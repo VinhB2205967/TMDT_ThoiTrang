@@ -564,9 +564,11 @@ async function getDanhSachData(query = {}) {
   const openclipStatus = String(query.openclip_status || '').trim();
   const openclipMessage = openclipStatus === 'empty'
     ? 'Không tìm thấy sản phẩm phù hợp từ ảnh.'
-    : openclipStatus === 'error'
-      ? 'Không thể tìm kiếm bằng ảnh lúc này. Vui lòng thử lại.'
-      : '';
+    : openclipStatus === 'unsupported'
+      ? 'Ảnh chưa đúng định dạng hỗ trợ. Vui lòng dùng JPG, PNG, WebP hoặc BMP rồi thử lại.'
+      : openclipStatus === 'error'
+        ? 'Không thể tìm kiếm bằng ảnh lúc này. Vui lòng thử lại.'
+        : '';
 
   return {
     titlePage: 'Danh sách sản phẩm',

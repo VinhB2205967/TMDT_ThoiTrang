@@ -30,6 +30,22 @@ block main
         #adminChatMessages.chat-panel-messages
           .text-muted#adminChatEmpty Chọn một hội thoại để bắt đầu.
         .chat-panel-input
+          .chat-ai-panel
+            .d-flex.flex-wrap.align-items-center.gap-2.mb-2
+              .fw-semibold AI gợi ý
+              select#adminChatAiAction.form-select.form-select-sm(style='width:170px')
+                option(value='draft' selected) Gợi ý trả lời
+                option(value='summary') Tóm tắt hội thoại
+                option(value='followup') Câu hỏi bổ sung
+              select#adminChatAiProvider.form-select.form-select-sm(style='width:140px')
+                option(value='') Tự động chọn
+                option(value='gemini') Gemini
+                option(value='openrouter') OpenRouter
+                option(value='ollama') Ollama
+              button#adminChatAiBtn.btn.btn-sm.btn-outline-primary(type='button') Tạo gợi ý
+              button#adminChatAiInsert.btn.btn-sm.btn-outline-secondary(type='button' disabled) Chèn vào tin nhắn
+            textarea#adminChatAiOutput.form-control.form-control-sm(rows='3' placeholder='ợi ý của AI sẽ hiện ở đây...' readonly)
+            small#adminChatAiStatus.text-muted
           form#adminChatForm
             input#adminChatFile(type="file" accept="image/*,video/mp4,video/webm,video/ogg,video/quicktime" hidden)
             .small.text-muted.mb-1#adminChatFileLabel

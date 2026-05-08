@@ -168,6 +168,19 @@
   background: #fff;
 }
 
+.chat-ai-panel {
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  padding: 10px;
+  background: #f8f9fa;
+  margin-bottom: 10px;
+}
+
+#adminChatAiOutput {
+  resize: vertical;
+  min-height: 72px;
+}
+
 #adminChatBackBtn {
   display: none;
 }

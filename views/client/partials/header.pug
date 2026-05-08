@@ -426,6 +426,61 @@ script.
             loadingBackdrop.addEventListener('click', hideLoadingOverlay);
         }
 
+        const convertImageToSearchJpeg = function(file) {
+            return new Promise(function(resolve) {
+                const type = String(file && file.type ? file.type : '');
+                if (!file || (type && !/^image\//i.test(type))) {
+                    resolve(file);
+                    return;
+                }
+
+                const objectUrl = URL.createObjectURL(file);
+                const img = new Image();
+
+                img.onload = function() {
+                    URL.revokeObjectURL(objectUrl);
+
+                    const maxSide = 1400;
+                    const ratio = Math.min(1, maxSide / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+                    const width = Math.max(1, Math.round((img.naturalWidth || 1) * ratio));
+                    const height = Math.max(1, Math.round((img.naturalHeight || 1) * ratio));
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) {
+                        resolve(file);
+                        return;
+                    }
+
+                    ctx.drawImage(img, 0, 0, width, height);
+                    canvas.toBlob(function(blob) {
+                        if (!blob) {
+                            resolve(file);
+                            return;
+                        }
+                        resolve(new File([blob], 'openclip-query.jpg', { type: 'image/jpeg' }));
+                    }, 'image/jpeg', 0.92);
+                };
+
+                img.onerror = function() {
+                    URL.revokeObjectURL(objectUrl);
+                    resolve(file);
+                };
+
+                img.src = objectUrl;
+            });
+        };
+
+        const replaceImageInputFile = function(file) {
+            if (!imageInput || !file || typeof DataTransfer === 'undefined') return false;
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            imageInput.files = dataTransfer.files;
+            return true;
+        };
+
         document.addEventListener('keydown', function(event) {
             if (event.key === 'Escape' && loadingOverlay && !loadingOverlay.hidden) {
                 hideLoadingOverlay();
@@ -437,9 +492,12 @@ script.
                 imageInput.click();
             });
 
-            imageInput.addEventListener('change', function() {
+            imageInput.addEventListener('change', async function() {
                 if (imageInput.files && imageInput.files[0]) {
-                    showLoadingOverlay(imageInput.files[0]);
+                    const originalFile = imageInput.files[0];
+                    showLoadingOverlay(originalFile);
+                    const searchFile = await convertImageToSearchJpeg(originalFile);
+                    replaceImageInputFile(searchFile);
                     imageForm.submit();
                 }
             });

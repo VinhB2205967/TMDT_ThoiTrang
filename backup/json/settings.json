@@ -1,0 +1,2 @@
+{"_id":{"$oid":"69d7f3ac113becf3a347dbb5"},"key":"client_header_name","__v":{"$numberInt":"0"},"ngaycapnhat":{"$date":{"$numberLong":"1775760815531"}},"ngaytao":{"$date":{"$numberLong":"1775760300632"}},"value":"Fashion Store"}
+{"_id":{"$oid":"69d7f3ac113becf3a347dbb6"},"key":"client_header_logo","__v":{"$numberInt":"0"},"ngaycapnhat":{"$date":{"$numberLong":"1775760815531"}},"ngaytao":{"$date":{"$numberLong":"1775760300632"}},"value":"/uploads/site/1775760300583-b208ea6f1eea.png"}
