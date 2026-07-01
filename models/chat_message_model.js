@@ -79,6 +79,12 @@ const chatMessageSchema = new mongoose.Schema({
     default: Date.now,
     index: true
   },
+  isAutoReply: {
+    type: Boolean,
+    alias: 'tu_tra_loi',
+    default: false,
+    index: true
+  },
   daxoa: {
     type: Boolean,
     default: false,
@@ -88,6 +94,7 @@ const chatMessageSchema = new mongoose.Schema({
 
 chatMessageSchema.index({ clientId: 1, sentAt: -1 });
 chatMessageSchema.index({ clientId: 1, senderRole: 1, isRead: 1 });
+chatMessageSchema.index({ isAutoReply: 1, sentAt: -1 });
 
 chatMessageSchema.pre('validate', function () {
   const hasText = String(this.content || '').trim().length > 0;

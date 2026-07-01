@@ -1,0 +1,541 @@
+/* =============================================================
+   PRODUCT PAGE ENHANCEMENTS - Beautiful Hover Effects & Styling
+   Modern card interactions, smooth transitions, and polish
+   ============================================================= */
+
+/* ================================================================
+   1. PRODUCT LIST/CARD HOVER EFFECTS
+   ================================================================ */
+
+/* Product item table row enhanced */
+.table tbody tr.product-row {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  background: var(--dark-card);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.table tbody tr.product-row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #6366f1 0%, #8b5cf6 100%);
+  border-radius: 8px 0 0 8px;
+  opacity: 0;
+  transition: opacity 0.3s ease, width 0.3s ease;
+  z-index: 1;
+}
+
+.table tbody tr.product-row:hover {
+  background: var(--dark-card-hover);
+  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.25);
+  transform: translateX(4px) translateY(-2px);
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+.table tbody tr.product-row:hover::before {
+  opacity: 1;
+  width: 6px;
+}
+
+/* Product name/title on hover */
+.product-name,
+.product-title {
+  transition: all 0.3s ease;
+  position: relative;
+  color: var(--dark-text-primary);
+  font-weight: 600;
+}
+
+.table tbody tr:hover .product-name,
+.table tbody tr:hover .product-title {
+  color: #6366f1;
+  text-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+}
+
+/* Product image hover */
+.product-image-cell img,
+.product-thumbnail {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.table tbody tr:hover .product-image-cell img,
+.table tbody tr:hover .product-thumbnail {
+  transform: scale(1.12) rotate(1deg);
+  box-shadow: 0 12px 32px rgba(99, 102, 241, 0.35);
+  filter: brightness(1.15) contrast(1.1);
+}
+
+/* ================================================================
+   2. FILTER BAR ENHANCED
+   ================================================================ */
+
+.filter-search-sticky {
+  transition: all 0.3s ease;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.filter-search-card {
+  background: var(--dark-card);
+  border: 1.5px solid rgba(99, 102, 241, 0.2);
+  border-radius: 12px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+.filter-search-card:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.15);
+  background: var(--dark-card-hover);
+}
+
+/* Advanced filter toggle button */
+.filter-search-card .btn-outline-primary {
+  position: relative;
+  overflow: hidden;
+}
+
+.filter-search-card .btn-outline-primary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.1), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.5s ease;
+}
+
+.filter-search-card .btn-outline-primary:hover::before {
+  transform: translateX(100%);
+}
+
+/* Filter collapse animation */
+#advancedFilters {
+  animation: slideDownIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes slideDownIn {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+    transform: translateY(0);
+  }
+}
+
+/* ================================================================
+   3. PRODUCT STATUS BADGE STYLES
+   ================================================================ */
+
+.product-status-badge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  backdrop-filter: blur(4px);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.product-status-badge::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  animation: badgeShimmer 2s infinite;
+}
+
+@keyframes badgeShimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.product-status-badge:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Status specific colors */
+.product-status-active {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.product-status-draft {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  color: white;
+}
+
+.product-status-hidden {
+  background: linear-gradient(135deg, #ef5350 0%, #d32f2f 100%);
+  color: white;
+}
+
+.product-status-low-stock {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+}
+
+/* ================================================================
+   4. PRICE & STATS STYLING
+   ================================================================ */
+
+.product-price {
+  font-weight: 800;
+  font-size: 16px;
+  color: #06b6d4;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.product-price::before {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  transition: width 0.3s ease;
+}
+
+.table tbody tr:hover .product-price::before {
+  width: 100%;
+}
+
+.product-stock,
+.product-views,
+.product-sales {
+  transition: all 0.3s ease;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.table tbody tr:hover .product-stock,
+.table tbody tr:hover .product-views,
+.table tbody tr:hover .product-sales {
+  background: rgba(99, 102, 241, 0.16);
+  transform: scale(1.05);
+}
+
+/* Stock warning */
+.product-stock.low-stock {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.product-stock.out-of-stock {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* ================================================================
+   5. ACTION BUTTONS STYLING
+   ================================================================ */
+
+.product-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  opacity: 0.6;
+  transition: all 0.3s ease;
+}
+
+.table tbody tr:hover .product-actions {
+  opacity: 1;
+}
+
+.product-actions .btn-sm {
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.product-actions .btn-sm::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.1), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.product-actions .btn-sm:hover {
+  transform: scale(1.1) translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.product-actions .btn-sm:hover::after {
+  opacity: 1;
+}
+
+/* Edit button */
+.btn-edit-product {
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.btn-edit-product:hover {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: #2563eb;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.25);
+}
+
+/* Delete button */
+.btn-delete-product {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.btn-delete-product:hover {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: #dc2626;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.25);
+}
+
+/* View button */
+.btn-view-product {
+  border-color: #8b5cf6;
+  color: #8b5cf6;
+}
+
+.btn-view-product:hover {
+  background: rgba(139, 92, 246, 0.12);
+  border-color: #7c3aed;
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.25);
+}
+
+/* ================================================================
+   6. EMPTY STATE & LOADING
+   ================================================================ */
+
+.product-empty-state {
+  padding: 60px 20px;
+  text-align: center;
+  animation: fadeInUp 0.5s ease;
+}
+
+.product-empty-icon {
+  font-size: 72px;
+  margin-bottom: 16px;
+  animation: floatUpDown 3s ease-in-out infinite;
+}
+
+.product-empty-text {
+  color: var(--dark-text-tertiary);
+  font-size: 16px;
+  margin-bottom: 24px;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes floatUpDown {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+/* ================================================================
+   7. PAGINATION ENHANCEMENTS
+   ================================================================ */
+
+.pagination {
+  justify-content: center;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.page-item .page-link {
+  transition: all 0.3s ease;
+  border-radius: 8px;
+  border: 1.5px solid var(--dark-border-strong);
+  position: relative;
+  overflow: hidden;
+}
+
+.page-item .page-link::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.page-item .page-link:hover {
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.08);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+
+.page-item .page-link:hover::before {
+  opacity: 1;
+}
+
+.page-item.active .page-link {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  border-color: transparent;
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35);
+  color: white;
+}
+
+/* ================================================================
+   8. SEARCH INPUT ENHANCED
+   ================================================================ */
+
+.form-control-lg,
+#search-product {
+  border: 1.5px solid var(--dark-border);
+  background: var(--dark-surface);
+  color: var(--dark-text-primary);
+  transition: all 0.3s ease;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 15px;
+}
+
+.form-control-lg:focus,
+#search-product:focus {
+  border-color: #6366f1;
+  background: var(--dark-card);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15), inset 0 0 8px rgba(99, 102, 241, 0.05);
+  transform: translateY(-2px);
+}
+
+/* ================================================================
+   9. TABLE HEADER ENHANCEMENTS
+   ================================================================ */
+
+.table thead th {
+  background: linear-gradient(120deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.08) 100%);
+  border: 1px solid var(--dark-border-strong);
+  color: var(--dark-text-secondary);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 14px 12px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.table thead th::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.table thead th:hover {
+  background: linear-gradient(120deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.12) 100%);
+}
+
+.table thead th:hover::before {
+  opacity: 1;
+}
+
+/* Sort indicator */
+.table thead th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.table thead th.sortable:hover {
+  background: linear-gradient(120deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.15) 100%);
+}
+
+/* ================================================================
+   10. RESPONSIVE ADJUSTMENTS
+   ================================================================ */
+
+@media (max-width: 1024px) {
+  .product-actions {
+    opacity: 1;
+    gap: 4px;
+  }
+
+  .product-actions .btn-sm {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  .table tbody tr:hover {
+    transform: translateX(2px);
+  }
+}
+
+@media (max-width: 768px) {
+  .filter-search-sticky {
+    position: relative;
+  }
+
+  .product-actions {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .product-actions .btn-sm {
+    width: 100%;
+  }
+
+  .product-image-cell {
+    max-width: 60px;
+  }
+
+  .product-image-cell img {
+    max-width: 100%;
+  }
+
+  /* Disable scale on mobile for performance */
+  .table tbody tr:hover .product-image-cell img {
+    transform: scale(1.05) rotate(0deg);
+  }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

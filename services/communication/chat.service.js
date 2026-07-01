@@ -29,7 +29,8 @@ function chuanTin(doc) {
     mediaSize: Number(doc.mediaSize || 0),
     isRead: Boolean(doc.isRead),
     readAt: doc.readAt || null,
-    sentAt: doc.sentAt || null
+    sentAt: doc.sentAt || null,
+    isAutoReply: Boolean(doc.isAutoReply)
   };
 }
 

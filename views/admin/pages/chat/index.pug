@@ -1,21 +1,27 @@
 extends ../../layouts/default.pug
 
 block styles
-  link(rel="stylesheet", href="/admin/css/chat-admin.css")
+  link(rel="stylesheet", href="/admin/css/chat-admin-dark.css?v=20260615-1")
+
+  link(rel='stylesheet', href='/admin/css/chat-admin-dark.css?v=20260616-2')
 
 block main
   .chat-admin-page
-    .d-flex.justify-content-between.align-items-center.mb-3.page-header-section.orders-header.admin-page-header
-      h1.h4.mb-0 Quản lý chat khách hàng
-      span.badge.text-bg-danger Tổng chưa đọc:
-        span#adminChatUnreadTotal 0
+    .chat-page-header
+      .d-flex.align-items-center.gap-3
+        div
+          h1 💬 Quản lý Chat Khách Hàng
+          p.text-muted.mb-0 Hỗ trợ khách hàng và tương tác trực tiếp
+        span.chat-unread-badge
+          | Chưa đọc:
+          span#adminChatUnreadTotal.chat-unread-count 0
 
     .chat-admin-layout
       .chat-sidebar
-        .p-3.border-bottom
-          .fw-semibold Danh sách hội thoại
+        .p-3
+          .fw-semibold 📋 Danh sách hội thoại
           .mt-2
-            input#adminChatSearch.form-control.form-control-sm(type='search' placeholder='Tìm theo tên, email, SĐT...')
+            input#adminChatSearch.form-control.form-control-sm(type='search' placeholder='Tìm kiếm...')
         #adminChatList.chat-list
 
       .chat-panel
@@ -24,15 +30,16 @@ block main
             .d-flex.align-items-center.gap-2
               button#adminChatBackBtn.btn.btn-sm.btn-outline-secondary(type="button")
                 i.bi.bi-arrow-left
-                |  Quay lại
               .fw-semibold#adminChatUserName Chọn khách hàng
             span#adminChatUserStatus.badge.text-bg-secondary Offline
+
         #adminChatMessages.chat-panel-messages
-          .text-muted#adminChatEmpty Chọn một hội thoại để bắt đầu.
+          .text-muted#adminChatEmpty Chọn một hội thoại để bắt đầu
+
         .chat-panel-input
           .chat-ai-panel
             .d-flex.flex-wrap.align-items-center.gap-2.mb-2
-              .fw-semibold AI gợi ý
+              .fw-semibold ✨ AI gợi ý
               select#adminChatAiAction.form-select.form-select-sm(style='width:170px')
                 option(value='draft' selected) Gợi ý trả lời
                 option(value='summary') Tóm tắt hội thoại
@@ -43,9 +50,10 @@ block main
                 option(value='openrouter') OpenRouter
                 option(value='ollama') Ollama
               button#adminChatAiBtn.btn.btn-sm.btn-outline-primary(type='button') Tạo gợi ý
-              button#adminChatAiInsert.btn.btn-sm.btn-outline-secondary(type='button' disabled) Chèn vào tin nhắn
-            textarea#adminChatAiOutput.form-control.form-control-sm(rows='3' placeholder='ợi ý của AI sẽ hiện ở đây...' readonly)
+              button#adminChatAiInsert.btn.btn-sm.btn-outline-secondary(type='button' disabled) Chèn
+            textarea#adminChatAiOutput.form-control.form-control-sm(rows='3' placeholder='Gợi ý của AI sẽ hiện ở đây...' readonly)
             small#adminChatAiStatus.text-muted
+
           form#adminChatForm
             input#adminChatFile(type="file" accept="image/*,video/mp4,video/webm,video/ogg,video/quicktime" hidden)
             .small.text-muted.mb-1#adminChatFileLabel
@@ -58,7 +66,9 @@ block main
               button#adminChatFileBtn.btn.btn-outline-secondary(type="button" title="Gửi ảnh/video")
                 i.bi.bi-paperclip
               input#adminChatInput.form-control(type="text" placeholder="Nhập tin nhắn...")
-              button.btn.btn-primary(type="submit") Gửi
+              button#adminChatSendBtn.btn.btn-outline-primary(type="button" title="Gửi")
+                i.bi.bi-send
+                | Gửi
 
 block scripts
   script.

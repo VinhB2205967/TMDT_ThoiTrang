@@ -9,6 +9,11 @@ const {
   demChuaDocAdmin,
   layUserCoBan
 } = require('../services/communication/chat.service.js');
+const {
+  handleClientMessageForAutoReply,
+  sendAutoReply,
+  getAutoReplyConfig
+} = require('../services/communication/admin-auto-reply.service.js');
 
 const onlineByUser = new Map();
 const onlineAdmins = new Set();
@@ -167,6 +172,38 @@ function setupChatSocket(io) {
       if (me.role === 'client') {
         const adminUnreadTotal = await demChuaDocAdmin();
         io.to(PHONG_ADMIN).emit('unread_total', { count: adminUnreadTotal });
+
+        // Trigger auto-reply if client sent a message
+        try {
+          const autoReplyData = await handleClientMessageForAutoReply(saved);
+          if (autoReplyData) {
+            // Schedule auto-reply sending
+            const delayMs = autoReplyData.sendAt.getTime() - Date.now();
+            setTimeout(async () => {
+              try {
+                const config = await getAutoReplyConfig();
+                const autoReplyResult = await sendAutoReply({
+                  clientId: autoReplyData.clientId,
+                  autoReplyContent: autoReplyData.content,
+                  config
+                });
+
+                if (autoReplyResult.success && autoReplyResult.message) {
+                  // Broadcast the auto-reply message
+                  io.to(roomUser(autoReplyData.clientId)).to(PHONG_ADMIN).emit('receive_message', autoReplyResult.message);
+                  
+                  // Update unread count for the client
+                  const userUnread = await demChuaDocClient({ clientId: autoReplyData.clientId });
+                  io.to(roomUser(autoReplyData.clientId)).emit('unread_count', { count: userUnread });
+                }
+              } catch (autoReplyError) {
+                console.error('Auto-reply send error:', autoReplyError);
+              }
+            }, Math.max(0, delayMs));
+          }
+        } catch (autoReplyError) {
+          console.error('Auto-reply handling error:', autoReplyError);
+        }
       } else {
         const userUnread = await demChuaDocClient({ clientId });
         io.to(roomUser(clientId)).emit('unread_count', { count: userUnread });

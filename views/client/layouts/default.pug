@@ -4,6 +4,19 @@ html(lang="vi")
     meta(charset="UTF-8")
     meta(name="viewport" content="width=device-width, initial-scale=1.0")
     title #{titlePage}
+    //- Apply saved theme (or system pref) BEFORE first paint to avoid FOUC
+    script.
+      (function () {
+        try {
+          var saved = localStorage.getItem('cm-theme');
+          var theme = (saved === 'dark' || saved === 'light') ? saved : 'dark';
+          document.documentElement.setAttribute('data-theme', theme);
+          document.documentElement.setAttribute('data-bs-theme', theme);
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+          document.documentElement.setAttribute('data-bs-theme', 'dark');
+        }
+      })();
     link(rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin)
     link(rel="dns-prefetch" href="https://cdnjs.cloudflare.com")
     link(href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet")
@@ -15,8 +28,9 @@ html(lang="vi")
     link(rel="stylesheet", href="/css/product-detail.css")
     link(rel="stylesheet", href="/css/filter-bar.css")
     link(rel="stylesheet", href="/css/ui-enhancements.css?v=20260421-4")
-    link(rel="stylesheet", href="/css/chat-client.css")
-    link(rel="stylesheet", href="/css/chat-ai.css?v=20260421-2")
+    link(rel="stylesheet", href="/css/chat-client.css?v=20260616-1")
+    link(rel="stylesheet", href="/css/chat-ai.css?v=20260616-1")
+    link(rel="stylesheet", href="/css/client-modern.css?v=20260619-dark-client-1")
     meta(name="csrf-token" content=csrfToken)
     block styles
   body(class=[isAuthenticated && !isAdmin ? 'has-client-chat' : ''])
@@ -93,6 +107,7 @@ html(lang="vi")
     script(src="/js/shared/utils.js")
     script(src="/js/shared/flash.js")
     script(src="/js/script.js")
+    script(src="/js/client-fx.js?v=20260619-dark-1")
     script.
       window.AIChatRuntime = {
         isAuthenticated: !{JSON.stringify(Boolean(isAuthenticated))},

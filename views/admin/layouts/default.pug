@@ -7,8 +7,16 @@ html
     link(href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet")
     link(href="/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet")
     link(rel="stylesheet", href="/admin/css/admin.css?v=20260403-1")
+    link(rel="stylesheet", href="/admin/css/admin-modern.css?v=20260615-5")
+    link(rel="stylesheet", href="/admin/css/admin-dark-mode-v3.css?v=20260615-1")
+    link(rel="stylesheet", href="/admin/css/admin-list-layouts.css?v=20260615-1")
+    link(rel="stylesheet", href="/admin/css/admin-advanced-effects.css?v=20260615-1")
+    link(rel="stylesheet", href="/admin/css/admin-product-enhancements.css?v=20260615-1")
+    link(rel="stylesheet", href="/admin/css/admin-unified-interactions.css?v=20260615-1")
     meta(name="csrf-token" content=csrfToken)
     block styles
+    link(rel='stylesheet', href='/admin/css/admin-unified-interactions.css?v=20260616-2')
+    link(rel='stylesheet', href='/admin/css/admin-refined-ui.css?v=20260616-1')
   body
     .body
         include ../partials/sider.pug 
@@ -22,6 +30,7 @@ html
     script(src="/js/shared/utils.js")
     script(src="/js/shared/flash.js")
     script(src="/admin/js/admin.js?v=20260410-2")
+    script(src="/admin/js/admin-fx.js?v=20260615-6")
     script(src="/admin/js/filterAutoSubmit.js")
     script(src="/js/script.js")
     if adminUser && adminUser._id

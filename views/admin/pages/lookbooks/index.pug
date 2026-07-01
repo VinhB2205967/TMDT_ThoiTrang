@@ -1,58 +1,61 @@
 extends ../../layouts/default.pug
 
 block main
-  .container-fluid.py-4
-    .d-flex.justify-content-between.align-items-center.flex-wrap.gap-2.mb-3.page-header-section.orders-header.admin-page-header
-      h1.h4.mb-0 Quản lý Lookbook
-      a.btn.btn-header.btn-admin-accent(href="/admin/lookbook/create")
-        i.bi.bi-plus-lg.me-1
-        | Thêm lookbook
+  .container-fluid.p-3.admin-workspace.lookbook-admin-page
+    .admin-page-header
+      .d-flex.justify-content-between.align-items-center.gap-3(style="width: 100%;")
+        div
+          h3.mb-2 📚 Quản lý Lookbook
+          p.text-muted.mb-0 Tổng cộng: 
+            strong= lookbooks ? lookbooks.length : 0
+            |  lookbook
+        a.btn.btn-header.btn-admin-accent(href="/admin/lookbook/create")
+          i.bi.bi-plus-lg
+          |  Thêm lookbook mới
 
-    .card.shadow-sm
-      .card-body.p-0
-        .table-responsive
-          table.table.table-hover.align-middle.mb-0
-            thead.table-light
-              tr
-                th.ps-3 Tên mùa
-                th Ảnh
-                th.text-center Thứ tự
-                th.text-center Số sản phẩm
-                th.text-center Trạng thái
-                th.text-center Nổi bật
-                th.text-end.pe-3 Hành động
-            tbody
-              if lookbooks && lookbooks.length
-                each item in lookbooks
-                  tr(data-id=item._id)
-                    td.ps-3
-                      .fw-semibold #{item.title}
-                      //- if item.slug
-                      //-   .small.text-muted #{item.slug}
-                    td
-                      if item.image
-                        img.rounded.border(src=item.image alt=item.title style="width:80px;height:60px;object-fit:cover;")
-                      else
-                        span.text-muted Không có ảnh
-                    td.text-center #{item.order || 0}
-                    td.text-center #{item.productCount || 0}
-                    td.text-center
-                      button.btn.btn-sm(type="button" class=item.isActive ? 'btn-success js-toggle' : 'btn-outline-secondary js-toggle' data-active=item.isActive)
-                        i.bi(class=item.isActive ? 'bi-eye-fill' : 'bi-eye-slash-fill')
-                        span.ms-1 #{item.isActive ? 'Hiển thị' : 'Ẩn'}
-                    td.text-center
-                      input.form-check-input(type="checkbox" name="noiBat" checked=Boolean(item.noiBat))
-                    td.text-end.pe-3
-                      .btn-group.btn-group-sm(role="group")
-                        a.btn.btn-outline-primary(href=`/admin/lookbook/edit/${item._id}`)
-                          i.bi.bi-pencil-square.me-1
-                          | Sửa
-                        button.btn.btn-outline-danger.js-delete(type="button")
-                          i.bi.bi-trash3.me-1
-                          | Xóa
-              else
-                tr
-                  td.text-center.text-muted.py-4(colspan="7") Chưa có lookbook nào.
+    if !lookbooks || lookbooks.length === 0
+      .admin-empty-state
+        .admin-empty-state-icon 📚
+        .admin-empty-state-title Chưa có lookbook nào
+        .admin-empty-state-description Hãy tạo lookbook đầu tiên để bắt đầu giới thiệu các bộ sưu tập sản phẩm của bạn
+        a.btn.btn-header.btn-admin-accent(href="/admin/lookbook/create")
+          i.bi.bi-plus-lg
+          |  Tạo lookbook ngay
+    else
+      .admin-entity-list.lookbook-list
+        each item in lookbooks
+          .admin-gallery-card(data-id=item._id)
+            .admin-gallery-card-image(style=item.image ? `background-image: url('${item.image}'); background-size: cover; background-position: center;` : '')
+              if !item.image
+                .d-flex.align-items-center.justify-content-center.h-100
+                  i.bi.bi-image(style="font-size: 48px; color: rgba(107, 114, 128, 0.4);")
+
+            .admin-gallery-card-content
+              .admin-gallery-card-title= item.title
+
+              .admin-gallery-card-meta
+                .admin-gallery-card-stat
+                  .admin-gallery-card-stat-value= item.productCount || 0
+                  .admin-gallery-card-stat-label Sản phẩm
+                .admin-gallery-card-stat
+                  .admin-gallery-card-stat-value= item.order || 0
+                  .admin-gallery-card-stat-label Thứ tự
+
+              .admin-gallery-card-status(class=item.isActive ? '' : 'inactive')
+                .admin-gallery-card-status-dot
+                .admin-gallery-card-status-text
+                  if item.isActive
+                    | Hiển thị
+                  else
+                    | Ẩn
+
+              .admin-gallery-card-actions
+                a.btn.btn-sm.btn-outline-primary(href=`/admin/lookbook/edit/${item._id}`)
+                  i.bi.bi-pencil
+                  |  Sửa
+                button.btn.btn-sm.btn-outline-danger(type="button" onclick="deleteItem(this)")
+                  i.bi.bi-trash
+                  |  Xóa
 
 block scripts
   script(src="/admin/js/lookbook-index.js?v=20260410-2")

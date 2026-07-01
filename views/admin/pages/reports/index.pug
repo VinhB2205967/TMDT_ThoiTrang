@@ -7,9 +7,12 @@ block styles
     link(rel="stylesheet" href="/admin/css/reports.css")
 
 block main
-    .reports-dashboard(data-default-status=defaultStatus)
+    .reports-dashboard.admin-workspace.reports-admin-page(data-default-status=defaultStatus)
         .page-header-section.orders-header.admin-page-header.reports-header-bar.d-flex.justify-content-between.align-items-center.flex-wrap.gap-2.mb-3
             .hero-content
+                .admin-refined-eyebrow
+                    i.bi.bi-bar-chart-line
+                    span Sales analytics
                 h1.page-title Báo cáo thống kê bán hàng
                 p.mb-0 Theo dõi doanh thu, lợi nhuận và hiệu quả kinh doanh theo thời gian.
             .hero-actions.orders-actions.reports-header-actions.d-flex.flex-wrap.gap-2
@@ -23,7 +26,7 @@ block main
                     i.bi.bi-printer.me-1
                     | In báo cáo
 
-        form#report-filters.filter-card
+        form#report-filters.filter-card.reports-filter-card.admin-filter-panel
             .row.g-3
                 .col-12.col-md-4.col-lg-3
                     label.form-label Từ ngày
@@ -60,28 +63,40 @@ block main
                         | Áp dụng
 
         .overview-grid
-            .overview-card
+            .overview-card.overview-card--revenue
+                .overview-icon
+                    i.bi.bi-cash-stack
                 .card-label Tổng doanh thu
                 .card-value(data-metric="totalRevenue") 0
                 .card-sub Theo bộ lọc hiện tại
-            .overview-card
+            .overview-card.overview-card--orders
+                .overview-icon
+                    i.bi.bi-receipt
                 .card-label Tổng đơn hàng
                 .card-value(data-metric="totalOrders") 0
                 .card-sub Đơn hàng hợp lệ
-            .overview-card
+            .overview-card.overview-card--sold
+                .overview-icon
+                    i.bi.bi-bag-check
                 .card-label Tổng sản phẩm đã bán
                 .card-value(data-metric="totalSold") 0
                 .card-sub Số lượng sản phẩm
-            .overview-card
+            .overview-card.overview-card--profit
+                .overview-icon
+                    i.bi.bi-graph-up-arrow
                 .card-label Lợi nhuận
                 .card-value(data-metric="profit") 0
                 .card-sub Doanh thu - chi phí
                 .card-sub(data-metric="profitStatus")
-            .overview-card
+            .overview-card.overview-card--margin
+                .overview-icon
+                    i.bi.bi-percent
                 .card-label Tỷ suất lợi nhuận
                 .card-value(data-metric="profitMargin") 0%
                 .card-sub Hiệu quả kinh doanh
-            .overview-card
+            .overview-card.overview-card--cost
+                .overview-icon
+                    i.bi.bi-wallet2
                 .card-label Tổng tiền vốn
                 .card-value(data-metric="totalCost") 0
                 .card-sub Giá vốn bán hàng

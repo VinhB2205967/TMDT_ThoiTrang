@@ -52,3 +52,35 @@
         font-size: 12px;
     }
 }
+
+/* =============================================================
+   DARK THEME — follow the global html[data-theme="dark"] switch
+   ============================================================= */
+html[data-theme="dark"] .filter-bar {
+    background: var(--cm-surface-2, #141831);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+html[data-theme="dark"] .filter-bar .form-control,
+html[data-theme="dark"] .filter-bar .form-select {
+    background-color: rgba(255, 255, 255, 0.04);
+    border-color: rgba(148, 163, 220, 0.22);
+    color: var(--cm-ink, #e6e9f7);
+}
+
+html[data-theme="dark"] .filter-bar .form-control::placeholder {
+    color: var(--cm-ink-muted, #8a92b2);
+}
+
+html[data-theme="dark"] .filter-bar .form-control:focus,
+html[data-theme="dark"] .filter-bar .form-select:focus {
+    background-color: rgba(255, 255, 255, 0.06);
+    border-color: rgba(129, 140, 248, 0.7);
+    box-shadow: 0 0 0 0.2rem rgba(129, 140, 248, 0.25);
+}
+
+html[data-theme="dark"] .filter-info {
+    color: var(--cm-ink-soft, #b6bcd6);
+}
+
+

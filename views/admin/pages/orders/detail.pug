@@ -301,6 +301,44 @@ block main
 
           .card.border-0.shadow-sm.mt-3
             .card-body
+              .fw-semibold.mb-3 💰 Tóm tắt giá trị đơn hàng
+              .price-summary-box.border.rounded.p-3.mb-3(style='background-color: #f8f9fa;')
+                .d-flex.justify-content-between.align-items-center.mb-2
+                  span.text-muted Tổng giá trị hàng
+                  strong #{(rfOriginal.goodsSubtotal || 0).toLocaleString('vi-VN')}đ
+                
+                if rfOriginal.voucherDiscount > 0
+                  .d-flex.justify-content-between.align-items-center.mb-2
+                    span.text-muted
+                      i.bi.bi-tag.me-1
+                      | Giảm giá voucher
+                    strong.text-danger -#{(rfOriginal.voucherDiscount || 0).toLocaleString('vi-VN')}đ
+                
+                .d-flex.justify-content-between.align-items-center.mb-2
+                  span.text-muted Phí vận chuyển
+                  strong #{(rfOriginal.shippingFee || 0).toLocaleString('vi-VN')}đ
+                
+                .border-top.pt-2.mt-2
+                .d-flex.justify-content-between.align-items-center.mb-2
+                  span.fw-semibold.fs-6 Tổng thanh toán
+                  strong.fs-5.text-primary #{(rfOriginal.payable || 0).toLocaleString('vi-VN')}đ
+                
+                if rfRefund.amount > 0
+                  .border-top.pt-2.mt-2
+                  .d-flex.justify-content-between.align-items-center.mb-2
+                    span.text-danger
+                      i.bi.bi-arrow-counterclockwise.me-1
+                      | Đã hoàn tiền
+                    strong.text-danger -#{(rfRefund.amount || 0).toLocaleString('vi-VN')}đ
+                  
+                  .d-flex.justify-content-between.align-items-center
+                    span.fw-semibold.fs-6 💡 Còn lại phải trả
+                    strong.fs-5.text-success #{(rfRemain.payable || 0).toLocaleString('vi-VN')}đ
+
+              hr
+
+          .card.border-0.shadow-sm.mt-3
+            .card-body
               .fw-semibold.mb-2 Chi tiết tài chính hoàn hàng
               .border.rounded.p-2.mb-2.bg-light
                 .small.fw-semibold.mb-1 1. Tổng đơn ban đầu

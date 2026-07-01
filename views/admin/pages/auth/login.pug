@@ -1,30 +1,170 @@
-extends ../../layouts/auth.pug
+doctype html
+html(lang="vi")
+  head
+    meta(charset="UTF-8")
+    meta(name="viewport" content="width=device-width, initial-scale=1.0")
+    title #{titlePage || 'Đăng nhập Admin'}
+    link(href="/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet")
+    link(rel="stylesheet", href="/admin/css/admin-login.css?v=20260615-1")
+  body
+    canvas#al-canvas
 
-block main
-  .auth-wrap
-    .container.py-5.auth-page
-      .row.justify-content-center
-        .col-12.col-md-10.col-lg-5
-          .card.shadow-sm.border-0.auth-card
-            .card-body.p-4.auth-card-body
-              h1.h4.fw-bold.mb-2.text-center Đăng nhập Admin
-              p.text-center.text-muted.mb-4 Quản trị hệ thống
+    button.al-theme-toggle(type="button" aria-label="Đổi giao diện sáng/tối" title="Đổi giao diện sáng/tối")
+      i.bi.bi-moon-stars-fill
 
-              form(method="POST" action="/admin/login")
-                input(type='hidden' name='_csrf' value=csrfToken)
-                .mb-3
-                  label.form-label Email
-                  input.form-control(type="email" name="email" required autocomplete="email")
-                .mb-3
-                  label.form-label Mật khẩu
-                  input.form-control(type="password" name="password" required autocomplete="current-password")
-                button.btn.btn-primary.w-100(type="submit") Đăng nhập
+    if messages && messages.success
+      .al-alert.success(role="alert")
+        i.bi.bi-check-circle-fill
+        span #{messages.success}
+    if messages && messages.error
+      .al-alert.error(role="alert")
+        i.bi.bi-exclamation-triangle-fill
+        span #{messages.error}
 
-              hr.my-4
-              .d-flex.justify-content-between.align-items-center
-                a.text-decoration-none(href="/")
-                  i.bi.bi-arrow-left.me-1
-                  | Về trang mua hàng
-                a.text-decoration-none(href="/auth?mode=login")
-                  i.bi.bi-person.me-1
-                  | Đăng nhập User
+    .al-shell
+      .al-brand
+        .al-brand-logo
+          i.bi.bi-shop-window
+          span Fashion Admin
+        .al-brand-headline
+          h2 Trung tâm điều hành thời trang
+          p Quản lý sản phẩm, đơn hàng, kho và khách hàng trong một không gian hiện đại, mượt mà.
+        ul.al-brand-points
+          li
+            i.bi.bi-graph-up-arrow
+            span Báo cáo & thống kê thời gian thực
+          li
+            i.bi.bi-box-seam
+            span Quản lý kho thông minh
+          li
+            i.bi.bi-shield-lock
+            span Bảo mật & phân quyền chặt chẽ
+
+      .al-form-panel
+        h1.al-form-title Đăng nhập Admin
+        p.al-form-sub Vui lòng đăng nhập để tiếp tục quản trị hệ thống
+
+        form(method="POST" action="/admin/login")
+          input(type='hidden' name='_csrf' value=csrfToken)
+          .al-field
+            label.al-label(for="email") Email
+            .al-input-wrap
+              i.bi.bi-envelope
+              input#email.al-input(type="email" name="email" required autocomplete="email" placeholder="admin@fashion.vn")
+          .al-field
+            label.al-label(for="password") Mật khẩu
+            .al-input-wrap
+              i.bi.bi-lock
+              input#password.al-input(type="password" name="password" required autocomplete="current-password" placeholder="••••••••")
+              button.al-toggle-pass(type="button" aria-label="Hiện/ẩn mật khẩu")
+                i.bi.bi-eye
+          button.al-submit(type="submit")
+            i.bi.bi-box-arrow-in-right.me-1
+            | Đăng nhập
+
+        .al-divider Hoặc
+        .al-links
+          a.al-link(href="/")
+            i.bi.bi-arrow-left
+            | Về trang mua hàng
+          a.al-link(href="/auth?mode=login")
+            i.bi.bi-person
+            | Đăng nhập User
+
+    script.
+      (function () {
+        var THEME_KEY = "am-admin-theme";
+        function current() {
+          return document.documentElement.getAttribute("data-theme") || "light";
+        }
+        function apply(theme) {
+          document.documentElement.setAttribute("data-theme", theme);
+          try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
+          var icon = document.querySelector(".al-theme-toggle i");
+          if (icon) icon.className = theme === "dark" ? "bi bi-sun-fill" : "bi bi-moon-stars-fill";
+        }
+        var stored = null;
+        try { stored = localStorage.getItem(THEME_KEY); } catch (e) {}
+        var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        apply(stored || (prefersDark ? "dark" : "light"));
+
+        var toggle = document.querySelector(".al-theme-toggle");
+        if (toggle) toggle.addEventListener("click", function () {
+          apply(current() === "dark" ? "light" : "dark");
+        });
+
+        // password show/hide
+        var pass = document.getElementById("password");
+        var passBtn = document.querySelector(".al-toggle-pass");
+        if (passBtn && pass) passBtn.addEventListener("click", function () {
+          var isPw = pass.type === "password";
+          pass.type = isPw ? "text" : "password";
+          var i = passBtn.querySelector("i");
+          if (i) i.className = isPw ? "bi bi-eye-slash" : "bi bi-eye";
+        });
+
+        // auto-dismiss flash
+        document.querySelectorAll(".al-alert").forEach(function (el) {
+          setTimeout(function () {
+            el.style.transition = "opacity .4s ease, transform .4s ease";
+            el.style.opacity = "0";
+            el.style.transform = "translate(-50%, -16px)";
+            setTimeout(function () { el.remove(); }, 400);
+          }, 4000);
+        });
+
+        // canvas constellation
+        var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        var canvas = document.getElementById("al-canvas");
+        if (canvas && !reduce) {
+          var ctx = canvas.getContext("2d");
+          var dpr = Math.min(window.devicePixelRatio || 1, 2);
+          var w, h, parts = [];
+          var mouse = { x: -9999, y: -9999 };
+          var COLORS = ["91, 110, 245", "124, 92, 240", "20, 184, 166", "14, 165, 233", "139, 150, 245"];
+          function resize() {
+            w = window.innerWidth; h = window.innerHeight;
+            canvas.width = w * dpr; canvas.height = h * dpr;
+            canvas.style.width = w + "px"; canvas.style.height = h + "px";
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            build();
+          }
+          function build() {
+            var count = Math.max(30, Math.min(100, Math.round((w * h) / 20000)));
+            parts = [];
+            for (var i = 0; i < count; i++) parts.push({
+              x: Math.random() * w, y: Math.random() * h,
+              vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4,
+              r: Math.random() * 2.2 + 0.8, c: COLORS[(Math.random() * COLORS.length) | 0]
+            });
+          }
+          function step() {
+            ctx.clearRect(0, 0, w, h);
+            var dark = current() === "dark";
+            var da = dark ? 0.85 : 0.6, lb = dark ? 0.5 : 0.32;
+            for (var i = 0; i < parts.length; i++) {
+              var p = parts[i];
+              var dx = mouse.x - p.x, dy = mouse.y - p.y;
+              if (dx * dx + dy * dy < 28000) { p.vx += dx * 0.00002; p.vy += dy * 0.00002; }
+              p.x += p.vx; p.y += p.vy; p.vx *= 0.995; p.vy *= 0.995;
+              if (p.x < -20) p.x = w + 20; if (p.x > w + 20) p.x = -20;
+              if (p.y < -20) p.y = h + 20; if (p.y > h + 20) p.y = -20;
+              ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+              ctx.fillStyle = "rgba(" + p.c + ", " + da + ")"; ctx.fill();
+            }
+            for (var a = 0; a < parts.length; a++) for (var b = a + 1; b < parts.length; b++) {
+              var p1 = parts[a], p2 = parts[b];
+              var ddx = p1.x - p2.x, ddy = p1.y - p2.y, d2 = ddx * ddx + ddy * ddy;
+              if (d2 < 17000) {
+                ctx.strokeStyle = "rgba(" + p1.c + ", " + ((1 - d2 / 17000) * lb) + ")";
+                ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+              }
+            }
+            requestAnimationFrame(step);
+          }
+          window.addEventListener("resize", resize, { passive: true });
+          window.addEventListener("mousemove", function (e) { mouse.x = e.clientX; mouse.y = e.clientY; }, { passive: true });
+          window.addEventListener("mouseout", function () { mouse.x = -9999; mouse.y = -9999; }, { passive: true });
+          resize(); requestAnimationFrame(step);
+        }
+      })();

@@ -1,123 +1,133 @@
 extends ../../layouts/default.pug
 
 block main
-  .page-header-section.orders-header
-    .d-flex.justify-content-between.align-items-center.flex-wrap.gap-2
-      h1.page-title.mb-0
-        i.bi.bi-chat-dots.me-2
-        | Quản lý đánh giá
+  .container-fluid.p-3
+    .admin-page-header
+      .d-flex.justify-content-between.align-items-center.gap-3(style="width: 100%;")
+        div
+          h3.mb-2 ⭐ Quản lý Đánh giá
+          p.text-muted.mb-0 Tổng cộng: 
+            strong= reviews ? reviews.length : 0
+            |  đánh giá
 
-  .container-fluid.p-4
-    .card.border-0.shadow-sm.mb-3
-      .card-body
-        form#reviewFilterForm.row.g-2(method='GET' action='/admin/reviews')
-          .col-12.col-lg-4
-            input.form-control(type='text' name='keyword' placeholder='Sản phẩm / user / mã đơn' value=(filters && filters.keyword) || '')
-          .col-6.col-lg-2
-            select.form-select(name='rating')
-              option(value='' selected=(!filters || !filters.rating)) Tất cả sao
-              each i in [5,4,3,2,1]
-                option(value=i selected=(filters && String(filters.rating) === String(i))) #{i} sao
-          .col-6.col-lg-2
-            select.form-select(name='visibility')
-              option(value='' selected=(!filters || !filters.visibility)) Tất cả trạng thái
-              option(value='visible' selected=(filters && filters.visibility === 'visible')) Hiện
-              option(value='hidden' selected=(filters && filters.visibility === 'hidden')) Ẩn
-          .col-6.col-lg-2
-            select.form-select(name='hasImage')
-              option(value='' selected=(!filters || !filters.hasImage)) Có ảnh?
-              option(value='yes' selected=(filters && filters.hasImage === 'yes')) Có ảnh
-              option(value='no' selected=(filters && filters.hasImage === 'no')) Không ảnh
-          .col-6.col-lg-2
-            select.form-select(name='reported')
-              option(value='' selected=(!filters || !filters.reported)) Bị report?
-              option(value='yes' selected=(filters && filters.reported === 'yes')) Có
-              option(value='no' selected=(filters && filters.reported === 'no')) Không
-          .col-6.col-lg-2
-            input.form-control(type='date' name='fromDate' value=(filters && filters.fromDate) || '')
-          .col-6.col-lg-2
-            input.form-control(type='date' name='toDate' value=(filters && filters.toDate) || '')
-          .col-6.col-lg-2
-            select.form-select(name='limit')
-              option(value='10' selected=(!filters || !filters.limit || filters.limit == 10)) 10 / trang
-              option(value='20' selected=(filters && filters.limit == 20)) 20 / trang
-              option(value='50' selected=(filters && filters.limit == 50)) 50 / trang
-          .col-12.col-lg-2.d-flex.gap-2
-            a.btn.btn-outline-secondary.flex-fill(href='/admin/reviews') Reset
-            button.btn.btn-primary.flex-fill(type='submit') Lọc
+    .admin-filter-bar
+      form#reviewFilterForm.row.g-2(method='GET' action='/admin/reviews' style="width: 100%;")
+        .col-12.col-lg-4
+          input.form-control(type='text' name='keyword' placeholder='Tìm sản phẩm, người dùng, mã đơn...' value=(filters && filters.keyword) || '')
+        .col-6.col-lg-2
+          select.form-select(name='rating')
+            option(value='' selected=(!filters || !filters.rating)) Tất cả sao
+            each i in [5,4,3,2,1]
+              option(value=i selected=(filters && String(filters.rating) === String(i))) #{i} ⭐
+        .col-6.col-lg-2
+          select.form-select(name='visibility')
+            option(value='' selected=(!filters || !filters.visibility)) Tất cả trạng thái
+            option(value='visible' selected=(filters && filters.visibility === 'visible')) Hiện
+            option(value='hidden' selected=(filters && filters.visibility === 'hidden')) Ẩn
+        .col-6.col-lg-2
+          select.form-select(name='hasImage')
+            option(value='' selected=(!filters || !filters.hasImage)) Tất cả
+            option(value='yes' selected=(filters && filters.hasImage === 'yes')) Có ảnh
+            option(value='no' selected=(filters && filters.hasImage === 'no')) Không ảnh
+        .col-6.col-lg-2
+          select.form-select(name='reported')
+            option(value='' selected=(!filters || !filters.reported)) Bị report?
+            option(value='yes' selected=(filters && filters.reported === 'yes')) Có
+            option(value='no' selected=(filters && filters.reported === 'no')) Không
+        .col-12.col-lg-1.d-flex.gap-2
+          a.btn.btn-sm.btn-outline-secondary.flex-grow-1(href='/admin/reviews') Reset
+          button.btn.btn-sm.btn-outline-primary.flex-grow-1(type='submit') Lọc
 
-    .card.border-0.shadow-sm
-      .card-body
-        if !reviews || reviews.length === 0
-          .text-muted Không có đánh giá.
-        else
-          .table-responsive
-            table.table.align-middle
-              thead
-                tr
-                  th Sản phẩm
-                  th User
-                  th Sao
-                  th Nội dung
-                  th Ảnh
-                  th Ngày tạo
-                  th Trạng thái
-                  th Hành động
-              tbody
-                each r in reviews
-                  - const hasImg = r.hinhanh && r.hinhanh.length
-                  tr
-                    td
-                      .fw-semibold #{(r.sanpham_id && r.sanpham_id.tensanpham) || '—'}
-                      if r.productStats && r.productStats.totalReviews > 0
-                        .small.text-muted
-                          | TB: #{r.productStats.avgRating}/5
-                          |  (#{r.productStats.totalReviews} đánh giá)
-                    td #{(r.nguoidung_id && (r.nguoidung_id.hoten || r.nguoidung_id.email)) || '—'}
-                    td #{r.diem || 0}⭐
-                    td #{(r.noidung || '').slice(0, 60)}#{(r.noidung && r.noidung.length > 60) ? '...' : ''}
-                    td
-                      span.badge(class=hasImg ? 'bg-success' : 'bg-secondary') #{hasImg ? 'Có ảnh' : 'Không'}
-                    td #{r.ngaytao ? new Date(r.ngaytao).toLocaleString('vi-VN') : ''}
-                    td
-                      span.badge(class=r.hienthi ? 'bg-success' : 'bg-danger') #{r.hienthi ? 'Hiện' : 'Ẩn'}
-                    td.text-nowrap
-                      a.btn.btn-sm.btn-outline-primary.me-1(href=`/admin/reviews/${r._id}`) Xem
-                      form.d-inline(method='POST' action=`/admin/reviews/${r._id}/visibility`)
-                        input(type='hidden' name='action' value=(r.hienthi ? 'hide' : 'show'))
-                        if !r.hienthi
-                          button.btn.btn-sm.btn-outline-success(type='submit') Hiện
-                        else
-                          input.form-control.form-control-sm.d-inline-block.me-1(type='text' name='reason' placeholder='Lý do ẩn (tuỳ chọn)' style='width:160px;')
-                          button.btn.btn-sm.btn-outline-warning(type='submit' onclick="return confirm('Ẩn đánh giá này?')") Ẩn
-                      form.d-inline(method='POST' action=`/admin/reviews/${r._id}/delete` onsubmit="return confirm('Xóa đánh giá này?')")
-                        button.btn.btn-sm.btn-outline-danger.ms-1(type='submit') Xóa
+    if !reviews || reviews.length === 0
+      .admin-empty-state
+        .admin-empty-state-icon ⭐
+        .admin-empty-state-title Chưa có đánh giá nào
+        .admin-empty-state-description Khi khách hàng đánh giá sản phẩm, danh sách sẽ hiển thị tại đây
+    else
+      .admin-list-container
+        each r in reviews
+          - const hasImg = r.hinhanh && r.hinhanh.length
+          
+          .admin-list-item
+            .admin-list-item-header
+              div
+                .admin-list-item-title= (r.sanpham_id && r.sanpham_id.tensanpham) || 'Sản phẩm không xác định'
+                .admin-list-item-subtitle= (r.nguoidung_id && (r.nguoidung_id.hoten || r.nguoidung_id.email)) || 'Khách hàng ẩn danh'
+              .admin-gallery-card-status(class=r.hienthi ? '' : 'inactive')
+                .admin-gallery-card-status-dot
+                .admin-gallery-card-status-text= r.hienthi ? 'Hiện' : 'Ẩn'
 
-        if pagination && pagination.totalPages > 1
-          nav.mt-4(aria-label='Phân trang đánh giá')
-            ul.pagination.justify-content-center
-              li.page-item(class=pagination.currentPage === 1 ? 'disabled' : '')
-                a.page-link(href=`/admin/reviews?page=${pagination.currentPage - 1}${filterString || ''}` aria-label='Trang trước')
-                  span(aria-hidden='true') «
+            .admin-list-item-content
+              .admin-list-item-field
+                .admin-list-item-label ⭐ Đánh giá
+                .admin-list-item-value= r.diem + ' sao'
+              
+              .admin-list-item-field
+                .admin-list-item-label 🖼️ Ảnh
+                .admin-list-item-value
+                  if hasImg
+                    span.badge.bg-success Có #{r.hinhanh.length} ảnh
+                  else
+                    span.badge.bg-secondary Không ảnh
+              
+              .admin-list-item-field
+                .admin-list-item-label 📅 Ngày đánh giá
+                .admin-list-item-value= r.ngaytao ? new Date(r.ngaytao).toLocaleDateString('vi-VN') : 'Chưa xác định'
+              
+              if r.productStats && r.productStats.totalReviews > 0
+                .admin-list-item-field
+                  .admin-list-item-label 📊 Thống kê sản phẩm
+                  .admin-list-item-value= r.productStats.avgRating + '/5 (' + r.productStats.totalReviews + ' đánh giá)'
 
-              - const startPage = Math.max(1, pagination.currentPage - 2)
-              - const endPage = Math.min(pagination.totalPages, pagination.currentPage + 2)
+            if r.noidung
+              .mt-3(style="padding: 12px; background: rgba(99, 102, 241, 0.08); border-radius: 8px; border-left: 3px solid #6366f1;")
+                p.mb-0.text-muted= r.noidung
 
-              if startPage > 1
-                li.page-item
-                  a.page-link(href=`/admin/reviews?page=1${filterString || ''}`) 1
-                if startPage > 2
-                  li.page-item.disabled
-                    span.page-link ...
+            .d-flex.align-items-center.justify-content-between.gap-2(style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(107, 114, 128, 0.2);")
+              .admin-list-item-actions
+                a.btn.btn-sm.btn-outline-primary(href=`/admin/reviews/${r._id}`)
+                  i.bi.bi-eye
+                  |  Xem chi tiết
+                form(method='POST' action=`/admin/reviews/${r._id}/visibility` style="display: inline;")
+                  input(type='hidden' name='action' value=(r.hienthi ? 'hide' : 'show'))
+                  if !r.hienthi
+                    button.btn.btn-sm.btn-outline-success(type='submit')
+                      i.bi.bi-eye
+                      |  Hiển thị
+                  else
+                    button.btn.btn-sm.btn-outline-warning(type='submit' onclick="return confirm('Ẩn đánh giá này?')")
+                      i.bi.bi-eye-slash
+                      |  Ẩn
+                form(method='POST' action=`/admin/reviews/${r._id}/delete` style="display: inline;" onsubmit="return confirm('Xóa đánh giá này?')")
+                  button.btn.btn-sm.btn-outline-danger(type='submit')
+                    i.bi.bi-trash
+                    |  Xóa
 
-              - for (let i = startPage; i <= endPage; i++)
-                li.page-item(class=i === pagination.currentPage ? 'active' : '')
-                  a.page-link(href=`/admin/reviews?page=${i}${filterString || ''}`) #{i}
+      if pagination && pagination.totalPages > 1
+        nav.mt-4(aria-label='Phân trang')
+          ul.pagination.justify-content-center
+            li.page-item(class=pagination.currentPage === 1 ? 'disabled' : '')
+              a.page-link(href=`/admin/reviews?page=${pagination.currentPage - 1}${filterString || ''}`)
+                i.bi.bi-chevron-left
 
-              if endPage < pagination.totalPages
-                if endPage < pagination.totalPages - 1
-                  li.page-item.disabled
-                    span.page-link ...
+            - const startPage = Math.max(1, pagination.currentPage - 2)
+            - const endPage = Math.min(pagination.totalPages, pagination.currentPage + 2)
+
+            if startPage > 1
+              li.page-item
+                a.page-link(href=`/admin/reviews?page=1${filterString || ''}`) 1
+              if startPage > 2
+                li.page-item.disabled
+                  span.page-link ...
+
+            - for (let i = startPage; i <= endPage; i++)
+              li.page-item(class=i === pagination.currentPage ? 'active' : '')
+                a.page-link(href=`/admin/reviews?page=${i}${filterString || ''}`) #{i}
+
+            if endPage < pagination.totalPages
+              if endPage < pagination.totalPages - 1
+                li.page-item.disabled
+                  span.page-link ...
                 li.page-item
                   a.page-link(href=`/admin/reviews?page=${pagination.totalPages}${filterString || ''}`) #{pagination.totalPages}
 

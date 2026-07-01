@@ -10,6 +10,17 @@
   const chartRefs = {};
   let latestData = null;
 
+  const chartPalette = {
+    text: '#cbd5e1',
+    muted: '#8fa1bc',
+    grid: 'rgba(148, 163, 184, 0.14)',
+    revenue: '#38bdf8',
+    profit: '#34d399',
+    cost: '#fbbf24',
+    violet: '#a78bfa',
+    rose: '#fb7185'
+  };
+
   const currency = new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND'
@@ -69,6 +80,22 @@
   }
 
   function chartConfig(type, labels, dataSets) {
+    const scales = type === 'pie'
+      ? {}
+      : {
+          x: {
+            grid: { display: false, color: chartPalette.grid },
+            ticks: { color: chartPalette.muted, maxRotation: 0 }
+          },
+          y: {
+            grid: { color: chartPalette.grid },
+            ticks: {
+              color: chartPalette.muted,
+              callback: (value) => formatNumber(value)
+            }
+          }
+        };
+
     return {
       type,
       data: {
@@ -80,16 +107,23 @@
         maintainAspectRatio: false,
         plugins: {
           legend: {
-            display: type !== 'bar'
+            display: type !== 'bar',
+            labels: {
+              color: chartPalette.text,
+              usePointStyle: true,
+              boxWidth: 8
+            }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(8, 15, 29, 0.94)',
+            borderColor: 'rgba(148, 163, 184, 0.18)',
+            borderWidth: 1,
+            titleColor: '#eef4ff',
+            bodyColor: chartPalette.text,
+            padding: 12
           }
         },
-        scales: type === 'pie' ? {} : {
-          y: {
-            ticks: {
-              callback: (value) => formatNumber(value)
-            }
-          }
-        }
+        scales
       }
     };
   }
@@ -128,7 +162,10 @@
         {
           label: 'Doanh thu',
           data: normalizeSeries(charts.revenueByMonth?.data),
-          backgroundColor: '#2563eb'
+          backgroundColor: 'rgba(56, 189, 248, 0.78)',
+          borderColor: chartPalette.revenue,
+          borderRadius: 10,
+          maxBarThickness: 34
         }
       ])
     );
@@ -139,8 +176,10 @@
         {
           label: 'Lợi nhuận',
           data: normalizeSeries(charts.profitTrend?.data),
-          borderColor: '#22c55e',
-          backgroundColor: 'rgba(34, 197, 94, 0.2)',
+          borderColor: chartPalette.profit,
+          backgroundColor: 'rgba(52, 211, 153, 0.18)',
+          pointBackgroundColor: chartPalette.profit,
+          pointBorderColor: '#0f172a',
           tension: 0.35,
           fill: true
         }
@@ -153,7 +192,9 @@
         {
           label: 'Top sản phẩm',
           data: normalizeSeries(charts.topProducts?.data),
-          backgroundColor: ['#6366f1', '#22c55e', '#f97316', '#0ea5e9', '#f43f5e']
+          backgroundColor: [chartPalette.violet, chartPalette.profit, chartPalette.cost, chartPalette.revenue, chartPalette.rose],
+          borderColor: '#0f172a',
+          borderWidth: 2
         }
       ])
     );
@@ -164,16 +205,18 @@
         {
           label: 'Doanh thu',
           data: normalizeSeries(charts.revenueVsCost?.revenue),
-          borderColor: '#2563eb',
-          backgroundColor: 'rgba(37, 99, 235, 0.2)',
+          borderColor: chartPalette.revenue,
+          backgroundColor: 'rgba(56, 189, 248, 0.16)',
+          pointBackgroundColor: chartPalette.revenue,
           tension: 0.35,
           fill: true
         },
         {
           label: 'Chi phí',
           data: normalizeSeries(charts.revenueVsCost?.cost),
-          borderColor: '#f97316',
-          backgroundColor: 'rgba(249, 115, 22, 0.18)',
+          borderColor: chartPalette.cost,
+          backgroundColor: 'rgba(251, 191, 36, 0.14)',
+          pointBackgroundColor: chartPalette.cost,
           tension: 0.35,
           fill: true
         }

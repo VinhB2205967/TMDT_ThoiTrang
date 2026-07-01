@@ -1,0 +1,2234 @@
+/* =============================================================
+   HOME REDESIGN — cinematic dark storefront
+   ============================================================= */
+.home-hero {
+  position: relative;
+  overflow: hidden;
+  min-height: 620px;
+  isolation: isolate;
+}
+
+.home-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(90deg, rgba(7, 9, 20, 0.88) 0%, rgba(7, 9, 20, 0.58) 42%, rgba(7, 9, 20, 0.20) 100%),
+    radial-gradient(circle at 28% 35%, rgba(139, 92, 246, 0.34), transparent 34%),
+    radial-gradient(circle at 78% 20%, rgba(34, 211, 238, 0.20), transparent 28%);
+  pointer-events: none;
+}
+
+.hero-ambient {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.hero-orb {
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  border-radius: 999px;
+  filter: blur(16px);
+  opacity: 0.55;
+  mix-blend-mode: screen;
+  animation: home-orb-float 9s ease-in-out infinite;
+}
+
+.hero-orb-1 { left: 7%; top: 12%; background: rgba(139, 92, 246, 0.44); }
+.hero-orb-2 { right: 12%; top: 18%; background: rgba(34, 211, 238, 0.34); animation-delay: -2s; }
+.hero-orb-3 { left: 45%; bottom: 8%; background: rgba(236, 72, 153, 0.30); animation-delay: -4s; }
+
+@keyframes home-orb-float {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(18px, -24px, 0) scale(1.08); }
+}
+
+.home-hero .carousel,
+.home-hero .carousel-inner,
+.home-hero .carousel-item,
+.home-hero .banner-slide {
+  min-height: 620px;
+}
+
+.home-hero .banner-slide {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background-size: cover;
+  background-position: center;
+}
+
+.home-hero .container { position: relative; z-index: 3; }
+
+.hero-panel {
+  max-width: 680px;
+  padding: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 34px;
+  background: linear-gradient(145deg, rgba(10, 14, 32, 0.74), rgba(20, 24, 46, 0.42));
+  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  transform: translateY(10px);
+  animation: home-hero-enter 0.9s var(--cm-ease) both;
+}
+
+@keyframes home-hero-enter {
+  from { opacity: 0; transform: translateY(34px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.hero-kicker,
+.section-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 13px;
+  border: 1px solid rgba(168, 154, 250, 0.32);
+  border-radius: 999px;
+  color: #c4b5fd;
+  background: rgba(99, 102, 241, 0.12);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.home-hero .banner-title {
+  margin: 0 0 18px;
+  color: #fff;
+  font-size: clamp(2.6rem, 7vw, 5.8rem);
+  line-height: 0.92;
+  font-weight: 950;
+  letter-spacing: -0.07em;
+  text-shadow: 0 0 34px rgba(139, 92, 246, 0.34);
+}
+
+.home-hero .banner-subtitle {
+  max-width: 560px;
+  margin: 0 0 26px;
+  color: rgba(230, 233, 247, 0.82);
+  font-size: 1.12rem;
+  line-height: 1.75;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 26px;
+}
+
+.btn-banner,
+.btn-ghost-hero {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: 999px;
+  font-weight: 900;
+}
+
+.btn-banner {
+  border: 0;
+  color: #fff !important;
+  background: linear-gradient(135deg, #8b5cf6, #22d3ee);
+  box-shadow: 0 18px 40px rgba(99, 102, 241, 0.34);
+}
+
+.btn-ghost-hero {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.hero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.hero-stat {
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.hero-stat strong {
+  display: block;
+  color: #fff;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.hero-stat span {
+  color: rgba(230, 233, 247, 0.68);
+  font-size: 0.82rem;
+}
+
+.home-strip,
+.home-categories,
+.home-section-shell {
+  position: relative;
+  padding: 70px 0;
+}
+
+.features-grid,
+.categories-grid {
+  gap: 18px;
+}
+
+.feature-item,
+.category-item,
+.brand-item,
+.home-story-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 220, 0.16) !important;
+  background: linear-gradient(145deg, rgba(20, 24, 46, 0.76), rgba(12, 15, 35, 0.54)) !important;
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.feature-item::before,
+.category-item::before,
+.product-card::before,
+.home-story-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.13), transparent);
+  transform: translateX(-130%);
+  transition: transform 0.7s var(--cm-ease);
+  pointer-events: none;
+}
+
+.feature-item:hover::before,
+.category-item:hover::before,
+.product-card:hover::before,
+.home-story-card:hover::before { transform: translateX(130%); }
+
+.feature-item:hover,
+.category-item:hover,
+.home-story-card:hover {
+  transform: translateY(-8px);
+  border-color: rgba(168, 154, 250, 0.42) !important;
+  box-shadow: 0 24px 70px rgba(99, 102, 241, 0.24);
+}
+
+.categories-header,
+.section-header {
+  margin-bottom: 30px;
+}
+
+.categories-title,
+.section-title {
+  color: var(--cm-ink);
+  font-size: clamp(1.9rem, 4vw, 3.25rem);
+  font-weight: 950;
+  letter-spacing: -0.045em;
+  text-transform: none;
+}
+
+.categories-subtitle {
+  max-width: 560px;
+  color: var(--cm-ink-soft);
+  margin: 8px auto 0;
+}
+
+.home-section-shell .container {
+  position: relative;
+  padding: 34px;
+  border: 1px solid rgba(148, 163, 220, 0.12);
+  border-radius: 34px;
+  background: linear-gradient(145deg, rgba(14, 18, 38, 0.58), rgba(8, 11, 26, 0.28));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.home-story-card img {
+  height: 240px;
+  object-fit: cover;
+  transition: transform 0.7s var(--cm-ease), filter 0.7s var(--cm-ease);
+}
+
+.home-story-card:hover img {
+  transform: scale(1.08);
+  filter: saturate(1.18) contrast(1.08);
+}
+
+.brand-item {
+  min-height: 86px;
+  display: grid !important;
+  place-items: center;
+  border-radius: 20px;
+  padding: 16px;
+}
+
+.brand-item img {
+  max-height: 52px;
+  object-fit: contain;
+  filter: grayscale(1) brightness(1.35);
+  opacity: 0.78;
+  transition: filter 0.3s var(--cm-ease), opacity 0.3s var(--cm-ease), transform 0.3s var(--cm-ease);
+}
+
+.brand-item:hover img {
+  filter: none;
+  opacity: 1;
+  transform: scale(1.08);
+}
+
+.flash-sale-section .countdown {
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: rgba(251, 191, 36, 0.10);
+  box-shadow: 0 0 32px rgba(251, 191, 36, 0.12);
+}
+
+@media (max-width: 768px) {
+  .home-hero,
+  .home-hero .carousel,
+  .home-hero .carousel-inner,
+  .home-hero .carousel-item,
+  .home-hero .banner-slide { min-height: 560px; }
+  .hero-panel { padding: 26px; border-radius: 26px; }
+  .hero-stats { grid-template-columns: 1fr; }
+  .home-section-shell .container { padding: 22px; border-radius: 24px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-orb,
+  .hero-panel { animation: none !important; }
+}
+
+/* =============================================================
+   CLIENT MODERN THEME — Futuristic storefront layer
+   - Dual theme system (light / dark) driven by [data-theme]
+   - Animated background, glass surfaces, gradient accents
+   - Refined buttons/cards, scroll-reveal, hover micro-interactions
+   - Theme toggle (sun/moon) styling
+
+   Theme tokens are exposed on :root (light by default) and
+   overridden under html[data-theme="dark"]. Variables that are
+   theme-sensitive use the --cm-* alias names so component CSS
+   stays the same across themes.
+   ============================================================= */
+
+/* =============================================================
+   1. Theme tokens — LIGHT (default)
+   ============================================================= */
+:root {
+  /* Brand accent ramp — keeps identity across light/dark */
+  --cm-primary: #4f6ef5;
+  --cm-primary-2: #6d57da;
+  --cm-violet: #8b5cf6;
+  --cm-teal: #14b8a6;
+  --cm-sky: #0ea5e9;
+  --cm-rose: #fb7185;
+  --cm-amber: #f59e0b;
+  --cm-green: #10b981;
+
+  /* Signature gradients */
+  --cm-grad: linear-gradient(135deg, #4f6ef5 0%, #6d57da 55%, #14b8a6 100%);
+  --cm-grad-soft: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  --cm-grad-cool: linear-gradient(135deg, #0ea5e9 0%, #14b8a6 100%);
+  --cm-grad-warm: linear-gradient(135deg, #f59e0b 0%, #fb7185 100%);
+
+  /* Header gradient — light mode */
+  --cm-header-grad: linear-gradient(110deg, #2b64db 0%, #5468db 50%, #6d57da 100%);
+  --cm-header-shadow: 0 6px 24px rgba(67, 80, 220, 0.28);
+
+  /* Page background — animated radial wash */
+  --cm-bg-grad:
+    radial-gradient(1100px 620px at 6% -8%, rgba(99, 102, 241, 0.10), transparent 55%),
+    radial-gradient(900px 560px at 100% 0%, rgba(20, 184, 166, 0.08), transparent 52%),
+    radial-gradient(820px 520px at 50% 110%, rgba(139, 92, 246, 0.07), transparent 60%),
+    linear-gradient(170deg, #f5f7fd 0%, #eef2fb 50%, #f6f8fd 100%);
+
+  /* Surface system */
+  --cm-bg: #f5f7fd;
+  --cm-surface: rgba(255, 255, 255, 0.74);
+  --cm-surface-strong: rgba(255, 255, 255, 0.96);
+  --cm-surface-2: #ffffff;
+  --cm-surface-elev: #ffffff;
+
+  /* Borders */
+  --cm-border: rgba(99, 102, 241, 0.14);
+  --cm-border-strong: rgba(99, 102, 241, 0.30);
+  --cm-divider: rgba(15, 23, 42, 0.08);
+
+  /* Ink / text */
+  --cm-ink: #1e2440;
+  --cm-ink-soft: #4b5468;
+  --cm-ink-muted: #7a8295;
+  --cm-on-accent: #ffffff;
+
+  /* Particle canvas tuning */
+  --cm-canvas-opacity: 0.5;
+  --cm-particle-color: 79, 110, 245;
+
+  /* Geometry */
+  --cm-radius: 16px;
+  --cm-radius-lg: 22px;
+  --cm-shadow: 0 14px 40px rgba(30, 41, 89, 0.10);
+  --cm-shadow-glow: 0 0 0 1px rgba(99, 102, 241, 0.14), 0 20px 52px rgba(99, 102, 241, 0.18);
+  --cm-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* =============================================================
+   2. Theme tokens — DARK
+   ============================================================= */
+html[data-theme="dark"] {
+  /* Deeper, more saturated gradients on dark */
+  --cm-grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 55%, #22d3ee 100%);
+  --cm-grad-soft: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
+  --cm-grad-cool: linear-gradient(135deg, #22d3ee 0%, #2dd4bf 100%);
+  --cm-grad-warm: linear-gradient(135deg, #fbbf24 0%, #fb7185 100%);
+
+  /* Dark navy/violet header */
+  --cm-header-grad: linear-gradient(110deg, #0f1430 0%, #1a1648 45%, #2a1f5c 100%);
+  --cm-header-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
+
+  /* Animated cosmic background */
+  --cm-bg-grad:
+    radial-gradient(1100px 620px at 6% -8%, rgba(99, 102, 241, 0.22), transparent 55%),
+    radial-gradient(900px 560px at 100% 0%, rgba(34, 211, 238, 0.14), transparent 52%),
+    radial-gradient(820px 520px at 50% 110%, rgba(168, 85, 247, 0.18), transparent 60%),
+    linear-gradient(170deg, #070914 0%, #0c0f23 50%, #070914 100%);
+
+  --cm-bg: #070914;
+  --cm-surface: rgba(20, 24, 46, 0.72);
+  --cm-surface-strong: rgba(22, 27, 52, 0.96);
+  --cm-surface-2: #141831;
+  --cm-surface-elev: #1a1f3d;
+
+  --cm-border: rgba(148, 163, 220, 0.14);
+  --cm-border-strong: rgba(168, 154, 250, 0.40);
+  --cm-divider: rgba(148, 163, 220, 0.12);
+
+  --cm-ink: #e6e9f7;
+  --cm-ink-soft: #b6bcd6;
+  --cm-ink-muted: #8a92b2;
+  --cm-on-accent: #ffffff;
+
+  --cm-canvas-opacity: 0.85;
+  --cm-particle-color: 168, 154, 250;
+
+  --cm-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  --cm-shadow-glow: 0 0 0 1px rgba(168, 154, 250, 0.28), 0 20px 52px rgba(99, 102, 241, 0.32);
+
+  color-scheme: dark;
+}
+
+/* =============================================================
+   3. Base — body background + smooth theme transition
+   ============================================================= */
+html {
+  transition: background-color 0.4s var(--cm-ease);
+}
+
+body {
+  background: var(--cm-bg-grad);
+  background-attachment: fixed;
+  color: var(--cm-ink);
+  transition: background-color 0.4s var(--cm-ease), color 0.4s var(--cm-ease);
+}
+
+/* When theme changes, fade major surfaces smoothly */
+.card,
+.dropdown-menu,
+.modal-content,
+.form-control,
+.form-select,
+.btn,
+.header,
+footer {
+  transition: background-color 0.35s var(--cm-ease),
+    color 0.35s var(--cm-ease),
+    border-color 0.35s var(--cm-ease),
+    box-shadow 0.35s var(--cm-ease);
+}
+
+/* Particle/constellation canvas (injected by client-fx.js) */
+#cm-bg-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: var(--cm-canvas-opacity);
+}
+
+/* keep page content above canvas.
+   NOTE: do NOT force position here — .header is sticky and the chat
+   widgets are fixed. Overriding their position breaks them. Only the
+   flow content (main + footer) needs a stacking context above canvas. */
+.main-content,
+footer {
+  position: relative;
+  z-index: 1;
+}
+
+/* =============================================================
+   4. Header — animated gradient, glow, theme aware
+   ============================================================= */
+.header {
+  background: var(--cm-header-grad) !important;
+  background-size: 200% 200%;
+  animation: cm-header-shift 18s ease infinite;
+  box-shadow: var(--cm-header-shadow) !important;
+}
+
+@keyframes cm-header-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.header-logo .logo-icon {
+  animation: cm-float 4s ease-in-out infinite;
+}
+
+@keyframes cm-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+
+/* Nav links — animated underline */
+.header-nav > li > a,
+.header-nav > li > .nav-btn {
+  position: relative;
+  transition: color 0.25s var(--cm-ease), transform 0.25s var(--cm-ease);
+}
+
+.header-nav > li > a::after,
+.header-nav > li > .nav-btn::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 4px;
+  height: 2px;
+  border-radius: 2px;
+  background: #ffd700;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.3s var(--cm-ease);
+}
+
+.header-nav > li > a:hover::after,
+.header-nav > li > .nav-btn:hover::after {
+  transform: scaleX(1);
+}
+
+.header-nav > li > a:hover {
+  transform: translateY(-1px);
+}
+
+/* Avatar glow ring */
+.avatar-circle {
+  transition: transform 0.25s var(--cm-ease), box-shadow 0.25s var(--cm-ease);
+}
+
+.avatar-circle:hover {
+  transform: scale(1.06);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.45), 0 8px 22px rgba(15, 23, 42, 0.30);
+}
+
+/* =============================================================
+   5. Theme toggle button (sun/moon)
+   ============================================================= */
+.cm-theme-toggle {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16),
+              inset 0 1px 0 rgba(255, 255, 255, 0.20);
+  transition: transform 0.25s var(--cm-ease),
+              background 0.25s var(--cm-ease),
+              border-color 0.25s var(--cm-ease),
+              box-shadow 0.25s var(--cm-ease);
+}
+
+.cm-theme-toggle:hover {
+  transform: translateY(-2px) rotate(8deg);
+  background: rgba(255, 255, 255, 0.20);
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22),
+              0 0 0 4px rgba(255, 215, 0, 0.18);
+}
+
+.cm-theme-toggle:active {
+  transform: translateY(0) scale(0.94);
+}
+
+.cm-theme-toggle:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.95);
+  outline-offset: 2px;
+}
+
+.cm-theme-toggle__icon {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  transition: opacity 0.4s var(--cm-ease),
+              transform 0.5s var(--cm-ease);
+}
+
+/* Light mode → show sun, hide moon */
+html[data-theme="light"] .cm-theme-toggle__icon--sun,
+html:not([data-theme="dark"]) .cm-theme-toggle__icon--sun {
+  opacity: 1;
+  transform: rotate(0) scale(1);
+  color: #ffd700;
+  filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.55));
+}
+
+html[data-theme="light"] .cm-theme-toggle__icon--moon,
+html:not([data-theme="dark"]) .cm-theme-toggle__icon--moon {
+  opacity: 0;
+  transform: rotate(-90deg) scale(0.5);
+}
+
+/* Dark mode → hide sun, show moon */
+html[data-theme="dark"] .cm-theme-toggle__icon--sun {
+  opacity: 0;
+  transform: rotate(90deg) scale(0.5);
+}
+
+html[data-theme="dark"] .cm-theme-toggle__icon--moon {
+  opacity: 1;
+  transform: rotate(0) scale(1);
+  color: #c4b5fd;
+  filter: drop-shadow(0 0 8px rgba(196, 181, 253, 0.65));
+}
+
+/* Mobile placement — fits inside header grid */
+@media (max-width: 991.98px) {
+  .cm-theme-toggle {
+    width: 38px;
+    height: 38px;
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+  }
+  .cm-theme-toggle__icon { font-size: 16px; }
+}
+
+/* =============================================================
+   6. Buttons — gradient primary + ripple host + hover lift
+   ============================================================= */
+.btn {
+  transition: transform 0.18s var(--cm-ease),
+              box-shadow 0.20s var(--cm-ease),
+              background 0.20s var(--cm-ease),
+              filter 0.20s var(--cm-ease);
+}
+
+.btn:hover  { transform: translateY(-2px); }
+.btn:active { transform: translateY(0); }
+
+.btn-primary {
+  background-image: var(--cm-grad-soft);
+  border: none;
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.28);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  background-image: var(--cm-grad-soft);
+  filter: brightness(1.06);
+  box-shadow: 0 12px 28px rgba(99, 102, 241, 0.36);
+}
+
+.btn-success {
+  background-image: linear-gradient(135deg, #10b981, #34d399);
+  border: none;
+}
+
+.btn-danger {
+  background-image: linear-gradient(135deg, #f43f5e, #fb7185);
+  border: none;
+}
+
+.btn-warning {
+  background-image: linear-gradient(135deg, #f59e0b, #fbbf24);
+  border: none;
+  color: #1a1206;
+}
+
+.btn-outline-primary {
+  border-color: var(--cm-border-strong);
+}
+
+.btn-outline-primary:hover {
+  background-image: var(--cm-grad-soft);
+  border-color: transparent;
+  color: #fff;
+}
+
+/* Ripple element injected by client-fx.js */
+.cm-ripple {
+  position: absolute;
+  border-radius: 50%;
+  transform: scale(0);
+  background: rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+  animation: cm-ripple 0.6s var(--cm-ease);
+}
+
+@keyframes cm-ripple {
+  to { transform: scale(2.6); opacity: 0; }
+}
+
+/* =============================================================
+   7. Cards / panels — glass surface + hover lift
+   ============================================================= */
+.card {
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius);
+  box-shadow: var(--cm-shadow);
+  transition: transform 0.28s var(--cm-ease),
+              box-shadow 0.28s var(--cm-ease),
+              border-color 0.28s var(--cm-ease),
+              background-color 0.35s var(--cm-ease);
+  overflow: hidden;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  border-color: var(--cm-border-strong);
+  box-shadow: var(--cm-shadow-glow);
+}
+
+/* =============================================================
+   8. Product cards — elevated hover, image zoom, gradient badges
+   ============================================================= */
+.product-card {
+  transition: transform 0.30s var(--cm-ease), box-shadow 0.30s var(--cm-ease);
+  will-change: transform;
+}
+
+.product-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--cm-shadow-glow);
+}
+
+.product-card .product-image img,
+.product-card .product-thumb img,
+.product-card img.card-img-top {
+  transition: transform 0.5s var(--cm-ease);
+}
+
+.product-card:hover .product-image img,
+.product-card:hover .product-thumb img,
+.product-card:hover img.card-img-top {
+  transform: scale(1.07);
+}
+
+/* Discount / sale badges */
+.badge-sale,
+.product-badge,
+.discount-badge,
+.sale-badge {
+  background-image: var(--cm-grad-warm) !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(244, 63, 94, 0.32);
+}
+
+/* =============================================================
+   9. Section headings — gradient text accent
+   ============================================================= */
+.section-title,
+.cm-gradient-text {
+  background: var(--cm-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* =============================================================
+   10. Forms — focus glow
+   ============================================================= */
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--cm-primary);
+  box-shadow: 0 0 0 4px rgba(79, 110, 245, 0.14);
+}
+
+/* =============================================================
+   11. Scroll reveal (driven by client-fx.js)
+   ============================================================= */
+.cm-reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  transition: opacity 0.7s var(--cm-ease),
+              transform 0.7s var(--cm-ease);
+  will-change: opacity, transform;
+}
+
+.cm-reveal.cm-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* =============================================================
+   12. Back-to-top button (injected by client-fx.js)
+   ============================================================= */
+.cm-to-top {
+  position: fixed;
+  right: 22px;
+  bottom: 96px;
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background-image: var(--cm-grad);
+  color: #fff;
+  font-size: 1.15rem;
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(14px) scale(0.85);
+  box-shadow: 0 12px 30px rgba(79, 110, 245, 0.40);
+  transition: opacity 0.3s var(--cm-ease),
+              transform 0.3s var(--cm-ease),
+              visibility 0.3s var(--cm-ease);
+  z-index: 1040;
+}
+
+.cm-to-top.cm-show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+}
+
+.cm-to-top:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 16px 36px rgba(79, 110, 245, 0.50);
+}
+
+/* =============================================================
+   13. Scroll progress bar (injected by client-fx.js)
+   ============================================================= */
+.cm-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 0%;
+  background-image: var(--cm-grad);
+  z-index: 2000;
+  transition: width 0.1s linear;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
+}
+
+/* =============================================================
+   14. Pagination + chips polish
+   ============================================================= */
+.pagination .page-link {
+  border-radius: 10px !important;
+  margin: 0 3px;
+  border-color: var(--cm-border);
+  color: var(--cm-ink-soft);
+  background: transparent;
+  transition: all 0.2s var(--cm-ease);
+}
+
+.pagination .page-item.active .page-link {
+  background-image: var(--cm-grad-soft);
+  border-color: transparent;
+  color: #fff;
+}
+
+.pagination .page-link:hover {
+  border-color: var(--cm-border-strong);
+  transform: translateY(-1px);
+}
+
+/* =============================================================
+   15. Footer — gradient top border
+   ============================================================= */
+footer { position: relative; }
+
+footer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background-image: var(--cm-grad);
+}
+
+/* =============================================================
+   16. DARK MODE component overrides
+   Most legacy CSS uses fixed light colors. Override here so the
+   whole client store reads correctly on dark.
+   ============================================================= */
+html[data-theme="dark"] body {
+  color: var(--cm-ink);
+}
+
+/* Generic Bootstrap surfaces */
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .modal-content,
+html[data-theme="dark"] .dropdown-menu,
+html[data-theme="dark"] .list-group-item,
+html[data-theme="dark"] .accordion-item,
+html[data-theme="dark"] .accordion-button,
+html[data-theme="dark"] .alert,
+html[data-theme="dark"] .toast {
+  background-color: var(--cm-surface-2) !important;
+  color: var(--cm-ink);
+  border-color: var(--cm-border);
+}
+
+html[data-theme="dark"] .card .card-header,
+html[data-theme="dark"] .card .card-footer {
+  background-color: rgba(255, 255, 255, 0.03);
+  border-color: var(--cm-divider);
+  color: var(--cm-ink);
+}
+
+html[data-theme="dark"] .modal-header,
+html[data-theme="dark"] .modal-footer {
+  border-color: var(--cm-divider);
+}
+
+html[data-theme="dark"] .modal-header .btn-close {
+  filter: invert(1) grayscale(0.4) brightness(1.4);
+}
+
+/* Tables */
+html[data-theme="dark"] .table {
+  color: var(--cm-ink);
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--cm-ink);
+  --bs-table-border-color: var(--cm-divider);
+  --bs-table-striped-bg: rgba(255, 255, 255, 0.025);
+  --bs-table-hover-bg: rgba(168, 154, 250, 0.08);
+}
+
+html[data-theme="dark"] .table thead th {
+  background: rgba(168, 154, 250, 0.10) !important;
+  color: var(--cm-ink);
+  border-bottom-color: var(--cm-divider);
+}
+
+/* Forms */
+html[data-theme="dark"] .form-control,
+html[data-theme="dark"] .form-select,
+html[data-theme="dark"] textarea {
+  background-color: rgba(255, 255, 255, 0.04);
+  color: var(--cm-ink);
+  border-color: var(--cm-border);
+}
+
+html[data-theme="dark"] .form-control::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+  color: var(--cm-ink-muted);
+}
+
+html[data-theme="dark"] .form-control:focus,
+html[data-theme="dark"] .form-select:focus {
+  background-color: rgba(255, 255, 255, 0.06);
+  border-color: var(--cm-primary);
+  color: var(--cm-ink);
+  box-shadow: 0 0 0 4px rgba(168, 154, 250, 0.18);
+}
+
+html[data-theme="dark"] .form-label,
+html[data-theme="dark"] .form-text {
+  color: var(--cm-ink-soft);
+}
+
+html[data-theme="dark"] .form-check-input {
+  background-color: rgba(255, 255, 255, 0.06);
+  border-color: var(--cm-border-strong);
+}
+
+html[data-theme="dark"] .input-group-text {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: var(--cm-border);
+  color: var(--cm-ink-soft);
+}
+
+/* Outline buttons need readable colors on dark */
+html[data-theme="dark"] .btn-outline-primary,
+html[data-theme="dark"] .btn-outline-secondary,
+html[data-theme="dark"] .btn-outline-dark,
+html[data-theme="dark"] .btn-outline-light {
+  color: var(--cm-ink);
+  border-color: var(--cm-border-strong);
+  background: transparent;
+}
+
+html[data-theme="dark"] .btn-outline-primary:hover {
+  background-image: var(--cm-grad-soft);
+  color: #fff;
+  border-color: transparent;
+}
+
+html[data-theme="dark"] .btn-outline-secondary:hover,
+html[data-theme="dark"] .btn-outline-dark:hover {
+  background: rgba(168, 154, 250, 0.12);
+  color: var(--cm-ink);
+}
+
+html[data-theme="dark"] .btn-light {
+  background-color: var(--cm-surface-elev);
+  color: var(--cm-ink);
+  border-color: var(--cm-border);
+}
+
+html[data-theme="dark"] .btn-light:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--cm-ink);
+}
+
+/* Text utility colors */
+html[data-theme="dark"] .text-muted,
+html[data-theme="dark"] .text-secondary {
+  color: var(--cm-ink-muted) !important;
+}
+
+html[data-theme="dark"] .text-dark,
+html[data-theme="dark"] .text-body {
+  color: var(--cm-ink) !important;
+}
+
+/* Borders / dividers */
+html[data-theme="dark"] hr,
+html[data-theme="dark"] .border,
+html[data-theme="dark"] .border-top,
+html[data-theme="dark"] .border-bottom,
+html[data-theme="dark"] .border-start,
+html[data-theme="dark"] .border-end {
+  border-color: var(--cm-divider) !important;
+}
+
+/* Backgrounds white / light should follow theme */
+html[data-theme="dark"] .bg-white,
+html[data-theme="dark"] .bg-body,
+html[data-theme="dark"] .bg-light {
+  background-color: var(--cm-surface-2) !important;
+  color: var(--cm-ink);
+}
+
+/* Pagination on dark */
+html[data-theme="dark"] .pagination .page-link {
+  background-color: rgba(255, 255, 255, 0.04);
+  color: var(--cm-ink-soft);
+  border-color: var(--cm-border);
+}
+
+html[data-theme="dark"] .pagination .page-link:hover {
+  background-color: rgba(168, 154, 250, 0.12);
+  color: var(--cm-ink);
+}
+
+/* Header search bar — dark variant */
+html[data-theme="dark"] .header-search .input-group {
+  background: rgba(20, 24, 46, 0.92) !important;
+  border-color: rgba(168, 154, 250, 0.30) !important;
+}
+
+html[data-theme="dark"] .header-search .form-control {
+  background: transparent !important;
+  color: var(--cm-ink) !important;
+}
+
+html[data-theme="dark"] .header-search .form-control::placeholder {
+  color: var(--cm-ink-muted) !important;
+}
+
+html[data-theme="dark"] .header-search .btn-search,
+html[data-theme="dark"] .header-search .btn-image-search,
+html[data-theme="dark"] .search-form .btn-search,
+html[data-theme="dark"] .search-form .btn-image-search {
+  background: rgba(168, 154, 250, 0.18) !important;
+  color: #ddd6fe !important;
+}
+
+html[data-theme="dark"] .header-search .btn-search:hover,
+html[data-theme="dark"] .search-form .btn-search:hover {
+  background: rgba(168, 154, 250, 0.28) !important;
+}
+
+/* Suggest dropdown */
+html[data-theme="dark"] .header-suggest-dropdown {
+  background: var(--cm-surface-strong);
+  border-color: var(--cm-border);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.55);
+}
+
+html[data-theme="dark"] .header-suggest-link {
+  color: var(--cm-ink);
+}
+
+html[data-theme="dark"] .header-suggest-link:hover,
+html[data-theme="dark"] .header-suggest-link.active {
+  background: rgba(168, 154, 250, 0.14);
+  color: var(--cm-ink);
+}
+
+html[data-theme="dark"] .header-suggest-thumb {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+html[data-theme="dark"] .header-suggest-empty {
+  color: var(--cm-ink-muted);
+}
+
+html[data-theme="dark"] .header-suggest-footer {
+  border-color: var(--cm-divider);
+}
+
+html[data-theme="dark"] .header-suggest-footer a {
+  color: #c4b5fd;
+}
+
+html[data-theme="dark"] .header-suggest-footer a:hover {
+  background: rgba(168, 154, 250, 0.14);
+}
+
+html[data-theme="dark"] .header-suggest-old-price {
+  color: var(--cm-ink-muted);
+}
+
+/* Dropdown menus inside header (already styled white-on-violet). Keep, but
+   use surface tokens so it follows theme on dark. */
+html[data-theme="dark"] .header-nav .dropdown-menu,
+html[data-theme="dark"] .header-right .dropdown-menu {
+  background: rgba(15, 18, 38, 0.96);
+  border-color: var(--cm-border-strong);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.55);
+}
+
+/* Footer dark — already dark, but make consistent */
+html[data-theme="dark"] .footer {
+  background: linear-gradient(135deg, #050714 0%, #0c0f23 100%);
+}
+
+/* Quick add modal + checkout boxes — neutralize forced light gradients */
+html[data-theme="dark"] #quickAddModal .modal-content,
+html[data-theme="dark"] .checkout-page .card {
+  background: var(--cm-surface-2) !important;
+  color: var(--cm-ink);
+  border-color: var(--cm-border);
+}
+
+html[data-theme="dark"] #quickAddModal .modal-header {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(139, 92, 246, 0.18)) !important;
+  color: var(--cm-ink) !important;
+  border-bottom-color: var(--cm-divider);
+}
+
+html[data-theme="dark"] #quickAddModal .qam-product-name { color: var(--cm-ink); }
+html[data-theme="dark"] #quickAddModal #qamPrice { color: #c4b5fd !important; }
+
+html[data-theme="dark"] .price-summary-box {
+  background: linear-gradient(to bottom right, rgba(20, 24, 46, 0.92), rgba(15, 18, 38, 0.92)) !important;
+  border-color: var(--cm-border) !important;
+  color: var(--cm-ink);
+}
+
+html[data-theme="dark"] .price-summary-box .border-top {
+  border-color: var(--cm-divider) !important;
+}
+
+/* Order list pills + cards */
+html[data-theme="dark"] .order-list .order-item {
+  background: linear-gradient(135deg, rgba(20, 24, 46, 0.92) 0%, rgba(28, 24, 70, 0.85) 100%) !important;
+  border-color: var(--cm-border-strong) !important;
+  color: var(--cm-ink);
+}
+
+html[data-theme="dark"] .order-list .order-item .small.text-muted,
+html[data-theme="dark"] .order-list .order-item .text-muted {
+  color: var(--cm-ink-soft) !important;
+}
+
+/* Order title + clickable link text must stay bright on dark */
+html[data-theme="dark"] .order-list .order-item a,
+html[data-theme="dark"] .order-list .order-item .fw-semibold {
+  color: #f4f6ff !important;
+}
+
+/* Make the product/order title really pop on the dark card */
+html[data-theme="dark"] .order-list .order-item .order-title {
+  color: #ffffff !important;
+  font-weight: 700;
+  letter-spacing: 0.1px;
+  text-shadow: 0 1px 10px rgba(129, 140, 248, 0.45),
+               0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+html[data-theme="dark"] .order-list .order-item a:hover .order-title {
+  color: #e0e7ff !important;
+  text-shadow: 0 1px 14px rgba(167, 139, 250, 0.65),
+               0 0 2px rgba(255, 255, 255, 0.45);
+}
+
+
+/* AI / Support chat panels */
+html[data-theme="dark"] .ai-chatbox-panel,
+html[data-theme="dark"] .chat-widget-panel {
+  background: var(--cm-surface-strong);
+  color: var(--cm-ink);
+  border: 1px solid var(--cm-border);
+}
+
+html[data-theme="dark"] .ai-chatbox-header,
+html[data-theme="dark"] .chat-widget-header {
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--cm-divider);
+}
+
+html[data-theme="dark"] .ai-chatbox-form textarea,
+html[data-theme="dark"] .chat-widget-input input {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--cm-ink);
+  border-color: var(--cm-border);
+}
+
+/* Flash alerts on dark */
+html[data-theme="dark"] .flash-alert {
+  background: rgba(20, 24, 46, 0.94) !important;
+  color: var(--cm-ink);
+  border-color: var(--cm-border-strong) !important;
+}
+
+/* Brand cells / badges that hardcode #fff */
+html[data-theme="dark"] .brand-item {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: var(--cm-border) !important;
+}
+
+/* Scroll bar */
+html[data-theme="dark"] *::-webkit-scrollbar-thumb {
+  background: rgba(168, 154, 250, 0.32);
+}
+
+/* =============================================================
+   16b. Legacy style.css surfaces that hardcode white / #fff
+   These selectors have higher specificity than the base rules in
+   style.css, so they correctly override on dark without !important
+   wars. Keep them grouped for easy maintenance.
+   ============================================================= */
+html[data-theme="dark"] .product-card,
+html[data-theme="dark"] .favorites-page .product-card,
+html[data-theme="dark"] .filter-bar,
+html[data-theme="dark"] .section-block,
+html[data-theme="dark"] .product-detail-wrapper,
+html[data-theme="dark"] .features-section,
+html[data-theme="dark"] .countdown-item {
+  background: var(--cm-surface-2);
+  color: var(--cm-ink);
+  border-color: var(--cm-border);
+}
+
+/* Search field + suggest panel inside header search use white pills */
+html[data-theme="dark"] .search-form .input-group,
+html[data-theme="dark"] .search-form .input-group:focus-within {
+  background: rgba(20, 24, 46, 0.92);
+  border-color: rgba(168, 154, 250, 0.30);
+}
+
+/* Round icon buttons floating on cards (wishlist, quick actions) */
+html[data-theme="dark"] .product-card .btn-wishlist-float,
+html[data-theme="dark"] .favorites-page .product-card .btn-wishlist-float {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--cm-ink);
+}
+
+/* Countdown numbers keep their accent color but on a dark chip */
+html[data-theme="dark"] .countdown-item {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Product card text — legacy style.css uses dark ink that disappears on
+   the dark card surface. Brighten titles, meta, sold counts. */
+html[data-theme="dark"] .product-card .product-name,
+html[data-theme="dark"] .product-card .product-title,
+html[data-theme="dark"] .product-card-link .product-name {
+  color: var(--cm-ink) !important;
+}
+
+html[data-theme="dark"] .product-card .product-card-link:hover .product-name,
+html[data-theme="dark"] .product-card:hover .product-name {
+  color: #c4b5fd !important;
+}
+
+html[data-theme="dark"] .product-card .product-meta,
+html[data-theme="dark"] .product-card .sold,
+html[data-theme="dark"] .product-card .sold-count,
+html[data-theme="dark"] .product-card .rating-text,
+html[data-theme="dark"] .product-card .product-footer,
+html[data-theme="dark"] .product-card .product-footer .sold-count {
+  color: var(--cm-ink-muted) !important;
+}
+
+/* Strikethrough original price stays muted but visible */
+html[data-theme="dark"] .product-card .original-price,
+html[data-theme="dark"] .product-card .product-price .original-price {
+  color: var(--cm-ink-muted) !important;
+}
+
+/* =============================================================
+   16c. Home page — banners, feature blocks, countdown, sections
+   style.css hardcodes white backgrounds + dark text on these.
+   ============================================================= */
+html[data-theme="dark"] .features-section,
+html[data-theme="dark"] .section-block,
+html[data-theme="dark"] .feature-item,
+html[data-theme="dark"] .home-section,
+html[data-theme="dark"] .category-section,
+html[data-theme="dark"] .flash-sale-section {
+  background: var(--cm-surface-2) !important;
+  color: var(--cm-ink);
+}
+
+/* White banner button (over banner image) — keep light so it reads on photo,
+   but make standalone ones theme-aware */
+html[data-theme="dark"] .btn-banner {
+  background: var(--cm-surface-elev);
+  color: var(--cm-primary-2);
+}
+
+html[data-theme="dark"] .btn-banner:hover {
+  background: #fff;
+  color: var(--cm-primary);
+}
+
+/* Section headings + generic dark text inside home blocks */
+html[data-theme="dark"] .section-block h1,
+html[data-theme="dark"] .section-block h2,
+html[data-theme="dark"] .section-block h3,
+html[data-theme="dark"] .section-block p,
+html[data-theme="dark"] .features-section h1,
+html[data-theme="dark"] .features-section h2,
+html[data-theme="dark"] .features-section h3,
+html[data-theme="dark"] .features-section p,
+html[data-theme="dark"] .feature-item h1,
+html[data-theme="dark"] .feature-item h2,
+html[data-theme="dark"] .feature-item h3,
+html[data-theme="dark"] .feature-item p {
+  color: var(--cm-ink);
+}
+
+/* Countdown chips */
+html[data-theme="dark"] .countdown-item {
+  color: #fda4af;
+}
+
+/* =============================================================
+   16d. Order history / order detail (ui-enhancements.css)
+   These hardcode white pills + dark ink that vanish on dark.
+   ============================================================= */
+html[data-theme="dark"] .copy-order-btn {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--cm-ink-soft);
+  border-color: var(--cm-border-strong);
+}
+
+html[data-theme="dark"] .copy-order-btn:hover {
+  background: rgba(168, 154, 250, 0.16);
+  color: var(--cm-ink);
+  border-color: var(--cm-border-strong);
+}
+
+html[data-theme="dark"] .copy-order-btn.is-copied {
+  background: rgba(16, 185, 129, 0.20);
+  border-color: rgba(52, 211, 153, 0.55);
+  color: #6ee7b7;
+}
+
+html[data-theme="dark"] .order-thumb {
+  background: var(--cm-surface-elev);
+  border-color: var(--cm-border);
+}
+
+html[data-theme="dark"] .order-thumb-fallback {
+  background: rgba(129, 140, 248, 0.16);
+  border-color: var(--cm-border);
+  color: #c4b5fd;
+}
+
+html[data-theme="dark"] .order-payment-select {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--cm-border-strong);
+  color: var(--cm-ink);
+}
+
+html[data-theme="dark"] .order-payment-select option {
+  background: var(--cm-surface-2);
+  color: var(--cm-ink);
+}
+
+/* Order status badges / pills keep accent but readable */
+html[data-theme="dark"] .order-detail-page .order-product-meta .fw-semibold {
+  color: var(--cm-ink);
+}
+
+/* Order status pills — light gradients wash out on dark.
+   Rebuild each as a dark translucent chip with a bright accent text. */
+html[data-theme="dark"] .order-status {
+  border-width: 1px;
+  border-style: solid;
+  box-shadow: none;
+  backdrop-filter: saturate(140%);
+}
+
+html[data-theme="dark"] .order-status[data-status="choxacnhan"] {
+  background: rgba(245, 158, 11, 0.16) !important;
+  color: #fcd34d !important;
+  border-color: rgba(245, 158, 11, 0.45) !important;
+}
+
+html[data-theme="dark"] .order-status[data-status="daxacnhan"],
+html[data-theme="dark"] .order-status[data-status="approved_return"] {
+  background: rgba(56, 189, 248, 0.16) !important;
+  color: #7dd3fc !important;
+  border-color: rgba(56, 189, 248, 0.45) !important;
+}
+
+html[data-theme="dark"] .order-status[data-status="dangchuanbi"] {
+  background: rgba(139, 92, 246, 0.18) !important;
+  color: #c4b5fd !important;
+  border-color: rgba(139, 92, 246, 0.45) !important;
+}
+
+html[data-theme="dark"] .order-status[data-status="danggiao"],
+html[data-theme="dark"] .order-status[data-status="return_shipping"] {
+  background: rgba(59, 130, 246, 0.18) !important;
+  color: #93c5fd !important;
+  border-color: rgba(59, 130, 246, 0.45) !important;
+}
+
+html[data-theme="dark"] .order-status[data-status="dagiao"] {
+  background: rgba(16, 185, 129, 0.18) !important;
+  color: #6ee7b7 !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+}
+
+html[data-theme="dark"] .order-status[data-status="requested_return"],
+html[data-theme="dark"] .order-status[data-status="returned_partial"] {
+  background: rgba(249, 115, 22, 0.18) !important;
+  color: #fdba74 !important;
+  border-color: rgba(249, 115, 22, 0.45) !important;
+}
+
+html[data-theme="dark"] .order-status[data-status="rejected_return"],
+html[data-theme="dark"] .order-status[data-status="dahuy"] {
+  background: rgba(239, 68, 68, 0.18) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(239, 68, 68, 0.45) !important;
+}
+
+html[data-theme="dark"] .order-status[data-status="returned"],
+html[data-theme="dark"] .order-status[data-status="returned_full"] {
+  background: rgba(20, 184, 166, 0.18) !important;
+  color: #5eead4 !important;
+  border-color: rgba(20, 184, 166, 0.45) !important;
+}
+
+html[data-theme="dark"] .order-status[data-status="refunded"] {
+  background: rgba(34, 197, 94, 0.18) !important;
+  color: #86efac !important;
+  border-color: rgba(34, 197, 94, 0.45) !important;
+}
+
+html[data-theme="dark"] .order-status[data-status="hoanhang"] {
+  background: rgba(148, 163, 184, 0.18) !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(148, 163, 184, 0.45) !important;
+}
+
+
+/* =============================================================
+   16e. Checkout + generic card headers (ui-enhancements.css)
+   ============================================================= */
+html[data-theme="dark"] .checkout-page .card {
+  background: var(--cm-surface-2) !important;
+  border-color: var(--cm-border);
+  color: var(--cm-ink);
+}
+
+html[data-theme="dark"] .card .card-header {
+  background: rgba(255, 255, 255, 0.03) !important;
+  color: var(--cm-ink);
+}
+
+/* Cart / generic light buttons that hardcode colored text on white */
+html[data-theme="dark"] .btn-white,
+html[data-theme="dark"] .btn-soft {
+  background: var(--cm-surface-elev);
+  color: var(--cm-ink);
+  border-color: var(--cm-border);
+}
+
+/* Catch-all: any element forced to .text-dark/.text-black inside content */
+html[data-theme="dark"] .main-content .text-black,
+html[data-theme="dark"] .main-content .text-dark {
+  color: var(--cm-ink) !important;
+}
+
+/* =============================================================
+   17. Reduced motion — disable heavy effects
+   ============================================================= */
+@media (prefers-reduced-motion: reduce) {
+  .header                              { animation: none; }
+  .header-logo .logo-icon              { animation: none; }
+  .cm-reveal                           { opacity: 1; transform: none; transition: none; }
+  #cm-bg-canvas                        { display: none; }
+  .btn:hover, .card:hover,
+  .product-card:hover                  { transform: none; }
+  .cm-theme-toggle:hover               { transform: none; }
+}
+
+/* =============================================================
+   18. CLIENT DARK REDESIGN — default storefront facelift
+   Strong final layer against legacy light CSS.
+   ============================================================= */
+html[data-theme="dark"] body {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(139, 92, 246, 0.20), transparent 30%),
+    radial-gradient(circle at 88% 0%, rgba(34, 211, 238, 0.14), transparent 28%),
+    linear-gradient(135deg, #050714 0%, #0b1022 48%, #11142b 100%) !important;
+  color: var(--cm-ink) !important;
+}
+
+html[data-theme="dark"] .main-content {
+  background: transparent !important;
+}
+
+html[data-theme="dark"] .header,
+html[data-theme="dark"] .navbar,
+html[data-theme="dark"] .dropdown-menu {
+  background: rgba(8, 11, 28, 0.86) !important;
+  border-color: rgba(168, 154, 250, 0.18) !important;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34) !important;
+  backdrop-filter: blur(18px) saturate(150%);
+}
+
+html[data-theme="dark"] .banner-slide::before {
+  background:
+    linear-gradient(90deg, rgba(5, 7, 20, 0.86) 0%, rgba(11, 16, 34, 0.42) 55%, rgba(5, 7, 20, 0.68) 100%) !important;
+}
+
+html[data-theme="dark"] .banner-content {
+  padding: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 28px;
+  background: rgba(8, 11, 28, 0.42);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.36);
+  backdrop-filter: blur(14px);
+}
+
+html[data-theme="dark"] .banner-title,
+html[data-theme="dark"] .section-title,
+html[data-theme="dark"] .categories-title,
+html[data-theme="dark"] .products-title,
+html[data-theme="dark"] h1,
+html[data-theme="dark"] h2,
+html[data-theme="dark"] h3,
+html[data-theme="dark"] h4,
+html[data-theme="dark"] h5,
+html[data-theme="dark"] h6 {
+  color: #f7f8ff !important;
+}
+
+html[data-theme="dark"] .banner-subtitle,
+html[data-theme="dark"] p,
+html[data-theme="dark"] .text-muted,
+html[data-theme="dark"] .small,
+html[data-theme="dark"] label,
+html[data-theme="dark"] .form-label,
+html[data-theme="dark"] .review-count,
+html[data-theme="dark"] .variant-more {
+  color: var(--cm-ink-soft) !important;
+}
+
+html[data-theme="dark"] .features-section,
+html[data-theme="dark"] .categories-section,
+html[data-theme="dark"] .products-section,
+html[data-theme="dark"] .brand-section,
+html[data-theme="dark"] .lookbook-section,
+html[data-theme="dark"] .blog-section,
+html[data-theme="dark"] .favorites-page,
+html[data-theme="dark"] .products-section.bg-light,
+html[data-theme="dark"] .brand-section.bg-light {
+  background: transparent !important;
+  border-color: rgba(168, 154, 250, 0.14) !important;
+}
+
+html[data-theme="dark"] .feature-item,
+html[data-theme="dark"] .category-item,
+html[data-theme="dark"] .brand-item,
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .filter-bar,
+html[data-theme="dark"] .product-detail-wrapper,
+html[data-theme="dark"] .cart-item-row,
+html[data-theme="dark"] .order-item,
+html[data-theme="dark"] .voucher-card,
+html[data-theme="dark"] .auth-card,
+html[data-theme="dark"] .account-card {
+  background: linear-gradient(145deg, rgba(20, 24, 49, 0.92), rgba(13, 17, 38, 0.86)) !important;
+  color: var(--cm-ink) !important;
+  border: 1px solid rgba(168, 154, 250, 0.18) !important;
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.28) !important;
+  backdrop-filter: blur(14px) saturate(145%);
+}
+
+html[data-theme="dark"] .feature-item:hover,
+html[data-theme="dark"] .category-item:hover,
+html[data-theme="dark"] .card:hover,
+html[data-theme="dark"] .product-card:hover {
+  border-color: rgba(196, 181, 253, 0.42) !important;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(196, 181, 253, 0.10) inset !important;
+}
+
+html[data-theme="dark"] .feature-icon,
+html[data-theme="dark"] .category-icon {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(34, 211, 238, 0.82)) !important;
+  color: #fff !important;
+  box-shadow: 0 14px 30px rgba(139, 92, 246, 0.24);
+}
+
+html[data-theme="dark"] .category-item span,
+html[data-theme="dark"] .feature-text h5 {
+  color: var(--cm-ink) !important;
+}
+
+html[data-theme="dark"] .product-card {
+  background: linear-gradient(160deg, rgba(20, 24, 49, 0.96), rgba(10, 13, 31, 0.94)) !important;
+  border: 1px solid rgba(168, 154, 250, 0.18) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.30) !important;
+}
+
+html[data-theme="dark"] .product-image,
+html[data-theme="dark"] .product-thumb,
+html[data-theme="dark"] .category-icon,
+html[data-theme="dark"] .variant-more {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+html[data-theme="dark"] .product-name,
+html[data-theme="dark"] .product-title,
+html[data-theme="dark"] .card-title,
+html[data-theme="dark"] .card-text,
+html[data-theme="dark"] .lookbook-card-desc {
+  color: var(--cm-ink) !important;
+}
+
+html[data-theme="dark"] .sale-price,
+html[data-theme="dark"] .price,
+html[data-theme="dark"] .product-price .sale-price {
+  color: #fb7185 !important;
+  text-shadow: 0 0 20px rgba(251, 113, 133, 0.18);
+}
+
+html[data-theme="dark"] .original-price,
+html[data-theme="dark"] .sold-count,
+html[data-theme="dark"] .product-rating {
+  color: var(--cm-ink-muted) !important;
+}
+
+html[data-theme="dark"] .flash-sale-section {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(251, 113, 133, 0.36), transparent 34%),
+    linear-gradient(135deg, rgba(88, 28, 135, 0.80), rgba(127, 29, 29, 0.70)) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+html[data-theme="dark"] .countdown-label,
+html[data-theme="dark"] .countdown-sep,
+html[data-theme="dark"] .flash-sale-header .section-title {
+  color: #fff !important;
+}
+
+html[data-theme="dark"] .countdown-item {
+  background: rgba(255, 255, 255, 0.10) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  color: #fecdd3 !important;
+}
+
+html[data-theme="dark"] .btn,
+html[data-theme="dark"] button,
+html[data-theme="dark"] .btn-add-cart,
+html[data-theme="dark"] .btn-buy-now,
+html[data-theme="dark"] .section-header .view-all {
+  border-color: rgba(168, 154, 250, 0.28);
+}
+
+html[data-theme="dark"] .btn-primary,
+html[data-theme="dark"] .btn-add-cart,
+html[data-theme="dark"] .btn-buy-now,
+html[data-theme="dark"] .btn-banner,
+html[data-theme="dark"] .section-header .view-all {
+  background: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%) !important;
+  color: #fff !important;
+  box-shadow: 0 14px 30px rgba(139, 92, 246, 0.25) !important;
+}
+
+html[data-theme="dark"] .btn-outline-secondary,
+html[data-theme="dark"] .btn-light,
+html[data-theme="dark"] .btn-white,
+html[data-theme="dark"] .btn-soft,
+html[data-theme="dark"] .btn-icon,
+html[data-theme="dark"] .btn-wishlist-float,
+html[data-theme="dark"] .btn-remove-favorite {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: var(--cm-ink) !important;
+  border-color: rgba(168, 154, 250, 0.24) !important;
+}
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] .form-control,
+html[data-theme="dark"] .form-select,
+html[data-theme="dark"] .input-group-text {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--cm-ink) !important;
+  border-color: rgba(168, 154, 250, 0.24) !important;
+}
+
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+  color: rgba(230, 233, 247, 0.52) !important;
+}
+
+html[data-theme="dark"] option {
+  background: #11142b !important;
+  color: var(--cm-ink) !important;
+}
+
+html[data-theme="dark"] .table,
+html[data-theme="dark"] table {
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--cm-ink);
+  --bs-table-border-color: rgba(168, 154, 250, 0.16);
+  color: var(--cm-ink) !important;
+}
+
+html[data-theme="dark"] .modal-content,
+html[data-theme="dark"] .offcanvas,
+html[data-theme="dark"] .list-group-item {
+  background: #11142b !important;
+  color: var(--cm-ink) !important;
+  border-color: rgba(168, 154, 250, 0.18) !important;
+}
+
+html[data-theme="dark"] .badge.bg-light,
+html[data-theme="dark"] .badge.text-dark {
+  background: rgba(255, 255, 255, 0.10) !important;
+  color: var(--cm-ink) !important;
+}
+
+html[data-theme="dark"] a:not(.btn):not(.product-link):not(.category-item):not(.brand-item) {
+  color: #a5b4fc;
+}
+
+html[data-theme="dark"] a:not(.btn):hover {
+  color: #67e8f9;
+}
+
+html[data-theme="dark"] .footer {
+  background: linear-gradient(135deg, #030512 0%, #080b1c 55%, #11142b 100%) !important;
+  border-top: 1px solid rgba(168, 154, 250, 0.18);
+}
+
+/* =============================================================
+   18. CLIENT DARK REBUILD — dark-first storefront polish
+   Keeps existing markup, restyles client pages into glass/cosmic UI.
+   ============================================================= */
+html[data-theme="dark"] {
+  --cm-bg-grad:
+    radial-gradient(900px 560px at 12% -10%, rgba(99, 102, 241, 0.32), transparent 58%),
+    radial-gradient(760px 520px at 92% 8%, rgba(34, 211, 238, 0.18), transparent 56%),
+    radial-gradient(680px 520px at 52% 112%, rgba(236, 72, 153, 0.16), transparent 58%),
+    linear-gradient(155deg, #050713 0%, #090d20 42%, #0f1027 100%);
+  --cm-header-grad: linear-gradient(110deg, rgba(6, 9, 23, 0.96) 0%, rgba(20, 22, 54, 0.95) 48%, rgba(43, 29, 88, 0.95) 100%);
+  --cm-surface: rgba(17, 22, 45, 0.66);
+  --cm-surface-strong: rgba(14, 18, 38, 0.96);
+  --cm-surface-2: rgba(18, 23, 48, 0.92);
+  --cm-surface-elev: rgba(27, 33, 66, 0.96);
+  --cm-border: rgba(167, 139, 250, 0.20);
+  --cm-border-strong: rgba(196, 181, 253, 0.44);
+  --cm-shadow: 0 24px 70px rgba(0, 0, 0, 0.48);
+  --cm-shadow-glow: 0 0 0 1px rgba(196, 181, 253, 0.30), 0 26px 70px rgba(99, 102, 241, 0.28);
+}
+
+html[data-theme="dark"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 46px 46px;
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent 72%);
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent 72%);
+}
+
+html[data-theme="dark"] .main-content {
+  min-height: 72vh;
+  padding-top: 24px;
+}
+
+html[data-theme="dark"] .header {
+  border-bottom: 1px solid rgba(196, 181, 253, 0.18);
+  backdrop-filter: blur(18px) saturate(145%);
+}
+
+html[data-theme="dark"] .header-logo,
+html[data-theme="dark"] .header-nav .nav-link,
+html[data-theme="dark"] .header-right a,
+html[data-theme="dark"] .header-right button {
+  text-shadow: 0 0 18px rgba(168, 85, 247, 0.34);
+}
+
+html[data-theme="dark"] .cm-theme-toggle {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(196, 181, 253, 0.34);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.04), 0 12px 32px rgba(0,0,0,0.36);
+}
+
+html[data-theme="dark"] .section-block,
+html[data-theme="dark"] .home-section,
+html[data-theme="dark"] .features-section,
+html[data-theme="dark"] .categories-section,
+html[data-theme="dark"] .category-section,
+html[data-theme="dark"] .brand-section,
+html[data-theme="dark"] .lookbook-section,
+html[data-theme="dark"] .blog-section,
+html[data-theme="dark"] .products-section,
+html[data-theme="dark"] .flash-sale-section,
+html[data-theme="dark"] .filter-bar,
+html[data-theme="dark"] .product-detail-wrapper,
+html[data-theme="dark"] .cart-page .card,
+html[data-theme="dark"] .account-page .card,
+html[data-theme="dark"] .checkout-page .card {
+  background: linear-gradient(145deg, rgba(18, 23, 48, 0.86), rgba(13, 17, 35, 0.72)) !important;
+  border: 1px solid rgba(196, 181, 253, 0.18) !important;
+  box-shadow: var(--cm-shadow);
+  backdrop-filter: blur(18px) saturate(145%);
+}
+
+html[data-theme="dark"] .section-header {
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(196, 181, 253, 0.14);
+}
+
+html[data-theme="dark"] .section-title,
+html[data-theme="dark"] .card-title,
+html[data-theme="dark"] .product-name,
+html[data-theme="dark"] .product-title,
+html[data-theme="dark"] h1,
+html[data-theme="dark"] h2,
+html[data-theme="dark"] h3,
+html[data-theme="dark"] h4,
+html[data-theme="dark"] h5,
+html[data-theme="dark"] h6 {
+  color: #f7f8ff !important;
+}
+
+html[data-theme="dark"] .section-title {
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 24px rgba(129, 140, 248, 0.42);
+}
+
+html[data-theme="dark"] .view-all,
+html[data-theme="dark"] a:not(.btn):not(.nav-link):not(.dropdown-item) {
+  color: #c4b5fd;
+}
+
+html[data-theme="dark"] .view-all:hover,
+html[data-theme="dark"] a:not(.btn):not(.nav-link):not(.dropdown-item):hover {
+  color: #67e8f9;
+}
+
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .product-card,
+html[data-theme="dark"] .blog-card,
+html[data-theme="dark"] .brand-card,
+html[data-theme="dark"] .lookbook-card,
+html[data-theme="dark"] .category-card,
+html[data-theme="dark"] .voucher-card,
+html[data-theme="dark"] .order-card,
+html[data-theme="dark"] .order-list .order-item {
+  background: linear-gradient(155deg, rgba(24, 30, 62, 0.94), rgba(12, 16, 34, 0.92)) !important;
+  border: 1px solid rgba(196, 181, 253, 0.18) !important;
+  color: var(--cm-ink) !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.38);
+  overflow: hidden;
+}
+
+html[data-theme="dark"] .card::before,
+html[data-theme="dark"] .product-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255,255,255,0.08), transparent 34%, rgba(34,211,238,0.06));
+  opacity: 0;
+  transition: opacity 0.28s var(--cm-ease);
+}
+
+html[data-theme="dark"] .card:hover::before,
+html[data-theme="dark"] .product-card:hover::before {
+  opacity: 1;
+}
+
+html[data-theme="dark"] .product-card:hover,
+html[data-theme="dark"] .card:hover {
+  border-color: rgba(196, 181, 253, 0.42) !important;
+  box-shadow: var(--cm-shadow-glow);
+}
+
+html[data-theme="dark"] .product-card .product-image,
+html[data-theme="dark"] .product-card .product-thumb,
+html[data-theme="dark"] .card-img-top {
+  background: linear-gradient(135deg, rgba(99,102,241,0.14), rgba(34,211,238,0.08));
+}
+
+html[data-theme="dark"] .product-card .price,
+html[data-theme="dark"] .product-card .new-price,
+html[data-theme="dark"] .product-card .product-price,
+html[data-theme="dark"] .text-danger,
+html[data-theme="dark"] .price {
+  color: #fda4af !important;
+}
+
+html[data-theme="dark"] .badge.bg-light,
+html[data-theme="dark"] .badge.text-dark,
+html[data-theme="dark"] .badge.bg-white {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #e0e7ff !important;
+  border: 1px solid rgba(196, 181, 253, 0.24);
+}
+
+html[data-theme="dark"] .btn-primary,
+html[data-theme="dark"] .btn-banner,
+html[data-theme="dark"] .btn-save {
+  background-image: linear-gradient(135deg, #6366f1 0%, #a855f7 55%, #22d3ee 100%) !important;
+  border: 0 !important;
+  color: #fff !important;
+  box-shadow: 0 12px 30px rgba(99, 102, 241, 0.34);
+}
+
+html[data-theme="dark"] .btn-primary:hover,
+html[data-theme="dark"] .btn-banner:hover,
+html[data-theme="dark"] .btn-save:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 16px 42px rgba(168, 85, 247, 0.44);
+}
+
+html[data-theme="dark"] .form-control,
+html[data-theme="dark"] .form-select,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] .input-group-text {
+  background: rgba(8, 12, 28, 0.74) !important;
+  border-color: rgba(196, 181, 253, 0.22) !important;
+  color: #eef2ff !important;
+}
+
+html[data-theme="dark"] .form-control:focus,
+html[data-theme="dark"] .form-select:focus,
+html[data-theme="dark"] textarea:focus {
+  border-color: rgba(103, 232, 249, 0.56) !important;
+  box-shadow: 0 0 0 0.22rem rgba(34, 211, 238, 0.14) !important;
+}
+
+html[data-theme="dark"] .footer {
+  background:
+    radial-gradient(650px 280px at 18% 0%, rgba(99,102,241,0.22), transparent 60%),
+    linear-gradient(135deg, #03050f 0%, #090d20 100%) !important;
+  border-top: 1px solid rgba(196, 181, 253, 0.18);
+}
+
+@media (max-width: 767.98px) {
+  html[data-theme="dark"] .main-content {
+    padding-top: 14px;
+  }
+
+  html[data-theme="dark"] .section-block,
+  html[data-theme="dark"] .home-section,
+  html[data-theme="dark"] .features-section,
+  html[data-theme="dark"] .products-section {
+    border-radius: 18px;
+  }
+}
+
+/* =============================================================
+   18. CLIENT DARK REDESIGN — neon commerce shell
+   Dark-first visual refresh layered after legacy CSS.
+   ============================================================= */
+html[data-theme="dark"] {
+  --cm-primary: #8b5cf6;
+  --cm-primary-2: #22d3ee;
+  --cm-bg-grad:
+    radial-gradient(900px 520px at 8% 4%, rgba(139, 92, 246, 0.32), transparent 58%),
+    radial-gradient(760px 460px at 92% 8%, rgba(34, 211, 238, 0.18), transparent 54%),
+    radial-gradient(680px 520px at 50% 108%, rgba(236, 72, 153, 0.14), transparent 58%),
+    linear-gradient(145deg, #05060d 0%, #090d1c 45%, #05060d 100%);
+  --cm-header-grad: linear-gradient(110deg, rgba(7, 10, 25, 0.92), rgba(24, 18, 58, 0.94) 48%, rgba(9, 34, 51, 0.92));
+  --cm-surface: rgba(13, 17, 35, 0.72);
+  --cm-surface-strong: rgba(12, 16, 33, 0.94);
+  --cm-surface-2: rgba(16, 21, 43, 0.88);
+  --cm-surface-elev: rgba(22, 28, 57, 0.96);
+  --cm-border: rgba(148, 163, 220, 0.18);
+  --cm-border-strong: rgba(125, 211, 252, 0.40);
+  --cm-shadow: 0 18px 56px rgba(0, 0, 0, 0.55);
+  --cm-shadow-glow: 0 0 0 1px rgba(125, 211, 252, 0.25), 0 22px 70px rgba(139, 92, 246, 0.26);
+}
+
+html[data-theme="dark"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+  background-size: 54px 54px;
+  -webkit-mask-image: radial-gradient(circle at 50% 0%, #000 0%, transparent 72%);
+  mask-image: radial-gradient(circle at 50% 0%, #000 0%, transparent 72%);
+}
+
+html[data-theme="dark"] .header {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(125, 211, 252, 0.22);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+
+html[data-theme="dark"] .header-wrapper {
+  min-height: 58px;
+  gap: 16px;
+}
+
+html[data-theme="dark"] .header-logo a {
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+}
+
+html[data-theme="dark"] .header-logo .logo-icon,
+html[data-theme="dark"] .header-logo .logo-text {
+  color: #f8fafc;
+  text-shadow: 0 0 18px rgba(125, 211, 252, 0.45);
+}
+
+html[data-theme="dark"] .search-form .input-group,
+html[data-theme="dark"] .search-form .input-group:focus-within {
+  min-height: 48px;
+  border-radius: 18px;
+  background: rgba(6, 10, 24, 0.74) !important;
+  border: 1px solid rgba(125, 211, 252, 0.26) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 14px 34px rgba(0,0,0,0.32);
+}
+
+html[data-theme="dark"] .search-form .input-group:focus-within {
+  box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.12), 0 18px 42px rgba(0,0,0,0.42);
+}
+
+html[data-theme="dark"] .header-search .btn-search,
+html[data-theme="dark"] .header-search .btn-image-search,
+html[data-theme="dark"] .search-form .btn-search,
+html[data-theme="dark"] .search-form .btn-image-search {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.38), rgba(34, 211, 238, 0.26)) !important;
+  color: #f8fafc !important;
+}
+
+html[data-theme="dark"] .header-nav > li > a,
+html[data-theme="dark"] .header-nav > li > .nav-btn,
+html[data-theme="dark"] .auth-buttons .btn-auth {
+  border: 1px solid transparent;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #eef2ff;
+}
+
+html[data-theme="dark"] .header-nav > li > a:hover,
+html[data-theme="dark"] .header-nav > li > .nav-btn:hover,
+html[data-theme="dark"] .auth-buttons .btn-auth:hover {
+  background: rgba(125, 211, 252, 0.12);
+  border-color: rgba(125, 211, 252, 0.26);
+  color: #ffffff;
+}
+
+html[data-theme="dark"] .cm-theme-toggle,
+html[data-theme="dark"] .menu-toggle,
+html[data-theme="dark"] .avatar-circle {
+  border: 1px solid rgba(125, 211, 252, 0.30);
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 10px 26px rgba(0,0,0,0.32);
+}
+
+html[data-theme="dark"] .main-content {
+  min-height: 72vh;
+}
+
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .product-card,
+html[data-theme="dark"] .filter-bar,
+html[data-theme="dark"] .section-block,
+html[data-theme="dark"] .home-section,
+html[data-theme="dark"] .features-section,
+html[data-theme="dark"] .product-detail-wrapper,
+html[data-theme="dark"] .checkout-page .card,
+html[data-theme="dark"] .modal-content,
+html[data-theme="dark"] .dropdown-menu {
+  border: 1px solid rgba(148, 163, 220, 0.18) !important;
+  background: linear-gradient(180deg, rgba(18, 24, 49, 0.92), rgba(11, 15, 31, 0.92)) !important;
+  box-shadow: var(--cm-shadow);
+  backdrop-filter: blur(14px) saturate(130%);
+}
+
+html[data-theme="dark"] .card:hover,
+html[data-theme="dark"] .product-card:hover {
+  border-color: rgba(125, 211, 252, 0.38) !important;
+  box-shadow: var(--cm-shadow-glow);
+}
+
+html[data-theme="dark"] .product-card {
+  border-radius: 22px;
+}
+
+html[data-theme="dark"] .product-card::after,
+html[data-theme="dark"] .card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255,255,255,0.10), transparent 28%, transparent 70%, rgba(34,211,238,0.08));
+  opacity: 0;
+  transition: opacity 0.25s var(--cm-ease);
+}
+
+html[data-theme="dark"] .product-card:hover::after,
+html[data-theme="dark"] .card:hover::after {
+  opacity: 1;
+}
+
+html[data-theme="dark"] .product-name,
+html[data-theme="dark"] .product-title,
+html[data-theme="dark"] .card-title,
+html[data-theme="dark"] h1,
+html[data-theme="dark"] h2,
+html[data-theme="dark"] h3,
+html[data-theme="dark"] h4,
+html[data-theme="dark"] h5,
+html[data-theme="dark"] h6 {
+  color: #f8fafc !important;
+}
+
+html[data-theme="dark"] p,
+html[data-theme="dark"] .card-text,
+html[data-theme="dark"] .product-meta,
+html[data-theme="dark"] .small,
+html[data-theme="dark"] .footer-desc,
+html[data-theme="dark"] .footer-contact span {
+  color: #b8c0d8;
+}
+
+html[data-theme="dark"] .price,
+html[data-theme="dark"] .product-price,
+html[data-theme="dark"] .current-price,
+html[data-theme="dark"] .header-suggest-price {
+  color: #67e8f9 !important;
+  text-shadow: 0 0 16px rgba(34, 211, 238, 0.22);
+}
+
+html[data-theme="dark"] .btn-primary,
+html[data-theme="dark"] .btn-success,
+html[data-theme="dark"] .btn-add-cart,
+html[data-theme="dark"] .btn-buy-now {
+  border: 0 !important;
+  background: linear-gradient(135deg, #8b5cf6 0%, #22d3ee 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 12px 28px rgba(34, 211, 238, 0.20), 0 12px 34px rgba(139, 92, 246, 0.22);
+}
+
+html[data-theme="dark"] .form-control,
+html[data-theme="dark"] .form-select,
+html[data-theme="dark"] textarea {
+  background: rgba(5, 8, 19, 0.72) !important;
+  border-color: rgba(148, 163, 220, 0.22) !important;
+  border-radius: 14px;
+}
+
+html[data-theme="dark"] .footer {
+  margin-top: 56px;
+  background:
+    radial-gradient(720px 360px at 12% 0%, rgba(139, 92, 246, 0.18), transparent 62%),
+    linear-gradient(135deg, #040610 0%, #090d1f 100%) !important;
+  border-top: 1px solid rgba(125, 211, 252, 0.22);
+}
+
+html[data-theme="dark"] .footer-social a,
+html[data-theme="dark"] .footer-links a,
+html[data-theme="dark"] .footer-contact i,
+html[data-theme="dark"] .payment-methods i {
+  color: #c4b5fd;
+}
+
+html[data-theme="dark"] .footer-social a:hover,
+html[data-theme="dark"] .footer-links a:hover {
+  color: #67e8f9;
+}
+
+html[data-theme="dark"] .ai-chatbox-toggle,
+html[data-theme="dark"] .chat-widget-toggle,
+html[data-theme="dark"] .cm-to-top {
+  background: linear-gradient(135deg, #8b5cf6, #22d3ee) !important;
+  border: 1px solid rgba(255,255,255,0.16) !important;
+  box-shadow: 0 18px 46px rgba(34, 211, 238, 0.22), 0 12px 36px rgba(139, 92, 246, 0.28);
+}
+
+@media (max-width: 991.98px) {
+  html[data-theme="dark"] .header-nav {
+    background: rgba(7, 10, 25, 0.96);
+    border-left: 1px solid rgba(125, 211, 252, 0.22);
+    box-shadow: -18px 0 44px rgba(0,0,0,0.48);
+    backdrop-filter: blur(18px);
+  }
+}

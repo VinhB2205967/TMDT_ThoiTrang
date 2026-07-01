@@ -1,97 +1,213 @@
 extends ../../layouts/default.pug
 
-block main
-  .container-fluid.p-3
-    .d-flex.justify-content-between.align-items-center.mb-3.page-header-section.orders-header.admin-page-header
-      h3.mb-0 Voucher
-      a.btn.btn-header.btn-admin-accent.btn-create-voucher(href=`${admin}/vouchers/create`)
-        i.bi.bi-plus-lg
-        |  Tạo voucher
+block styles
+  style.
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    
+    .status-active {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: white;
+    }
+    
+    .status-expired {
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      color: white;
+    }
+    
+    .status-soldout {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: white;
+    }
+    
+    .status-paused {
+      background: rgba(107, 114, 128, 0.4);
+      color: #b3bac7;
+    }
+    
+    .voucher-banner {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 12px;
+      transition: transform 0.3s ease;
+      margin-bottom: 12px;
+    }
+    
+    .voucher-banner:hover {
+      transform: scale(1.05);
+    }
+    
+    .voucher-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      padding: 12px;
+      background: rgba(99, 102, 241, 0.08);
+      border-radius: 8px;
+      margin: 12px 0;
+    }
+    
+    .stat-item {
+      text-align: center;
+    }
+    
+    .stat-value {
+      display: block;
+      font-weight: 700;
+      font-size: 16px;
+      color: #6366f1;
+    }
+    
+    .stat-label {
+      display: block;
+      font-size: 11px;
+      color: #8089a3;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
+    }
 
-    form.mb-3(method='GET' action=`${admin}/vouchers`)
-      .input-group
-        input.form-control(type='text' name='keyword' placeholder='Tìm theo mã hoặc tên voucher' value=keyword)
-        button.btn.btn-outline-secondary(type='submit') Tìm kiếm
+block main
+  .container-fluid.p-3.admin-workspace.vouchers-admin-page
+    .admin-page-header
+      .d-flex.justify-content-between.align-items-center.gap-3(style="width: 100%;")
+        div
+          h3.mb-2 🎁 Quản lý Voucher
+          p.text-muted.mb-0 Tổng cộng: 
+            strong= vouchers ? vouchers.length : 0
+            |  voucher
+        a.btn.btn-header.btn-admin-accent(href=`${admin}/vouchers/create`)
+          i.bi.bi-plus-lg
+          |  Tạo voucher mới
+
+    .admin-filter-bar.voucher-search-bar.mb-4
+      form.input-group(method='GET' action=`${admin}/vouchers`)
+        span.input-group-text
+          i.bi.bi-search
+        input.form-control(type='text' name='keyword' placeholder='Tìm theo mã hoặc tên voucher...' value=keyword)
+        button.btn.btn-outline-primary(type='submit') Tìm kiếm
 
     if !vouchers || vouchers.length === 0
-      .alert.alert-info.mb-0 Chưa có voucher nào.
+      .alert.alert-info.d-flex.align-items-center
+        i.bi.bi-info-circle.me-2
+        span Chưa có voucher nào. Hãy tạo voucher đầu tiên để bắt đầu!
     else
       - const now = new Date()
-      .table-responsive
-        table.table.table-hover.table-bordered.align-middle
-          thead.table-light
-            tr
-              th Banner
-              th Mã
-              th Tên
-              th Loại
-              th Giá trị
-              th Tối thiểu
-              th Tối đa
-              th Đã dùng / Tổng
-              th Tiến độ
-              th Hiệu lực
-              th Trạng thái
-              th Hành động
-          tbody
-            each v in vouchers
-              - const loaiLabel = v.loai === 'phantram' ? '%' : 'Cố định'
-              - const valLabel = v.loai === 'phantram' ? `${v.giatri || 0}%` : `${(v.giatri || 0).toLocaleString('vi-VN')}₫`
-              - const minLabel = (v.don_toithieu || 0).toLocaleString('vi-VN') + '₫'
-              - const maxLabel = v.giam_toida ? (v.giam_toida || 0).toLocaleString('vi-VN') + '₫' : '—'
-              - const total = v.soluong_toida || 0
-              - const used = v.soluong_dasudung || 0
-              - const percent = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0
-              - const endOfDay = v.ngay_ketthuc ? new Date(v.ngay_ketthuc) : null
-              - if (endOfDay) endOfDay.setHours(23, 59, 59, 999)
-              - const expired = endOfDay ? now > endOfDay : false
-              - const soldOut = total > 0 && used >= total
-              tr
-                td
-                  if v.banner
-                    img(src=v.banner alt=v.ten width='72' height='46' style='object-fit:cover;border-radius:6px;')
+      .admin-list-container.voucher-list
+        each v in vouchers
+          - const loaiLabel = v.loai === 'phantram' ? '%' : 'Cố định'
+          - const valLabel = v.loai === 'phantram' ? `${v.giatri || 0}%` : `${(v.giatri || 0).toLocaleString('vi-VN')}₫`
+          - const minLabel = (v.don_toithieu || 0).toLocaleString('vi-VN') + '₫'
+          - const maxLabel = v.giam_toida ? (v.giam_toida || 0).toLocaleString('vi-VN') + '₫' : 'Không giới hạn'
+          - const total = v.soluong_toida || 0
+          - const used = v.soluong_dasudung || 0
+          - const percent = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0
+          - const endOfDay = v.ngay_ketthuc ? new Date(v.ngay_ketthuc) : null
+          - if (endOfDay) endOfDay.setHours(23, 59, 59, 999)
+          - const expired = endOfDay ? now > endOfDay : false
+          - const soldOut = total > 0 && used >= total
+          
+          .admin-list-item.admin-voucher-row
+            .admin-list-item-header
+              div
+                .admin-list-item-title= v.code
+                .admin-list-item-subtitle= v.ten || 'Không có tên'
+              if v.banner
+                img.voucher-banner-thumb(src=v.banner alt=v.ten style="width: 80px; height: 60px; object-fit: cover; border-radius: 8px;")
+
+            if v.banner
+              img.voucher-banner(src=v.banner alt=v.ten)
+
+            .admin-list-item-content
+              .admin-list-item-field
+                .admin-list-item-label 💰 Giá trị
+                .admin-list-item-value= valLabel
+              
+              .admin-list-item-field
+                .admin-list-item-label 📊 Loại
+                .admin-list-item-value= loaiLabel
+              
+              .admin-list-item-field
+                .admin-list-item-label 💵 Tối thiểu
+                .admin-list-item-value= minLabel
+              
+              .admin-list-item-field
+                .admin-list-item-label 📈 Tối đa
+                .admin-list-item-value= maxLabel
+              
+              .admin-list-item-field
+                .admin-list-item-label 📅 Hết hạn
+                .admin-list-item-value 
+                  if v.ngay_ketthuc
+                    = new Date(v.ngay_ketthuc).toLocaleDateString('vi-VN')
                   else
-                    span.text-muted —
-                td #{v.code}
-                td #{v.ten || '—'}
-                td #{loaiLabel}
-                td #{valLabel}
-                td #{minLabel}
-                td #{maxLabel}
-                td #{used} / #{total}
-                td
-                  .progress(style='height:8px')
-                    .progress-bar.bg-info(role='progressbar' style=`width:${percent}%` aria-valuenow=percent aria-valuemin='0' aria-valuemax='100')
-                td #{v.ngay_ketthuc ? new Date(v.ngay_ketthuc).toLocaleDateString('vi-VN') : '—'}
-                td
-                  if v.trangthai !== 'active'
-                    span.badge.bg-secondary Tạm khóa
-                  else if soldOut
-                    span.badge.bg-warning.text-dark Hết lượt
-                  else if expired
-                    span.badge.bg-danger Hết hạn
+                    span Không xác định
+
+            .voucher-stats
+              .stat-item
+                span.stat-value= used
+                span.stat-label Đã dùng
+              .stat-item
+                span.stat-value= total
+                span.stat-label Tổng lượt
+            
+            .progress(style='height: 8px; border-radius: 6px; overflow: hidden;')
+              .progress-bar.bg-info(role='progressbar' style=`width: ${percent}%` aria-valuenow=percent aria-valuemin='0' aria-valuemax='100')
+
+            .d-flex.align-items-center.justify-content-between.gap-2(style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(107, 114, 128, 0.2);")
+              if v.trangthai !== 'active'
+                span.status-badge.status-paused
+                  i.bi.bi-pause-circle
+                  | Tạm khóa
+              else if soldOut
+                span.status-badge.status-soldout
+                  i.bi.bi-lightning-fill
+                  | Hết lượt
+              else if expired
+                span.status-badge.status-expired
+                  i.bi.bi-clock-history
+                  | Hết hạn
+              else
+                span.status-badge.status-active
+                  i.bi.bi-check-circle-fill
+                  | Đang hoạt động
+
+              .admin-list-item-actions
+                a.btn.btn-sm.btn-outline-primary(href=`${admin}/vouchers/${v._id}/edit`)
+                  i.bi.bi-pencil
+                  |  Sửa
+                form(method='POST' action=`${admin}/vouchers/${v._id}/toggle` style="display: inline;")
+                  input(type='hidden' name='_csrf' value=csrfToken)
+                  if v.trangthai === 'active'
+                    button.btn.btn-sm.btn-outline-danger(type='submit' title='Tạm khóa voucher này')
+                      i.bi.bi-pause-circle
+                      |  Tạm khóa
                   else
-                    span.badge.bg-success Đang hoạt động
-                td
-                  .d-flex.flex-wrap.gap-2
-                    a.btn.btn-sm.btn-outline-primary(href=`${admin}/vouchers/${v._id}/edit`) Sửa
-                    form(method='POST' action=`${admin}/vouchers/${v._id}/toggle`)
-                      input(type='hidden' name='_csrf' value=csrfToken)
-                      if v.trangthai === 'active'
-                        button.btn.btn-sm.btn-outline-danger(type='submit') Tạm khóa
-                      else
-                        button.btn.btn-sm.btn-outline-success(type='submit') Kích hoạt
+                    button.btn.btn-sm.btn-outline-success(type='submit' title='Kích hoạt lại voucher này')
+                      i.bi.bi-play-circle
+                      |  Kích hoạt
 
       if totalPages > 1
-        nav.mt-3
-          ul.pagination.mb-0
+        nav.mt-4
+          ul.pagination.justify-content-center
             - const safeKeyword = encodeURIComponent(keyword || '')
             - const buildLink = (p) => `${admin}/vouchers?page=${p}${safeKeyword ? `&keyword=${safeKeyword}` : ''}`
             li.page-item(class=page <= 1 ? 'disabled' : '')
-              a.page-link(href=buildLink(Math.max(1, page - 1))) Trước
+              a.page-link(href=buildLink(Math.max(1, page - 1)))
+                i.bi.bi-chevron-left
             - for (let p = 1; p <= totalPages; p++) {
               li.page-item(class=p === page ? 'active' : '')
                 a.page-link(href=buildLink(p)) #{p}
             - }
             li.page-item(class=page >= totalPages ? 'disabled' : '')
-              a.page-link(href=buildLink(Math.min(totalPages, page + 1))) Sau
+              a.page-link(href=buildLink(Math.min(totalPages, page + 1)))
+                i.bi.bi-chevron-right

@@ -130,6 +130,42 @@ block main
         .col-lg-5
           .card
             .card-body
+              .fw-semibold.mb-3 💰 Tóm tắt giá trị đơn hàng
+              .price-summary-box.border.rounded.p-3.mb-3(style='background-color: #f8f9fa;')
+                .d-flex.justify-content-between.align-items-center.mb-2
+                  span.text-muted Tổng giá trị hàng
+                  strong #{(rsOriginal.goodsSubtotal || 0).toLocaleString('vi-VN')}đ
+                
+                if rsOriginal.voucherDiscount > 0
+                  .d-flex.justify-content-between.align-items-center.mb-2
+                    span.text-muted
+                      i.bi.bi-tag.me-1
+                      | Giảm giá voucher
+                    strong.text-danger -#{(rsOriginal.voucherDiscount || 0).toLocaleString('vi-VN')}đ
+                
+                .d-flex.justify-content-between.align-items-center.mb-2
+                  span.text-muted Phí vận chuyển
+                  strong #{(rsOriginal.shippingFee || 0).toLocaleString('vi-VN')}đ
+                
+                .border-top.pt-2.mt-2
+                .d-flex.justify-content-between.align-items-center.mb-2
+                  span.fw-semibold.fs-6 Tổng thanh toán
+                  strong.fs-5.text-primary #{(rsOriginal.payable || 0).toLocaleString('vi-VN')}đ
+                
+                if rs.hasReturnFlow && rsRefund.amount > 0
+                  .border-top.pt-2.mt-2
+                  .d-flex.justify-content-between.align-items-center.mb-2
+                    span.text-danger
+                      i.bi.bi-arrow-counterclockwise.me-1
+                      | Đã hoàn tiền
+                    strong.text-danger -#{(rsRefund.amount || 0).toLocaleString('vi-VN')}đ
+                  
+                  .d-flex.justify-content-between.align-items-center
+                    span.fw-semibold.fs-6 💡 Còn lại phải trả
+                    strong.fs-5.text-success #{(rsRemain.payable || 0).toLocaleString('vi-VN')}đ
+
+              hr
+
               .fw-semibold.mb-2 Sản phẩm
               if items && items.length
                 each it in items

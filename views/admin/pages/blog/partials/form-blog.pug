@@ -1,4 +1,4 @@
-.card.blog-editor-card
+.card.blog-editor-card.admin-form-card
   .card-header.bg-white.border-0.pb-0
     - const isEditMode = Boolean(blogPost && blogPost._id)
     h5.mb-1 #{isEditMode ? 'Chỉnh sửa bài viết' : 'Tạo bài viết mới'}
@@ -41,7 +41,7 @@
             input#blogFeatured.form-check-input(type='checkbox' name='noiBat' checked=Boolean(blogPost && blogPost.noiBat))
             label.form-check-label(for='blogFeatured') Hiển thị bài viết này ở trang chủ
 
-      .d-flex.flex-wrap.gap-2.mt-4
+      .admin-form-actions
         button.btn.btn-primary(type='submit')
           i.bi(class=isEditMode ? 'bi-check2-circle me-1' : 'bi-plus-circle me-1')
           | #{isEditMode ? 'Lưu thay đổi' : 'Tạo bài viết'}

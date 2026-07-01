@@ -4,60 +4,77 @@ block styles
   link(rel='stylesheet', href='https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css')
   link(rel='stylesheet', href='/admin/css/product-editor.css')
   link(rel='stylesheet', href='/admin/css/blog.css')
+  style.
+    .blog-card-date {
+      font-size: 11px;
+      color: #8089a3;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
 
 block main
-  .container-fluid.py-4.blog-page
-    .d-flex.flex-wrap.justify-content-between.align-items-center.gap-2.mb-3.page-header-section.orders-header.admin-page-header
-      div
-        h1.h3.mb-1 Quản lý Blog
-        p.text-muted.mb-0 Danh sách bài viết hiện có.
-      a.btn.btn-primary.btn-add-blog(href='/admin/blog/create')
-        i.bi.bi-plus-circle.me-1
-        | Tạo bài viết
+  .container-fluid.p-3.blog-page.admin-workspace
+    .admin-page-header
+      .d-flex.justify-content-between.align-items-center.gap-3(style="width: 100%;")
+        div
+          h3.mb-2 ✍️ Quản lý Blog
+          p.text-muted.mb-0 Tổng cộng: 
+            strong= posts ? posts.length : 0
+            |  bài viết
+        a.btn.btn-header.btn-admin-accent(href='/admin/blog/create')
+          i.bi.bi-plus-lg
+          |  Tạo bài viết mới
 
-    .card.mt-2
-      .card-header.bg-white
-        h6.mb-0 Danh sách bài viết
-      .card-body
-        .table-responsive
-          table.table.table-hover.align-middle.blog-table
-            thead
-              tr
-                th(style='min-width: 420px') Nội dung
-                th.text-center(style='width: 140px') Xuất bản
-                th.text-center(style='width: 120px') Nổi bật
-                th.text-end(style='width: 220px') Hành động
-            tbody
-              if posts && posts.length
-                each item in posts
-                  tr(data-id=item._id)
-                    td
-                      .d-flex.gap-3
-                        if item.hinhanh
-                          img.blog-row-thumb(src=item.hinhanh alt=item.tieude)
-                        .flex-grow-1
-                          .fw-semibold.mb-1 #{item.tieude || 'Không có tiêu đề'}
-                          .small.text-muted.mb-2 #{item.tomtat || 'Chưa có tóm tắt'}
-                          .small.text-muted
-                            if item.ngaycapnhat
-                              | Cập nhật: #{new Date(item.ngaycapnhat).toLocaleString('vi-VN')}
-                            else
-                              | Chưa có thời gian cập nhật
-                    td.text-center
-                      if item.xuatban
-                        span.badge.text-bg-success Đã xuất bản
-                      else
-                        span.badge.text-bg-secondary Nháp
-                    td.text-center
-                      input.form-check-input(type='checkbox' name='noiBat' checked=Boolean(item.noiBat))
-                    td.text-end
-                      .d-flex.justify-content-end.flex-wrap.gap-2
-                        a.btn.btn-sm.btn-outline-primary(href=`/admin/blog/${item._id}/edit`) Sửa
-                        button.btn.btn-sm.btn-outline-secondary(type='button' data-action='publish' data-published=(item.xuatban ? '1' : '0')) #{item.xuatban ? 'Hủy xuất bản' : 'Xuất bản'}
-                        button.btn.btn-sm.btn-outline-danger(type='button' data-action='delete') Xóa
-              else
-                tr
-                  td(colspan='4').text-center.text-muted.py-4 Chưa có bài viết nào.
+    if !posts || posts.length === 0
+      .admin-empty-state
+        .admin-empty-state-icon ✍️
+        .admin-empty-state-title Chưa có bài viết nào
+        .admin-empty-state-description Hãy tạo bài viết đầu tiên để chia sẻ nội dung với khách hàng
+        a.btn.btn-header.btn-admin-accent(href='/admin/blog/create')
+          i.bi.bi-plus-lg
+          |  Viết bài ngay
+    else
+      .admin-list-container.blog-list
+        each item in posts
+          .admin-list-item.admin-blog-row(data-id=item._id)
+            .admin-list-item-header
+              div
+                .admin-list-item-title= item.tieude || 'Không có tiêu đề'
+                .admin-list-item-subtitle= item.tomtat || 'Chưa có tóm tắt'
+              if item.hinhanh
+                img(src=item.hinhanh alt=item.tieude style="width: 100px; height: 75px; object-fit: cover; border-radius: 8px;")
+
+            if item.hinhanh
+              img(src=item.hinhanh alt=item.tieude style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px; margin-bottom: 12px;")
+
+            .admin-list-item-content
+              .admin-list-item-field
+                .admin-list-item-label 📅 Cập nhật
+                .admin-list-item-value
+                  if item.ngaycapnhat
+                    = new Date(item.ngaycapnhat).toLocaleDateString('vi-VN')
+                  else
+                    span Chưa cập nhật
+
+              .admin-list-item-field
+                .admin-list-item-label 📤 Trạng thái
+                .admin-list-item-value
+                  if item.xuatban
+                    span.badge.bg-success Đã xuất bản
+                  else
+                    span.badge.bg-secondary Nháp
+
+            .d-flex.align-items-center.justify-content-between.gap-2(style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(107, 114, 128, 0.2);")
+              .admin-list-item-actions
+                a.btn.btn-sm.btn-outline-primary(href=`/admin/blog/${item._id}/edit`)
+                  i.bi.bi-pencil
+                  |  Sửa
+                button.btn.btn-sm.btn-outline-secondary(type='button' data-action='publish' data-published=(item.xuatban ? '1' : '0'))
+                  i.bi(class=item.xuatban ? 'bi-eye-fill' : 'bi-eye-slash-fill')
+                  | #{item.xuatban ? ' Hủy' : ' Xuất bản'}
+                button.btn.btn-sm.btn-outline-danger(type='button' data-action='delete')
+                  i.bi.bi-trash
+                  |  Xóa
 
 block scripts
   script(src='/admin/js/blog-list.js?v=20260410-2')

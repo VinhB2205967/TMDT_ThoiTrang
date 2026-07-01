@@ -1,6 +1,6 @@
 (() => {
   const App = window.App || {};
-  const pageRoot = document.querySelector('.container-fluid.py-4');
+  const pageRoot = document.querySelector('.lookbook-admin-page, .lookbook-form-page, .container-fluid.py-4, .container-fluid.p-3');
 
   function showFlash(type, message) {
     if (App.showAdminPageFlash) {
@@ -74,10 +74,20 @@
     showFlash('success', checkbox.checked ? 'Đã bật nổi bật lookbook' : 'Đã tắt nổi bật lookbook');
   }
 
+  window.deleteItem = function (button) {
+    const row = button && button.closest ? button.closest('[data-id]') : null;
+    const id = row?.dataset?.id;
+    if (!id) return;
+
+    removeLookbook(id, row).catch(() => {
+      showFlash('error', 'Khong the ket noi may chu. Vui long thu lai.');
+    });
+  };
+
   document.addEventListener('click', async (event) => {
     const toggleBtn = event.target.closest('.js-toggle');
     if (toggleBtn) {
-      const row = toggleBtn.closest('tr');
+      const row = toggleBtn.closest('[data-id]');
       const id = row?.dataset?.id;
       if (!id) return;
 
@@ -92,7 +102,7 @@
     const deleteBtn = event.target.closest('.js-delete');
     if (!deleteBtn) return;
 
-    const row = deleteBtn.closest('tr');
+    const row = deleteBtn.closest('[data-id]');
     const id = row?.dataset?.id;
     if (!id) return;
 
@@ -107,7 +117,7 @@
     const featuredCk = event.target.closest('input[name="noiBat"]');
     if (!featuredCk) return;
 
-    const row = featuredCk.closest('tr[data-id]');
+    const row = featuredCk.closest('[data-id]');
     const id = row?.dataset?.id;
     if (!id) return;
 

@@ -1,11 +1,31 @@
 extends ../../layouts/default.pug
 
 block main
-  .page-header-section.orders-header
-    h1.page-title Quản lý người dùng
-
-  .container-fluid.p-4
-    .card.border-0.shadow-sm.mb-4.users-filter-card
+  - const visibleUsers = users || []
+  - const onlineCount = visibleUsers.filter((item) => item && item.isOnline).length
+  - const adminCount = visibleUsers.filter((item) => item && item.vaitro === 'admin').length
+  .page-header-section.orders-header.users-header-bar.admin-refined-hero
+    .admin-refined-hero__content
+      .admin-refined-eyebrow
+        i.bi.bi-people
+        span Customer admin
+      h1.page-title Quản lý người dùng
+      p.users-hero-subtitle Theo dõi tài khoản, trạng thái hoạt động và quyền truy cập trong một màn hình gọn hơn.
+    .users-header-metrics.admin-refined-hero__metrics
+      span.admin-mini-stat
+        i.bi.bi-people
+        span Users
+        strong= visibleUsers.length
+      span.admin-mini-stat
+        i.bi.bi-broadcast
+        span Online
+        strong= onlineCount
+      span.admin-mini-stat
+        i.bi.bi-shield-check
+        span Admin
+        strong= adminCount
+  .container-fluid.p-4.admin-workspace.users-admin-page
+    .card.border-0.shadow-sm.mb-4.users-filter-card.admin-filter-panel
       .card-body
         form#userFilterForm.row.g-2(method="GET" action="/admin/users")
           .col-12.col-md-4
@@ -40,8 +60,13 @@ block main
             a.btn.btn-outline-secondary.flex-fill(href="/admin/users") Xóa lọc
             button.btn.btn-primary.flex-fill(type="submit") Lọc
 
-    .card.border-0.shadow-sm.users-table-card
+    .card.border-0.shadow-sm.users-table-card.admin-data-shell
       .card-body
+        .users-table-toolbar
+          .users-table-title
+            i.bi.bi-person-lines-fill
+            span Danh sách tài khoản
+          .users-table-caption #{visibleUsers.length} tài khoản trên trang
         if !users || users.length === 0
           .text-muted Không có người dùng.
         else
@@ -62,11 +87,11 @@ block main
                 each u in users
                   tr(data-user-id=`${u._id}`)
                     td
-                      img(src=(u.avatar || '/images/avatar/avatar.png') alt="avatar" style="width:32px;height:32px;border-radius:8px;object-fit:cover")
-                    td #{u.email}
+                      img.user-avatar-img(src=(u.avatar || '/images/avatar/avatar.png') alt="avatar" style="width:32px;height:32px;border-radius:8px;object-fit:cover")
+                    td.user-email-cell #{u.email}
                     td.user-id-cell
                       code.small #{u.idHienThi || u._id}
-                    td #{u.hoten || ''}
+                    td.user-name-cell #{u.hoten || ''}
                     td
                       span.badge(class=(u.vaitro === 'admin' ? 'bg-warning text-dark' : 'bg-secondary')) #{u.vaitro}
                     td

@@ -1,0 +1,223 @@
+extends ../../layouts/auth-modern.pug
+
+block main
+  - const _authError = messages && messages.error ? (Array.isArray(messages.error) ? messages.error[0] : messages.error) : ''
+  - const _authSuccess = messages && messages.success ? (Array.isArray(messages.success) ? messages.success[0] : messages.success) : ''
+  
+  .auth-container(data-aos="fade-up" data-aos-duration="800")
+    .auth-card-modern
+      // Header
+      .auth-header
+        h1 
+          if mode === 'register'
+            i.fas.fa-rocket.me-2
+            | Bắt Đầu
+          else
+            i.fas.fa-sign-in-alt.me-2
+            | Chào Mừng Trở Lại
+        p 
+          if mode === 'register'
+            | Tạo tài khoản mới để bắt đầu mua sắm
+          else
+            | Đăng nhập để tiếp tục mua sắm
+
+      // Tabs
+      .auth-tabs
+        a.auth-tab(
+          href="/auth?mode=login"
+          class=(mode === 'login' ? 'active' : '')
+          data-tab="login"
+        )
+          i.fas.fa-sign-in-alt.me-1
+          | Đăng Nhập
+        a.auth-tab(
+          href="/auth?mode=register"
+          class=(mode === 'register' ? 'active' : '')
+          data-tab="register"
+        )
+          i.fas.fa-user-plus.me-1
+          | Đăng Ký
+
+      // Forms
+      if mode === 'login'
+        form(method="POST" action="/auth/login" novalidate)
+          input(type='hidden' name='_csrf' value=csrfToken)
+
+          // Email
+          .auth-form-group
+            label.auth-label(for="loginEmail")
+              i.fas.fa-envelope.me-2
+              | Email Address
+            input.auth-input#loginEmail(
+              type="email"
+              name="email"
+              placeholder="your@email.com"
+              required
+              autocomplete="email"
+              value=((formData && formData.email) || rememberedEmail || '')
+            )
+
+          // Password
+          .auth-form-group
+            label.auth-label(for="loginPassword")
+              i.fas.fa-lock.me-2
+              | Mật Khẩu
+            .auth-input-group
+              input.auth-input#loginPassword(
+                type="password"
+                name="password"
+                placeholder="••••••••"
+                required
+                autocomplete="current-password"
+              )
+              button.auth-password-toggle(
+                type="button"
+                data-toggle-password="#loginPassword"
+                aria-label="Hiện mật khẩu"
+              )
+                i.fas.fa-eye
+
+          // Remember & Forgot
+          .d-flex.justify-content-between.align-items-center.mb-3
+            label.auth-checkbox
+              input(type="checkbox" name="remember" id="rememberEmail" checked=Boolean((formData && formData.remember) || rememberedEmail))
+              span Ghi nhớ email
+            a.auth-forgot-link(href="/forgot-password")
+              i.fas.fa-question-circle.me-1
+              | Quên mật khẩu?
+
+          // Submit Button
+          button.auth-btn.auth-btn-primary(type="submit")
+            i.fas.fa-sign-in-alt.me-2
+            | Đăng Nhập Ngay
+
+      else
+        form(method="POST" action="/auth/register" novalidate)
+          input(type='hidden' name='_csrf' value=csrfToken)
+
+          // Name
+          .auth-form-group
+            label.auth-label(for="registerName")
+              i.fas.fa-user.me-2
+              | Họ Tên
+            input.auth-input#registerName(
+              type="text"
+              name="hoten"
+              placeholder="Nguyễn Văn A"
+              autocomplete="name"
+              value=((formData && formData.hoten) || '')
+            )
+
+          // Email
+          .auth-form-group
+            label.auth-label(for="registerEmail")
+              i.fas.fa-envelope.me-2
+              | Email Address
+            input.auth-input#registerEmail(
+              type="email"
+              name="email"
+              placeholder="your@email.com"
+              required
+              autocomplete="email"
+              value=((formData && formData.email) || '')
+            )
+
+          // Password
+          .auth-form-group
+            label.auth-label(for="registerPassword")
+              i.fas.fa-lock.me-2
+              | Mật Khẩu
+            .auth-input-group
+              input.auth-input#registerPassword(
+                type="password"
+                name="password"
+                placeholder="••••••••"
+                required
+                autocomplete="new-password"
+                minlength="6"
+              )
+              button.auth-password-toggle(
+                type="button"
+                data-toggle-password="#registerPassword"
+                aria-label="Hiện mật khẩu"
+              )
+                i.fas.fa-eye
+
+          // Terms
+          .auth-checkbox.mb-3
+            input(type="checkbox" id="agreeTerms" required)
+            label(for="agreeTerms")
+              | Tôi đồng ý với 
+              a.auth-forgot-link(href="#") Điều Khoản
+              |  và 
+              a.auth-forgot-link(href="#") Chính Sách
+
+          // Submit Button
+          button.auth-btn.auth-btn-primary(type="submit")
+            i.fas.fa-user-plus.me-2
+            | Tạo Tài Khoản
+
+      // Social Divider
+      .auth-social-divider hoặc
+
+      // Social Buttons
+      .auth-social-buttons
+        if googleEnabled
+          a.auth-social-btn(href="/auth/google" title="Đăng nhập với Google")
+            i.fab.fa-google
+            | Google
+        else
+          button.auth-social-btn(type="button" disabled title="Google login unavailable")
+            i.fab.fa-google
+            | Google
+
+      // Footer
+      .auth-footer
+        if mode === 'login'
+          | Chưa có tài khoản? 
+          a(href="/auth?mode=register") Đăng ký ngay
+        else
+          | Đã có tài khoản? 
+          a(href="/auth?mode=login") Đăng nhập tại đây
+
+block scripts
+  script.
+    // Smooth scroll behavior
+    document.documentElement.style.scrollBehavior = 'smooth';
+
+    // Add CSS for error messages
+    const style = document.createElement('style');
+    style.textContent = `
+      .error-message {
+        color: #f5576c;
+        font-size: 0.85rem;
+        margin-top: 6px;
+        display: none;
+        animation: slideInUp 0.3s ease-out;
+        font-weight: 600;
+      }
+      .auth-input.is-invalid {
+        border-color: #f5576c;
+        background-color: rgba(245, 87, 108, 0.05);
+      }
+      .auth-form-group.focused .auth-label {
+        color: #667eea;
+      }
+      @keyframes slideInUp {
+        from { transform: translateY(10px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Show toast if there are messages
+    if (!{JSON.stringify(Boolean(_authError))}) {
+      document.addEventListener('DOMContentLoaded', () => {
+        AuthUtils?.showToast(!{JSON.stringify(_authError)}, 'error');
+      });
+    }
+    if (!{JSON.stringify(Boolean(_authSuccess))}) {
+      document.addEventListener('DOMContentLoaded', () => {
+        AuthUtils?.showToast(!{JSON.stringify(_authSuccess)}, 'success');
+      });
+    }

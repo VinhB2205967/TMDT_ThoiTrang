@@ -1,0 +1,66 @@
+doctype html
+html(lang="vi")
+  head
+    meta(charset="UTF-8")
+    meta(name="viewport" content="width=device-width, initial-scale=1.0")
+    title #{titlePage}
+    
+    // Bootstrap 5
+    link(href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet")
+    link(href="/vendor/bootstrap-icons/bootstrap-icons.min.css" rel="stylesheet")
+    
+    // Animate.css - Beautiful animations
+    link(rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css")
+    
+    // AOS - Animate on scroll
+    link(rel="stylesheet" href="https://unpkg.com/aos@2.3.1/dist/aos.css")
+    
+    // SweetAlert2 - Modern notifications
+    link(rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css")
+    
+    // Font Awesome
+    link(rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css")
+    
+    // Modern Auth CSS
+    link(rel="stylesheet", href="/css/auth-modern.css")
+    
+  body.auth-modern-wrapper
+    //- Animated Background
+    .auth-animated-bg
+      .gradient-orb.orb-1
+      .gradient-orb.orb-2
+      .gradient-orb.orb-3
+      .floating-cards
+        .card-float.card-1
+        .card-float.card-2
+        .card-float.card-3
+
+    //- Flash Messages
+    if messages && messages.success
+      .auth-toast.toast-success
+        i.fas.fa-check-circle
+        span #{messages.success}
+    if messages && messages.error
+      .auth-toast.toast-error
+        i.fas.fa-exclamation-circle
+        span #{messages.error}
+
+    main.auth-main-content
+      block main
+
+    // Bootstrap JS
+    script(src="/vendor/bootstrap/js/bootstrap.bundle.min.js")
+    
+    // GSAP - Advanced animations
+    script(src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js")
+    
+    // AOS
+    script(src="https://unpkg.com/aos@2.3.1/dist/aos.js")
+    
+    // SweetAlert2
+    script(src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js")
+    
+    // Modern Auth JS
+    script(src="/js/auth-modern.js")
+    
+    block scripts

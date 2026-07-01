@@ -92,7 +92,7 @@
   document.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
-    const row = btn.closest('tr');
+    const row = btn.closest('[data-id]');
     if (!row) return;
     const id = row.getAttribute('data-id');
     const action = btn.getAttribute('data-action');
@@ -158,7 +158,7 @@
   document.addEventListener('change', async (e) => {
     const featuredCk = e.target.closest('input[name="noiBat"]');
     if (featuredCk) {
-      const row = featuredCk.closest('tr[data-id]');
+      const row = featuredCk.closest('[data-id]');
       if (!row) return;
       const id = row.getAttribute('data-id');
 
@@ -182,7 +182,7 @@
 
     const activeCk = e.target.closest('input[name="hienthi"]');
     if (activeCk) {
-      const row = activeCk.closest('tr[data-id]');
+      const row = activeCk.closest('[data-id]');
       if (!row) return;
       const id = row.getAttribute('data-id');
 

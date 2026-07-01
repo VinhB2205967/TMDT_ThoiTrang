@@ -8,7 +8,11 @@ block main
     - }
 
     if isActive('banner_slider') && banners && banners.length
-        section.banner-section
+        section.banner-section.home-hero
+            .hero-ambient
+                span.hero-orb.hero-orb-1
+                span.hero-orb.hero-orb-2
+                span.hero-orb.hero-orb-3
             #bannerCarousel.carousel.slide(data-bs-ride="carousel")
                 .carousel-indicators
                     each banner, idx in banners
@@ -18,20 +22,37 @@ block main
                         .carousel-item(class=idx === 0 ? 'active' : '')
                             .banner-slide(style=`background-image:url('${banner.hinhanh}')`)
                                 .container
-                                    .banner-content
+                                    .banner-content.hero-panel
+                                        .hero-kicker
+                                            i.bi.bi-stars
+                                            span New season • Dark fashion
                                         if banner.tieude
                                             h2.banner-title #{banner.tieude}
                                         if banner.mota
                                             p.banner-subtitle #{banner.mota}
-                                        if banner.nut_text && banner.nut_link
-                                            a.btn.btn-banner(href=banner.nut_link) #{banner.nut_text}
+                                        .hero-actions
+                                            if banner.nut_text && banner.nut_link
+                                                a.btn.btn-banner(href=banner.nut_link)
+                                                    span #{banner.nut_text}
+                                                    i.bi.bi-arrow-right
+                                            a.btn.btn-ghost-hero(href="/products") Khám phá ngay
+                                        .hero-stats
+                                            .hero-stat
+                                                strong 500+
+                                                span Mẫu mới
+                                            .hero-stat
+                                                strong 24h
+                                                span Giao nhanh
+                                            .hero-stat
+                                                strong 4.9
+                                                span Đánh giá
                 button.carousel-control-prev(type="button" data-bs-target="#bannerCarousel" data-bs-slide="prev")
                     span.carousel-control-prev-icon
                 button.carousel-control-next(type="button" data-bs-target="#bannerCarousel" data-bs-slide="next")
                     span.carousel-control-next-icon
 
     //- Quick Links / Features
-    section.features-section
+    section.features-section.home-strip
         .container
             .features-grid
                 .feature-item
@@ -60,11 +81,14 @@ block main
                         p Hotline: 1900-xxxx
 
     //- Danh mục sản phẩm
-    section.categories-section
+    section.categories-section.home-categories
         .container
             .categories-header
-                i.bi.bi-grid-3x3-gap-fill
-                h3.categories-title DANH MỤC
+                .section-eyebrow
+                    i.bi.bi-grid-3x3-gap-fill
+                    span Mua sắm nhanh
+                h3.categories-title Danh mục nổi bật
+                p.categories-subtitle Chọn phong cách, hệ thống gợi ý sản phẩm phù hợp tức thì.
             .categories-grid
                 a.category-item(href="/products?loaisanpham=ao")
                     .category-icon
@@ -102,12 +126,14 @@ block main
     if sections && sections.length
         each section in sections
             if section.key === 'flash_sale' && isActive('flash_sale') && flashSale && flashSale.products && flashSale.products.length
-                section.flash-sale-section(data-flash-end=flashSaleEnd data-flash-start=flashSaleStart)
+                section.flash-sale-section.home-section-shell(data-flash-end=flashSaleEnd data-flash-start=flashSaleStart)
                     .container
                         .section-header.flash-sale-header
-                            h2.section-title
-                                i.bi.bi-lightning-charge-fill.text-warning.me-2
-                                | FLASH SALE
+                            .section-title-wrap
+                                .section-eyebrow
+                                    i.bi.bi-lightning-charge-fill.text-warning
+                                    span Deal trong ngày
+                                h2.section-title FLASH SALE
                             if flashSale.sale
                                 .countdown
                                     span.countdown-label Kết thúc sau:
@@ -122,12 +148,14 @@ block main
                                 +productCard(product)
 
             if section.key === 'brands' && isActive('brands') && brands && brands.length
-                section.brand-section.bg-light
+                section.brand-section.home-section-shell
                     .container
                         .section-header
-                            h2.section-title
-                                i.bi.bi-award.me-2
-                                | THƯƠNG HIỆU NỔI BẬT
+                            .section-title-wrap
+                                .section-eyebrow
+                                    i.bi.bi-award
+                                    span Curated labels
+                                h2.section-title Thương hiệu nổi bật
                         .row.g-3.align-items-center
                             each brand in brands
                                 .col-6.col-md-3.col-lg-2
@@ -135,16 +163,18 @@ block main
                                         img.img-fluid(src=brand.logo alt=brand.ten)
 
             if section.key === 'lookbook' && isActive('lookbook') && lookbooks && lookbooks.length
-                section.lookbook-section
+                section.lookbook-section.home-section-shell
                     .container
                         .section-header
-                            h2.section-title
-                                i.bi.bi-camera.me-2
-                                | LOOKBOOK THEO MÙA
+                            .section-title-wrap
+                                .section-eyebrow
+                                    i.bi.bi-camera
+                                    span Style inspiration
+                                h2.section-title Lookbook theo mùa
                         .row.g-3
                             each book in lookbooks
                                 .col-12.col-md-6.col-lg-4
-                                    a.card.h-100.text-decoration-none.text-dark(href=`/lookbook/${book.slug || book._id}`)
+                                    a.card.h-100.text-decoration-none.text-dark.home-story-card(href=`/lookbook/${book.slug || book._id}`)
                                         if book.image
                                             img.card-img-top(src=book.image alt=book.title)
                                         .card-body
@@ -157,18 +187,20 @@ block main
                                                     span.btn.btn-sm.btn-primary Xem bộ sưu tập
 
             if section.key === 'blog' && isActive('blog') && blogs && blogs.length
-                section.blog-section
+                section.blog-section.home-section-shell
                     .container
                         .section-header
-                            h2.section-title
-                                i.bi.bi-journal-text.me-2
-                                | BLOG THỜI TRANG
+                            .section-title-wrap
+                                .section-eyebrow
+                                    i.bi.bi-journal-text
+                                    span Fashion journal
+                                h2.section-title Blog thời trang
                             a.view-all(href="/blog") Xem tất cả
                                 i.bi.bi-arrow-right.ms-1
                         .row.g-3
                             each post in blogs
                                 .col-12.col-md-6.col-lg-4
-                                    a.card.h-100.text-decoration-none.text-dark(href=`/blog/${post.slug}`)
+                                    a.card.h-100.text-decoration-none.text-dark.home-story-card(href=`/blog/${post.slug}`)
                                         if post.hinhanh
                                             img.card-img-top(src=post.hinhanh alt=post.tieude)
                                         .card-body
@@ -177,12 +209,14 @@ block main
                                                 p.card-text #{post.tomtat}
 
             if section.key === 'new_products' && isActive('new_products')
-                section.products-section
+                section.products-section.home-section-shell
                     .container
                         .section-header
-                            h2.section-title
-                                i.bi.bi-stars.me-2
-                                | SẢN PHẨM MỚI
+                            .section-title-wrap
+                                .section-eyebrow
+                                    i.bi.bi-stars
+                                    span Fresh drops
+                                h2.section-title Sản phẩm mới
                             a.view-all(href="/products?sort=ngaytao-desc") Xem tất cả
                                 i.bi.bi-arrow-right.ms-1
                         if newProducts && newProducts.length
@@ -195,12 +229,14 @@ block main
                                 p Chưa có sản phẩm nào
 
             if section.key === 'best_sellers' && isActive('best_sellers')
-                section.products-section.bg-light
+                section.products-section.home-section-shell
                     .container
                         .section-header
-                            h2.section-title
-                                i.bi.bi-fire.text-danger.me-2
-                                | BÁN CHẠY NHẤT
+                            .section-title-wrap
+                                .section-eyebrow
+                                    i.bi.bi-fire.text-danger
+                                    span Trending now
+                                h2.section-title Bán chạy nhất
                             a.view-all(href="/products") Xem tất cả
                                 i.bi.bi-arrow-right.ms-1
                         if bestSellerProducts && bestSellerProducts.length

@@ -3,20 +3,53 @@ extends ../../layouts/default.pug
 block main
   - const _authError = messages && messages.error ? (Array.isArray(messages.error) ? messages.error[0] : messages.error) : ''
   - const _authSuccess = messages && messages.success ? (Array.isArray(messages.success) ? messages.success[0] : messages.success) : ''
-  .auth-wrap
+  .auth-wrap.auth-redesign
+    .auth-orb.auth-orb-one
+    .auth-orb.auth-orb-two
     .container.py-5.auth-page(data-mode=mode)
-      .row.justify-content-center
-        .col-12.col-md-10.col-lg-6
+      .auth-shell
+        .auth-showcase
+          .auth-brand-chip
+            i.bi.bi-stars
+            span Fashion Store
+          h1
+            if mode === 'register'
+              | Tạo tài khoản, săn deal thời trang mỗi ngày.
+            else
+              | Chào mừng trở lại với thế giới thời trang.
+          p.auth-lead Đăng nhập để lưu sản phẩm yêu thích, theo dõi đơn hàng, nhận voucher và gợi ý outfit cá nhân hóa.
+          .auth-benefits
+            .auth-benefit
+              i.bi.bi-bag-heart
+              span Deal độc quyền
+            .auth-benefit
+              i.bi.bi-truck
+              span Theo dõi đơn nhanh
+            .auth-benefit
+              i.bi.bi-shield-check
+              span Bảo mật tài khoản
+          .auth-mini-card
+            .auth-mini-avatars
+              span(style="--i:0") ✨
+              span(style="--i:1") 👗
+              span(style="--i:2") 🛍️
+            .auth-mini-copy
+              strong 30K+ khách hàng
+              small đang mua sắm cùng Fashion Store
+        .auth-panel
           .card.shadow-sm.border-0.auth-card
-            .card-body.p-4.auth-card-body
-              h1.h4.fw-bold.mb-3.text-center Đăng nhập / Đăng ký
+            .card-body.p-4.p-lg-5.auth-card-body
+              .auth-heading
+                span.auth-kicker #{mode === 'register' ? 'Bắt đầu ngay' : 'Đăng nhập'}
+                h2 #{mode === 'register' ? 'Tạo tài khoản mới' : 'Đăng nhập tài khoản'}
+                p #{mode === 'register' ? 'Điền thông tin bên dưới để tham gia Fashion Store.' : 'Nhập email và mật khẩu để tiếp tục mua sắm.'}
               if _authError || _authSuccess
                 noscript
                   if _authError
                     .alert.alert-danger(role="alert") #{_authError}
                   if _authSuccess
                     .alert.alert-success(role="alert") #{_authSuccess}
-              ul.nav.nav-pills.justify-content-center.mb-4
+              ul.nav.nav-pills.justify-content-center.mb-4.auth-tabs
                 li.nav-item
                   a.nav-link(class=(mode === 'login' ? 'active' : '') href="/auth?mode=login") Đăng nhập
                 li.nav-item
@@ -55,7 +88,8 @@ block main
                         i.bi.bi-eye
                   button.btn.btn-success.w-100(type="submit") Tạo tài khoản
 
-              .text-center.my-3.text-muted hoặc
+              .text-center.my-3.text-muted.auth-separator
+                span hoặc tiếp tục với
               if googleEnabled
                 a.btn.btn-outline-dark.w-100(href="/auth/google")
                   i.fa-brands.fa-google.me-2

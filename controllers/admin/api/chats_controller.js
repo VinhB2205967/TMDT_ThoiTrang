@@ -5,6 +5,11 @@ const {
   layTongTinNhanChuaDocAdmin
 } = require('../../../services/communication/admin-chat.service');
 const { buildAdminAiSuggestion } = require('../../../services/communication/admin-ai-chat.service');
+const {
+  getAutoReplyConfig,
+  updateAutoReplyConfig,
+  getAutoReplyStats
+} = require('../../../services/communication/admin-auto-reply.service');
 const { resolveChatMedia } = require('../../../middlewares/chatUpload');
 const { traJsonThanhCong, traJsonThatBai } = require('../../../services/communication/hybrid-response.service');
 
@@ -68,7 +73,7 @@ module.exports.danhDauDaDocTheoUser = async (req, res) => {
     return traJsonThatBai(res, {
       status: 500,
       code: 'ADMIN_CHAT_MARK_READ_FAILED',
-      message: 'Khong the danh dau da doc'
+      message: 'Không thể đánh dấu đã đọc'
     });
   }
 };
@@ -82,7 +87,7 @@ module.exports.layTongChuaDoc = async (_req, res) => {
     return traJsonThatBai(res, {
       status: 500,
       code: 'ADMIN_CHAT_UNREAD_TOTAL_FAILED',
-      message: 'Khong the lay tong tin nhan chua doc'
+      message: 'Không thể lấy tổng tin nhắn chưa đọc'
     });
   }
 };
@@ -139,6 +144,147 @@ module.exports.aiSuggest = async (req, res) => {
       status: 500,
       code: 'ADMIN_CHAT_AI_FAILED',
       message: 'Khong the goi y cau tra loi'
+    });
+  }
+};
+
+// Auto-reply endpoints
+
+module.exports.getAutoReplySettings = async (req, res) => {
+  try {
+    const config = await getAutoReplyConfig();
+    const stats = await getAutoReplyStats();
+
+    return traJsonThanhCong(res, {
+      data: {
+        config,
+        stats
+      }
+    });
+  } catch (error) {
+    console.error('admin.chats.api.getAutoReplySettings error:', error);
+    return traJsonThatBai(res, {
+      status: 500,
+      code: 'ADMIN_AUTO_REPLY_GET_FAILED',
+      message: 'Khong the lay cau hinh tu tra loi'
+    });
+  }
+};
+
+module.exports.updateAutoReplySettings = async (req, res) => {
+  try {
+    const updates = req.body || {};
+
+    // Validate updates
+    const validFields = ['enabled', 'provider', 'model', 'autoResponseDelay', 'minMessageLength', 'maxAutoRepliesPerDay', 'excludeKeywords'];
+    const newConfig = {};
+
+    validFields.forEach(field => {
+      if (field in updates) {
+        newConfig[field] = updates[field];
+      }
+    });
+
+    if (Object.keys(newConfig).length === 0) {
+      return traJsonThatBai(res, {
+        status: 400,
+        code: 'INVALID_AUTO_REPLY_CONFIG',
+        message: 'Khong co truong nao de cap nhat'
+      });
+    }
+
+    // Validate types
+    if ('enabled' in newConfig && typeof newConfig.enabled !== 'boolean') {
+      return traJsonThatBai(res, {
+        status: 400,
+        code: 'INVALID_AUTO_REPLY_CONFIG',
+        message: 'enabled phai la boolean'
+      });
+    }
+
+    if ('provider' in newConfig && typeof newConfig.provider !== 'string') {
+      return traJsonThatBai(res, {
+        status: 400,
+        code: 'INVALID_AUTO_REPLY_CONFIG',
+        message: 'provider phai la string'
+      });
+    }
+
+    if ('autoResponseDelay' in newConfig) {
+      const delay = Number(newConfig.autoResponseDelay);
+      if (isNaN(delay) || delay < 0 || delay > 30000) {
+        return traJsonThatBai(res, {
+          status: 400,
+          code: 'INVALID_AUTO_REPLY_CONFIG',
+          message: 'autoResponseDelay phai tu 0-30000ms'
+        });
+      }
+      newConfig.autoResponseDelay = delay;
+    }
+
+    if ('minMessageLength' in newConfig) {
+      const len = Number(newConfig.minMessageLength);
+      if (isNaN(len) || len < 1 || len > 1000) {
+        return traJsonThatBai(res, {
+          status: 400,
+          code: 'INVALID_AUTO_REPLY_CONFIG',
+          message: 'minMessageLength phai tu 1-1000'
+        });
+      }
+      newConfig.minMessageLength = len;
+    }
+
+    if ('maxAutoRepliesPerDay' in newConfig) {
+      const max = Number(newConfig.maxAutoRepliesPerDay);
+      if (isNaN(max) || max < 1 || max > 1000) {
+        return traJsonThatBai(res, {
+          status: 400,
+          code: 'INVALID_AUTO_REPLY_CONFIG',
+          message: 'maxAutoRepliesPerDay phai tu 1-1000'
+        });
+      }
+      newConfig.maxAutoRepliesPerDay = max;
+    }
+
+    if ('excludeKeywords' in newConfig) {
+      if (!Array.isArray(newConfig.excludeKeywords)) {
+        return traJsonThatBai(res, {
+          status: 400,
+          code: 'INVALID_AUTO_REPLY_CONFIG',
+          message: 'excludeKeywords phai la mang'
+        });
+      }
+    }
+
+    const updated = await updateAutoReplyConfig(newConfig);
+    const stats = await getAutoReplyStats();
+
+    return traJsonThanhCong(res, {
+      data: {
+        config: updated,
+        stats
+      }
+    });
+  } catch (error) {
+    console.error('admin.chats.api.updateAutoReplySettings error:', error);
+    return traJsonThatBai(res, {
+      status: 500,
+      code: 'ADMIN_AUTO_REPLY_UPDATE_FAILED',
+      message: 'Khong the cap nhat cau hinh tu tra loi'
+    });
+  }
+};
+
+module.exports.getAutoReplyStats = async (req, res) => {
+  try {
+    const stats = await getAutoReplyStats();
+    return traJsonThanhCong(res, { data: stats });
+  } catch (error) {
+    console.error('admin.chats.api.getAutoReplyStats error:', error);
+    return traJsonThatBai(res, {
+      status: 500,
+      code: 'ADMIN_AUTO_REPLY_STATS_FAILED',
+      message: 'Khong the lay thong ke tu tra loi'
     });
   }
 };

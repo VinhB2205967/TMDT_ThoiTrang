@@ -26,13 +26,15 @@
   width: 360px;
   max-width: calc(100vw - 20px);
   height: 480px;
-  background: #fff;
-  border: 1px solid #e9ecef;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  background: var(--cc-surface, #fff);
+  color: var(--cc-ink, #1f2933);
+  border: 1px solid var(--cc-border, #e9ecef);
+  border-radius: 14px;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.22);
   display: none;
   overflow: hidden;
 }
+
 
 .chat-widget-panel.expanded {
   width: min(680px, calc(100vw - 24px));
@@ -188,3 +190,76 @@
     height: min(84vh, 700px);
   }
 }
+
+/* =============================================================
+   DARK MODE OVERRIDES — Customer support chat (chat with Admin)
+   ============================================================= */
+html[data-theme="dark"] .chat-widget-panel {
+  background: var(--cm-surface-strong, #161b34);
+  color: var(--cm-ink, #e6e9f7);
+  border-color: var(--cm-border, rgba(148, 163, 220, 0.22));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+}
+
+html[data-theme="dark"] .chat-widget-header {
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom-color: var(--cm-divider, rgba(148, 163, 220, 0.12));
+  color: var(--cm-ink, #e6e9f7);
+}
+
+html[data-theme="dark"] .chat-widget-messages {
+  background: linear-gradient(180deg, #10142a 0%, #0c0f23 100%);
+}
+
+html[data-theme="dark"] .chat-msg .time {
+  color: var(--cm-ink-muted, #8a92b2);
+}
+
+html[data-theme="dark"] .chat-msg.client .bubble {
+  background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+  color: #fff;
+}
+
+html[data-theme="dark"] .chat-msg.admin .bubble {
+  background: #1a1f3d;
+  color: var(--cm-ink, #e6e9f7);
+  border-color: rgba(148, 163, 220, 0.22);
+}
+
+html[data-theme="dark"] .chat-widget-input {
+  border-top-color: var(--cm-divider, rgba(148, 163, 220, 0.12));
+  background: var(--cm-surface-strong, #161b34);
+}
+
+html[data-theme="dark"] .chat-widget-input .form-control {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--cm-ink, #e6e9f7);
+  border-color: var(--cm-border, rgba(148, 163, 220, 0.22));
+}
+
+html[data-theme="dark"] .chat-widget-input .form-control::placeholder {
+  color: var(--cm-ink-muted, #8a92b2);
+}
+
+html[data-theme="dark"] .chat-attach-btn {
+  border-color: var(--cm-border, rgba(148, 163, 220, 0.22));
+  background: rgba(255, 255, 255, 0.05);
+  color: #c7d2fe;
+}
+
+html[data-theme="dark"] .chat-attach-btn:hover {
+  background: rgba(129, 140, 248, 0.18);
+  color: #fff;
+}
+
+html[data-theme="dark"] .chat-widget-preview {
+  background: #1a1f3d;
+  border-color: var(--cm-border, rgba(148, 163, 220, 0.22));
+}
+
+html[data-theme="dark"] .chat-widget-header .badge.text-bg-secondary {
+  background-color: rgba(148, 163, 220, 0.22) !important;
+  color: var(--cm-ink, #e6e9f7);
+}
+
+

@@ -24,5 +24,10 @@ router.post('/read/:userId', controller.danhDauDaDocTheoUser);
 router.post('/upload', uploadSingleMedia, controller.uploadMedia);
 router.post('/ai-suggest', controller.aiSuggest);
 
+// Auto-reply endpoints
+router.get('/auto-reply/settings', controller.getAutoReplySettings);
+router.post('/auto-reply/settings', controller.updateAutoReplySettings);
+router.get('/auto-reply/stats', controller.getAutoReplyStats);
+
 module.exports = router;
 

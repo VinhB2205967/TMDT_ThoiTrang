@@ -2,161 +2,175 @@ extends ../../layouts/default.pug
 include ../../mixins/filter_status.pug
 include ../../mixins/search.pug
 include ../../mixins/page.pug
+
+block styles
+    link(rel="stylesheet" href="/admin/css/products-admin.css?v=20260616-1")
+
 block main
     - const currentFilter = filterStatus;
     - const lowStockThresholdVal = Number(lowStockThreshold || 10);
-    .page-header-section.orders-header.products-header
-        .d-flex.justify-content-between.align-items-center.flex-wrap.gap-2.products-header-row
-            h1.page-title.mb-0
-                i.bi.bi-box-seam.me-2
-                | Quản lý sản phẩm
-            .d-flex.align-items-center.gap-2.orders-actions.ms-auto.products-header-actions
-                a.btn.btn-header.btn-admin-accent(href=`${admin}/products/create`)
-                    i.bi.bi-plus-lg.me-1
+    - const productList = products || [];
+    - const stockOf = (item) => Number((item && item.tonkho !== undefined && item.tonkho !== null) ? item.tonkho : ((item && item.soluongton) || 0));
+    - const activeProductsCount = productList.filter((item) => { const s = String((item && item.trangthai) || '').toLowerCase(); return s.includes('dang') || s.includes('đang') || s.includes('active'); }).length;
+    - const lowStockProductsCount = productList.filter((item) => stockOf(item) > 0 && stockOf(item) <= lowStockThresholdVal).length;
+    - const outStockProductsCount = productList.filter((item) => stockOf(item) <= 0).length;
+    - const variantProductsCount = productList.reduce((sum, item) => sum + ((item && item.bienthe && item.bienthe.length) || 0), 0);
+    - const hasAdvanced = !!(currentDeleted || currentSort || currentLoai || currentGioiTinh || currentBrand || currentOccasion || currentAgeGroup || priceMin || priceMax || dateFrom || dateTo);
+
+    .pa-page
+        //- ===== HERO HEADER =====
+        header.pa-hero
+            .pa-hero__main
+                span.pa-hero__eyebrow
+                    i.bi.bi-box-seam
+                    | Danh mục sản phẩm
+                h1.pa-hero__title Quản lý sản phẩm
+                p.pa-hero__subtitle Theo dõi tồn kho, biến thể, giá bán và trạng thái sản phẩm trong một bảng điều khiển trực quan.
+            .pa-hero__actions
+                a.pa-btn.pa-btn--light(href=`${admin}/products/create`)
+                    i.bi.bi-plus-lg
                     | Thêm sản phẩm
-                //- .admin-user-menu
-                //- .dropdown
-                //-     button.btn.btn-light.dropdown-toggle#adminDropdown(type="button" data-bs-toggle="dropdown" aria-expanded="false")
-                //-         i.bi.bi-person-circle.me-2
-                //-         span Admin
-                //-     ul.dropdown-menu.dropdown-menu-end(aria-labelledby="adminDropdown")
-                //-         li
-                //-             a.dropdown-item(href="#")
-                //-                 i.bi.bi-person.me-2
-                //-                 | Thông tin tài khoản
-                //-         li
-                //-             a.dropdown-item(href="#")
-                //-                 i.bi.bi-gear.me-2
-                //-                 | Cài đặt
-                //-         li
-                //-             a.dropdown-item(href="#")
-                //-                 i.bi.bi-bell.me-2
-                //-                 | Thông báo
-                //-         li: hr.dropdown-divider
-                //-         li
-                //-             a.dropdown-item.text-danger(href="#")
-                //-                 i.bi.bi-box-arrow-right.me-2
-                //-                 | Đăng xuất
-    
-    .filter-search-sticky
-        .filter-search-card
-            .card-body.p-2
-                .row.align-items-end.g-2
-                    .col-lg-5
-                        label.filter-label.mb-1
-                            i.bi.bi-funnel.me-1
-                            | Trạng thái
-                        .btn-group.w-100(role="group")
-                            +filter_status(filterStatus)
-                    .col-lg-4
-                        +search(keyword)
 
-                //- Bộ lọc nâng cao (thu gọn mặc định)
-                - const hasAdvanced = !!(currentDeleted || currentSort || currentLoai || currentGioiTinh || currentBrand || currentOccasion || currentAgeGroup || priceMin || priceMax || dateFrom || dateTo);
-                .d-flex.justify-content-between.align-items-center.mt-2
-                    button.btn.btn-outline-primary.btn-sm(type='button' data-bs-toggle='collapse' data-bs-target='#advancedFilters' aria-expanded=hasAdvanced ? 'true' : 'false' aria-controls='advancedFilters')
-                        i.bi.bi-sliders.me-1
-                        | Bộ lọc nâng cao
-                    if hasAdvanced
-                        a.btn.btn-outline-secondary.btn-sm(href=`${admin}/products`)
-                            i.bi.bi-x-circle.me-1
+        //- ===== STAT CARDS =====
+        section.pa-stats
+            .pa-stat.pa-stat--total
+                .pa-stat__icon: i.bi.bi-boxes
+                .pa-stat__body
+                    span.pa-stat__label Tổng sản phẩm
+                    strong.pa-stat__value= productList.length
+                    small.pa-stat__hint #{variantProductsCount} biến thể
+            .pa-stat.pa-stat--active
+                .pa-stat__icon: i.bi.bi-check2-circle
+                .pa-stat__body
+                    span.pa-stat__label Đang bán
+                    strong.pa-stat__value= activeProductsCount
+                    small.pa-stat__hint Hiển thị với khách
+            .pa-stat.pa-stat--low
+                .pa-stat__icon: i.bi.bi-exclamation-triangle
+                .pa-stat__body
+                    span.pa-stat__label Sắp hết hàng
+                    strong.pa-stat__value= lowStockProductsCount
+                    small.pa-stat__hint Tồn ≤ #{lowStockThresholdVal}
+            .pa-stat.pa-stat--out
+                .pa-stat__icon: i.bi.bi-slash-circle
+                .pa-stat__body
+                    span.pa-stat__label Hết hàng
+                    strong.pa-stat__value= outStockProductsCount
+                    small.pa-stat__hint Cần nhập thêm
+
+        //- ===== FILTER TOOLBAR =====
+        section.pa-toolbar
+            .pa-toolbar__row
+                .pa-toolbar__status
+                    span.pa-toolbar__caption
+                        i.bi.bi-funnel
+                        | Trạng thái
+                    .pa-status-group(role="group")
+                        +filter_status(filterStatus)
+                .pa-toolbar__search
+                    +search(keyword)
+
+            .pa-toolbar__advanced-bar
+                button.pa-btn.pa-btn--ghost.pa-btn--sm(type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilters" aria-expanded=hasAdvanced ? 'true' : 'false' aria-controls="advancedFilters")
+                    i.bi.bi-sliders
+                    | Bộ lọc nâng cao
+                if hasAdvanced
+                    a.pa-btn.pa-btn--ghost.pa-btn--sm(href=`${admin}/products`)
+                        i.bi.bi-x-circle
+                        | Xóa lọc
+
+            #advancedFilters.collapse(class=hasAdvanced ? 'show' : '')
+                form.pa-advanced(action=`${admin}/products` method="GET")
+                    if keyword
+                        input(type="hidden" name="keyword" value=keyword)
+                    - const activeStatus = filterStatus.find(item => item.class === 'active')
+                    if activeStatus && activeStatus.status
+                        input(type="hidden" name="trangthai" value=activeStatus.status)
+
+                    .pa-advanced__grid
+                        .pa-field
+                            label.pa-field__label Xóa mềm
+                            select.pa-select(name="deleted" onchange="this.form.submit()")
+                                option(value="" selected=(!currentDeleted)) Chưa xóa
+                                option(value="1" selected=(currentDeleted=='1')) Đã xóa (thùng rác)
+                                option(value="all" selected=(currentDeleted=='all')) Tất cả
+                        .pa-field
+                            label.pa-field__label Sắp xếp
+                            select.pa-select(name="sort" onchange="this.form.submit()")
+                                option(value="ngaytao-desc" selected=(!currentSort || currentSort=='ngaytao-desc')) Tạo mới nhất
+                                option(value="ngaycapnhat-desc" selected=(currentSort=='ngaycapnhat-desc')) Cập nhật mới nhất
+                                option(value="ngaycapnhat-asc" selected=(currentSort=='ngaycapnhat-asc')) Cập nhật cũ nhất
+                                option(value="ngaytao-asc" selected=(currentSort=='ngaytao-asc')) Tạo cũ nhất
+                                option(value="gia-desc" selected=(currentSort=='gia-desc')) Giá giảm dần
+                                option(value="gia-asc" selected=(currentSort=='gia-asc')) Giá tăng dần
+                                option(value="tensanpham-asc" selected=(currentSort=='tensanpham-asc')) Tên A-Z
+                        .pa-field
+                            label.pa-field__label Loại SP
+                            select.pa-select(name="loaisanpham" onchange="this.form.submit()")
+                                option(value="" selected=(!currentLoai)) Tất cả
+                                each c in (categoryOptions || [])
+                                    option(value=c.slug selected=(String(currentLoai || '') === String(c.slug || ''))) #{c.name}
+                        .pa-field
+                            label.pa-field__label Giới tính
+                            select.pa-select(name="gioitinh" onchange="this.form.submit()")
+                                option(value="" selected=(!currentGioiTinh)) Tất cả
+                                option(value="nam" selected=(currentGioiTinh=='nam')) Nam
+                                option(value="nu" selected=(currentGioiTinh=='nu')) Nữ
+                                option(value="unisex" selected=(currentGioiTinh=='unisex')) Unisex
+                        .pa-field
+                            label.pa-field__label Thương hiệu
+                            select.pa-select(name="brand" onchange="this.form.submit()")
+                                option(value="" selected=(!currentBrand)) Tất cả
+                                each b in (brandOptions || [])
+                                    option(value=b._id selected=(String(currentBrand || '') === String(b._id))) #{b.ten}
+                        .pa-field
+                            label.pa-field__label Dịp sử dụng
+                            select.pa-select(name="occasion" onchange="this.form.submit()")
+                                option(value="" selected=(!currentOccasion)) Tất cả
+                                each c in (occasionOptions || [])
+                                    option(value=c._id selected=(String(currentOccasion || '') === String(c._id))) #{c.name}
+                        .pa-field
+                            label.pa-field__label Lứa tuổi
+                            select.pa-select(name="ageGroup" onchange="this.form.submit()")
+                                option(value="" selected=(!currentAgeGroup)) Tất cả
+                                each c in (ageGroupOptions || [])
+                                    option(value=c._id selected=(String(currentAgeGroup || '') === String(c._id))) #{c.name}
+                        .pa-field
+                            label.pa-field__label Khoảng giá
+                            .pa-range
+                                input.pa-input(type="number" name="priceMin" placeholder="Min" value=priceMin min="0")
+                                span.pa-range__sep -
+                                input.pa-input(type="number" name="priceMax" placeholder="Max" value=priceMax min="0")
+                        .pa-field
+                            label.pa-field__label Ngày cập nhật
+                            .pa-range
+                                input.pa-input(type="date" name="dateFrom" value=dateFrom)
+                                span.pa-range__sep -
+                                input.pa-input(type="date" name="dateTo" value=dateTo)
+
+                    .pa-advanced__actions
+                        a.pa-btn.pa-btn--ghost.pa-btn--sm(href=`${admin}/products`)
+                            i.bi.bi-x-circle
                             | Xóa lọc
+                        button.pa-btn.pa-btn--primary.pa-btn--sm(type="submit")
+                            i.bi.bi-funnel
+                            | Áp dụng
 
-                #advancedFilters.collapse(class=hasAdvanced ? 'show' : '')
-                    hr.mt-2.mb-2
-                    form(action=`${admin}/products` method="GET")
-                        //- Giữ lại keyword và trạng thái nếu có
-                        if keyword
-                            input(type="hidden" name="keyword" value=keyword)
-                        - const activeStatus = filterStatus.find(item => item.class === 'active')
-                        if activeStatus && activeStatus.status
-                            input(type="hidden" name="trangthai" value=activeStatus.status)
-
-                        .row.g-2
-                            .col-md-2
-                                label.form-label.small.fw-bold Xóa mềm
-                                select.form-select.form-select-sm(name="deleted" onchange="this.form.submit()")
-                                    option(value="" selected=(!currentDeleted)) Chưa xóa
-                                    option(value="1" selected=(currentDeleted=='1')) Đã xóa (thùng rác)
-                                    option(value="all" selected=(currentDeleted=='all')) Tất cả
-                            .col-md-2
-                                label.form-label.small.fw-bold Sắp xếp
-                                select.form-select.form-select-sm(name="sort" onchange="this.form.submit()")
-                                    option(value="ngaytao-desc" selected=(!currentSort || currentSort=='ngaytao-desc')) Tạo mới nhất
-                                    option(value="ngaycapnhat-desc" selected=(currentSort=='ngaycapnhat-desc')) Cập nhật mới nhất
-                                    option(value="ngaycapnhat-asc" selected=(currentSort=='ngaycapnhat-asc')) Cập nhật cũ nhất
-                                    option(value="ngaytao-asc" selected=(currentSort=='ngaytao-asc')) Tạo cũ nhất
-                                    option(value="gia-desc" selected=(currentSort=='gia-desc')) Giá giảm dần
-                                    option(value="gia-asc" selected=(currentSort=='gia-asc')) Giá tăng dần
-                                    option(value="tensanpham-asc" selected=(currentSort=='tensanpham-asc')) Tên A-Z
-                            .col-md-2
-                                label.form-label.small.fw-bold Loại SP
-                                select.form-select.form-select-sm(name="loaisanpham" onchange="this.form.submit()")
-                                    option(value="" selected=(!currentLoai)) Tất cả
-                                    each c in (categoryOptions || [])
-                                        option(value=c.slug selected=(String(currentLoai || '') === String(c.slug || ''))) #{c.name}
-                            .col-md-2
-                                label.form-label.small.fw-bold Giới tính
-                                select.form-select.form-select-sm(name="gioitinh" onchange="this.form.submit()")
-                                    option(value="" selected=(!currentGioiTinh)) Giới tính
-                                    option(value="nam" selected=(currentGioiTinh=='nam')) Nam
-                                    option(value="nu" selected=(currentGioiTinh=='nu')) Nữ
-                                    option(value="unisex" selected=(currentGioiTinh=='unisex')) Unisex
-                            .col-md-2
-                                label.form-label.small.fw-bold Thương hiệu
-                                select.form-select.form-select-sm(name="brand" onchange="this.form.submit()")
-                                    option(value="" selected=(!currentBrand)) Tất cả
-                                    each b in (brandOptions || [])
-                                        option(value=b._id selected=(String(currentBrand || '') === String(b._id))) #{b.ten}
-                            .col-md-2
-                                label.form-label.small.fw-bold Dịp sử dụng
-                                select.form-select.form-select-sm(name="occasion" onchange="this.form.submit()")
-                                    option(value="" selected=(!currentOccasion)) Tất cả
-                                    each c in (occasionOptions || [])
-                                        option(value=c._id selected=(String(currentOccasion || '') === String(c._id))) #{c.name}
-                            .col-md-2
-                                label.form-label.small.fw-bold Lứa tuổi
-                                select.form-select.form-select-sm(name="ageGroup" onchange="this.form.submit()")
-                                    option(value="" selected=(!currentAgeGroup)) Tất cả
-                                    each c in (ageGroupOptions || [])
-                                        option(value=c._id selected=(String(currentAgeGroup || '') === String(c._id))) #{c.name}
-                            .col-md-3
-                                label.form-label.small.fw-bold Khoảng giá
-                                .input-group.input-group-sm
-                                    input.form-control(type="number" name="priceMin" placeholder="Min" value=priceMin min="0")
-                                    span.input-group-text -
-                                    input.form-control(type="number" name="priceMax" placeholder="Max" value=priceMax min="0")
-                            .col-md-3
-                                label.form-label.small.fw-bold Ngày cập nhật
-                                .input-group.input-group-sm
-                                    input.form-control(type="date" name="dateFrom" value=dateFrom)
-                                    span.input-group-text -
-                                    input.form-control(type="date" name="dateTo" value=dateTo)
-
-                        .d-flex.justify-content-end.gap-2.mt-2
-                            a.btn.btn-outline-secondary.btn-sm(href=`${admin}/products`)
-                                i.bi.bi-x-circle.me-1
-                                | Xóa lọc
-                            button.btn.btn-primary.btn-sm(type="submit")
-                                i.bi.bi-funnel.me-1
-                                | Lọc
-    
-    .dashboard-container
+        //- ===== PRODUCT LIST =====
         if products && products.length
-           
-            .table-responsive.d-none.d-lg-block
-                table.table.table-hover.align-middle.product-table
-                    thead.table-light
+            //- Desktop table
+            .pa-table-wrap.d-none.d-lg-block
+                table.pa-table
+                    thead
                         tr
-                            th(scope="col" style="width: 50px") STT
-                            th(scope="col" style="width: 90px") Hình ảnh
-                            th(scope="col") Tiêu đề
-                            th(scope="col" style="width: 120px") Thương hiệu
-                            th(scope="col" style="width: 180px") Giá
-                            th(scope="col" style="width: 90px") Tồn kho
-                            th(scope="col" style="width: 110px") Ngày cập nhật
-                            th(scope="col" style="width: 100px") Trạng thái
-                            th(scope="col" style="width: 120px" class="text-end") Hành động
+                            th.pa-th-num STT
+                            th Sản phẩm
+                            th.pa-th-brand Thương hiệu
+                            th.pa-th-price Giá
+                            th.pa-th-stock Tồn kho
+                            th.pa-th-date Cập nhật
+                            th.pa-th-status Trạng thái
+                            th.pa-th-actions Hành động
                     tbody
                         each product, idx in products
                             - const giaGoc = product.gia ? product.gia.toLocaleString('vi-VN') + '₫' : '—';
@@ -171,66 +185,68 @@ block main
                             - const __isNoSize = __noSizeTypes.includes(String(product.loaisanpham || '').toLowerCase());
                             - const __tonChinh = __isNoSize ? (product.soluong_chinh || 0) : ((product.sizes || []).reduce((sum, s) => sum + Number(s?.soluong || 0), 0));
                             - const laSapHet = tonKho > 0 && tonKho <= lowStockThresholdVal;
-                            tr
-                                td.text-muted #{idx + 1}
+                            tr.pa-row
+                                td.pa-th-num: span.pa-num #{idx + 1}
                                 td
-                                    img.product-img(src=imgSrc, alt=product.tensanpham || 'Hình sản phẩm')
-                                td
-                                    .fw-semibold #{product.tensanpham || '—'}
-                                    if product.bienthe && product.bienthe.length
-                                        small.text-muted #{product.bienthe.length} biến thể
-                                td
-                                    small.text-muted #{product.tenThuongHieu || '—'}
+                                    .pa-product
+                                        img.pa-product__img(src=imgSrc, alt=product.tensanpham || 'Hình sản phẩm')
+                                        .pa-product__meta
+                                            span.pa-product__name #{product.tensanpham || '—'}
+                                            if product.bienthe && product.bienthe.length
+                                                span.pa-product__variants
+                                                    i.bi.bi-palette
+                                                    | #{product.bienthe.length} biến thể
+                                td: span.pa-chip #{product.tenThuongHieu || '—'}
                                 td
                                     if giamGia > 0
-                                        .d-flex.flex-column
-                                            span.text-decoration-line-through.text-muted.small #{giaGoc}
-                                            span.fw-bold.text-danger #{giaKhuyenMai}
-                                            span.badge.bg-warning.text-dark.mt-1(style="width: fit-content") -#{giamGia}%
+                                        .pa-price
+                                            span.pa-price__old #{giaGoc}
+                                            span.pa-price__sale #{giaKhuyenMai}
+                                            span.pa-price__badge -#{giamGia}%
                                     else
-                                        span.fw-semibold.text-primary #{giaGoc}
+                                        span.pa-price__main #{giaGoc}
                                 td
                                     if tonKho > 0
-                                        span.fw-semibold #{tonKho}
-                                        if laSapHet
-                                            span.badge.bg-warning.text-dark.rounded-pill.ms-1 Sắp hết
-                                        small.text-muted.d-block Chính: #{__tonChinh}
+                                        .pa-stock
+                                            span.pa-stock__num #{tonKho}
+                                            if laSapHet
+                                                span.pa-tag.pa-tag--warn Sắp hết
+                                            small.pa-stock__hint Chính: #{__tonChinh}
                                     else
-                                        span.badge.bg-secondary.rounded-pill Hết
-                                td
-                                    small.text-muted
-                                        i.bi.bi-calendar.me-1
-                                        | #{ngayCapNhat}
+                                        span.pa-tag.pa-tag--muted Hết hàng
+                                td: span.pa-date
+                                    i.bi.bi-calendar3
+                                    | #{ngayCapNhat}
                                 td
                                     if isActive
-                                        span.badge.bg-success.rounded-pill Đang bán
+                                        span.pa-tag.pa-tag--success Đang bán
                                     else
-                                        span.badge.bg-danger.rounded-pill Ngừng bán
-                                td.text-end
-                                    .btn-group.btn-group-sm
-                                        a.btn.btn-outline-warning(href=`${admin}/products/${product._id}/edit`, title="Sửa")
+                                        span.pa-tag.pa-tag--danger Ngừng bán
+                                td.pa-th-actions
+                                    .pa-actions
+                                        a.pa-icon-btn.pa-icon-btn--edit(href=`${admin}/products/${product._id}/edit`, title="Sửa")
                                             i.bi.bi-pencil
                                         if !product.daxoa
                                             form(method="POST" action=`${admin}/products/${product._id}/toggle-status` onsubmit=isActive ? "return confirm('Chuyển sản phẩm này sang Ngừng bán?')" : "return confirm('Bật bán lại sản phẩm này?')")
                                                 if isActive
-                                                    button.btn.btn-outline-secondary(type="submit" title="Ngừng bán")
+                                                    button.pa-icon-btn.pa-icon-btn--pause(type="submit" title="Ngừng bán")
                                                         i.bi.bi-pause-fill
                                                 else
-                                                    button.btn.btn-outline-success(type="submit" title="Bật bán")
+                                                    button.pa-icon-btn.pa-icon-btn--play(type="submit" title="Bật bán")
                                                         i.bi.bi-play-fill
                                         if product.daxoa
                                             form(method="POST" action=`${admin}/products/${product._id}/restore` onsubmit="return confirm('Khôi phục sản phẩm này?')")
-                                                button.btn.btn-outline-success(type="submit" title="Khôi phục")
+                                                button.pa-icon-btn.pa-icon-btn--play(type="submit" title="Khôi phục")
                                                     i.bi.bi-arrow-counterclockwise
                                             form(method="POST" action=`${admin}/products/${product._id}/hard-delete` onsubmit=product.daDuocMua ? null : "return confirm('Xóa vĩnh viễn sản phẩm này? Hành động không thể hoàn tác!')")
-                                                button.btn.btn-danger(type="submit" title=product.daDuocMua ? 'Sản phẩm đã có đơn hàng, không thể xóa' : 'Xóa vĩnh viễn' disabled=product.daDuocMua)
+                                                button.pa-icon-btn.pa-icon-btn--delete(type="submit" title=product.daDuocMua ? 'Sản phẩm đã có đơn hàng, không thể xóa' : 'Xóa vĩnh viễn' disabled=product.daDuocMua)
                                                     i.bi.bi-x-octagon
                                         else
                                             if product.daDuocMua
-                                                button.btn.btn-outline-danger(type='button' title='Sản phẩm đã có đơn hàng, không thể xóa' disabled)
+                                                button.pa-icon-btn.pa-icon-btn--delete(type='button' title='Sản phẩm đã có đơn hàng, không thể xóa' disabled)
                                                     i.bi.bi-trash
                                             else
-                                                a.btn.btn-outline-danger(href=`${admin}/products/${product._id}/delete`, title="Xóa" onclick="return xacNhanXoa('Bạn có chắc chắn muốn xóa?')")
+                                                a.pa-icon-btn.pa-icon-btn--delete(href=`${admin}/products/${product._id}/delete`, title="Xóa" onclick="return xacNhanXoa('Bạn có chắc chắn muốn xóa?')")
                                                     i.bi.bi-trash
 
                             if product.bienthe && product.bienthe.length
@@ -243,69 +259,57 @@ block main
                                     - const vTon = __isNoSize ? (v.soluong || 0) : ((v.sizes || []).reduce((sum, s) => sum + Number(s.soluong || 0), 0));
                                     - const vTitle = `${product.tensanpham || '—'} - ${v.mausac || 'Biến thể'}`;
                                     - const vLaSapHet = vTon > 0 && vTon <= lowStockThresholdVal;
-                                    tr.table-light
-                                        td.text-muted #{idx + 1}.#{vIdx + 1}
+                                    tr.pa-row.pa-row--variant
+                                        td.pa-th-num: span.pa-num.pa-num--sub #{idx + 1}.#{vIdx + 1}
                                         td
-                                            img.product-img(src=vImg, alt=vTitle)
-                                        td
-                                            .fw-semibold #{vTitle}
-                                            if v.mausac
-                                                small.text-muted #{v.mausac}
-                                        td
-                                            small.text-muted #{product.tenThuongHieu || '—'}
+                                            .pa-product.pa-product--variant
+                                                img.pa-product__img.pa-product__img--sm(src=vImg, alt=vTitle)
+                                                .pa-product__meta
+                                                    span.pa-product__name #{vTitle}
+                                                    if v.mausac
+                                                        span.pa-product__variants
+                                                            i.bi.bi-droplet-half
+                                                            | #{v.mausac}
+                                        td: span.pa-chip #{product.tenThuongHieu || '—'}
                                         td
                                             if vGiam > 0
-                                                .d-flex.flex-column
-                                                    span.text-decoration-line-through.text-muted.small #{vGiaGoc}
-                                                    span.fw-bold.text-danger #{vGiaKM}
-                                                    span.badge.bg-warning.text-dark.mt-1(style="width: fit-content") -#{vGiam}%
+                                                .pa-price
+                                                    span.pa-price__old #{vGiaGoc}
+                                                    span.pa-price__sale #{vGiaKM}
+                                                    span.pa-price__badge -#{vGiam}%
                                             else
-                                                span.fw-semibold.text-primary #{vGiaGoc}
+                                                span.pa-price__main #{vGiaGoc}
                                         td
                                             if vTon > 0
-                                                span.fw-semibold #{vTon}
-                                                if vLaSapHet
-                                                    span.badge.bg-warning.text-dark.rounded-pill.ms-1 Sắp hết
+                                                .pa-stock
+                                                    span.pa-stock__num #{vTon}
+                                                    if vLaSapHet
+                                                        span.pa-tag.pa-tag--warn Sắp hết
                                             else
-                                                span.badge.bg-secondary.rounded-pill Hết
-                                        td
-                                            small.text-muted
-                                                i.bi.bi-calendar.me-1
-                                                | #{ngayCapNhat}
+                                                span.pa-tag.pa-tag--muted Hết hàng
+                                        td: span.pa-date
+                                            i.bi.bi-calendar3
+                                            | #{ngayCapNhat}
                                         td
                                             if isActive
-                                                span.badge.bg-success.rounded-pill Đang bán
+                                                span.pa-tag.pa-tag--success Đang bán
                                             else
-                                                span.badge.bg-danger.rounded-pill Ngừng bán
-                                        td.text-end
-                                            .btn-group.btn-group-sm
-                                                a.btn.btn-outline-warning(href=`${admin}/products/${product._id}/edit`, title="Sửa")
+                                                span.pa-tag.pa-tag--danger Ngừng bán
+                                        td.pa-th-actions
+                                            .pa-actions
+                                                a.pa-icon-btn.pa-icon-btn--edit(href=`${admin}/products/${product._id}/edit`, title="Sửa")
                                                     i.bi.bi-pencil
                                                 if !product.daxoa
                                                     form(method="POST" action=`${admin}/products/${product._id}/toggle-status` onsubmit=isActive ? "return confirm('Chuyển sản phẩm này sang Ngừng bán?')" : "return confirm('Bật bán lại sản phẩm này?')")
                                                         if isActive
-                                                            button.btn.btn-outline-secondary(type="submit" title="Ngừng bán")
+                                                            button.pa-icon-btn.pa-icon-btn--pause(type="submit" title="Ngừng bán")
                                                                 i.bi.bi-pause-fill
                                                         else
-                                                            button.btn.btn-outline-success(type="submit" title="Bật bán")
+                                                            button.pa-icon-btn.pa-icon-btn--play(type="submit" title="Bật bán")
                                                                 i.bi.bi-play-fill
-                                                if product.daxoa
-                                                    form(method="POST" action=`${admin}/products/${product._id}/restore` onsubmit="return confirm('Khôi phục sản phẩm này?')")
-                                                        button.btn.btn-outline-success(type="submit" title="Khôi phục")
-                                                            i.bi.bi-arrow-counterclockwise
-                                                    form(method="POST" action=`${admin}/products/${product._id}/hard-delete` onsubmit=product.daDuocMua ? null : "return confirm('Xóa vĩnh viễn sản phẩm này? Hành động không thể hoàn tác!')")
-                                                        button.btn.btn-danger(type="submit" title=product.daDuocMua ? 'Sản phẩm đã có đơn hàng, không thể xóa' : 'Xóa vĩnh viễn' disabled=product.daDuocMua)
-                                                            i.bi.bi-x-octagon
-                                                else
-                                                    if product.daDuocMua
-                                                        button.btn.btn-outline-danger(type='button' title='Sản phẩm đã có đơn hàng, không thể xóa' disabled)
-                                                            i.bi.bi-trash
-                                                    else
-                                                        a.btn.btn-outline-danger(href=`${admin}/products/${product._id}/delete`, title="Xóa" onclick="return xacNhanXoa('Bạn có chắc chắn muốn xóa?')")
-                                                            i.bi.bi-trash
-            
-            
-            .row.g-3.d-lg-none
+
+            //- Mobile cards
+            .pa-cards.d-lg-none
                 each product, idx in products
                     - const price = product.giamoiText || product.giaText || (product.gia ? product.gia.toLocaleString('vi-VN') + '₫' : '—');
                     - const status = (product.trangthai || '').toLowerCase();
@@ -313,143 +317,82 @@ block main
                     - const imgSrc = product.displayImage || product.hinhanh || '/images/shopping.png';
                     - const __noSizeTypes = ['tui','phukien'];
                     - const __isNoSize = __noSizeTypes.includes(String(product.loaisanpham || '').toLowerCase());
-                    .col-12.col-sm-6.col-md-4
-                        .card.product-card.h-100
-                            img.card-img-top.product-card-img(src=imgSrc, alt=product.tensanpham || 'Hình sản phẩm')
-                            .card-body
-                                h6.card-title.mb-1 #{product.tensanpham || '—'}
+                    - const tonKhoMobile = (product.tonkho !== undefined && product.tonkho !== null) ? product.tonkho : (product.soluongton || 0);
+                    - const laSapHetMobile = tonKhoMobile > 0 && tonKhoMobile <= lowStockThresholdVal;
+                    .pa-card
+                        .pa-card__head
+                            img.pa-card__img(src=imgSrc, alt=product.tensanpham || 'Hình sản phẩm')
+                            .pa-card__title-wrap
+                                span.pa-card__title #{product.tensanpham || '—'}
                                 if product.bienthe && product.bienthe.length
-                                    small.text-muted.d-block.mb-2 #{product.bienthe.length} biến thể
-                                .d-flex.justify-content-between.align-items-center.mb-2
-                                    span.fw-bold.text-primary #{price}
+                                    span.pa-product__variants
+                                        i.bi.bi-palette
+                                        | #{product.bienthe.length} biến thể
+                                if isActive
+                                    span.pa-tag.pa-tag--success Đang bán
+                                else
+                                    span.pa-tag.pa-tag--danger Ngừng bán
+                        .pa-card__body
+                            .pa-card__line
+                                span Giá
+                                strong.pa-price__main #{price}
+                            .pa-card__line
+                                span Thương hiệu
+                                span.pa-chip #{product.tenThuongHieu || '—'}
+                            .pa-card__line
+                                span Tồn kho
+                                span.pa-stock__num #{tonKhoMobile}
+                            if laSapHetMobile
+                                span.pa-tag.pa-tag--warn Sắp hết (≤ #{lowStockThresholdVal})
+                        .pa-card__foot
+                            a.pa-btn.pa-btn--ghost.pa-btn--sm(href=`${admin}/products/${product._id}/edit`)
+                                i.bi.bi-pencil
+                                | Sửa
+                            if !product.daxoa
+                                form(method="POST" action=`${admin}/products/${product._id}/toggle-status` onsubmit=isActive ? "return confirm('Chuyển sản phẩm này sang Ngừng bán?')" : "return confirm('Bật bán lại sản phẩm này?')")
                                     if isActive
-                                        span.badge.bg-success.rounded-pill Đang bán
+                                        button.pa-btn.pa-btn--ghost.pa-btn--sm(type="submit")
+                                            i.bi.bi-pause-fill
+                                            | Ngừng
                                     else
-                                        span.badge.bg-danger.rounded-pill Ngừng
-                                small.text-muted.d-block Thương hiệu: #{product.tenThuongHieu || '—'}
-                                - const tonKhoMobile = (product.tonkho !== undefined && product.tonkho !== null) ? product.tonkho : (product.soluongton || 0);
-                                - const __noSizeTypesMobile = ['tui','phukien'];
-                                - const __isNoSizeMobile = __noSizeTypesMobile.includes(String(product.loaisanpham || '').toLowerCase());
-                                - const __tonChinhMobile = __isNoSizeMobile ? (product.soluong_chinh || 0) : ((product.sizes || []).reduce((sum, s) => sum + Number(s?.soluong || 0), 0));
-                                - const laSapHetMobile = tonKhoMobile > 0 && tonKhoMobile <= lowStockThresholdVal;
-                                small.text-muted.d-block Tồn kho: #{tonKhoMobile}
-                                if laSapHetMobile
-                                    span.badge.bg-warning.text-dark.rounded-pill.mt-1 Sắp hết (≤ #{lowStockThresholdVal})
-                                small.text-muted.d-block Chính: #{__tonChinhMobile}
-                            .card-footer.bg-transparent.border-0.pt-0
-                                .d-flex.gap-2
-                                    a.btn.btn-sm.btn-warning.flex-fill(href=`${admin}/products/${product._id}/edit`)
-                                        i.bi.bi-pencil.me-1
-                                        | Sửa
-                                    if !product.daxoa
-                                        form.flex-fill(method="POST" action=`${admin}/products/${product._id}/toggle-status` onsubmit=isActive ? "return confirm('Chuyển sản phẩm này sang Ngừng bán?')" : "return confirm('Bật bán lại sản phẩm này?')")
-                                            if isActive
-                                                button.btn.btn-sm.btn-outline-secondary.w-100(type="submit")
-                                                    i.bi.bi-pause-fill.me-1
-                                                    | Ngừng bán
-                                            else
-                                                button.btn.btn-sm.btn-outline-success.w-100(type="submit")
-                                                    i.bi.bi-play-fill.me-1
-                                                    | Bật bán
-                                    if product.daxoa
-                                        form.flex-fill(method="POST" action=`${admin}/products/${product._id}/restore` onsubmit="return confirm('Khôi phục sản phẩm này?')")
-                                            button.btn.btn-sm.btn-success.w-100(type="submit")
-                                                i.bi.bi-arrow-counterclockwise.me-1
-                                                | Khôi phục
-                                        form.flex-fill(method="POST" action=`${admin}/products/${product._id}/hard-delete` onsubmit=product.daDuocMua ? null : "return confirm('Xóa vĩnh viễn sản phẩm này? Hành động không thể hoàn tác!')")
-                                            button.btn.btn-sm.btn-danger.w-100(type="submit" disabled=product.daDuocMua title=product.daDuocMua ? 'Sản phẩm đã có đơn hàng, không thể xóa' : null)
-                                                i.bi.bi-x-octagon.me-1
-                                                | Xóa vĩnh viễn
-                                    else
-                                        if product.daDuocMua
-                                            button.btn.btn-sm.btn-danger.flex-fill(type='button' disabled title='Sản phẩm đã có đơn hàng, không thể xóa')
-                                                i.bi.bi-trash.me-1
-                                                | Xóa
-                                        else
-                                            a.btn.btn-sm.btn-danger.flex-fill(href=`${admin}/products/${product._id}/delete` onclick="return xacNhanXoa('Bạn có chắc chắn muốn xóa?')")
-                                                i.bi.bi-trash.me-1
-                                                | Xóa
+                                        button.pa-btn.pa-btn--ghost.pa-btn--sm(type="submit")
+                                            i.bi.bi-play-fill
+                                            | Bật bán
+                            if product.daxoa
+                                form(method="POST" action=`${admin}/products/${product._id}/restore` onsubmit="return confirm('Khôi phục sản phẩm này?')")
+                                    button.pa-btn.pa-btn--ghost.pa-btn--sm(type="submit")
+                                        i.bi.bi-arrow-counterclockwise
+                                        | Khôi phục
+                            else
+                                if product.daDuocMua
+                                    button.pa-btn.pa-btn--danger.pa-btn--sm(type='button' disabled title='Sản phẩm đã có đơn hàng, không thể xóa')
+                                        i.bi.bi-trash
+                                        | Xóa
+                                else
+                                    a.pa-btn.pa-btn--danger.pa-btn--sm(href=`${admin}/products/${product._id}/delete` onclick="return xacNhanXoa('Bạn có chắc chắn muốn xóa?')")
+                                        i.bi.bi-trash
+                                        | Xóa
 
-                    if product.bienthe && product.bienthe.length
-                        each v, vIdx in product.bienthe
-                            - const vGia = (v.gia !== undefined && v.gia !== null) ? v.gia : product.gia;
-                            - const vGiam = (v.phantramgiamgia !== undefined && v.phantramgiamgia !== null) ? v.phantramgiamgia : (product.phantramgiamgia || 0);
-                            - const vPrice = vGia ? (vGiam > 0 ? Math.round(vGia * (100 - vGiam) / 100).toLocaleString('vi-VN') + '₫' : vGia.toLocaleString('vi-VN') + '₫') : '—';
-                            - const vImg = v.hinhanh || imgSrc;
-                            - const vTon = __isNoSize ? (v.soluong || 0) : ((v.sizes || []).reduce((sum, s) => sum + Number(s.soluong || 0), 0));
-                            - const vLaSapHetMobile = vTon > 0 && vTon <= lowStockThresholdVal;
-                            .col-12.col-sm-6.col-md-4
-                                .card.product-card.h-100.border
-                                    img.card-img-top.product-card-img(src=vImg, alt=`${product.tensanpham || '—'} - ${v.mausac || 'Biến thể'}`)
-                                    .card-body
-                                        h6.card-title.mb-1 #{product.tensanpham || '—'} - #{v.mausac || 'Biến thể'}
-                                        .d-flex.justify-content-between.align-items-center.mb-2
-                                            span.fw-bold.text-primary #{vPrice}
-                                            if isActive
-                                                span.badge.bg-success.rounded-pill Đang bán
-                                            else
-                                                span.badge.bg-danger.rounded-pill Ngừng
-                                        small.text-muted.d-block Thương hiệu: #{product.tenThuongHieu || '—'}
-                                        small.text-muted.d-block Tồn kho: #{vTon}
-                                        if vLaSapHetMobile
-                                            span.badge.bg-warning.text-dark.rounded-pill.mt-1 Sắp hết (≤ #{lowStockThresholdVal})
-                                    .card-footer.bg-transparent.border-0.pt-0
-                                        .d-flex.gap-2
-                                            a.btn.btn-sm.btn-warning.flex-fill(href=`${admin}/products/${product._id}/edit`)
-                                                i.bi.bi-pencil.me-1
-                                                | Sửa
-                                            if !product.daxoa
-                                                form.flex-fill(method="POST" action=`${admin}/products/${product._id}/toggle-status` onsubmit=isActive ? "return confirm('Chuyển sản phẩm này sang Ngừng bán?')" : "return confirm('Bật bán lại sản phẩm này?')")
-                                                    if isActive
-                                                        button.btn.btn-sm.btn-outline-secondary.w-100(type="submit")
-                                                            i.bi.bi-pause-fill.me-1
-                                                            | Ngừng bán
-                                                    else
-                                                        button.btn.btn-sm.btn-outline-success.w-100(type="submit")
-                                                            i.bi.bi-play-fill.me-1
-                                                            | Bật bán
-                                            if product.daxoa
-                                                form.flex-fill(method="POST" action=`${admin}/products/${product._id}/restore` onsubmit="return confirm('Khôi phục sản phẩm này?')")
-                                                    button.btn.btn-sm.btn-success.w-100(type="submit")
-                                                        i.bi.bi-arrow-counterclockwise.me-1
-                                                        | Khôi phục
-                                                form.flex-fill(method="POST" action=`${admin}/products/${product._id}/hard-delete` onsubmit=product.daDuocMua ? null : "return confirm('Xóa vĩnh viễn sản phẩm này? Hành động không thể hoàn tác!')")
-                                                    button.btn.btn-sm.btn-danger.w-100(type="submit" disabled=product.daDuocMua title=product.daDuocMua ? 'Sản phẩm đã có đơn hàng, không thể xóa' : null)
-                                                        i.bi.bi-x-octagon.me-1
-                                                        | Xóa vĩnh viễn
-                                            else
-                                                if product.daDuocMua
-                                                    button.btn.btn-sm.btn-danger.flex-fill(type='button' disabled title='Sản phẩm đã có đơn hàng, không thể xóa')
-                                                        i.bi.bi-trash.me-1
-                                                        | Xóa
-                                                else
-                                                    a.btn.btn-sm.btn-danger.flex-fill(href=`${admin}/products/${product._id}/delete` onclick="return xacNhanXoa('Bạn có chắc chắn muốn xóa?')")
-                                                        i.bi.bi-trash.me-1
-                                                        | Xóa
-            
-           
             +page()
         else
-            .empty-state.text-center.py-5
-                .empty-state-icon.mb-4
-                    i.bi.bi-inbox.display-1.text-muted
-                .empty-state-content
-                    h4.text-muted Không tìm thấy sản phẩm
-                    p.text-muted.mb-4 Không có sản phẩm nào phù hợp với tiêu chí tìm kiếm của bạn.
-                    .d-flex.justify-content-center.gap-2
-                        a.btn.btn-outline-secondary(href=`${admin}/products`)
-                            i.bi.bi-arrow-counterclockwise.me-1
-                            | Xóa bộ lọc
-                        a.btn.btn-primary(href=`${admin}/products/create`)
-                            i.bi.bi-plus-lg.me-1
-                            | Thêm sản phẩm mới
+            .pa-empty
+                i.bi.bi-inbox
+                h4 Không tìm thấy sản phẩm
+                p Không có sản phẩm nào phù hợp với tiêu chí tìm kiếm của bạn.
+                .pa-empty__actions
+                    a.pa-btn.pa-btn--ghost(href=`${admin}/products`)
+                        i.bi.bi-arrow-counterclockwise
+                        | Xóa bộ lọc
+                    a.pa-btn.pa-btn--primary(href=`${admin}/products/create`)
+                        i.bi.bi-plus-lg
+                        | Thêm sản phẩm mới
 
 block scripts
     script(src="/admin/js/products.js")
     script.
         (function () {
             if (window.FilterAutoSubmit && typeof window.FilterAutoSubmit.attachOnReady === 'function') {
-                window.FilterAutoSubmit.attachOnReady('.filter-search-card form[action$="/products"]', {
+                window.FilterAutoSubmit.attachOnReady('.pa-advanced', {
                     inputSelectors: [
                         'input[name="priceMin"]',
                         'input[name="priceMax"]',
@@ -457,7 +400,6 @@ block scripts
                         'input[name="dateTo"]'
                     ],
                     inputDebounceMs: 800,
-                    // keyword is handled by #form-search in /admin/js/admin.js
                     keywordSelector: null
                 });
             }

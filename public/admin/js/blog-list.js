@@ -46,7 +46,7 @@
     const button = event.target.closest('[data-action]');
     if (!button) return;
 
-    const row = button.closest('tr[data-id]');
+    const row = button.closest('[data-id]');
     if (!row) return;
 
     const id = row.getAttribute('data-id');
@@ -95,7 +95,7 @@
     const featuredCk = event.target.closest('input[name="noiBat"]');
     if (!featuredCk) return;
 
-    const row = featuredCk.closest('tr[data-id]');
+    const row = featuredCk.closest('[data-id]');
     if (!row) return;
 
     const id = row.getAttribute('data-id');

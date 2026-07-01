@@ -2,41 +2,71 @@ extends ../../layouts/default.pug
 
 block main
   .container-fluid.p-3
-    .d-flex.justify-content-between.align-items-center.flex-wrap.gap-2.mb-3.page-header-section.orders-header.admin-page-header
-      h3.mb-0 Bảng hướng dẫn chọn size
-      a.btn.btn-header.btn-admin-accent(href=`${admin}/size-guides/create`)
-        i.bi.bi-plus-lg
-        |  Thêm bảng size
+    .admin-page-header
+      .d-flex.justify-content-between.align-items-center.gap-3(style="width: 100%;")
+        div
+          h3.mb-2 📏 Bảng Hướng dẫn Chọn Size
+          p.text-muted.mb-0 Tổng cộng: 
+            strong= guides ? guides.length : 0
+            |  bảng
+        a.btn.btn-header.btn-admin-accent(href=`${admin}/size-guides/create`)
+          i.bi.bi-plus-lg
+          |  Thêm bảng size
 
     if !guides || guides.length === 0
-      .alert.alert-info.mb-0 Chưa có bảng hướng dẫn size.
+      .admin-empty-state
+        .admin-empty-state-icon 📏
+        .admin-empty-state-title Chưa có bảng hướng dẫn nào
+        .admin-empty-state-description Tạo bảng hướng dẫn chọn size để giúp khách hàng lựa chọn sản phẩm phù hợp
+        a.btn.btn-header.btn-admin-accent(href=`${admin}/size-guides/create`)
+          i.bi.bi-plus-lg
+          |  Tạo bảng size
     else
-      .table-responsive
-        table.table.table-bordered.table-hover.align-middle
-          thead.table-light
-            tr
-              th Tên bảng
-              th Loại áp dụng
-              th Cột
-              th Dòng size
-              th Gợi ý
-              th Cập nhật
-              th
-          tbody
-            each g in guides
-              tr
-                td.fw-semibold #{g.tenbang}
-                td #{g.loaisanphamLabel || g.loaisanpham}
-                td #{(g.cot || []).join(', ')}
-                td #{(g.dong || []).length}
-                td #{g.goiy || ''}
-                td #{g.ngaycapnhat ? new Date(g.ngaycapnhat).toLocaleString('vi-VN') : ''}
-                td.text-nowrap
-                  a.btn.btn-sm.btn-outline-secondary.me-1(href=`${admin}/size-guides/${g._id}/edit`)
-                    i.bi.bi-pencil
-                    |  Sửa
-                  form.d-inline(method='POST' action=`${admin}/size-guides/${g._id}/delete` onsubmit='return confirm("Xóa bảng hướng dẫn size này?")')
-                    input(type='hidden' name='_csrf' value=_csrf)
-                    button.btn.btn-sm.btn-outline-danger(type='submit')
-                      i.bi.bi-trash
-                      |  Xóa
+      .admin-list-container
+        each g in guides
+          .admin-list-item
+            .admin-list-item-header
+              div
+                .admin-list-item-title= g.tenbang
+                .admin-list-item-subtitle= g.loaisanphamLabel || g.loaisanpham || 'Chưa xác định'
+
+            .admin-list-item-content
+              .admin-list-item-field
+                .admin-list-item-label 📦 Loại sản phẩm
+                .admin-list-item-value= g.loaisanphamLabel || g.loaisanpham || 'Không xác định'
+              
+              .admin-list-item-field
+                .admin-list-item-label 🔢 Số cột
+                .admin-list-item-value= (g.cot || []).length
+              
+              .admin-list-item-field
+                .admin-list-item-label 📊 Số dòng
+                .admin-list-item-value= (g.dong || []).length
+              
+              .admin-list-item-field
+                .admin-list-item-label 💡 Gợi ý
+                .admin-list-item-value= g.goiy || 'Không có'
+              
+              .admin-list-item-field
+                .admin-list-item-label 📅 Cập nhật
+                .admin-list-item-value
+                  if g.ngaycapnhat
+                    = new Date(g.ngaycapnhat).toLocaleDateString('vi-VN')
+                  else
+                    span Chưa cập nhật
+
+            .admin-list-item-header.mt-3.pt-3(style="border-top: 1px solid rgba(107, 114, 128, 0.2);")
+              .admin-list-item-label 🏷️ Kích cỡ
+              if (g.cot || []).length > 0
+                .admin-list-item-value= (g.cot || []).join(' • ')
+
+            .d-flex.align-items-center.justify-content-between.gap-2(style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(107, 114, 128, 0.2);")
+              .admin-list-item-actions
+                a.btn.btn-sm.btn-outline-primary(href=`${admin}/size-guides/${g._id}/edit`)
+                  i.bi.bi-pencil
+                  |  Sửa
+                form(method='POST' action=`${admin}/size-guides/${g._id}/delete` style="display: inline;")
+                  input(type='hidden' name='_csrf' value=_csrf)
+                  button.btn.btn-sm.btn-outline-danger(type='submit' onclick="return confirm('Xóa bảng hướng dẫn size này?')")
+                    i.bi.bi-trash
+                    |  Xóa
